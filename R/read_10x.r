@@ -20,6 +20,13 @@ read_10x <- function(dir, gene_column = 2, cell_column = 1) {
         stop("required file(s) not found: ", mf)
     }
 
+    # 这里还是全读进内存，然后转对象。
+    # https://arrow.apache.org/cookbook/r/index.html
+    # https://www.r-bloggers.com/2023/02/large-matrix-multiplication-duckdb-vs-sqlite/
+    # 后续改进方案，应该是用arrow读，直接就是on disk的,
+    # 然后对接duckdb,
+    # 然后对接DelayedArray
+    
     rf <- file.path(dir, rf)    
     mat <- Matrix::readMM(rf[1])
     cell <- read.delim(rf[2], header=FALSE)
@@ -30,8 +37,6 @@ read_10x <- function(dir, gene_column = 2, cell_column = 1) {
     Count <- as(mat, "HDF5Matrix")
     SCE$new(Count)
 }
-
-
 
 
 x <- read_10x('hg19')
@@ -49,3 +54,13 @@ ncount <- colSums(y)
 ncount2 <- colSums(x2)
 
 identical(ncount, ncount2)
+
+class(xx)
+
+subset.SCE <- function(x) {
+    x$get_Count()[1:3, 1:3]
+}
+
+subset(xx)
+
+
