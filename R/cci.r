@@ -21,6 +21,12 @@ runCellChat <- function(sce, group = NULL,
                         type = "triMean",
                         trim = 0.1,
                         min.cells = 10){
+    
+    species <- match.arg(species, c("human", "mouse", "zebrafish"))
+    db_item <- match.arg(db_item, c("all", "except Non-protein",
+                                    "Secreted Signaling", "ECM-Receptor", 
+                                    "Cell-Cell Contact" , "Non-protein Signaling"))
+    type <- match.arg(type, c("triMean", "truncatedMean", "thresholdedMean", "median"))
 
     if(! "logcounts" %in% assayNames(sce)){
         sce <- NormalizeData(sce)
@@ -45,7 +51,7 @@ runCellChat <- function(sce, group = NULL,
                                              meta = meta, 
                                              group.by = group)
     
-    species <- match.arg(species, c("human", "mouse", "zebrafish"))
+    
 
     if(species == "human"){
         db <- CellChat::CellChatDB.human
@@ -59,9 +65,7 @@ runCellChat <- function(sce, group = NULL,
         db <- CellChat::CellChatDB.zebrafish
     }
 
-    db_item <- match.arg(db_item, c("all", "except Non-protein",
-                                    "Secreted Signaling", "ECM-Receptor", 
-                                    "Cell-Cell Contact" , "Non-protein Signaling"))
+    
 
     if(db_item %in% c("Secreted Signaling","ECM-Receptor", 
                       "Cell-Cell Contact")){
@@ -82,7 +86,7 @@ runCellChat <- function(sce, group = NULL,
     cellchat_obj <- CellChat::identifyOverExpressedGenes(cellchat_obj)
     cellchat_obj <- CellChat::identifyOverExpressedInteractions(cellchat_obj)
 
-    type <- match.arg(type, c("triMean", "truncatedMean", "thresholdedMean", "median"))
+    
     cellchat_obj <- CellChat::computeCommunProb(cellchat_obj, type = type)
     cellchat_obj <- CellChat::filterCommunication(cellchat_obj, min.cells = min.cells)
 
