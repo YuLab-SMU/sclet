@@ -6,7 +6,7 @@
 \usage{
 runCellChat(
   sce,
-  group = NULL,
+  group = "label",
   assay_name = "logcounts",
   species = "human",
   db_item = c("Secreted Signaling"),

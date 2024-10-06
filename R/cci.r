@@ -14,7 +14,7 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom SummarizedExperiment assayNames
 #' @export 
-runCellChat <- function(sce, group = NULL, 
+runCellChat <- function(sce, group = "label", 
                         assay_name = "logcounts",
                         species = "human",
                         db_item = c("Secreted Signaling"),
@@ -32,16 +32,8 @@ runCellChat <- function(sce, group = NULL,
         sce <- NormalizeData(sce)
     }
 
-    if(is.null(group)){
-        cat(">> Grouping data by default\t", format(Sys.time(), "%Y-%m-%d %X"), "\n")
-        
-        sce <- FindVariableFeatures(sce)
-        sce <- ScaleData(sce)
-        sce <- runPCA(sce, subset_row = VariableFeatures(sce), 
-                      exprs_values = "scaled")
-        sce <- FindNeighbors(sce, dims = 1:10)
-        sce <- FindClusters(sce)
-        group <- "label"
+    if( !group %in% colnames(colData(sce))){
+        stop("group must be in the colData of sce")
     }
 
     data <- assay(sce, assay_name)
