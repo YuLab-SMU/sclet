@@ -1,9 +1,8 @@
-
 # sclet 0.0.2.002
 
-* Adding cell-cell communication module.
-  * runCellChat( ) wrapper function for running CellChat.
-* add demo data for CellChat.
+* Adding cell-cell communication module. (2024-10-06, Sat)
+  * `runCellChat()` wrapper function for running CellChat.
+* add demo data for CellChat. (2024-10-06, Wed)
   * hmskin_sce: singlecellexperiment object, derived from cellchat demo data.
   * hmskin.r show the process of preparation.
 
