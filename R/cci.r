@@ -87,4 +87,7 @@ runCellChat <- function(sce, group = NULL,
     cellchat_obj <- CellChat::filterCommunication(cellchat_obj, min.cells = min.cells)
 
     cellchat_obj <- CellChat::computeCommunProbPathway(cellchat_obj)
+    cellchat_obj <- CellChat::aggregateNet(cellchat_obj)
+
+    return(cellchat_obj)
 }
