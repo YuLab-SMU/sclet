@@ -20,7 +20,7 @@ runSCENIC <- function(sce,species,nCores,dbDir,
                       minCountsPerGene = 3,
                       minSamples = 0.01){
   dir.create("int")
-  # 设置物种和TF数据库路径
+  # Initialize settings
   org <- switch(species, 
                 "human" = "hgnc", 
                 "mouse" = "mgi", 
@@ -31,25 +31,22 @@ runSCENIC <- function(sce,species,nCores,dbDir,
   if(! "logcounts" %in% SummarizedExperiment::assayNames(sce)){
     sce <- Seurat::NormalizeData(sce)
   }
-  
-  # 构建scenicOptions对象
+
   scenicOptions <- SCENIC::initializeScenic(org = org, dbDir = dbDir, dbs = dbs, nCores = nCores)
   scenicOptions@inputDatasetInfo$cellInfo <- SummarizedExperiment::colData(sce)
-  
-  # 过滤
+ 
+  # Co-expression network 
   exprMat = SummarizedExperiment::assay(sce, assay_name)
   genesKept <- SCENIC::geneFiltering(exprMat, scenicOptions = scenicOptions,
                                      minCountsPerGene = minCountsPerGene * ncol(sce),
                                      minSamples = minSamples * ncol(sce)) 
   exprMat_filtered <- exprMat[genesKept, ]
-  # 计算相关性
   SCENIC::runCorrelation(exprMat_filtered, scenicOptions)
-  
-  # 运行GENIE3
+ 
   set.seed(123)
   SCENIC::runGenie3(exprMat_filtered, scenicOptions)
   
-  # 构建GRN和打分
+  # Build and score the GRN
   scenicOptions <- SCENIC::runSCENIC_1_coexNetwork2modules(scenicOptions)
   scenicOptions <- SCENIC::runSCENIC_2_createRegulons(scenicOptions)
   scenicOptions <- SCENIC::runSCENIC_3_scoreCells(scenicOptions, exprMat)
