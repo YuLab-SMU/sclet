@@ -4,15 +4,7 @@
 \alias{runSCENIC}
 \title{wrapper function for running SCENIC on default parameter.}
 \usage{
-runSCENIC(
-  sce,
-  species,
-  nCores,
-  dbDir,
-  assay_name = "logcounts",
-  minCountsPerGene = 3,
-  minSamples = 0.01
-)
+runSCENIC(sce, species, nCores, dbDir, assay_name = "counts")
 }
 \arguments{
 \item{sce}{A singlecellExperiment object.}
@@ -24,13 +16,9 @@ runSCENIC(
 \item{dbDir}{The directory path to the cisTarget databases files.}
 
 \item{assay_name}{the name of assay.}
-
-\item{minCountsPerGene}{The minimum number of counts per gene required for inclusion in the analysis.}
-
-\item{minSamples}{The minimum proportion of samples in which a gene must be detected to be included in the analysis.}
 }
 \value{
-A matrix of regulon activity scores for each cell.
+The class contains the options/settings for a run of SCENIC.
 }
 \description{
 https://htmlpreview.github.io/?https://github.com/aertslab/SCENIC/blob/master/inst/doc/SCENIC_Running.html

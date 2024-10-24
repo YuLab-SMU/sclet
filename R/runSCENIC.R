@@ -7,50 +7,79 @@
 #' @param nCores The number of cores to use for parallel processing.
 #' @param dbDir The directory path to the cisTarget databases files.
 #' @param assay_name the name of assay.
-#' @param minCountsPerGene The minimum number of counts per gene required for inclusion in the analysis.
-#' @param minSamples The minimum proportion of samples in which a gene must be detected to be included in the analysis.
 #' 
-#' @return A matrix of regulon activity scores for each cell.
+#' @return The class contains the options/settings for a run of SCENIC. 
 #' 
-#' @importFrom SummarizedExperiment assay
-#' @importFrom SummarizedExperiment assayNames
+#' @importFrom SummarizedExperiment assay assayNames
+#' @importFrom utils data
 #' @export 
 runSCENIC <- function(sce,species,nCores,dbDir,
-                      assay_name = "logcounts",
-                      minCountsPerGene = 3,
-                      minSamples = 0.01){
-  dir.create("int")
+                      assay_name = "counts"){
+  # Create directories to store process data and output results
+  if (!dir.exists("int")) {
+    dir.create("int")
+  }
+  if (!dir.exists("output")) {
+    dir.create("output")
+  }
+
   # Initialize settings
   org <- switch(species, 
                 "human" = "hgnc", 
                 "mouse" = "mgi", 
                 "drosophila_melanogaster" = "dmel", 
                 stop("Unsupported species"))
+  data(defaultDbNames,envir = environment())
   dbs <- SCENIC::defaultDbNames[[org]]
   
-  if(! "logcounts" %in% SummarizedExperiment::assayNames(sce)){
-    sce <- Seurat::NormalizeData(sce)
+  if (org == "mgi") {
+    data(list = "motifAnnotations_mgi",envir = environment())
+  } else if (org == "hgnc") {
+    data(list = "motifAnnotations_hgnc",envir = environment())
+  } else if (org == "dmel") {
+    data(list = "motifAnnotations_dmel",envir = environment())
+  } else {
+    stop("Unsupported species. Please choose 'mgi', 'hgnc', or 'dmel'.")
   }
 
   scenicOptions <- SCENIC::initializeScenic(org = org, dbDir = dbDir, dbs = dbs, nCores = nCores)
-  scenicOptions@inputDatasetInfo$cellInfo <- SummarizedExperiment::colData(sce)
- 
+
+  # Process the cell annotation information of the sce object for plot later
+  if ("CellType" %in% colnames(SingleCellExperiment::colData(sce))) {
+    cellInfo <- as.data.frame(SingleCellExperiment::colData(sce))
+    saveRDS(cellInfo, file="int/cellInfo.Rds") 
+    scenicOptions@inputDatasetInfo$cellInfo <- "int/cellInfo.Rds"
+} else {
+  warning("Warning: 'cellInfo' not found, proceeding without cell annotations.")
+}
+
+  if ("CellTypeColor" %in% colnames(SingleCellExperiment::colData(sce))) {
+    colVars <- as.list(sce$CellTypeColor)
+    saveRDS(colVars, file="int/colVars.Rds")
+    scenicOptions@inputDatasetInfo$colVars <- "int/colVars.Rds"
+} else {
+  warning("Warning: 'colVars' not found, proceeding without color annotations.")
+}
+  
   # Co-expression network 
-  exprMat = SummarizedExperiment::assay(sce, assay_name)
+  exprMat <- SummarizedExperiment::assay(sce, assay_name)
   genesKept <- SCENIC::geneFiltering(exprMat, scenicOptions = scenicOptions,
-                                     minCountsPerGene = minCountsPerGene * ncol(sce),
-                                     minSamples = minSamples * ncol(sce)) 
+                                     minCountsPerGene = 3 * 0.01 * ncol(exprMat),
+                                     minSamples = ncol(exprMat) * 0.01)
   exprMat_filtered <- exprMat[genesKept, ]
   SCENIC::runCorrelation(exprMat_filtered, scenicOptions)
- 
-  set.seed(123)
-  SCENIC::runGenie3(exprMat_filtered, scenicOptions)
   
+  set.seed(123)
+  exprMat_filtered <- log2(exprMat_filtered+1) 
+  SCENIC::runGenie3(exprMat_filtered, scenicOptions)
+
   # Build and score the GRN
+  exprMat_log <- log2(exprMat+1)
   scenicOptions <- SCENIC::runSCENIC_1_coexNetwork2modules(scenicOptions)
   scenicOptions <- SCENIC::runSCENIC_2_createRegulons(scenicOptions)
-  scenicOptions <- SCENIC::runSCENIC_3_scoreCells(scenicOptions, exprMat)
- 
+  scenicOptions <- SCENIC::runSCENIC_3_scoreCells(scenicOptions, exprMat_log)
+  
+  saveRDS(scenicOptions,file="int/scenicOptions.Rds")
   return(scenicOptions)
 }
 
