@@ -1,3 +1,12 @@
+# sclet 0.0.5
+
++ Slingshot supports (2025-03-12, Wed)
+    - genecurve_plot
+    - RunSlingshot
+    - lineage_plot
+    - pseudo_heatmap
+    - pseudo_plot
+
 # sclet 0.0.4
 
 + re-export `scuttle::logNormCounts()` and `scuttle::perCellQCMetrics(()` (2024-10-08, Tue)

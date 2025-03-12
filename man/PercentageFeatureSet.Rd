@@ -4,12 +4,14 @@
 \alias{PercentageFeatureSet}
 \title{PercentageFeatureSet}
 \usage{
-PercentageFeatureSet(object, pattern = NULL)
+PercentageFeatureSet(object, pattern = NULL, feature = NULL)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
 \item{pattern}{the pattern to search for}
+
+\item{feature}{search pattern from feature of the object. If NULL, use the \code{rownames(object)}, otherwise, use \code{rowData(object)[[feature]]}}
 }
 \value{
 the percentage of each cell
