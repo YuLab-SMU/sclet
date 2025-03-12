@@ -457,7 +457,7 @@ FindMarkers <- function(
     ...) {
 
         FindMarkers_Presto(
-        object = assay(object),
+        object = object@assays@data$logcounts,
         ident.1 = ident.1,
         ident.2 = ident.2,
         clusters = Idents(object),
@@ -483,8 +483,8 @@ FindMarkers_Presto <- function(object, ident.1 = NULL, ident.2 = NULL, clusters,
         ident.2 <- setdiff(unique(clusters), ident.1)
     }
 
-    cells.1 <- which(clusters == ident.1)
-    cells.2 <- which(clusters == ident.2)
+    cells.1 <- which(clusters %in% ident.1)
+    cells.2 <- which(clusters %in% ident.2)
 
     if (length(cells.1) == 0 || length(cells.2) == 0) {
         stop("One or both of the identity groups have no cells")}
@@ -497,7 +497,7 @@ FindMarkers_Presto <- function(object, ident.1 = NULL, ident.2 = NULL, clusters,
     features <- rownames(x = object)
     thresh.min <- 0
     mat <- object[features, ]
-    pct.1 <- round(Matrix::rowSums(mat[, cells.1, drop = FALSE]) > thresh.min/length(cells.1), digits = 3)
+    pct.1 <- round(Matrix::rowSums(mat[, cells.1, drop = FALSE] > thresh.min)/length(cells.1), digits = 3)
     pct.2 <- round(Matrix::rowSums(mat[, cells.2, drop = FALSE] > thresh.min)/length(cells.2), digits = 3)
     data.1 <- mean.fxn(mat[, cells.1, drop = FALSE])
     data.2 <- mean.fxn(mat[, cells.2, drop = FALSE])
@@ -521,7 +521,6 @@ FindMarkers_Presto <- function(object, ident.1 = NULL, ident.2 = NULL, clusters,
     results <- results[1:(nrow(x = results)/2), ]
     p.results <- results[, c("feature", "pval","padj")]
 
-    combined_results <- cbind(p.results,fc.results)
     combined_results <- merge(p.results, fc.results, by = 'feature')
     combined_results <- combined_results[combined_results$pct.1>= min.pct | combined_results$pct.2 >= min.pct, ]
     combined_results <- combined_results[abs(combined_results[,fc.name]) >= logfc.threshold, ]
