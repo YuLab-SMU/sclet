@@ -38,10 +38,17 @@ QCMetrics <- function(object) {
 #' @title PercentageFeatureSet
 #' @param object a SingleCellExperiment object
 #' @param pattern the pattern to search for
+#' @param feature search pattern from feature of the object. If NULL, use the `rownames(object)`, otherwise, use `rowData(object)[[feature]]`
 #' @return the percentage of each cell
 #' @export
-PercentageFeatureSet <- function(object, pattern = NULL) {
-    has_pattern <- grep(pattern, rownames(object))
+PercentageFeatureSet <- function(object, pattern = NULL, feature=NULL) {
+    if (is.null(feature)) {
+        features <- rownames(object)
+    } else {
+        features <- rowData(object)[[feature]]
+    }
+
+    has_pattern <- grep(pattern, features)
     qc_metrics <- scuttle::perCellQCMetrics(object, subsets = list(pattern=has_pattern))
     return(qc_metrics$subsets_pattern_percent)
 }
