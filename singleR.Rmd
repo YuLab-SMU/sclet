@@ -11,7 +11,7 @@ Please refer to the [Cell cluster annotation](#manual-annotation) session.
 
 ### Run SingleR
 
-```{r}
+```{r run-singleR}
 library(SingleR)
 
 hpca <- celldex::HumanPrimaryCellAtlasData()
@@ -27,7 +27,7 @@ head(res2)
 
 ### Annotate with SingleR result
 
-```{r}
+```{r annotation}
 pbmc[['hpca_label']] <- res$labels
 
 pbmc[['dice_label']] <- res2$labels

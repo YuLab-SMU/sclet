@@ -31,7 +31,7 @@ geometry: "left=35mm,right=35mm,top=25mm,bottom=25mm"
 ---
 
 
-```{r include=FALSE}
+```{r setup, include=FALSE}
 library(conflicted)
 library(sclet)
 library(aplot)

@@ -3,7 +3,7 @@
 
 We created Seurat-like functions to help you get started effortlessly.
 
-```{r include=FALSE}
+```{r pbmc-data, include=FALSE}
 knitr::opts_chunk$set(warning = FALSE,
                       message = TRUE)
 
@@ -13,7 +13,7 @@ pbmc <- qs::qread(f)
 
 ## Read 10X data
 
-```{r eval = FALSE}
+```{r readdata, eval = FALSE}
 library(sclet)
 
 dir <- "filtered_gene_bc_matrices/hg19"
@@ -30,7 +30,7 @@ VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"))
 ```
 
 
-```{r}
+```{r subset-pbmc}
 subset_feature(pbmc, 10)
 pbmc <- subset_feature(pbmc, mincell = 3, peek=FALSE)
 
@@ -104,19 +104,19 @@ plot_list(gglist = list(PCA=p1, UMAP=p2))
 
 ## Find Markers
 
-```{r}
+```{r find-markers-2}
 # find all markers of cluster 2
 cluster2.markers <- FindMarkers(pbmc, ident.1 = 2)
 head(cluster2.markers, n = 5)
 ```
 
-```{r}
+```{r find-markers-5}
 # find all markers distinguishing cluster 5 from clusters 0 and 3
 cluster5.markers <- FindMarkers(pbmc, ident.1 = 5, ident.2 = c(0, 3))
 head(cluster5.markers, n = 5)
 ```
 
-```{r}
+```{r find-all-markers}
 # find markers for every cluster compared to all remaining cells, 
 # report only the positive ones
 library(dplyr)
@@ -136,7 +136,7 @@ split(top10$gene, top10$cluster)
 
 ### Marker gene information
 
-```{r}
+```{r marker-genes}
 top1 <- topN_marker(pbmc.markers, 1)
 
 gene_table <- gene_summary_table(top1, gene_col = 'gene', 
@@ -151,7 +151,7 @@ gene_table
 
 ```{r umap-pbmc-cell}
 new_labels <- c("CD8+ T","B","Memory CD4+","CD14+ Mono",
-    "NK","FCGR3A+ Mono","Native CD4+ T","DC","Platelet")
+    "NK","FCGR3A+ Mono","Native CD4+ T","Platelet")
 pbmc <- RenameIdents(pbmc, new_labels)
 sc_dim(pbmc, reduction="UMAP") + sc_dim_geom_label()
 ```
