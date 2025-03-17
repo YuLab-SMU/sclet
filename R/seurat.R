@@ -133,13 +133,33 @@ NormalizeData <- function(object, scale.factor = 10000) {
 #' @title FindVariableFeatures
 #' @param object a SingleCellExperiment object
 #' @param nfeatures number of features to be selected as highly variable features
+#' @param method one of 'seurat' or 'scran'
+#' @param ... additional parameters for 'method = 'scran', see also `scran::modelGeneVar()`
 #' @return an updated SingleCellExperiment object with identified highly variable features
 #' @importFrom SingleCellExperiment counts
 #' @importFrom SingleCellExperiment logcounts
 #' @importFrom SummarizedExperiment 'rowData<-'
 #' @importFrom stats loess
 #' @export
-FindVariableFeatures <- function(object, nfeatures = 2000) {
+FindVariableFeatures <- function(object, nfeatures = 2000, method = "seurat", ...) {
+    method <- match.arg(method, c("seurat", "scran"))
+
+    if (method == "seurat") {
+        hvf.info <- FindVariableFeatures_seurat(object)
+    } else {
+        hvf.info <- scran::modelGeneVar(object, ...)
+    }
+
+    rd <- rowData(object)
+    SummarizedExperiment::rowData(object) <- cbind(rd, hvf.info[rownames(rd),])
+    object@metadata$nVariableFeatures <- nfeatures
+    object@metadata$hvgmethod <- method
+    object@metadata$hvgcols <- names(hvf.info)
+
+    return(object)
+}
+
+FindVariableFeatures_seurat <- function(object) {
     sce <- object
     if (!is.null(sce@metadata$nVariableFeatures)) {
         sce@metadata$nVariableFeatures <- nfeatures
@@ -176,22 +196,29 @@ FindVariableFeatures <- function(object, nfeatures = 2000) {
     )
     ## end of seurat code
 
-    rd <- rowData(sce)
-    SummarizedExperiment::rowData(sce) <- cbind(rd, hvf.info[rownames(rd),])
-    sce@metadata$nVariableFeatures <-nfeatures
-    return(sce)
+    return(hvf.info)
 }
+
 
 #' get variable features
 #' 
 #' @title VariableFeatures
 #' @param object a SingleCellExperiment object
+#' @param method one of 'seurat' or 'scran'
+#' @param ... additional parameters for 'method = "scran"', see also `scran::getTopHVGs()`
 #' @return highly variable features
 #' @export
-VariableFeatures <- function(object) {
+VariableFeatures <- function(object, method = "seurat", ...) {
+    method <- match.arg(method, c("seurat", "scran"))
+
     nfeatures <- object@metadata$nVariableFeatures
     if (is.null(nfeatures)) {
         stop("You should run 'FindVariableFeatures' first.")
+    }
+
+    if (method == "scran") {
+        res <- scran::getTopHVGs(object, n=nfeatures, ...)
+        return(res)
     }
 
     d <- rowData(object)

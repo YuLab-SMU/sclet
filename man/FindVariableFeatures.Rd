@@ -4,12 +4,16 @@
 \alias{FindVariableFeatures}
 \title{FindVariableFeatures}
 \usage{
-FindVariableFeatures(object, nfeatures = 2000)
+FindVariableFeatures(object, nfeatures = 2000, method = "seurat", ...)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
 \item{nfeatures}{number of features to be selected as highly variable features}
+
+\item{method}{one of 'seurat' or 'scran'}
+
+\item{...}{additional parameters for 'method = 'scran', see also \code{scran::modelGeneVar()}}
 }
 \value{
 an updated SingleCellExperiment object with identified highly variable features

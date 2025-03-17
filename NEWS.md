@@ -1,3 +1,7 @@
+# sclet 0.0.5.001
+
++ `FindVariableFeatures()` and `VariableFeatures()` supports `method = 'scran'` (2025-03-17, Mon)
+
 # sclet 0.0.5
 
 + Slingshot supports (2025-03-12, Wed)

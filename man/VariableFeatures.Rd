@@ -4,10 +4,14 @@
 \alias{VariableFeatures}
 \title{VariableFeatures}
 \usage{
-VariableFeatures(object)
+VariableFeatures(object, method = "seurat", ...)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
+
+\item{method}{one of 'seurat' or 'scran'}
+
+\item{...}{additional parameters for 'method = "scran"', see also \code{scran::getTopHVGs()}}
 }
 \value{
 highly variable features
