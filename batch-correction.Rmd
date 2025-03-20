@@ -1,0 +1,65 @@
+# Batch Correction
+
+
+## Load datasets
+
+```{r pbmc3k4k}
+library(TENxPBMCData)
+
+pbmc3k <- TENxPBMCData(dataset = "pbmc3k")
+pbmc4k <- TENxPBMCData(dataset = "pbmc4k")
+```
+
+
+
+## Preprocess
+```{r pbmc3k4k-preprocess}
+library(sclet)
+
+sce_process <- function(sce) {
+  sce <- QCMetrics(sce)
+  sce[["percent.mt"]] <- PercentageFeatureSet(sce, "^MT-")
+  sce <- subset(sce, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+  sce <- NormalizeData(sce)
+  sce <- FindVariableFeatures(sce)
+  return(sce)
+}
+
+pbmc3k <- sce_process(pbmc3k)
+pbmc4k <- sce_process(pbmc4k)
+
+pbmc2 <- list(pbmc3k = pbmc3k, pbmc4k = pbmc4k)
+```
+
+## Batch correction
+
+```{r batch-remove}
+pbmc2 <- BatchRemover(pbmc2)
+```
+
+## Clustering
+
+```{r clustering-batch}
+pbmc2 <- runPCA(pbmc2, subset_row = VariableFeatures(pbmc2), exprs_values = "reconstructed")
+pbmc2 <- FindNeighbors(pbmc2, dims = 1:10)
+pbmc2 <- FindClusters(pbmc2)
+pbmc2 <- RunUMAP(pbmc2, 1:10)
+```
+
+## Visualization
+
+
+```{r batch-umap, fig.width=8.8, fig.height=6.8}
+library(ggplot2)
+library(ggsc)
+
+sc_dim(pbmc2, reduction="UMAP", mapping=aes(color=batch)) 
+```
+
+```{r batch-umap-2, fig.width=13, fig.height=6.5}
+sc_dim(pbmc2, reduction="UMAP") + facet_grid(.~batch) + theme_bw()
+```
+
+
+
+

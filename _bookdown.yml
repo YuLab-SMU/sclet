@@ -4,6 +4,7 @@ output_dir: docs
 delete_merged_file: true
 rmd_files: ["index.Rmd",
   "seurat-pbmc3k.Rmd",
+  "batch-correction.Rmd",
   "singleR.Rmd",
   "slingshot.Rmd",
   "cci.Rmd",
