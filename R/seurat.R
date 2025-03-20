@@ -115,9 +115,15 @@ FeatureScatter <- function(object, feature1, feature2) {
 #' @return a SingleCellExperiment object with 'logcounts' assay created/updated.
 #' @importFrom SummarizedExperiment 'assay<-'
 #' @importFrom yulab.utils get_fun_from_pkg
+#' @importFrom SummarizedExperiment assay
+#' @importFrom methods as
 #' @export
 NormalizeData <- function(object, scale.factor = 10000) {
+    if (is(assay(object, "counts"), "DelayedMatrix")) {
+        assay(object, "counts") <- as(assay(object, "counts"), "dgCMatrix")
+    }
     counts_matrix <- counts(object)
+
     LogNorm <- get_fun_from_pkg('Seurat', 'LogNorm')
     logcounts <- LogNorm(counts_matrix, scale_factor = scale.factor)
     colnames(logcounts) <- colnames(counts_matrix)
@@ -162,7 +168,6 @@ FindVariableFeatures <- function(object, nfeatures = 2000, method = "seurat", ..
 FindVariableFeatures_seurat <- function(object) {
     sce <- object
     if (!is.null(sce@metadata$nVariableFeatures)) {
-        sce@metadata$nVariableFeatures <- nfeatures
         return(sce)        
     }
 
@@ -218,14 +223,23 @@ VariableFeatures <- function(object, method = "seurat", ...) {
 
     if (method == "scran") {
         res <- scran::getTopHVGs(object, n=nfeatures, ...)
-        return(res)
+    } else {
+        res <- getTopHVGs_seurat(object, n=nfeatures)
     }
 
-    d <- rowData(object)
-    d <- d[rownames(d) %in% rownames(object), ]
+    return(res)
+}
+
+getTopHVGs_seurat <- function(object, n) {
+    if (is(object, "SingleCellExperiment")) {
+        d <- rowData(object)
+        d <- d[rownames(d) %in% rownames(object), ]
+    } else {
+        d <- object
+    }
     i <- order(d$variance.standardized, decreasing = TRUE)
     d <- d[i, ]
-    res <- rownames(d)[1:nfeatures]
+    res <- rownames(d)[1:n]
     return(res)
 }
 

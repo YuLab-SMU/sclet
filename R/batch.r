@@ -25,7 +25,12 @@ get_hvg_method <- function(object) {
     return(object@metadata$hvgmethod)
 }
 
-CombineVariableFeatures <- function(all.batches, equiweight = TRUE, ncells = NULL) {
+get_hvginfo <- function(object) {
+    hvgcols <- object@metadata$hvgcols
+    return(rowData(object)[, hvgcols])    
+}
+
+CombineVariableFeatures <- function(all.batches, ...) {
     method <- sapply(all.batches, get_hvg_method)
     no_hvg <- sapply(method, is.null)
     
@@ -40,105 +45,91 @@ CombineVariableFeatures <- function(all.batches, equiweight = TRUE, ncells = NUL
     method <- unique(method)
     if (length(method) > 1) stop("Please make sure HVGs were identified with the same method.")
 
-    all.batches <- IntersectGenes(all.batches)
+    # all.batches <- IntersectGenes(all.batches)
 
-    hvg.info <- lapply(all.batches, function(sce) {
-        hvgcols <- sce@metadata$hvgcols
-        return(rowData(sce)[, hvgcols])
-    })
+    hvg.info <- lapply(all.batches, get_hvginfo)
 
-    if (method == "scran") {
-        res <- scran::combineVar(hvg.info, equiweight = equiweight, ncells = ncells)
-    } else {
-        res <- combine_blocked(hvg.info, equiweight = equiweight, ncells = ncells)
+    if (method == "seurat") {
+        hvg.info <- lapply(hvg.info, function(x) {
+            x$p.value = 1
+            return(x)
+        })
+    }
+    res <- scran::combineVar(hvg.info, ...)
+    if (method == "seurat") {
+        res$p.value <- NULL
+        res$FDR <- NULL
     }
 
     return(res)
 }
 
+#' Batch correction
+#' 
+#' This is a wrapper function of `batchelor::batchCorrect()`.
+#' 
+#' @title BatchRemover
+#' @param ... One or more or a list of SingleCellExperiment objects 
+#' @param batch A factor specifying the batch of origin for each cell if only one batch is supplied in `...`. This will be ignored if two or more batches are supplied.
+#' @param HVG user specified high variable genes. If NULL, it will be extracted automatically from the HVG supplied in `...`.
+#' @param nHVG number of HVG. Only works for `HVG = NULL` and will be extracted from the info supplied in `...` by default. 
+#' @param assay.type specify the assay used in batch correction. If `assay.type` is 'counts', it will try to use 'logcounts' or perform log transformation.
+#' @param PARAM batch correction method, see also `batchelor::batchCorrect()`.
+#' @param restrict A list of length equal to the number of objects in `...`. Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.
+#' @param correct.all A logical scalar indicating whether to return corrected expression values for all genes, even if `subset.row` is set. Used to ensure that the output is of the same dimensionality as the input.
+#' @param combineVarParams parameters passed to `scran::combineVar()` for combining HVG information when extracting HVG supplied in `...`.
+#' @return A SingleCellExperiment object
+#' @export
+BatchRemover <- function (..., batch = NULL, HVG = NULL, nHVG = NULL, 
+          assay.type = "logcounts", PARAM = batchelor::FastMnnParam(), 
+          restrict = NULL, correct.all = FALSE, 
+          combineVarParams = list(equiweight = TRUE, ncells = NULL)
+        ) { 
+    all.batches <- IntersectGenes(...) 
+    if (assay.type == "counts") {
+        assay_nm <- lapply(all.batches, \(x) names(SummarizedExperiment::assays(x)))
+        has_logcounts <- sapply(assay_nm, \(x) "logcounts" %in% x)
+        if (all(has_logcounts)) {
+            message("'assay.type' will be set to 'logcounts' automatically.")
+        } else {
+            message("'assay.type' will be log transformed using 'batchelor::multiBatchNor()")
+            all.batches <- do.call(batchelor::multiBatchNorm, 
+                            c(all.batches, list(batch = batch, assay.type = assay.type, preserve.single = TRUE), 
+                            multi.norm.args = list())
+                        )
+        }
+    } 
 
-extract_hvgs <- function(all.batches, equiweight = TRUE, ncells = NULL, nHVG = NULL){
-    hvginfo <- CombineVariableFeatures(all.batches = all.batches, equiweight = equiweight, ncells = ncells)
-    
     if (is.null(nHVG)) {
         nHVG <- sapply(all.batches, \(x) x@metadata$nVariableFeatures) |> max()
         message("nHVG is automatically set to ", nHVG, '.')
     }
-
+    combineVarParams$all.batches = all.batches
+    hvginfo <- do.call(CombineVariableFeatures, combineVarParams)
     method <- get_hvg_method(all.batches[[1]])
-    if (method == "scran") {
-        return(scran::getTopHVGs(hvginfo, nHVG))
-    }
 
-    hvg <- rownames(hvginfo)[order(hvginfo$variance.standardized, decreasing = TRUE)]
-    return(hvg[1:nHVG])
-}
-
-
-BatchRemover <- function (..., batch = NULL, HVG = NULL, nHVG = NULL, restrict = NULL, correct.all = TRUE, 
-          assay.type = "counts", PARAM = batchelor::FastMnnParam(), multi.norm.args = list()) 
-{ 
-    all.batches <- scuttle::.unpackLists(...)  
-    #重新计算了scale.factor,并进行LogNorm
-    all.batches <- do.call(batchelor::multiBatchNorm, 
-                        c(all.batches, list(batch = batch, assay.type = assay.type, preserve.single = TRUE
-                            ), multi.norm.args)
-                    ) #进行多批次的修正
-
-    if (is.null(HVG)) {
-       HVG <- extract_hvgs(all.batches, equiweight = TRUE, ncells = NULL, nHVG = nHVG)
+    if (is.null(HVG)) {    
+        if (method == "scran") {
+            HVG <- scran::getTopHVGs(hvginfo, nHVG)
+        } else {
+            HVG <- getTopHVGs_seurat(hvginfo, nHVG)
+        }
     }
 
     # batch correction
-    corrected <- batchelor:::batchCorrect(all.batches, batch = batch, restrict = restrict, 
-                              correct.all = correct.all, subset.row = HVG, PARAM = PARAM) 
+    corrected <- batchelor::batchCorrect(all.batches, batch = batch, 
+                            subset.row = HVG, PARAM = PARAM, 
+                            restrict = restrict, correct.all = correct.all) 
+    
+    corrected@metadata$nVariableFeatures <- nHVG
+    corrected@metadata$hvgmethod <- method
+
+    i <- setdiff(names(rowData(all.batches[[1]])), names(hvginfo))
+    xx <- rowData(all.batches[[1]])[,i]
+    yy <- cbind(xx, hvginfo[rownames(xx), ])
+    rd <- rowData(corrected)
+    yy <- cbind(yy[rownames(rd), ], rd)
+    rowData(corrected) <- yy
 
     return(corrected)
 } 
-
-
-combine_blocked <- function (blocks, equiweight=TRUE, ncells=ncells) { # <-- 这个ncells是没有赋值的
-  valid = ncells >= 2L # <-- 为什么是2
-  weights = ncells #比重
-  #length(blocks) == 1L时，不需要合并
-  if (length(blocks) == 1L) {
-    return(blocks[[1]])
-  }
-  rn <- unique(lapply(blocks, rownames))
-  if (length(rn) != 1L) {
-    stop("gene should be the same")
-  } #检查各批次的基因是否一致
-
-  if (equiweight) {
-    weights <- rep(1, length(blocks))
-    #若设置等比重，则比重为length(blocks)
-  } else if (is.null(weights)) {
-    stop("'weights must be specified")
-    #若没有默认等比重，且没有设置比重，则报错
-  }
-  
-  original <- blocks
-  
-  if (!any(valid)) {
-    stop("no entry of 'blocks' has positive weights")
-  } #若有valid为FALSE，则存在部分数据并没有以一定的比重进行合并
-  
-  blocks <- blocks[valid]
-  weights <- weights[valid]
-  combined <- list()
-  for (i in ave.fields) {  
-    extracted <- lapply(blocks, "[[", i = i)
-    extracted <- mapply("*", extracted, weights, SIMPLIFY = FALSE, 
-                        USE.NAMES = FALSE)
-    averaged <- Reduce("+", extracted)/sum(weights)
-    combined[[i]] <- averaged
-  }#加权平均
-  
-  #输出结果
-  output <- S4Vectors::DataFrame(combined, row.names = rn[[1]])
-  # <-- 会报错
-  # output$per.block <- do.call(S4Vectors::DataFrame, c(lapply(original, I),
-  #                                         list(check.names = FALSE))) 
-  output
-} 
-

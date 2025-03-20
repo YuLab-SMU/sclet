@@ -1,5 +1,6 @@
-# sclet 0.0.5.001
+# sclet 0.0.6
 
++ `BatchRemover()` for batch correction (2025-03-20, Thu)
 + `FindVariableFeatures()` and `VariableFeatures()` supports `method = 'scran'` (2025-03-17, Mon)
 
 # sclet 0.0.5
