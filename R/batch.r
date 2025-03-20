@@ -116,10 +116,15 @@ BatchRemover <- function (..., batch = NULL, HVG = NULL, nHVG = NULL,
         }
     }
 
-    # batch correction
+    # this is actually equivalent to 
+    # merge the all.batches to a single SingleCellExperiemnt object
+    # and then apply fastMNN to peform the batch correction
+
     corrected <- batchelor::batchCorrect(all.batches, batch = batch, 
                             subset.row = HVG, PARAM = PARAM, 
                             restrict = restrict, correct.all = correct.all) 
+
+
     
     corrected@metadata$nVariableFeatures <- nHVG
     corrected@metadata$hvgmethod <- method
