@@ -5,19 +5,18 @@
 \title{BatchRemover}
 \usage{
 BatchRemover(
-  ...,
+  sce,
   batch = NULL,
   HVG = NULL,
-  nHVG = NULL,
+  nHVG = 5000,
   assay.type = "logcounts",
   PARAM = batchelor::FastMnnParam(),
   restrict = NULL,
-  correct.all = FALSE,
-  combineVarParams = list(equiweight = TRUE, ncells = NULL)
+  correct.all = FALSE
 )
 }
 \arguments{
-\item{...}{One or more or a list of SingleCellExperiment objects}
+\item{sce}{A SingleCellExperiment object}
 
 \item{batch}{A factor specifying the batch of origin for each cell if only one batch is supplied in \code{...}. This will be ignored if two or more batches are supplied.}
 
@@ -32,8 +31,6 @@ BatchRemover(
 \item{restrict}{A list of length equal to the number of objects in \code{...}. Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.}
 
 \item{correct.all}{A logical scalar indicating whether to return corrected expression values for all genes, even if \code{subset.row} is set. Used to ensure that the output is of the same dimensionality as the input.}
-
-\item{combineVarParams}{parameters passed to \code{scran::combineVar()} for combining HVG information when extracting HVG supplied in \code{...}.}
 }
 \value{
 A SingleCellExperiment object

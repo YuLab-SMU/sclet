@@ -1,5 +1,6 @@
 # sclet 0.0.6
 
++ `sc_merge()` to merge a named list of SingleCellExperiment objects to a single one (2025-04-17, Thu)
 + `BatchRemover()` for batch correction (2025-03-20, Thu)
 + `FindVariableFeatures()` and `VariableFeatures()` supports `method = 'scran'` (2025-03-17, Mon)
 
