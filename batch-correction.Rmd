@@ -28,37 +28,53 @@ sce_process <- function(sce) {
 pbmc3k <- sce_process(pbmc3k)
 pbmc4k <- sce_process(pbmc4k)
 
-pbmc2 <- list(pbmc3k = pbmc3k, pbmc4k = pbmc4k)
+pbmc_list <- list(pbmc3k = pbmc3k, pbmc4k = pbmc4k)
 ```
 
 ## Batch correction
 
 ```{r batch-remove}
-pbmc2 <- BatchRemover(pbmc2)
+# Merge datasets
+combined_pbmc <- sce_merge(pbmc_list)
+
+# Batch correction
+rm_batch_pbmc <- BatchRemover(combined_pbmc)
 ```
 
 ## Clustering
 
 ```{r clustering-batch}
-pbmc2 <- runPCA(pbmc2, subset_row = VariableFeatures(pbmc2), exprs_values = "reconstructed")
-pbmc2 <- FindNeighbors(pbmc2, dims = 1:10)
-pbmc2 <- FindClusters(pbmc2)
-pbmc2 <- RunUMAP(pbmc2, 1:10)
+sce_clustering <- function(sce, assay = "logcounts", dims = 1:10) {
+  sce <- scater::runPCA(sce, subset_row = VariableFeatures(sce), exprs_values = assay)
+  sce <- FindNeighbors(sce, dims = dims)
+  sce <- FindClusters(sce)
+  sce <- RunUMAP(sce, dims = dims)
+  return(sce)
+}
+
+combined_pbmc <- sce_clustering(combined_pbmc, assay="logcounts")
+
+rm_batch_pbmc <- sce_clustering(rm_batch_pbmc, assay = "reconstructed")
+
 ```
 
 ## Visualization
 
 
-```{r batch-umap, fig.width=8.8, fig.height=6.8}
+```{r batch-umap, fig.width=13.5, fig.height=12}
 library(ggplot2)
 library(ggsc)
+library(aplot)
 
-sc_dim(pbmc2, reduction="UMAP", mapping=aes(color=batch)) 
+p1 <- sc_dim(combined_pbmc, reduction="UMAP", mapping=aes(color=batch)) 
+p2 <- sc_dim(rm_batch_pbmc, reduction="UMAP", mapping=aes(color=batch)) 
+p3 <- plot_list(Before=p1, After=p2)
+
+p4 <- sc_dim(rm_batch_pbmc, reduction="UMAP")
+
+plot_list(p3, p4, ncol=1, heights=c(1, 2))
 ```
 
-```{r batch-umap-2, fig.width=13, fig.height=6.5}
-sc_dim(pbmc2, reduction="UMAP") + facet_grid(.~batch) + theme_bw()
-```
 
 
 
