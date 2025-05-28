@@ -1,2 +1,4 @@
 Makefile
 bookdown
+README.Rmd
+README.md
