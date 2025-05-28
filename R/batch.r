@@ -157,7 +157,9 @@ overlap <- function(x) {
 #' 
 #' @title sce_merge 
 #' @param sce_list a named list of SingleCellExperiment objects 
+#' @param combineVarParams parameters that passed to `CombineVariableFeatures()`
 #' @return A SingleCellExperiment object
+#' @importFrom utils modifyList
 #' @export
 sce_merge <- function(sce_list, combineVarParams = list(equiweight = TRUE, ncells = NULL)){
 
@@ -172,12 +174,12 @@ sce_merge <- function(sce_list, combineVarParams = list(equiweight = TRUE, ncell
     stop_message <- paste(
       "Object",paste(bad_indices, collapse = ","),"is/are not SingleCellExperiment objects."
     )
-    stop(warning_message)
+    stop(stop_message)
   }
   
   sce_list <- IntersectGenes(sce_list)
   
-  asys <- lapply(sce_list, \(x) names(assays(x))) 
+  asys <- lapply(sce_list, \(x) names(SummarizedExperiment::assays(x))) 
   asys <- overlap(asys)
 
   cbn_assays <- list()
@@ -200,10 +202,10 @@ sce_merge <- function(sce_list, combineVarParams = list(equiweight = TRUE, ncell
   
   coldata_combined <- do.call(rbind, lapply(sce_list, colData))
   
-  metadata_combined <- metadata(sce_list[[1]])
+  metadata_combined <- S4Vectors::metadata(sce_list[[1]])
   
   for (i in 2:length(sce_list)) {
-    metadata_combined <- modifyList(metadata_combined, metadata(sce_list[[i]]))
+    metadata_combined <- modifyList(metadata_combined, S4Vectors::metadata(sce_list[[i]]))
   }
   
   

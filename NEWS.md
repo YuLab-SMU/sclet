@@ -1,3 +1,7 @@
+# sclet 0.0.7
+
++ `RunSuperCell()` to merge similar cells to metacell (2025-05-28, Wed)
+
 # sclet 0.0.6
 
 + `sc_merge()` to merge a named list of SingleCellExperiment objects to a single one (2025-04-17, Thu)

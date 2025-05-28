@@ -8,6 +8,8 @@ sce_merge(sce_list, combineVarParams = list(equiweight = TRUE, ncells = NULL))
 }
 \arguments{
 \item{sce_list}{a named list of SingleCellExperiment objects}
+
+\item{combineVarParams}{parameters that passed to \code{CombineVariableFeatures()}}
 }
 \value{
 A SingleCellExperiment object

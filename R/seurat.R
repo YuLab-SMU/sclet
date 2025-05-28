@@ -168,7 +168,12 @@ FindVariableFeatures <- function(object, nfeatures = 2000, method = "seurat", ..
 FindVariableFeatures_seurat <- function(object) {
     sce <- object
     if (!is.null(sce@metadata$nVariableFeatures)) {
-        return(sce)        
+        rd <- rowData(sce)
+        items <- c("mean", "variance", "variance.expected", "variance.standardized")
+        if (all(items %in% names(rd))) {
+            return(rd[, items])
+        }
+ 
     }
 
     object <- counts(sce)
