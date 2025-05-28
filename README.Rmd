@@ -16,9 +16,9 @@ html_preview: false
 `r badger::badge_last_commit("YuLab-SMU/sclet", 'devel')`
 
 
-```{r comment="", echo=FALSE, results='asis'}
-cat(packageDescription('sclet')$Description)
-```
+Seurat is a mainstream tool for single-cell analysis, but its data structure lacks a clear definition and often changes between versions. This makes it easy to get started but difficult to master. In contrast, `SingleCellExperiment` has a well-defined structure, a rich ecosystem in R, and a corresponding Python counterpart, `AnnData`. Clearly, building upon such a data structure is highly beneficial for in-depth learning and even development. This is the motivation behind my development of `sclet`—to help students in my team transition to `SingleCellExperiment`.  
+
+`SingleCellExperiment` itself boasts a robust ecosystem, covering nearly all types of analyses. We will also integrate existing single-cell R packages or develop new functionalities to make them easier to use within the `SingleCellExperiment` ecosystem.
 
 
 ## :writing_hand: Authors
