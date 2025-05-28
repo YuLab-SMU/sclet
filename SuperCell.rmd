@@ -1,0 +1,56 @@
+# Coarse-graining of large single-cell data into metacells using SuperCell {#supercell}
+
+
+Here, we use the `pbmc4k` dataset as presented in [Batch correction](https://yulab-smu.top/sclet/batch-correction.html#preprocess). 
+
+
+## `RunSuperCell` 
+
+
+The `RunSuperCell()` function is a wrapper function to run [SuperCell](https://github.com/GfellerLab/SuperCell).
+
+
+```{r run-SC}
+pbmc <- RunSuperCell(pbmc4k, gamma = 5)
+pbmc
+```
+
+
+The output of `RunSuperCell()` is a `SingleCellExperiment` object that stores gene expression matrix of metacells. 
+
+We can use it for downstram analysis.
+
+```{r supercell, fig.width=5, fig.height=4}
+post_process <- function(pbmc) {
+    pbmc <- NormalizeData(pbmc)
+    pbmc <- FindVariableFeatures(pbmc)
+    pbmc <- ScaleData(pbmc)
+    pbmc <- runPCA(pbmc, subset_row = VariableFeatures(pbmc), exprs_values = "scaled")
+    
+    pbmc <- FindNeighbors(pbmc, dims = 1:10)
+    pbmc <- FindClusters(pbmc)
+    pbmc <- RunUMAP(pbmc)
+    return(pbmc)
+}
+
+pbmc2 <- post_process(pbmc)
+
+library(ggsc)
+sc_dim(pbmc2, reduction="UMAP") + sc_dim_geom_label()
+```
+
+
+## Estimate SuperCell purity
+
+```{r SC-purity}
+
+pbmc4k2 <- post_process(pbmc4k)
+
+SC <- metadata(pbmc2)$SuperCell
+
+purity <- SuperCell::supercell_purity(pbmc4k2$label, SC$membership, method = 'entropy')
+
+head(purity)
+
+summary(purity)
+```
