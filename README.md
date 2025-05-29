@@ -37,7 +37,7 @@ Get the development version from github:
 
 ``` r
 ## install.packages("remotes")
-remotes::install_github("YuLab-SMU/aplot")
+remotes::install_github("YuLab-SMU/sclet")
 ```
 
 ## :book: Vignette
