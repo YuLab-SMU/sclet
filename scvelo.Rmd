@@ -1,0 +1,53 @@
+# RNA velocity {#Velocity}
+
+```{r velocity-data}
+library(scRNAseq)
+sce <- HermannSpermatogenesisData()
+sce
+
+# first 500 cells for demonstration
+sce <- sce[, 1:500]
+```
+
+```{r velocity-hvgs}
+library(scuttle)
+sce <- logNormCounts(sce, assay.type=1)
+
+library(sclet)
+sce <- FindVariableFeatures(sce, method="scran")
+hvgs <- VariableFeatures(sce, method="scran")
+```
+
+```{r velocity}
+library(velociraptor)
+
+velo.out <- scvelo(
+  sce, subset.row=hvgs, assay.X="spliced",
+  scvelo.params=list(neighbors=list(n_neighbors=30L))
+)
+
+velo.out
+```
+
+
+```{r velocity-plot, fig.width=12, fig.height=8.5}
+library(scater)
+
+set.seed(100)
+sce <- runPCA(sce, subset_row=hvgs)
+sce <- runTSNE(sce, dimred="PCA", perplexity = 30)
+
+sce$velocity_pseudotime <- velo.out$velocity_pseudotime
+
+embedded <- embedVelocity(reducedDim(sce, "TSNE"), velo.out)
+grid.df <- gridVectors(sce, embedded, use.dimred = "TSNE")
+
+
+require(ggsc)
+sc_dim(sce, reduction='TSNE', mapping=aes(color=velocity_pseudotime)) + 
+    scale_color_viridis_c() +
+    geom_segment(data=grid.df, 
+        mapping=aes(x=start.1, y=start.2, 
+            xend=end.1, yend=end.2, colour=NULL), 
+        arrow=arrow(length=unit(0.05, "inches")), alpha=.6)
+```

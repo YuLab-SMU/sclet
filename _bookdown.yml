@@ -9,4 +9,5 @@ rmd_files: ["index.Rmd",
   "singleR.Rmd",
   "slingshot.Rmd",
   "cci.Rmd",
+  "scvelo.Rmd",
   "svp.Rmd"]
