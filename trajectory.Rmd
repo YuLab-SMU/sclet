@@ -1,0 +1,170 @@
+# Trajectory inference and RNA velocity {#trajectory}
+
+According to [Wikipedia](https://en.wikipedia.org/wiki/Trajectory_inference):
+
+> Trajectory inference or pseudotemporal ordering is a computational technique used in single-cell transcriptomics to determine the pattern of a dynamic process experienced by cells and then arrange cells based on their progression through the process.
+
+It should be noted that all trajectory inference methods are based on the current transcriptional state and the distance symmetry between cells. That is to say, the distance from cell A to cell B is equal to the distance from cell B to cell A. Therefore, the direction of the inferred trajectory is either missing (requiring user specification) or unreliable (using default settings).
+
+
+## Slingshot: cell lineage and pseudotime inference {#slingshot}
+
+
+```{r}
+pancreas <- readRDS("data/pancreas_sub_sce.rds")
+
+panc <- RunSlingshot(sce = pancreas, group = "SubCellType", reduction = "UMAP")
+```
+
+
+
+### Lineage plot
+```{r lineage_plot, fig.width=7, fig.height=8}
+p1 <- lineage_plot(panc, group = "SubCellType") + 
+  sc_dim_geom_label(
+    geom = shadowtext::geom_shadowtext,
+    color='black', 
+    bg.color='white'
+  )
+
+
+## displayed selected lineages
+p2 <- lineage_plot(panc, group = "SubCellType", lineages = c("Lineage1", "Lineage2"))  + 
+  sc_dim_geom_label(
+    geom = shadowtext::geom_shadowtext,
+    color='black', 
+    bg.color='white'
+  )
+
+plot_list(`All Lineages` = p1, `Selected Lineages` = p2, ncol=1)
+```
+
+### Pseudotime plot
+
+```{r pseudotimeplot, fig.width=12, fig.height=10}
+pp1 <- pseudo_plot(panc, reduction = "UMAP", lineage = "Lineage1")
+pp2 <- pseudo_plot(panc, reduction = "UMAP", lineage = "Lineage2")
+pp_all <- pseudo_plot(panc, reduction = "UMAP")
+
+plot_list(pp1, pp2, pp_all, design="AABB\nCCCC")
+```
+
+
+### Expression trends in different cell trajectories
+
+```{r genecurve, fig.width=14, fig.height=8}
+curve_genes <- c("Mrpl15", "Tram1", "Ncoa2")
+
+## 默认选取smooth方法直接拟合得到的基因表达值结果来画图
+p_curve <- genecurve_plot(panc, features = curve_genes, method = "smooth")
+
+## 也可以用GAM计算预测的基因表达值来画图
+p_curve1 <- genecurve_plot(panc, features = curve_genes, method = "gam")
+
+plot_list(p_curve, p_curve1, ncol=1)
+```
+
+
+
+### Heatmap
+
+```{r pseudoheatmap, fig.width=10, fig.height=16}
+heatmap_genes <- head(unique(rownames(panc)), 10)
+
+## 默认按照拟时间排序
+hmp1 <- pseudo_heatmap(panc, features = heatmap_genes, lineage = "Lineage2")
+
+## 可以手动对基因或细胞设置聚类(cluster = TRUE)，此时会打乱pseudotime的排序
+hmp2 <- pseudo_heatmap(panc, features = heatmap_genes, lineage = "Lineage2", cluster_columns = TRUE)
+
+## 对基因聚类
+hmp3 <- pseudo_heatmap(panc, features = heatmap_genes, lineage = "Lineage2", cluster_rows = TRUE, sort = FALSE)
+
+## 默认排序
+hmp4 <- pseudo_heatmap(panc, features = heatmap_genes, lineage = "Lineage2", cluster_rows = FALSE, sort = TRUE)
+
+## 组合起来看就能看到两个参数的设定对行顺序的影响
+aplot::plot_list(hmp1, hmp2, hmp3, hmp4, ncol=1)
+```
+
+
+
+
+
+## RNA velocity {#Velocity}
+
+RNA metabolic process:
+
++ RNA is synthesized at a rate of alpha 
++ RNA is spliced to remove introns and form mature mRNA at rate of beta
++ Mature mRNA is degraded after functioning at rate of gamma
+
+The disruption of the equilibrium between unspliced and spliced RNA indicates whether a gene is in an induced or repressed state. 
+
+With RNA-seq, especially the Poly-A enrichment method, the propotion of unspliced RNA obtained is relatively small. Currently, there are also some techinques capable of enriching nascent RNA in single cells, such as [scSLAM-seq](https://www.nature.com/articles/s41586-019-1369-y) and s[cNT-seq](https://www.nature.com/articles/s41592-020-0935-4).
+
+
+Although some researchers are skeptical about RNA velocity, it has received significant attention because it can automatically detect the direction of trajectories.
+
+
+[scVelo](https://scvelo.readthedocs.io/) supports a full dynamical model and various of utility functions [@bergen_generalizing_2020]. It only supports Python and can be run in R using `r Biocpkg("velociraptor")`. 
+
+### Example data
+
+> This example is adopted from <https://www.bioconductor.org/packages/devel/bioc/vignettes/velociraptor/inst/doc/velociraptor.html>.
+
+
+```{r velocity-data}
+library(scRNAseq)
+sce <- HermannSpermatogenesisData()
+sce
+
+# first 500 cells for demonstration
+sce <- sce[, 1:500]
+```
+
+```{r velocity-hvgs}
+library(scuttle)
+sce <- logNormCounts(sce, assay.type=1)
+
+library(sclet)
+sce <- FindVariableFeatures(sce, method="scran")
+hvgs <- VariableFeatures(sce, method="scran")
+```
+
+### Run velocity analysis
+
+```{r velocity}
+library(velociraptor)
+
+velo.out <- scvelo(
+  sce, subset.row=hvgs, assay.X="spliced",
+  scvelo.params=list(neighbors=list(n_neighbors=30L))
+)
+
+velo.out
+```
+
+### Visualize velocity-based trajectory
+
+```{r velocity-plot, fig.width=12, fig.height=8.5}
+library(scater)
+
+set.seed(100)
+sce <- runPCA(sce, subset_row=hvgs)
+sce <- runTSNE(sce, dimred="PCA", perplexity = 30)
+
+sce$velocity_pseudotime <- velo.out$velocity_pseudotime
+
+embedded <- embedVelocity(reducedDim(sce, "TSNE"), velo.out)
+grid.df <- gridVectors(sce, embedded, use.dimred = "TSNE")
+
+
+require(ggsc)
+sc_dim(sce, reduction='TSNE', mapping=aes(color=velocity_pseudotime)) + 
+    scale_color_viridis_c() +
+    geom_segment(data=grid.df, 
+        mapping=aes(x=start.1, y=start.2, 
+            xend=end.1, yend=end.2, colour=NULL), 
+        arrow=arrow(length=unit(0.05, "inches")), alpha=.6)
+```

@@ -7,7 +7,6 @@ rmd_files: ["index.Rmd",
   "batch-correction.Rmd",
   "SuperCell.rmd",
   "singleR.Rmd",
-  "slingshot.Rmd",
+  "trajectory.Rmd",
   "cci.Rmd",
-  "scvelo.Rmd",
   "svp.Rmd"]
