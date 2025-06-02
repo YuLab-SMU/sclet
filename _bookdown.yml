@@ -9,4 +9,5 @@ rmd_files: ["index.Rmd",
   "singleR.Rmd",
   "trajectory.Rmd",
   "cci.Rmd",
-  "svp.Rmd"]
+  "svp.Rmd",
+  "B-references.Rmd"]
