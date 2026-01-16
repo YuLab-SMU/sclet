@@ -32,13 +32,13 @@ RunSlingshot <- function(object, reduction = "UMAP", cluster.labels = NULL, star
     sds <- slingshot::slingshot(data = rd, clusterLabels = cluster.labels, start.clus = start.clus, ...)
     
     # Store results
-    # We can store the SlingshotDataSet object in metadata
-    object@metadata$slingshot <- sds
+    # Store in 'slingshot_info' to match sling_plot.R expectations
+    object@metadata$slingshot_info <- sds
     
-    # And maybe put pseudotime in colData for easy plotting
-    pt <- slingshot::slingPseudotime(sds)
-    colnames(pt) <- paste0("pseudotime_", colnames(pt))
-    colData(object) <- cbind(colData(object), pt)
+    # Store pseudotime as a single DataFrame column named 'slingPseudotime'
+    # This matches the expectation of pseudo_plot and genecurve_plot
+    pt <- as.data.frame(slingshot::slingPseudotime(sds))
+    colData(object)$slingPseudotime <- pt
     
     return(object)
 }

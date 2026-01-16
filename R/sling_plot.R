@@ -42,8 +42,15 @@ lineage_plot <- function(
     geom = sc_geom_point,
     linewidth = 0.9, ...){
   
+  # Retrieve SlingshotDataSet
+  sds <- sce@metadata$slingshot_info
+  if (is.null(sds)) {
+      stop("No slingshot results found in metadata(sce)$slingshot_info. Please run RunSlingshot first.")
+  }
   
-  lineage_curves <- sce@metadata$slingshot_info@curves
+  # Use accessor to get curves safely
+  lineage_curves <- slingshot::slingCurves(sds)
+  
   if(is.null(lineages)){
     lineages <- names(lineage_curves)
   }
@@ -110,8 +117,15 @@ pseudo_plot <- function(
   }
   
   ## Extract pseudotime data
-  sling <- sce$slingPseudotime
+  sling <- sce[[pseudotime.data]]
+  # Ensure it is a data frame for manipulation
+  if (is.matrix(sling)) {
+      sling <- as.data.frame(sling)
+  }
   sling$cell <- rownames(sling)
+  if (is.null(sling$cell)) {
+      sling$cell <- colnames(sce)
+  }
   d2 <- tidyr::pivot_longer(sling, 
                             cols = starts_with("Lineage"),
                             names_to = "Lineage", 
