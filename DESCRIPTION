@@ -1,6 +1,6 @@
 Package: sclet
 Title: A Lightweight Toolkit for Single-Cell Data Analysis 
-Version: 0.0.9
+Version: 0.1.0
 Authors@R: c(
     person(given = "Guangchuang", family = "Yu", email = "guangchuangyu@gmail.com", role  = c("aut", "cre"), comment = c(ORCID = "0000-0002-6485-8781")),
     person(given = "Kaijia", family = "Huang", email = "2947569391@qq.com", role  = "ctb"),
@@ -47,6 +47,7 @@ Suggests:
     Seurat,
     SingleR,
     celldex,
+    DESeq2,
     SuperCell,
     org.Hs.eg.db,
     testthat (>= 3.0.0)

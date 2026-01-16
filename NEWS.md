@@ -1,3 +1,9 @@
+# sclet 0.1.0
+
++ `AggregateExpression` for pseudobulk analysis (2025-06-03, Tue)
++ `FindMarkers` supports pseudobulk DE via `DESeq2` (2025-06-03, Tue)
++ `BatchRemover` now records parameters in metadata (2025-06-03, Tue)
+
 # sclet 0.0.9
 
 + `DimPlot` wrapper for `ggsc::sc_dim` (2025-06-02, Mon)

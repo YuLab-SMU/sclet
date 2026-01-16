@@ -137,6 +137,17 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
   
   corrected@metadata <- sce@metadata
   corrected@metadata$nVariableFeatures <- nHVG
+  
+  # Record batch correction parameters
+  batch_record <- list(
+      method = "batchelor::batchCorrect",
+      param = PARAM,
+      hvg_n = nHVG,
+      batch_var = if(is.null(batch)) "internal_batch" else "user_provided",
+      timestamp = Sys.time()
+  )
+  corrected@metadata$batch_correction <- batch_record
+
   subset.rowdata <- rowData(sce)[HVG,]
   new.rowdata <- rowData(corrected)
   
