@@ -1,0 +1,31 @@
+# Interoperability
+
+`sclet` aims to bridge the gap between Seurat, SingleCellExperiment (SCE), and Python's AnnData.
+
+## Seurat and SCE Conversion
+
+We provide simple wrappers to convert between Seurat and SCE objects.
+
+```r
+library(sclet)
+
+# SCE to Seurat
+# seurat_obj <- as.Seurat(sce_obj)
+
+# Seurat to SCE
+# sce_obj <- as.SCE(seurat_obj)
+```
+
+## AnnData (h5ad)
+
+Python's AnnData format (.h5ad) is widely used. `sclet` wraps `zellkonverter` to provide easy read/write functions.
+
+```r
+# Read h5ad
+# sce <- ReadH5AD("path/to/data.h5ad")
+
+# Write h5ad
+# WriteH5AD(sce, "path/to/output.h5ad")
+```
+
+This allows you to easily move data between R and Python environments, leveraging the best tools from both ecosystems (e.g. `sclet`/Bioconductor in R and `scanpy` in Python).

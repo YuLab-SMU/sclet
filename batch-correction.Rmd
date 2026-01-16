@@ -63,16 +63,39 @@ rm_batch_pbmc <- sce_clustering(rm_batch_pbmc, assay = "reconstructed")
 
 ```{r batch-umap, fig.width=13.5, fig.height=12}
 library(ggplot2)
-library(ggsc)
 library(aplot)
 
-p1 <- sc_dim(combined_pbmc, reduction="UMAP", mapping=aes(color=batch)) 
-p2 <- sc_dim(rm_batch_pbmc, reduction="UMAP", mapping=aes(color=batch)) 
+p1 <- DimPlot(combined_pbmc, reduction="UMAP", mapping=aes(color=batch)) 
+p2 <- DimPlot(rm_batch_pbmc, reduction="UMAP", mapping=aes(color=batch)) 
 p3 <- plot_list(Before=p1, After=p2)
 
-p4 <- sc_dim(rm_batch_pbmc, reduction="UMAP")
+p4 <- DimPlot(rm_batch_pbmc, reduction="UMAP")
 
 plot_list(p3, p4, ncol=1, heights=c(1, 2))
+```
+
+## Pseudobulk Differential Expression
+
+sclet now supports pseudobulk analysis to perform robust differential expression between conditions/samples.
+
+```{r pseudobulk-de, eval = FALSE}
+# 1. Aggregate counts by cluster and batch (or sample)
+# This creates a pseudobulk SummarizedExperiment
+pb <- AggregateExpression(rm_batch_pbmc, group_by = c("label", "batch"))
+
+# 2. Perform DE analysis (using DESeq2)
+# Here we test for differences between batches within a specific cluster (e.g., cluster 1)
+# Note: Real analysis should have biological replicates, here we use batch as an example.
+
+# Filter for cluster 1 only
+pb_cluster1 <- pb[, pb$label == "1"]
+
+# Run DE: test for batch effect
+# design formula: ~ batch
+# contrast: batch pbmc4k vs pbmc3k
+res <- FindMarkers_pseudobulk(pb_cluster1, design = ~ batch, contrast = c("batch", "pbmc4k", "pbmc3k"))
+
+head(res)
 ```
 
 

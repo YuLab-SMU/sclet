@@ -10,4 +10,5 @@ rmd_files: ["index.Rmd",
   "trajectory.Rmd",
   "cci.Rmd",
   "svp.Rmd",
+  "interoperability.Rmd",
   "B-references.Rmd"]
