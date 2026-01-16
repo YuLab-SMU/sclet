@@ -86,7 +86,7 @@ hmp3 <- pseudo_heatmap(panc, features = heatmap_genes, lineage = "Lineage2", clu
 hmp4 <- pseudo_heatmap(panc, features = heatmap_genes, lineage = "Lineage2", cluster_rows = FALSE, sort = TRUE)
 
 ## 组合起来看就能看到两个参数的设定对行顺序的影响
-aplot::plot_list(hmp1, hmp2, hmp3, hmp4, ncol=1)
+plot_list(hmp1, hmp2, hmp3, hmp4, ncol=1)
 ```
 
 
