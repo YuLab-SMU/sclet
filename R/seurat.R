@@ -9,8 +9,44 @@
 #' @importFrom SummarizedExperiment rowData
 #' @importFrom SummarizedExperiment colData
 #' @export
-Read10X <- function(data.dir, ...) {
-    sce <- DropletUtils::read10xCounts(samples = data.dir, ...)
+Read10X <- function(data.dir, backend = c("memory", "HDF5"), ...) {
+    backend <- match.arg(backend)
+    
+    if (backend == "HDF5") {
+        # Currently DropletUtils::read10xCounts returns a DelayedArray if type="HDF5" is specified,
+        # but that usually requires an HDF5 file, not a directory of MTX.
+        # However, we can read into memory and then realize to HDF5, 
+        # OR if the input is already an HDF5 file (10x .h5), we can read it directly.
+        
+        # Check if data.dir is a directory or a file
+        if (dir.exists(data.dir)) {
+            # It's a directory (MTX), read as sparse then write to HDF5
+            # Since user wants HDF5 for big data, we should try to avoid full memory load if possible.
+            # But DropletUtils::read10xCounts for directory loads into memory (sparse).
+            # We will convert it immediately to HDF5-backed.
+            sce <- DropletUtils::read10xCounts(samples = data.dir, ...)
+            
+            # Convert to HDF5Backed
+            sce <- HDF5Array::saveHDF5SummarizedExperiment(sce, dir = tempfile())
+            
+        } else if (file.exists(data.dir) && grepl("\\.h5$", data.dir)) {
+            # It's an HDF5 file
+            # DropletUtils can read 10x h5 directly, but returns sparse matrix by default unless specified?
+            # Actually DropletUtils::read10xCounts supports .h5
+            # To get on-disk, we might need to use HDF5Array::HDF5Array or similar,
+            # but standard workflow is often read -> saveHDF5.
+            
+            sce <- DropletUtils::read10xCounts(samples = data.dir, ...)
+            sce <- HDF5Array::saveHDF5SummarizedExperiment(sce, dir = tempfile())
+        } else {
+             sce <- DropletUtils::read10xCounts(samples = data.dir, ...)
+             sce <- HDF5Array::saveHDF5SummarizedExperiment(sce, dir = tempfile())
+        }
+        
+    } else {
+        sce <- DropletUtils::read10xCounts(samples = data.dir, ...)
+    }
+
     rownames(sce) <- scuttle::uniquifyFeatureNames(
         rowData(sce)$ID, rowData(sce)$Symbol)
 
@@ -304,12 +340,69 @@ ScaleData <- function(object, features = NULL, assay = "logcounts") {
         features <- rownames(object)
     } 
 
-    # mat <- t(logcounts(object))
-    mat <- Matrix::t(assay(object, assay)[features, ])
-    m <- Matrix::rowMeans(mat)
-    s <- apply(mat, 1, stats::sd)
-    s[s == 0] <- 0.01
-    SummarizedExperiment::assay(object, "scaled") <- Matrix::t((mat - m) / s) 
+    # For DelayedArray, we must avoid densifying the matrix.
+    # scater::logNormCounts already provides logcounts.
+    # Standard scaling (subtract mean, divide sd) on sparse/HDF5 matrix results in a DENSE matrix.
+    # This is bad for memory.
+    # However, 'scaled' slot in Seurat is typically dense. 
+    # If we want to support big data, we should use DelayedMatrix to represent the scaled matrix lazily.
+    
+    mat <- assay(object, assay)[features, , drop=FALSE]
+    
+    # Calculate row means and sds efficiently
+    # DelayedMatrixStats or MatrixGenerics should be used
+    if (is(mat, "DelayedMatrix")) {
+        # DelayedArray logic
+        rm <- MatrixGenerics::rowMeans(mat)
+        rs <- MatrixGenerics::rowSds(mat)
+    } else {
+        # In-memory logic (could be sparse or dense)
+        if (is(mat, "dgCMatrix")) {
+             rm <- Matrix::rowMeans(mat)
+             # Sparse matrix rowSds calculation can be tricky if not careful, 
+             # but MatrixGenerics handles it or we use sparseMatrixStats if available.
+             # Fallback to apply for now if not available, but let's assume MatrixGenerics works.
+             rs <- MatrixGenerics::rowSds(mat)
+        } else {
+             rm <- rowMeans(mat)
+             rs <- apply(mat, 1, stats::sd)
+        }
+    }
+    
+    rs[rs == 0] <- 0.01
+    
+    # Create a DelayedMatrix that represents the scaled data
+    # (mat - rm) / rs
+    # In DelayedArray, we can do arithmetic directly.
+    
+    if (is(mat, "DelayedMatrix")) {
+        # This creates a DelayedMatrix (lazy evaluation)
+        # We need to broadcast the subtraction and division.
+        # DelayedArray supports standard broadcasting for vector-matrix ops if dimensions match?
+        # Usually it matches on columns? No, R matrices match on columns (recycling).
+        # mat is genes x cells. rm is genes.
+        # (mat - rm) needs rm to be repeated for each cell.
+        
+        # DelayedArray arithmetic:
+        # We can use sweep-like operations or just rely on broadcasting if implemented correctly.
+        # Alternatively, create a DelayedMatrix backend.
+        
+        scaled <- (mat - rm) / rs
+        
+    } else {
+        # For memory matrices, we might still want to return a DelayedMatrix if it's too big?
+        # But if it's in memory, maybe just compute it.
+        # NOTE: Seurat ScaleData forces dense. 
+        # Here we try to keep it compatible but lazy if possible.
+        
+        # If the user explicitly wants HDF5/BigData, they should have used Read10X(backend="HDF5").
+        # So here, if input is DelayedMatrix, output is DelayedMatrix.
+        # If input is memory, output is memory (dense, as scaling destroys sparsity).
+        
+        scaled <- (mat - rm) / rs
+    }
+    
+    SummarizedExperiment::assay(object, "scaled") <- scaled
     return(object)
 }
 

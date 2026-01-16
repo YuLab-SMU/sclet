@@ -33,7 +33,8 @@ Imports:
     yulab.utils,
     DropletUtils,
     SingleCellExperiment,
-    SummarizedExperiment
+    SummarizedExperiment,
+    HDF5Array
 Suggests:
     batchelor,
     grid,

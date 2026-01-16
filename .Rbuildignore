@@ -2,3 +2,5 @@ Makefile
 bookdown
 README.Rmd
 README.md
+ggsc-visualization-requirements.md
+dev-plan.md

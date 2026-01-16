@@ -4,7 +4,7 @@
 \alias{Read10X}
 \title{Read10X}
 \usage{
-Read10X(data.dir, ...)
+Read10X(data.dir, backend = c("memory", "HDF5"), ...)
 }
 \arguments{
 \item{data.dir}{directory of the data}
