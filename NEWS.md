@@ -1,3 +1,8 @@
+# sclet 0.0.9
+
++ `DimPlot` wrapper for `ggsc::sc_dim` (2025-06-02, Mon)
++ `RunSingleR` wrapper for automatic cell type annotation (2025-06-02, Mon)
+
 # sclet 0.0.8
 
 + Fix `Idents` and `FindClusters` consistency (2025-05-30, Fri)

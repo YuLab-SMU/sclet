@@ -407,6 +407,19 @@ RunUMAP <- function(object, dims) {
     scater::runUMAP(object, dimred = '.dimred')    
 }
 
+#' Dimensional reduction plot
+#' 
+#' @title DimPlot
+#' @param object a SingleCellExperiment object
+#' @param reduction reduction method, default is "UMAP"
+#' @param ... additional parameters passed to ggsc::sc_dim
+#' @return ggplot object
+#' @importFrom ggsc sc_dim
+#' @export
+DimPlot <- function(object, reduction = "UMAP", ...) {
+    ggsc::sc_dim(object, reduction = reduction, ...)
+}
+
 #' rename cluster ids
 #' 
 #' @title RenameIdents
