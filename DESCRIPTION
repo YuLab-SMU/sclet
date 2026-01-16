@@ -58,3 +58,7 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Config/testthat/edition: 3
+Remotes:
+    yulab-smu/ggsc,
+    yulab-smu/yulab.utils,
+    GuangchuangYu/fanyi
