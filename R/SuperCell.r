@@ -16,12 +16,29 @@ RunSuperCell <- function(object, assay = "logcounts", nHVG = 2000, hvg_method = 
   if (!requireNamespace("SuperCell", quietly = TRUE)) {
       stop("Package 'SuperCell' is needed for this function to work. Please install it.")
   }
+  
+  # Ensure VariableFeatures are computed
+  if (is.null(object@metadata$nVariableFeatures)) {
+      object <- FindVariableFeatures(object, nfeatures = nHVG, method = hvg_method)
+  }
 
   # gene expression matrix
   GE <- SummarizedExperiment::assay(object, assay)
-  colnames(GE) <- colData(object)[, cellname]
+  if (is.null(colnames(GE))) {
+      colnames(GE) <- paste0("Cell", seq_len(ncol(GE)))
+  }
+  
+  if (cellname == "Barcode") {
+      # If Barcode is requested but not in colData, check if we can use colnames or add it
+      if (!"Barcode" %in% names(colData(object))) {
+          # Use colnames as Barcode
+          colData(object)$Barcode <- colnames(object)
+      }
+  }
 
-  hvgs <- VariableFeatures(object, nfeatures = nHVG, method = hvg_method)
+  colnames(GE) <- colData(object)[, cellname]
+  
+  hvgs <- VariableFeatures(object, method = hvg_method)
 
   SC <- SuperCell::SCimplify(
     X = GE, 

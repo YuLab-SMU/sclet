@@ -1,3 +1,10 @@
+# sclet 0.99.1
+
++ `RunSuperCell` for metacell construction (2025-06-04, Wed)
++ `RunSlingshot` for trajectory inference (2025-06-04, Wed)
++ `RunEnrichment` for functional enrichment analysis (2025-06-04, Wed)
++ `RunExplorer` for interactive data exploration using iSEE (2025-06-04, Wed)
+
 # sclet 0.99.0
 
 + `ReadH5AD` and `WriteH5AD` for AnnData interoperability (2025-06-04, Wed)
