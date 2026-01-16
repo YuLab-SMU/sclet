@@ -1,0 +1,42 @@
+# Functional Enrichment Analysis {#enrichment}
+
+`sclet` provides `RunEnrichment` to seamlessly perform GO/KEGG enrichment analysis on marker genes.
+
+## Load data and find markers
+
+```{r}
+library(sclet)
+sce <- readRDS("data/pancreas_sub_sce.rds")
+# Find markers for all clusters
+markers <- FindAllMarkers(sce, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+head(markers)
+```
+
+## GO Enrichment
+
+```{r go_enrich, fig.width=10, fig.height=8}
+# Ensure you have org.Mm.eg.db installed for Mouse data
+# or org.Hs.eg.db for Human
+library(org.Mm.eg.db) 
+
+go_res <- RunEnrichment(
+    markers, 
+    db = "GO", 
+    orgDb = "org.Mm.eg.db", 
+    keyType = "SYMBOL", 
+    ont = "BP"
+)
+
+library(enrichplot)
+dotplot(go_res, showCategory=5)
+```
+
+## KEGG Enrichment
+
+For KEGG, it is recommended to convert gene symbols to Entrez IDs first, or provide a column with Entrez IDs if available.
+
+```{r kegg_enrich, eval=FALSE}
+# Example if markers had ENTREZID
+# kegg_res <- RunEnrichment(markers_with_entrez, db = "KEGG", organism = "mmu")
+# dotplot(kegg_res)
+```

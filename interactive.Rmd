@@ -1,0 +1,37 @@
+# Interactive Data Exploration {#interactive}
+
+`sclet` integrates `iSEE` to provide a Shiny-based interactive explorer for your `SingleCellExperiment` objects.
+
+## Launch Explorer
+
+You can launch the explorer directly from your R console:
+
+```{r, eval=FALSE}
+library(sclet)
+sce <- readRDS("data/pbmc-3k-sce.qs")
+
+# Launch the app
+RunExplorer(sce)
+```
+
+This will open a web browser where you can:
+
+- Visualize reduced dimensions (UMAP, PCA)
+- Explore gene expression on the plot
+- Check column data (QC metrics, Clusters)
+- Select points and inspect data
+
+## Customization
+
+`RunExplorer` passes additional arguments to `iSEE::iSEE()`, allowing you to pre-configure panels.
+
+```{r, eval=FALSE}
+# Example: Start with just a ReducedDimensionPlot and a FeaturePlot
+library(iSEE)
+initial <- list(
+    ReducedDimensionPlot(PanelId=1L),
+    FeatureAssayPlot(PanelId=1L)
+)
+
+RunExplorer(sce, initial = initial)
+```
