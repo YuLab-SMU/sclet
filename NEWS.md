@@ -1,3 +1,9 @@
+# sclet 0.99.0
+
++ `ReadH5AD` and `WriteH5AD` for AnnData interoperability (2025-06-04, Wed)
++ `as.Seurat` and `as.SCE` for object conversion (2025-06-04, Wed)
++ Performance improvements: support DelayedMatrix in normalization (2025-06-04, Wed)
+
 # sclet 0.1.0
 
 + `AggregateExpression` for pseudobulk analysis (2025-06-03, Tue)

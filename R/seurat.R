@@ -119,9 +119,10 @@ FeatureScatter <- function(object, feature1, feature2) {
 #' @importFrom methods as
 #' @export
 NormalizeData <- function(object, scale.factor = 10000) {
-    if (is(assay(object, "counts"), "DelayedMatrix")) {
-        assay(object, "counts") <- as(assay(object, "counts"), "dgCMatrix")
-    }
+    # No longer force conversion to dgCMatrix. scuttle::logNormCounts handles DelayedMatrix efficiently.
+    # if (is(assay(object, "counts"), "DelayedMatrix")) {
+    #    assay(object, "counts") <- as(assay(object, "counts"), "dgCMatrix")
+    # }
     
     # Use scuttle::logNormCounts which is standard for SCE
     object <- scuttle::logNormCounts(object, scale=scale.factor, name="logcounts")
