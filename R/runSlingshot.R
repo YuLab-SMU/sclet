@@ -26,6 +26,10 @@ RunSlingshot <- function(
     align_start = FALSE,
     seed = 2025){
   
+  if (!requireNamespace("slingshot", quietly = TRUE)) {
+      stop("Package 'slingshot' is needed for this function to work. Please install it.")
+  }
+
   reduction <- match.arg(reduction, c("UMAP", "PCA", "tSNE"))
   
   ## check the type of data

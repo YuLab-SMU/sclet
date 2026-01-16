@@ -57,8 +57,8 @@ subset_feature <- function(x, mincell, peek = TRUE) {
 ##' @return updated object
 ##' @export
 subset_cell <- function(x, feature = "nFeature_RNA", method = 'mad', n = 3) {
-    if (!inherits(x, 'Seurat')) {
-        stop("Only Seurat object is supported")
+    if (!inherits(x, c('Seurat', 'SingleCellExperiment'))) {
+        stop("Only Seurat and SingleCellExperiment object is supported")
     }
 
     if (length(feature) == 1) {
@@ -94,7 +94,11 @@ subset_cell <- function(x, feature = "nFeature_RNA", method = 'mad', n = 3) {
 
 #' @importFrom stats mad median quantile sd
 subset_cell_internal <- function(x, feature = "nFeature_RNA", method = 'mad', n = 3) {
-    md <- x[[]]
+    if (inherits(x, "SingleCellExperiment")) {
+        md <- colData(x)
+    } else {
+        md <- x[[]]
+    }
     y <- md[[feature]]
     method <- tolower(method)
     if (method == 'quantile') {
@@ -105,7 +109,7 @@ subset_cell_internal <- function(x, feature = "nFeature_RNA", method = 'mad', n 
             m <- mad(y)
         } else if (method == 'sd') {
             y <- log1p(y)
-            m <- sd
+            m <- sd(y)
         }
         cutoff_l <- median(y) - n * m
         cutoff_r <- median(y) + n * m

@@ -80,8 +80,16 @@ CombineVariableFeatures <- function(all.batches, ...) {
 #' @return A SingleCellExperiment object
 #' @export
 BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000, 
-                          assay.type = "logcounts", PARAM = batchelor::FastMnnParam(), 
+                          assay.type = "logcounts", PARAM = NULL, 
                           restrict = NULL, correct.all = FALSE) { 
+  
+  if (!requireNamespace("batchelor", quietly = TRUE)) {
+      stop("Package 'batchelor' is needed for this function to work. Please install it.")
+  }
+
+  if (is.null(PARAM)) {
+      PARAM <- batchelor::FastMnnParam()
+  }
   
   if(!is(sce,"SingleCellExperiment")){
     stop("The input object needs to be a SingleCellExperiment object.")

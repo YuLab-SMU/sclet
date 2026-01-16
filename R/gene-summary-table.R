@@ -40,13 +40,16 @@ gene_summary_table <- function(gene, gene_col = "gene", keyType = "SYMBOL", clus
     gene[[gene_col]] <- sub("\\.\\d", "", gene[[gene_col]])
 
     if (keyType != "ENTREZID") {
+        if (!requireNamespace("org.Hs.eg.db", quietly = TRUE)) {
+             stop("Package 'org.Hs.eg.db' is needed for this function to work. Please install it.")
+        }
         g <- clusterProfiler::bitr(
             gene[[gene_col]], 
             fromType = keyType, 
             toType = 'ENTREZID', 
             OrgDb = 'org.Hs.eg.db'
         )
-        gid <- g$ENTREZ
+        gid <- g$ENTREZID
         gene <- merge(gene, g, by.x = gene_col, by.y=keyType, all.x=TRUE)
         eid <- 'ENTREZID'
     } else {

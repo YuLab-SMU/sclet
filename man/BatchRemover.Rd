@@ -10,7 +10,7 @@ BatchRemover(
   HVG = NULL,
   nHVG = 5000,
   assay.type = "logcounts",
-  PARAM = batchelor::FastMnnParam(),
+  PARAM = NULL,
   restrict = NULL,
   correct.all = FALSE
 )

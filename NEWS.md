@@ -1,3 +1,11 @@
+# sclet 0.0.8
+
++ Fix `Idents` and `FindClusters` consistency (2025-05-30, Fri)
++ Fix `subset_cell` bug (2025-05-30, Fri)
++ Fix `gene_summary_table` bugs (2025-05-30, Fri)
++ Add Suggests package checks (2025-05-30, Fri)
++ Improve `NormalizeData` and `FindVariableFeatures` (2025-05-30, Fri)
+
 # sclet 0.0.7
 
 + `RunSuperCell()` to merge similar cells to metacell (2025-05-28, Wed)

@@ -21,6 +21,10 @@ runCellChat <- function(sce, group = "label",
                         trim = 0.1,
                         min.cells = 10){
 
+    if (!requireNamespace("CellChat", quietly = TRUE)) {
+        stop("Package 'CellChat' is needed for this function to work. Please install it.")
+    }
+
     species <- match.arg(species, c("human", "mouse", "zebrafish"))
     db_item <- match.arg(db_item, c("all", "except Non-protein",
                                     "Secreted Signaling", "ECM-Receptor", 

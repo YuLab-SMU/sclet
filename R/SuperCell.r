@@ -13,6 +13,10 @@
 RunSuperCell <- function(object, assay = "logcounts", nHVG = 2000, hvg_method = "seurat",
                         cellname = "Barcode", gamma = 20, k.knn = 5) {
 
+  if (!requireNamespace("SuperCell", quietly = TRUE)) {
+      stop("Package 'SuperCell' is needed for this function to work. Please install it.")
+  }
+
   # gene expression matrix
   GE <- SummarizedExperiment::assay(object, assay)
   colnames(GE) <- colData(object)[, cellname]

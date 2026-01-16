@@ -122,15 +122,10 @@ NormalizeData <- function(object, scale.factor = 10000) {
     if (is(assay(object, "counts"), "DelayedMatrix")) {
         assay(object, "counts") <- as(assay(object, "counts"), "dgCMatrix")
     }
-    counts_matrix <- counts(object)
-
-    LogNorm <- get_fun_from_pkg('Seurat', 'LogNorm')
-    logcounts <- LogNorm(counts_matrix, scale_factor = scale.factor)
-    colnames(logcounts) <- colnames(counts_matrix)
-    rownames(logcounts) <- rownames(counts_matrix)
-
-    SummarizedExperiment::assay(object, 'logcounts') <- logcounts
-
+    
+    # Use scuttle::logNormCounts which is standard for SCE
+    object <- scuttle::logNormCounts(object, scale=scale.factor, name="logcounts")
+    
     return(object)
 }
 
@@ -151,7 +146,13 @@ FindVariableFeatures <- function(object, nfeatures = 2000, method = "seurat", ..
     method <- match.arg(method, c("seurat", "scran"))
 
     if (method == "seurat") {
-        hvf.info <- FindVariableFeatures_seurat(object)
+        if (!requireNamespace("Seurat", quietly = TRUE)) {
+             warning("Seurat is not installed. Falling back to scran method.")
+             hvf.info <- scran::modelGeneVar(object, ...)
+             method <- "scran"
+        } else {
+             hvf.info <- FindVariableFeatures_seurat(object)
+        }
     } else {
         hvf.info <- scran::modelGeneVar(object, ...)
     }
@@ -166,6 +167,11 @@ FindVariableFeatures <- function(object, nfeatures = 2000, method = "seurat", ..
 }
 
 FindVariableFeatures_seurat <- function(object) {
+    # Check for Seurat namespace again to be safe
+    if (!requireNamespace("Seurat", quietly = TRUE)) {
+        stop("Seurat package is required for method='seurat'")
+    }
+
     sce <- object
     if (!is.null(sce@metadata$nVariableFeatures)) {
         rd <- rowData(sce)
@@ -378,8 +384,14 @@ FindClusters <- function(object, resolution = 1) {
 #' @importFrom SummarizedExperiment colData
 #' @importFrom stats setNames
 Idents <- function(object) {
-    d <- colData(object)
-    setNames(d$label, d$Barcode)
+    if (is.null(colLabels(object))) {
+        if (!is.null(colData(object)$label)) {
+            colLabels(object) <- colData(object)$label
+        } else {
+            return(NULL)
+        }
+    }
+    setNames(colLabels(object), colnames(object))
 }
 
 #' run umap
