@@ -30,13 +30,26 @@ jobs:
       - name: Install package
         run: R CMD INSTALL .
 
+      - name: Detect book source directory
+        run: |
+          if [ -f bookdown/index.Rmd ]; then
+            echo "BOOKDOWN_DIR=bookdown" >> $GITHUB_ENV
+          elif [ -f index.Rmd ]; then
+            echo "BOOKDOWN_DIR=." >> $GITHUB_ENV
+          else
+            echo "No bookdown/index.Rmd or index.Rmd found" >&2
+            exit 1
+          fi
+
       - name: Build site
-        run: Rscript -e 'bookdown::render_book("bookdown", output_dir = "_book")'
+        run: |
+          rm -rf gh-pages
+          Rscript -e 'bookdir <- Sys.getenv("BOOKDOWN_DIR", "bookdown"); setwd(bookdir); outdir <- if (bookdir == ".") "gh-pages" else "../gh-pages"; bookdown::render_book("index.Rmd", output_dir = outdir)'
 
       - name: Deploy to GitHub Pages
         if: github.ref == 'refs/heads/docs'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./bookdown/_book
+          publish_dir: ./gh-pages
           publish_branch: gh-pages

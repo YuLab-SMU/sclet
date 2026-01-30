@@ -9,19 +9,20 @@ Artistic-2.0](https://img.shields.io/badge/license-Artistic--2.0-blue.svg)](http
 [![](https://img.shields.io/github/last-commit/YuLab-SMU/sclet.svg)](https://github.com/YuLab-SMU/sclet/commits/devel)
 
 Seurat is a mainstream tool for single-cell analysis, but its data
-structure lacks a clear definition and often changes between versions.
-This makes it easy to get started but difficult to master. In contrast,
-`SingleCellExperiment` has a well-defined structure, a rich ecosystem in
-R, and a corresponding Python counterpart, `AnnData`. Clearly, building
-upon such a data structure is highly beneficial for in-depth learning
-and even development. This is the motivation behind my development of
-`sclet`—to help students in my team transition to
-`SingleCellExperiment`.
+structure can change between versions and may be less explicit for
+teaching and extension. In contrast, `SingleCellExperiment` is a
+well-defined Bioconductor class with a rich ecosystem in R and a
+corresponding Python counterpart, `AnnData`. The goal of `sclet` is to
+provide a lightweight set of Seurat-like helpers for
+`SingleCellExperiment`, making common workflows easier to learn and
+apply.
 
-`SingleCellExperiment` itself boasts a robust ecosystem, covering nearly
-all types of analyses. We will also integrate existing single-cell R
-packages or develop new functionalities to make them easier to use
-within the `SingleCellExperiment` ecosystem.
+In addition to core steps (preprocessing, dimensionality reduction,
+clustering, visualization, batch correction, and pseudobulk differential
+expression), `sclet` also offers optional wrappers for popular
+downstream tools, including trajectory inference, enrichment analysis,
+cell type annotation, cell-cell communication, and Milo differential
+abundance.
 
 ## :writing_hand: Authors
 
