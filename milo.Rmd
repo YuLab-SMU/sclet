@@ -1,0 +1,128 @@
+# Milo: differential abundance
+
+`sclet` provides a lightweight wrapper around `miloR` for cell neighbourhood differential abundance (DA) analysis.
+The Milo functionality in `sclet` is an optional dependency: you need to install `miloR` to run the examples.
+
+## Requirements
+
+Before running Milo DA, prepare a `SingleCellExperiment` with:
+
+- `reducedDims(sce)$PCA`
+- `colData(sce)` containing a sample column and a condition column
+
+UMAP is optional (used for visualization only).
+
+## Two-group DA (GLM)
+
+```{r milo-glm, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE)}
+library(MouseThymusAgeing)
+library(scater)
+
+sce <- MouseSMARTseqData()
+colData(sce)$Sample <- paste(colData(sce)$SortDay, colData(sce)$Age, sep = "_")
+
+sce <- logNormCounts(sce)
+sce <- runPCA(sce)
+sce <- runUMAP(sce)
+
+res <- runMilo(
+  sce = sce,
+  sample_col = "Sample",
+  condition_col = "Age",
+  contrasts = c("Age1wk - Age4wk"),
+  k1 = 11, k2 = 11, d1 = 40, d2 = 40, prop = 0.2
+)
+
+da <- res$da_results
+table(da$SpatialFDR < 0.1)
+head(da)
+```
+
+## Multi-contrast testing
+
+Use `per_contrast = FALSE` to fit one model and test multiple contrasts jointly. Use `per_contrast = TRUE` to run each contrast and stack results.
+
+```{r milo-multi-contrast, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE)}
+contrasts <- c(
+  "Age1wk - Age4wk",
+  "Age4wk - Age16wk",
+  "Age16wk - Age32wk",
+  "Age32wk - Age52wk"
+)
+
+res2 <- runMilo(
+  sce = sce,
+  sample_col = "Sample",
+  condition_col = "Age",
+  contrasts = contrasts,
+  per_contrast = TRUE,
+  k1 = 11, k2 = 11, d1 = 40, d2 = 40, d3 = 40,
+  prop = 0.2,
+  refinement_scheme = "graph"
+)
+
+head(res2$da_results)
+```
+
+## GLMM (random intercept)
+
+When samples are not independent (e.g., repeated measures), a random intercept can help control correlation structure.
+
+```{r milo-glmm, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("scRNAseq", quietly = TRUE)}
+library(scRNAseq)
+library(scater)
+library(scran)
+library(scuttle)
+
+sce2 <- KotliarovPBMCData(mode = "rna", ensembl = TRUE)
+colData(sce2)$ObsID <- paste(colData(sce2)$tenx_lane, colData(sce2)$sampleid, sep = "_")
+
+set.seed(42)
+keep_samps <- sample(unique(colData(sce2)$ObsID), size = 40)
+sce2 <- sce2[, colData(sce2)$ObsID %in% keep_samps]
+
+sce2 <- logNormCounts(sce2)
+sce2 <- runPCA(sce2, ncomponents = 30)
+sce2 <- runUMAP(sce2, pca = 30)
+
+res3 <- runMilo(
+  sce = sce2,
+  sample_col = "ObsID",
+  condition_col = "adjmfc.time",
+  contrasts = c("adjmfc.timed0 high"),
+  glmm = TRUE,
+  random_effect = "tenx_lane",
+  k1 = 60, k2 = 60, d1 = 30, d2 = 30, d3 = 30,
+  prop = 0.05,
+  overlap = 25
+)
+
+head(res3$da_results)
+```
+
+## Refit after dropping separated neighbourhoods
+
+In GLMM mode, some neighbourhoods can show perfect separation and return unstable estimates. You can diagnose with `miloR::checkSeparation()` and refit after dropping those neighbourhoods.
+
+```{r milo-refit, eval = requireNamespace("miloR", quietly = TRUE) && exists("res3")}
+design_df <- res3$sce@metadata$milo_results$design_df
+
+bad_hood <- which(miloR::checkSeparation(
+  res3$milo,
+  design.df = design_df,
+  condition = "adjmfc.time",
+  min.val = 10
+))
+
+refit <- refit_milo(
+  milo = res3$milo,
+  design_df = design_df,
+  bad_hood = bad_hood,
+  formula = res3$sce@metadata$milo_results$formula,
+  contrasts = res3$sce@metadata$milo_results$contrasts,
+  glmm = TRUE,
+  old_results = res3$da_results
+)
+
+head(refit$da_clean)
+```
