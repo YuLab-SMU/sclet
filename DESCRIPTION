@@ -63,6 +63,6 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Config/testthat/edition: 3
 Remotes:
-    yulab-smu/ggsc,
-    yulab-smu/yulab.utils,
-    GuangchuangYu/fanyi
+    YuLab-SMU/ggsc,
+    YuLab-SMU/yulab.utils,
+    YuLab-SMU/fanyi
