@@ -32,19 +32,25 @@ jobs:
 
       - name: Detect book source directory
         run: |
-          if [ -f bookdown/index.Rmd ]; then
-            echo "BOOKDOWN_DIR=bookdown" >> $GITHUB_ENV
-          elif [ -f index.Rmd ]; then
-            echo "BOOKDOWN_DIR=." >> $GITHUB_ENV
-          else
-            echo "No bookdown/index.Rmd or index.Rmd found" >&2
+          set -e
+          BOOKDOWN_YML=$(find . -maxdepth 4 -name '_bookdown.yml' -print -quit)
+          if [ -z "$BOOKDOWN_YML" ]; then
+            echo "No _bookdown.yml found (searched up to depth 4)." >&2
+            exit 1
+          fi
+          BOOKDOWN_DIR=$(dirname "$BOOKDOWN_YML")
+          echo "BOOKDOWN_DIR=$BOOKDOWN_DIR" >> $GITHUB_ENV
+          if [ ! -f "$BOOKDOWN_DIR/index.Rmd" ]; then
+            echo "No index.Rmd found under $BOOKDOWN_DIR" >&2
+            echo "Contents of $BOOKDOWN_DIR:" >&2
+            ls -la "$BOOKDOWN_DIR" >&2
             exit 1
           fi
 
       - name: Build site
         run: |
           rm -rf gh-pages
-          Rscript -e 'bookdir <- Sys.getenv("BOOKDOWN_DIR", "bookdown"); setwd(bookdir); outdir <- if (bookdir == ".") "gh-pages" else "../gh-pages"; bookdown::render_book("index.Rmd", output_dir = outdir)'
+          Rscript -e 'bookdir <- Sys.getenv("BOOKDOWN_DIR"); outdir <- normalizePath("gh-pages", mustWork = FALSE); dir.create(outdir, recursive = TRUE, showWarnings = FALSE); bookdown::render_book(file.path(bookdir, "index.Rmd"), output_dir = outdir)'
 
       - name: Deploy to GitHub Pages
         if: github.ref == 'refs/heads/docs'
