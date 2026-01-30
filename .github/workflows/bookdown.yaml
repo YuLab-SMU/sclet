@@ -1,6 +1,7 @@
 on:
   push:
     branches:
+      - devel
       - docs
 
 name: bookdown
@@ -33,6 +34,7 @@ jobs:
         run: Rscript -e 'bookdown::render_book("bookdown", output_dir = "_book")'
 
       - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/docs'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
