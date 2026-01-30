@@ -1,6 +1,9 @@
-Makefile
-bookdown
+^Makefile$
+^bookdown$
+^README\\.Rmd$
+^README\\.md$
+^ggsc-visualization-requirements\\.md$
+^dev-plan\\.md$
+^\\.github$
+^runMilo_v2$
 README.Rmd
-README.md
-ggsc-visualization-requirements.md
-dev-plan.md

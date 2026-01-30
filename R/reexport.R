@@ -22,10 +22,6 @@ SummarizedExperiment::'rowData<-'
 #' @export
 SummarizedExperiment::assay
 
-#' @importFrom scater runPCA
-#' @export
-scater::runPCA
-
 #' @importFrom scater plotColData
 #' @export
 scater::plotColData

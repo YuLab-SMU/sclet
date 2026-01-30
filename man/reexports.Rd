@@ -9,7 +9,6 @@
 \alias{colData<-}
 \alias{rowData<-}
 \alias{assay}
-\alias{runPCA}
 \alias{plotColData}
 \alias{logNormCounts}
 \alias{perCellQCMetrics}
@@ -22,7 +21,7 @@ below to see their documentation.
 \describe{
   \item{aplot}{\code{\link[aplot]{plot_list}}}
 
-  \item{scater}{\code{\link[scater]{plotColData}}, \code{\link[scater]{runPCA}}}
+  \item{scater}{\code{\link[scater]{plotColData}}}
 
   \item{scuttle}{\code{\link[scuttle]{logNormCounts}}, \code{\link[scuttle]{perCellQCMetrics}}}
 

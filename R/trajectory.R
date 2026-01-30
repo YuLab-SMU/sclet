@@ -1,16 +1,4 @@
-#' Run Slingshot trajectory inference
-#' 
-#' Wrapper for slingshot trajectory inference.
-#' 
-#' @title RunSlingshot
-#' @param object A SingleCellExperiment object
-#' @param reduction Dimensional reduction to use (default: "UMAP")
-#' @param cluster.labels Cluster labels to use (default: Idents(object))
-#' @param start.clus Cluster to start trajectory from
-#' @param ... Additional arguments passed to slingshot::slingshot
-#' @return A SingleCellExperiment object with slingshot results in metadata and colData
-#' @export
-RunSlingshot <- function(object, reduction = "UMAP", cluster.labels = NULL, start.clus = NULL, ...) {
+RunSlingshot_trajectory <- function(object, reduction = "UMAP", cluster.labels = NULL, start.clus = NULL, ...) {
     if (!requireNamespace("slingshot", quietly = TRUE)) {
         stop("Package 'slingshot' is needed for this function to work. Please install it.")
     }

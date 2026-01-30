@@ -1,9 +1,13 @@
 # sclet 0.99.1
 
-+ `RunSuperCell` for metacell construction (2025-06-04, Wed)
-+ `RunSlingshot` for trajectory inference (2025-06-04, Wed)
-+ `RunEnrichment` for functional enrichment analysis (2025-06-04, Wed)
-+ `RunExplorer` for interactive data exploration using iSEE (2025-06-04, Wed)
++ `runMilo` and `refit_milo` for Milo differential abundance analysis (2026-01-30, Fri)
+
+# sclet 0.99.1
+
++ `RunSuperCell` for metacell construction (2026-01-16, Fri)
++ `RunSlingshot` for trajectory inference
++ `RunEnrichment` for functional enrichment analysis
++ `RunExplorer` for interactive data exploration using iSEE
 
 # sclet 0.99.0
 
