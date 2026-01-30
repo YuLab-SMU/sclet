@@ -65,4 +65,5 @@ Config/testthat/edition: 3
 Remotes:
     YuLab-SMU/ggsc,
     YuLab-SMU/yulab.utils,
-    YuLab-SMU/fanyi
+    YuLab-SMU/fanyi,
+    jinworks/CellChat
