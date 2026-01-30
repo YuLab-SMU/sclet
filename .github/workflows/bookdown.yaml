@@ -1,18 +1,25 @@
+name: bookdown
+
 on:
   push:
     branches:
-      - devel
       - docs
 
-name: bookdown
+permissions:
+  contents: write
+
+concurrency:
+  group: bookdown-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  build-deploy:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - uses: r-lib/actions/setup-pandoc@v2
 
@@ -27,35 +34,31 @@ jobs:
             local::.
           needs: check
 
-      - name: Install package
-        run: R CMD INSTALL .
-
-      - name: Detect book source directory
+      - name: Detect book directory
+        shell: bash
         run: |
-          set -e
-          BOOKDOWN_YML=$(find . -maxdepth 4 -name '_bookdown.yml' -print -quit)
-          if [ -z "$BOOKDOWN_YML" ]; then
-            echo "No _bookdown.yml found (searched up to depth 4)." >&2
-            exit 1
-          fi
-          BOOKDOWN_DIR=$(dirname "$BOOKDOWN_YML")
-          echo "BOOKDOWN_DIR=$BOOKDOWN_DIR" >> $GITHUB_ENV
-          if [ ! -f "$BOOKDOWN_DIR/index.Rmd" ]; then
-            echo "No index.Rmd found under $BOOKDOWN_DIR" >&2
-            echo "Contents of $BOOKDOWN_DIR:" >&2
-            ls -la "$BOOKDOWN_DIR" >&2
-            exit 1
+          set -euo pipefail
+          if [ -f bookdown/_bookdown.yml ]; then
+            echo "BOOKDIR=bookdown" >> "$GITHUB_ENV"
+          else
+            BOOKDOWN_YML=$(find . -maxdepth 6 -name '_bookdown.yml' -print -quit || true)
+            if [ -z "$BOOKDOWN_YML" ]; then
+              echo "No _bookdown.yml found." >&2
+              echo "Top-level contents:" >&2
+              ls -la >&2
+              exit 1
+            fi
+            echo "BOOKDIR=$(dirname "$BOOKDOWN_YML")" >> "$GITHUB_ENV"
           fi
 
       - name: Build site
-        run: |
-          rm -rf gh-pages
-          Rscript -e 'bookdir <- Sys.getenv("BOOKDOWN_DIR"); outdir <- normalizePath("gh-pages", mustWork = FALSE); dir.create(outdir, recursive = TRUE, showWarnings = FALSE); bookdown::render_book(file.path(bookdir, "index.Rmd"), output_dir = outdir)'
+        run: Rscript -e 'bookdir <- Sys.getenv("BOOKDIR"); ws <- Sys.getenv("GITHUB_WORKSPACE"); outdir <- file.path(ws, "site"); dir.create(outdir, recursive = TRUE, showWarnings = FALSE); bookdown::render_book(file.path(ws, bookdir, "index.Rmd"), output_dir = outdir)'
 
-      - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/docs'
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./gh-pages
+          publish_dir: ./site
           publish_branch: gh-pages
+          force_orphan: true
+
