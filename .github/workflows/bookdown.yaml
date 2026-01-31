@@ -21,18 +21,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout package source (devel)
+        uses: actions/checkout@v4
+        with:
+          ref: devel
+          path: sclet-src
+
       - uses: r-lib/actions/setup-pandoc@v2
 
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
 
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          extra-packages: |
-            any::bookdown
-            local::.
-          needs: check
+      - name: Install R packages
+        run: |
+          Rscript -e 'install.packages("pak")'
+          Rscript -e 'pak::pkg_install(c(
+            "bookdown",
+            "rmarkdown",
+            "knitr",
+            "qs",
+            "TENxPBMCData",
+            "slingshot",
+            "SingleR",
+            "celldex",
+            "shadowtext",
+            "scRNAseq",
+            "velociraptor",
+            "SpatialExperiment",
+            "SVP",
+            "SuperCell",
+            "enrichplot",
+            "org.Mm.eg.db",
+            "iSEE"
+          ))'
+          Rscript -e 'pak::pkg_install("jinworks/CellChat")'
+          Rscript -e 'pak::pkg_install("local::sclet-src")'
 
       - name: Detect book directory
         shell: bash
@@ -61,4 +85,3 @@ jobs:
           publish_dir: ./site
           publish_branch: gh-pages
           force_orphan: true
-
