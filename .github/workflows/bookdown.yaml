@@ -1,0 +1,86 @@
+name: bookdown
+
+on:
+  push:
+    branches:
+      - docs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bookdown-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      SCLET_BOOKDOWN_EVAL: "true"
+
+    steps:
+      - name: Checkout docs branch
+        uses: actions/checkout@v4
+
+      - name: Checkout package source (devel)
+        uses: actions/checkout@v4
+        with:
+          ref: devel
+          path: sclet-src
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+          use-public-rspm: true
+
+      - name: Install system dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libxml2-dev \
+            libharfbuzz-dev \
+            libfribidi-dev
+
+      - name: Install dependencies
+        run: |
+          Rscript -e 'install.packages(c("remotes","BiocManager"))'
+          Rscript -e 'options(repos = BiocManager::repositories()); install.packages(c("bookdown","rmarkdown","knitr","qs","shadowtext"))'
+          Rscript -e 'options(repos = BiocManager::repositories()); BiocManager::install(c("TENxPBMCData","scRNAseq","MouseThymusAgeing","SingleR","celldex","DropletUtils","SingleCellExperiment","SummarizedExperiment","velociraptor","SpatialExperiment","enrichplot","org.Mm.eg.db","iSEE"), ask = FALSE, update = FALSE)'
+          Rscript -e 'options(repos = BiocManager::repositories()); remotes::install_deps("sclet-src", dependencies = TRUE, upgrade = "never")'
+          Rscript -e 'options(repos = BiocManager::repositories()); remotes::install_local("sclet-src", dependencies = FALSE, upgrade = "never")'
+
+      - name: Detect book directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          BOOKDOWN_YML=$(find . -maxdepth 6 -name '_bookdown.yml' -print -quit || true)
+          if [ -z "$BOOKDOWN_YML" ]; then
+            echo "No _bookdown.yml found." >&2
+            echo "Top-level contents:" >&2
+            ls -la >&2
+            exit 1
+          fi
+          BOOKDIR=$(dirname "$BOOKDOWN_YML")
+          echo "BOOKDIR=$BOOKDIR" >> "$GITHUB_ENV"
+          if [ ! -f "$BOOKDIR/index.Rmd" ]; then
+            echo "No index.Rmd found under $BOOKDIR" >&2
+            ls -la "$BOOKDIR" >&2
+            exit 1
+          fi
+
+      - name: Build site
+        run: Rscript -e 'ws <- Sys.getenv("GITHUB_WORKSPACE"); bookdir <- Sys.getenv("BOOKDIR"); outdir <- file.path(ws, "site"); dir.create(outdir, recursive = TRUE, showWarnings = FALSE); bookdown::render_book(file.path(ws, bookdir, "index.Rmd"), output_dir = outdir)'
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
+          force_orphan: true
