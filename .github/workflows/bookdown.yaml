@@ -23,6 +23,9 @@ jobs:
     steps:
       - name: Checkout docs branch
         uses: actions/checkout@v4
+        with:
+          ref: docs
+          path: docs-src
 
       - name: Checkout package source (devel)
         uses: actions/checkout@v4
@@ -60,11 +63,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BOOKDOWN_YML=$(find . -maxdepth 6 -name '_bookdown.yml' -print -quit || true)
+          BOOKDOWN_YML=$(find docs-src -maxdepth 6 -name '_bookdown.yml' -print -quit || true)
           if [ -z "$BOOKDOWN_YML" ]; then
-            echo "No _bookdown.yml found." >&2
-            echo "Top-level contents:" >&2
-            ls -la >&2
+            echo "No _bookdown.yml found in docs branch checkout (docs-src)." >&2
+            echo "docs-src top-level contents:" >&2
+            ls -la docs-src >&2
             exit 1
           fi
           BOOKDIR=$(dirname "$BOOKDOWN_YML")
