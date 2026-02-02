@@ -49,7 +49,10 @@ jobs:
             libssl-dev \
             libxml2-dev \
             libharfbuzz-dev \
-            libfribidi-dev
+            libfribidi-dev \
+            liblz4-dev \
+            libzstd-dev \
+            zlib1g-dev
           if ! ldconfig -p | grep -q 'libglpk\.so\.40'; then
             sudo apt-get install -y libglpk40 || sudo apt-get install -y libglpk40t64 || sudo apt-get install -y libglpk-dev
           fi
@@ -58,6 +61,7 @@ jobs:
         run: |
           Rscript -e 'install.packages(c("remotes","BiocManager"))'
           Rscript -e 'options(repos = BiocManager::repositories()); install.packages(c("bookdown","rmarkdown","knitr","qs","shadowtext","conflicted","aplot","ggplot2","ggsc","yulab.utils"))'
+          Rscript -e 'options(repos = BiocManager::repositories()); if (!requireNamespace("qs", quietly = TRUE)) install.packages("qs"); stopifnot(requireNamespace("qs", quietly = TRUE))'
           Rscript -e 'options(repos = BiocManager::repositories()); BiocManager::install(c("clusterProfiler","scater","scran","scuttle","TENxPBMCData","scRNAseq","MouseThymusAgeing","SingleR","celldex","DropletUtils","SingleCellExperiment","SummarizedExperiment","velociraptor","SpatialExperiment","enrichplot","org.Mm.eg.db","iSEE"), ask = FALSE, update = FALSE)'
           Rscript -e 'options(repos = BiocManager::repositories()); remotes::install_deps("sclet-src", dependencies = c("Depends","Imports","LinkingTo"), upgrade = "never")'
           R CMD INSTALL sclet-src
