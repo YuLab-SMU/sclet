@@ -79,7 +79,8 @@ jobs:
           fi
 
       - name: Build site
-        run: Rscript -e 'ws <- Sys.getenv("GITHUB_WORKSPACE"); bookdir <- Sys.getenv("BOOKDIR"); outdir <- file.path(ws, "site"); dir.create(outdir, recursive = TRUE, showWarnings = FALSE); bookdown::render_book(file.path(ws, bookdir, "index.Rmd"), output_dir = outdir)'
+        run: |
+          Rscript -e 'ws <- Sys.getenv("GITHUB_WORKSPACE"); bookdir <- Sys.getenv("BOOKDIR"); bookdir_abs <- normalizePath(file.path(ws, bookdir), mustWork = TRUE); outdir <- file.path(ws, "site"); dir.create(outdir, recursive = TRUE, showWarnings = FALSE); setwd(bookdir_abs); bookdown::render_book("index.Rmd", output_dir = outdir)'
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
