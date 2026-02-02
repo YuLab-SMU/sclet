@@ -1,0 +1,1208 @@
+---
+title: 'sclet: A Lightweight Toolkit for Single-Cell Data Analysis'
+author: 
+- name: Guangchuang Yu
+  email: guangchuangyu@gmail.com
+  affiliation: Department of Bioinformatics, School of Basic Medical Sciences, Southern Medical University
+date: "`r Sys.Date()`"
+knit: "bookdown::render_book"
+site: bookdown::bookdown_site
+output:
+  bookdown::gitbook:
+  bookdown::pdf_book:
+    dev: "cairo_pdf"
+    latex_engine: xelatex
+bibliography: references.bib
+biblio-style: apalike
+always_allow_html: yes
+toc_appendix: yes
+fontsize: "12pt"
+mainfont: Times New Roman
+sansfont: Arial
+monofontoptions: "Scale=0.7"
+linestretch: 1.5
+toc-depth: 2
+link-citations: yes
+documentclass: book
+papersize: A4
+classoption: twoside
+highlight_bw: yes
+geometry: "left=35mm,right=35mm,top=25mm,bottom=25mm"
+---
+
+
+```{r setup, include=FALSE}
+library(knitr)
+eval_chunks <- tolower(Sys.getenv("SCLET_BOOKDOWN_EVAL", "true")) %in% c("true", "1", "yes")
+
+if (eval_chunks) {
+  library(conflicted)
+  library(sclet)
+  library(aplot)
+  library(ggplot2)
+  library(ggsc)
+  library(yulab.utils)
+  Biocpkg <- yulab.utils::Biocpkg
+} else {
+  Biocpkg <- function(x) x
+}
+
+options(width=60)
+
+opts_chunk$set(message=FALSE, warning=FALSE, eval=eval_chunks, echo=TRUE, cache=TRUE)
+```
+
+
+
+
+# Preface {-}
+
+Hello World.
+
+
+<!--chapter:end:index.Rmd-->
+
+# Basic: preprocessing and clustering
+
+
+We created Seurat-like functions to help you get started effortlessly.
+
+```{r pbmc-data, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE,
+                      message = TRUE)
+
+f <- "data/pbmc-3k-sce.qs"
+pbmc <- qs::qread(f)
+```
+
+## Read 10X data
+
+```{r readdata, eval = FALSE}
+library(sclet)
+
+dir <- "filtered_gene_bc_matrices/hg19"
+pbmc <- Read10X(dir)
+```
+
+
+## QC
+
+```{r vlnplot-qc, fig.width=10, fig.height=7.5}
+# colData(pbmc)$percent.mt <- PercentageFeatureSet(pbmc, "^MT-")
+pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, "^MT-")
+VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"))
+```
+
+
+```{r subset-pbmc}
+subset_feature(pbmc, 10)
+pbmc <- subset_feature(pbmc, mincell = 3, peek=FALSE)
+
+pbmc <- subset(pbmc, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+pbmc
+```
+
+
+```{r featurescatter-qc, fig.width=10, fig.height=7.5}
+plot1 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+library(aplot)
+plot_list(plot1, plot2)
+```
+
+
+Users can also use `plotColData()` to visualize the QC data.
+
+```{r plotcoldata-qc, fig.width=10, fig.height=7.5}
+# VlnPlot-like
+p1 <- plotColData(pbmc, y = 'nCount_RNA')
+
+# FeatureScatter-like
+p2 <- plotColData(pbmc, x = "nCount_RNA", y = "percent.mt")
+plot_list(p1, p2)
+```
+
+
+
+## Variable features
+
+```{r variablefeatureplot-pbmc, fig.width=10, fig.height=7.5}
+pbmc <- NormalizeData(pbmc)
+pbmc <- FindVariableFeatures(pbmc)
+top10 <- head(VariableFeatures(pbmc), 10)
+top10
+VariableFeaturePlot(pbmc, label = top10)
+```
+
+## Dimensional reduction
+
+```{r elbowplot-pbmc, fig.width=10, fig.height=7}
+pbmc <- ScaleData(pbmc)
+pbmc <- runPCA(pbmc, subset_row = VariableFeatures(pbmc), exprs_values = "scaled")
+ElbowPlot(pbmc)
+```
+
+## Clustering {#FindClusters}
+
+```{r}
+set.seed(2024-10-01)
+pbmc <- FindNeighbors(pbmc, dims = 1:10)
+pbmc <- FindClusters(pbmc)
+
+head(Idents(pbmc), 5)
+```
+
+
+## UMAP
+```{r umap-pbmc, fig.width = 13, fig.height=7.5}
+pbmc <- RunUMAP(pbmc, 1:10)
+
+library(aplot)
+# DimPlot is a wrapper for ggsc::sc_dim
+p1 <- DimPlot(pbmc, reduction="PCA")
+p2 <- DimPlot(pbmc, reduction="UMAP")
+
+plot_list(gglist = list(PCA=p1, UMAP=p2))
+```
+
+## Find Markers
+
+```{r find-markers-2}
+# find all markers of cluster 2
+cluster2.markers <- FindMarkers(pbmc, ident.1 = 2)
+head(cluster2.markers, n = 5)
+```
+
+```{r find-markers-5}
+# find all markers distinguishing cluster 5 from clusters 0 and 3
+cluster5.markers <- FindMarkers(pbmc, ident.1 = 5, ident.2 = c(0, 3))
+head(cluster5.markers, n = 5)
+```
+
+```{r find-all-markers}
+# find markers for every cluster compared to all remaining cells, 
+# report only the positive ones
+library(dplyr)
+pbmc.markers <- FindAllMarkers(pbmc, only.pos = TRUE)
+
+topN_marker <- function(markers, n) {
+    markers %>%
+        group_by(cluster) %>%
+        dplyr::filter(avg_log2FC > 1) %>%
+        slice_head(n = n) %>%
+        ungroup()
+}
+
+top10 <- topN_marker(pbmc.markers, 10)
+split(top10$gene, top10$cluster)
+```
+
+### Marker gene information
+
+```{r marker-genes}
+top1 <- topN_marker(pbmc.markers, 1)
+
+gene_table <- gene_summary_table(top1, gene_col = 'gene', 
+    cluster_col = 'cluster', keyType='SYMBOL', output = "data.frame")
+
+gene_table
+```
+
+![](figures/marker_gene_summary.png)
+
+## Cell cluster annotation {#manual-annotation}
+
+```{r umap-pbmc-cell}
+new_labels <- c("CD8+ T","B","Memory CD4+","CD14+ Mono",
+    "NK","FCGR3A+ Mono","Native CD4+ T","Platelet")
+pbmc <- RenameIdents(pbmc, new_labels)
+DimPlot(pbmc, reduction="UMAP") + ggsc::sc_dim_geom_label()
+```
+
+## Automatic Annotation (SingleR)
+
+sclet provides `RunSingleR` to easily perform automatic annotation using SingleR.
+
+```{r run-singler, eval = FALSE}
+# This requires SingleR and celldex packages
+# It defaults to HumanPrimaryCellAtlasData if ref is not provided
+pbmc <- RunSingleR(pbmc)
+
+# View the results
+head(pbmc$SingleR_labels)
+
+# Visualize
+DimPlot(pbmc, reduction="UMAP") + 
+    ggplot2::aes(color = SingleR_labels)
+```
+
+
+
+<!--chapter:end:seurat-pbmc3k.Rmd-->
+
+# Batch Correction
+
+
+## Load datasets
+
+```{r pbmc3k4k}
+library(TENxPBMCData)
+
+pbmc3k <- TENxPBMCData(dataset = "pbmc3k")
+pbmc4k <- TENxPBMCData(dataset = "pbmc4k")
+```
+
+
+
+## Preprocess
+```{r pbmc3k4k-preprocess}
+library(sclet)
+
+sce_process <- function(sce) {
+  sce <- QCMetrics(sce)
+  sce[["percent.mt"]] <- PercentageFeatureSet(sce, "^MT-")
+  sce <- subset(sce, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+  sce <- NormalizeData(sce)
+  sce <- FindVariableFeatures(sce)
+  return(sce)
+}
+
+pbmc3k <- sce_process(pbmc3k)
+pbmc4k <- sce_process(pbmc4k)
+
+pbmc_list <- list(pbmc3k = pbmc3k, pbmc4k = pbmc4k)
+```
+
+## Batch correction
+
+```{r batch-remove}
+# Merge datasets
+combined_pbmc <- sce_merge(pbmc_list)
+
+# Batch correction
+rm_batch_pbmc <- BatchRemover(combined_pbmc)
+```
+
+## Clustering
+
+```{r clustering-batch}
+sce_clustering <- function(sce, assay = "logcounts", dims = 1:10) {
+  sce <- runPCA(sce, subset_row = VariableFeatures(sce), exprs_values = assay)
+  sce <- FindNeighbors(sce, dims = dims)
+  sce <- FindClusters(sce)
+  sce <- RunUMAP(sce, dims = dims)
+  return(sce)
+}
+
+combined_pbmc <- sce_clustering(combined_pbmc, assay="logcounts")
+
+rm_batch_pbmc <- sce_clustering(rm_batch_pbmc, assay = "reconstructed")
+
+```
+
+## Visualization
+
+
+```{r batch-umap, fig.width=13.5, fig.height=12}
+library(ggplot2)
+library(aplot)
+
+p1 <- DimPlot(combined_pbmc, reduction="UMAP", mapping=aes(color=batch)) 
+p2 <- DimPlot(rm_batch_pbmc, reduction="UMAP", mapping=aes(color=batch)) 
+p3 <- plot_list(Before=p1, After=p2)
+
+p4 <- DimPlot(rm_batch_pbmc, reduction="UMAP")
+
+plot_list(p3, p4, ncol=1, heights=c(1, 2))
+```
+
+## Pseudobulk Differential Expression
+
+sclet now supports pseudobulk analysis to perform robust differential expression between conditions/samples.
+
+```{r pseudobulk-de, eval = FALSE}
+# 1. Aggregate counts by cluster and batch (or sample)
+# This creates a pseudobulk SummarizedExperiment
+pb <- AggregateExpression(rm_batch_pbmc, group_by = c("label", "batch"))
+
+# 2. Perform DE analysis (using DESeq2)
+# Here we test for differences between batches within a specific cluster (e.g., cluster 1)
+# Note: Real analysis should have biological replicates, here we use batch as an example.
+
+# Filter for cluster 1 only
+pb_cluster1 <- pb[, pb$label == "1"]
+
+# Run DE: test for batch effect
+# design formula: ~ batch
+# contrast: batch pbmc4k vs pbmc3k
+res <- FindMarkers_pseudobulk(pb_cluster1, design = ~ batch, contrast = c("batch", "pbmc4k", "pbmc3k"))
+
+head(res)
+```
+
+
+
+
+
+
+<!--chapter:end:batch-correction.Rmd-->
+
+# Coarse-graining of large single-cell data into metacells using SuperCell {#supercell}
+
+
+Here, we use the `pbmc4k` dataset as presented in [Batch correction](https://yulab-smu.top/sclet/batch-correction.html#preprocess). 
+
+
+## `RunSuperCell` 
+
+
+The `RunSuperCell()` function is a wrapper function to run [SuperCell](https://github.com/GfellerLab/SuperCell).
+
+
+```{r run-SC}
+pbmc <- RunSuperCell(pbmc4k, gamma = 5)
+pbmc
+```
+
+
+The output of `RunSuperCell()` is a `SingleCellExperiment` object that stores gene expression matrix of metacells. 
+
+We can use it for downstram analysis.
+
+```{r supercell, fig.width=5, fig.height=4}
+post_process <- function(pbmc) {
+    pbmc <- NormalizeData(pbmc)
+    pbmc <- FindVariableFeatures(pbmc)
+    pbmc <- ScaleData(pbmc)
+    pbmc <- runPCA(pbmc, subset_row = VariableFeatures(pbmc), exprs_values = "scaled")
+    
+    pbmc <- FindNeighbors(pbmc, dims = 1:10)
+    pbmc <- FindClusters(pbmc)
+    pbmc <- RunUMAP(pbmc)
+    return(pbmc)
+}
+
+pbmc2 <- post_process(pbmc)
+
+library(ggsc)
+sc_dim(pbmc2, reduction="UMAP") + sc_dim_geom_label()
+```
+
+
+## Estimate SuperCell purity
+
+```{r SC-purity}
+
+pbmc4k2 <- post_process(pbmc4k)
+
+SC <- metadata(pbmc2)$SuperCell
+
+purity <- SuperCell::supercell_purity(pbmc4k2$label, SC$membership, method = 'entropy')
+
+head(purity)
+
+summary(purity)
+```
+
+<!--chapter:end:SuperCell.rmd-->
+
+# Cell type annotation 
+
+
+## Manual annotation
+
+Please refer to the [Cell cluster annotation](#manual-annotation) session. 
+
+
+## Automatic annotation
+
+
+### Run SingleR
+
+```{r run-singleR}
+library(SingleR)
+
+hpca <- celldex::HumanPrimaryCellAtlasData()
+hpca
+res <- SingleR(test = assay(pbmc, "logcounts"), ref = hpca, labels = hpca$label.main)
+head(res)
+
+
+dice <- celldex::DatabaseImmuneCellExpressionData()
+res2 <- SingleR(test = assay(pbmc, "logcounts"), ref = dice, labels = dice$label.main)
+head(res2)
+```
+
+### Annotate with SingleR result
+
+```{r annotation}
+pbmc[['hpca_label']] <- res$labels
+
+pbmc[['dice_label']] <- res2$labels
+```
+
+
+### Comparision with manual annotation result
+
+```{r annotation-comparison, fig.width=16, fig.height=6}
+x <- colData(pbmc)[, c("label", "hpca_label", "dice_label")]
+
+plot_list(
+    manual = sc_dim(pbmc, reduction="UMAP"),    
+    hpca = sc_dim(pbmc, reduction="UMAP", mapping=aes(color=hpca_label)),
+    dice = sc_dim(pbmc, reduction="UMAP", mapping=aes(color=dice_label)),
+    ncol = 3) & 
+sc_dim_geom_label(geom = ggrepel::geom_text_repel) & 
+theme(legend.position='inside')
+
+table(x[,c(1,2)])
+
+table(x[,c(1,3)])
+```
+
+
+<!--chapter:end:singleR.Rmd-->
+
+# Trajectory inference and RNA velocity {#trajectory}
+
+According to [Wikipedia](https://en.wikipedia.org/wiki/Trajectory_inference):
+
+> Trajectory inference or pseudotemporal ordering is a computational technique used in single-cell transcriptomics to determine the pattern of a dynamic process experienced by cells and then arrange cells based on their progression through the process.
+
+It should be noted that all trajectory inference methods are based on the current transcriptional state and the distance symmetry between cells. That is to say, the distance from cell A to cell B is equal to the distance from cell B to cell A. Therefore, the direction of the inferred trajectory is either missing (requiring user specification) or unreliable (using default settings).
+
+
+## Slingshot: cell lineage and pseudotime inference {#slingshot}
+
+
+```{r}
+panc <- readRDS("data/pancreas_sub_sce.rds")
+
+# RunSlingshot now uses cluster.labels instead of group
+panc <- RunSlingshot(object = panc, cluster.labels = "SubCellType", reduction = "UMAP")
+```
+
+
+
+
+### Lineage plot
+```{r lineage_plot, fig.width=7, fig.height=8}
+p1 <- lineage_plot(panc, group = "SubCellType") + 
+  sc_dim_geom_label(
+    geom = shadowtext::geom_shadowtext,
+    color='black', 
+    bg.color='white'
+  )
+
+
+## displayed selected lineages
+p2 <- lineage_plot(panc, group = "SubCellType", lineages = c("Lineage1", "Lineage2"))  + 
+  sc_dim_geom_label(
+    geom = shadowtext::geom_shadowtext,
+    color='black', 
+    bg.color='white'
+  )
+
+plot_list(`All Lineages` = p1, `Selected Lineages` = p2, ncol=1)
+```
+
+### Pseudotime plot
+
+```{r pseudotimeplot, fig.width=12, fig.height=10}
+pp1 <- pseudo_plot(panc, reduction = "UMAP", lineage = "Lineage1")
+pp2 <- pseudo_plot(panc, reduction = "UMAP", lineage = "Lineage2")
+pp_all <- pseudo_plot(panc, reduction = "UMAP")
+
+plot_list(pp1, pp2, pp_all, design="AABB\nCCCC")
+```
+
+
+### Expression trends in different cell trajectories
+
+```{r genecurve, fig.width=14, fig.height=8}
+curve_genes <- c("Mrpl15", "Tram1", "Ncoa2")
+
+## 默认选取smooth方法直接拟合得到的基因表达值结果来画图
+p_curve <- genecurve_plot(panc, features = curve_genes, method = "smooth")
+
+## 也可以用GAM计算预测的基因表达值来画图
+p_curve1 <- genecurve_plot(panc, features = curve_genes, method = "gam")
+
+plot_list(p_curve, p_curve1, ncol=1)
+```
+
+
+
+### Heatmap
+
+```{r pseudoheatmap, fig.width=10, fig.height=16}
+heatmap_genes <- head(unique(rownames(panc)), 10)
+
+## 默认按照拟时间排序
+hmp1 <- pseudo_heatmap(panc, features = heatmap_genes, lineage = "Lineage2")
+
+## 可以手动对基因或细胞设置聚类(cluster = TRUE)，此时会打乱pseudotime的排序
+hmp2 <- pseudo_heatmap(panc, features = heatmap_genes, lineage = "Lineage2", cluster_columns = TRUE)
+
+## 对基因聚类
+hmp3 <- pseudo_heatmap(panc, features = heatmap_genes, lineage = "Lineage2", cluster_rows = TRUE, sort = FALSE)
+
+## 默认排序
+hmp4 <- pseudo_heatmap(panc, features = heatmap_genes, lineage = "Lineage2", cluster_rows = FALSE, sort = TRUE)
+
+## 组合起来看就能看到两个参数的设定对行顺序的影响
+plot_list(hmp1, hmp2, hmp3, hmp4, ncol=1)
+```
+
+
+
+
+
+## RNA velocity {#Velocity}
+
+RNA metabolic process:
+
++ RNA is synthesized at a rate of alpha 
++ RNA is spliced to remove introns and form mature mRNA at rate of beta
++ Mature mRNA is degraded after functioning at rate of gamma
+
+The disruption of the equilibrium between unspliced and spliced RNA indicates whether a gene is in an induced or repressed state. 
+
+With RNA-seq, especially the Poly-A enrichment method, the propotion of unspliced RNA obtained is relatively small. Currently, there are also some techinques capable of enriching nascent RNA in single cells, such as [scSLAM-seq](https://www.nature.com/articles/s41586-019-1369-y) and s[cNT-seq](https://www.nature.com/articles/s41592-020-0935-4).
+
+
+Although some researchers are skeptical about RNA velocity, it has received significant attention because it can automatically detect the direction of trajectories.
+
+
+[scVelo](https://scvelo.readthedocs.io/) supports a full dynamical model and various of utility functions [@bergen_generalizing_2020]. It only supports Python and can be run in R using `r Biocpkg("velociraptor")`. 
+
+### Example data
+
+> This example is adopted from <https://www.bioconductor.org/packages/devel/bioc/vignettes/velociraptor/inst/doc/velociraptor.html>.
+
+
+```{r velocity-data}
+library(scRNAseq)
+sce <- HermannSpermatogenesisData()
+sce
+
+# first 500 cells for demonstration
+sce <- sce[, 1:500]
+```
+
+```{r velocity-hvgs}
+library(scuttle)
+sce <- logNormCounts(sce, assay.type=1)
+
+library(sclet)
+sce <- FindVariableFeatures(sce, method="scran")
+hvgs <- VariableFeatures(sce, method="scran")
+```
+
+### Run velocity analysis
+
+```{r velocity}
+library(velociraptor)
+
+velo.out <- scvelo(
+  sce, subset.row=hvgs, assay.X="spliced",
+  scvelo.params=list(neighbors=list(n_neighbors=30L))
+)
+
+velo.out
+```
+
+### Visualize velocity-based trajectory
+
+```{r velocity-plot, fig.width=12, fig.height=8.5}
+library(scater)
+
+set.seed(100)
+sce <- runPCA(sce, subset_row=hvgs)
+sce <- runTSNE(sce, dimred="PCA", perplexity = 30)
+
+sce$velocity_pseudotime <- velo.out$velocity_pseudotime
+
+embedded <- embedVelocity(reducedDim(sce, "TSNE"), velo.out)
+grid.df <- gridVectors(sce, embedded, use.dimred = "TSNE")
+
+
+require(ggsc)
+sc_dim(sce, reduction='TSNE', mapping=aes(color=velocity_pseudotime)) + 
+    scale_color_viridis_c() +
+    geom_segment(data=grid.df, 
+        mapping=aes(x=start.1, y=start.2, 
+            xend=end.1, yend=end.2, colour=NULL), 
+        arrow=arrow(length=unit(0.05, "inches")), alpha=.6)
+```
+
+<!--chapter:end:trajectory.Rmd-->
+
+# Milo: differential abundance
+
+`sclet` provides a lightweight wrapper around `miloR` for cell neighbourhood differential abundance (DA) analysis.
+The Milo functionality in `sclet` is an optional dependency: you need to install `miloR` to run the examples.
+
+## Requirements
+
+Before running Milo DA, prepare a `SingleCellExperiment` with:
+
+- `reducedDims(sce)$PCA`
+- `colData(sce)` containing a sample column and a condition column
+
+UMAP is optional (used for visualization only).
+
+## Two-group DA (GLM)
+
+```{r milo-glm, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE)}
+library(MouseThymusAgeing)
+library(scater)
+
+sce <- MouseSMARTseqData()
+colData(sce)$Sample <- paste(colData(sce)$SortDay, colData(sce)$Age, sep = "_")
+
+sce <- logNormCounts(sce)
+sce <- runPCA(sce)
+sce <- runUMAP(sce)
+
+res <- runMilo(
+  sce = sce,
+  sample_col = "Sample",
+  condition_col = "Age",
+  contrasts = c("Age1wk - Age4wk"),
+  k1 = 11, k2 = 11, d1 = 40, d2 = 40, prop = 0.2
+)
+
+da <- res$da_results
+table(da$SpatialFDR < 0.1)
+head(da)
+```
+
+## Multi-contrast testing
+
+Use `per_contrast = FALSE` to fit one model and test multiple contrasts jointly. Use `per_contrast = TRUE` to run each contrast and stack results.
+
+```{r milo-multi-contrast, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE)}
+contrasts <- c(
+  "Age1wk - Age4wk",
+  "Age4wk - Age16wk",
+  "Age16wk - Age32wk",
+  "Age32wk - Age52wk"
+)
+
+res2 <- runMilo(
+  sce = sce,
+  sample_col = "Sample",
+  condition_col = "Age",
+  contrasts = contrasts,
+  per_contrast = TRUE,
+  k1 = 11, k2 = 11, d1 = 40, d2 = 40, d3 = 40,
+  prop = 0.2,
+  refinement_scheme = "graph"
+)
+
+head(res2$da_results)
+```
+
+## GLMM (random intercept)
+
+When samples are not independent (e.g., repeated measures), a random intercept can help control correlation structure.
+
+```{r milo-glmm, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("scRNAseq", quietly = TRUE)}
+library(scRNAseq)
+library(scater)
+library(scran)
+library(scuttle)
+
+sce2 <- KotliarovPBMCData(mode = "rna", ensembl = TRUE)
+colData(sce2)$ObsID <- paste(colData(sce2)$tenx_lane, colData(sce2)$sampleid, sep = "_")
+
+set.seed(42)
+keep_samps <- sample(unique(colData(sce2)$ObsID), size = 40)
+sce2 <- sce2[, colData(sce2)$ObsID %in% keep_samps]
+
+sce2 <- logNormCounts(sce2)
+sce2 <- runPCA(sce2, ncomponents = 30)
+sce2 <- runUMAP(sce2, pca = 30)
+
+res3 <- runMilo(
+  sce = sce2,
+  sample_col = "ObsID",
+  condition_col = "adjmfc.time",
+  contrasts = c("adjmfc.timed0 high"),
+  glmm = TRUE,
+  random_effect = "tenx_lane",
+  k1 = 60, k2 = 60, d1 = 30, d2 = 30, d3 = 30,
+  prop = 0.05,
+  overlap = 25
+)
+
+head(res3$da_results)
+```
+
+## Refit after dropping separated neighbourhoods
+
+In GLMM mode, some neighbourhoods can show perfect separation and return unstable estimates. You can diagnose with `miloR::checkSeparation()` and refit after dropping those neighbourhoods.
+
+```{r milo-refit, eval = requireNamespace("miloR", quietly = TRUE) && exists("res3")}
+design_df <- res3$sce@metadata$milo_results$design_df
+
+bad_hood <- which(miloR::checkSeparation(
+  res3$milo,
+  design.df = design_df,
+  condition = "adjmfc.time",
+  min.val = 10
+))
+
+refit <- refit_milo(
+  milo = res3$milo,
+  design_df = design_df,
+  bad_hood = bad_hood,
+  formula = res3$sce@metadata$milo_results$formula,
+  contrasts = res3$sce@metadata$milo_results$contrasts,
+  glmm = TRUE,
+  old_results = res3$da_results
+)
+
+head(refit$da_clean)
+```
+
+<!--chapter:end:milo.Rmd-->
+
+# Functional Enrichment Analysis {#enrichment}
+
+`sclet` provides `RunEnrichment` to seamlessly perform GO/KEGG enrichment analysis on marker genes.
+
+## Load data and find markers
+
+```{r}
+library(sclet)
+sce <- readRDS("data/pancreas_sub_sce.rds")
+# Find markers for all clusters
+markers <- FindAllMarkers(sce, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+head(markers)
+```
+
+## GO Enrichment
+
+```{r go_enrich, fig.width=10, fig.height=8}
+# Ensure you have org.Mm.eg.db installed for Mouse data
+# or org.Hs.eg.db for Human
+library(org.Mm.eg.db) 
+
+go_res <- RunEnrichment(
+    markers, 
+    db = "GO", 
+    orgDb = "org.Mm.eg.db", 
+    keyType = "SYMBOL", 
+    ont = "BP"
+)
+
+library(enrichplot)
+dotplot(go_res, showCategory=5)
+```
+
+## KEGG Enrichment
+
+For KEGG, it is recommended to convert gene symbols to Entrez IDs first, or provide a column with Entrez IDs if available.
+
+```{r kegg_enrich, eval=FALSE}
+# Example if markers had ENTREZID
+# kegg_res <- RunEnrichment(markers_with_entrez, db = "KEGG", organism = "mmu")
+# dotplot(kegg_res)
+```
+
+<!--chapter:end:enrichment.Rmd-->
+
+# Interactive Data Exploration {#interactive}
+
+`sclet` integrates `iSEE` to provide a Shiny-based interactive explorer for your `SingleCellExperiment` objects.
+
+## Launch Explorer
+
+You can launch the explorer directly from your R console:
+
+```{r, eval=FALSE}
+library(sclet)
+sce <- readRDS("data/pbmc-3k-sce.qs")
+
+# Launch the app
+RunExplorer(sce)
+```
+
+This will open a web browser where you can:
+
+- Visualize reduced dimensions (UMAP, PCA)
+- Explore gene expression on the plot
+- Check column data (QC metrics, Clusters)
+- Select points and inspect data
+
+## Customization
+
+`RunExplorer` passes additional arguments to `iSEE::iSEE()`, allowing you to pre-configure panels.
+
+```{r, eval=FALSE}
+# Example: Start with just a ReducedDimensionPlot and a FeaturePlot
+library(iSEE)
+initial <- list(
+    ReducedDimensionPlot(PanelId=1L),
+    FeatureAssayPlot(PanelId=1L)
+)
+
+RunExplorer(sce, initial = initial)
+```
+
+<!--chapter:end:interactive.Rmd-->
+
+# Cell-cell communication
+
+
+## Input
+
+The `runCellChat()` function requires a `SingleCellExperiment` object that includes cell clustering information. For details, refer to the [Clustering](#FindClusters) session.
+
+The `group` parameter should reference a variable within the `SingleCellExperiment` object that holds the clustering data.
+
+Users can add their own clustering using the following commands:
+
+```
+colData(sce)$group_name <- group
+# OR
+sce[["group_name"]] <- group
+```
+
+
+## CellChat
+
+Wrapper function for CellChat^[<https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/CellChat-vignette.html#c-starting-from-a-singlecellexperiment-object>].
+
+```{r}
+library(sclet)
+library(aplot)
+
+# use demo data from CellChat, hmskin_sce
+sce <- qs::qread("data/hmskin_sce.qs")
+cci_obj <- runCellChat(sce, group = "labels")
+```
+
+## visulization
+```{r cci-1, fig.width=15, fig.height=8}
+groupSize <- as.numeric(table(cci_obj@idents))
+plot_list(
+    ~CellChat::netVisual_circle(cci_obj@net$count, 
+        vertex.weight = groupSize, weight.scale = T, 
+        label.edge= F, title.name = "Number of interactions"),
+    ~CellChat::netVisual_circle(cci_obj@net$weight, 
+        vertex.weight = groupSize, weight.scale = T, 
+        label.edge= F, title.name = "Interaction weights/strength")
+)
+```
+
+
+```{r cci-2, fig.width=7.5, fig.height=8}
+pathways.show <- c("CXCL") 
+vertex.receiver = seq(1,4) 
+# CellChat::netVisual_aggregate(cci_obj, signaling = pathways.show,  vertex.receiver = vertex.receiver)
+CellChat::netVisual_aggregate(cci_obj, signaling = pathways.show, layout = "circle")
+```
+
+
+```{r cci-3, fig.width=7.5, fig.height=8}
+CellChat::netVisual_aggregate(cci_obj, signaling = pathways.show, layout = "chord")
+```
+
+
+```{r cci-4, fig.width=6, fig.height=6}
+CellChat::netVisual_heatmap(cci_obj, signaling = pathways.show, color.heatmap = "Reds")
+```
+
+```{r cci-5, fig.width=6, fig.height=6}
+group.cellType <- c(rep("FIB", 4), rep("DC", 4), rep("TC", 4)) # grouping cell clusters into fibroblast, DC and TC cells
+names(group.cellType) <- levels(cci_obj@idents)
+CellChat::netVisual_chord_cell(cci_obj, signaling = pathways.show, group = group.cellType, title.name = paste0(pathways.show, " signaling network"))
+```
+
+
+```{r cci-6, fig.width=6, fig.height=6}
+CellChat::netAnalysis_contribution(cci_obj, signaling = pathways.show)
+```
+
+
+```{r cci-7, fig.width=6, fig.height=6}
+pairLR.CXCL <- CellChat::extractEnrichedLR(cci_obj, signaling = pathways.show, geneLR.return = FALSE)
+LR.show <- pairLR.CXCL[1,] 
+vertex.receiver = seq(1,4)
+# CellChat::netVisual_individual(cci_obj, signaling = pathways.show,  pairLR.use = LR.show, vertex.receiver = vertex.receiver)
+CellChat::netVisual_individual(cci_obj, signaling = pathways.show, pairLR.use = LR.show, layout = "circle")
+```
+
+
+```{r cci-8, fig.width=6, fig.height=6}
+CellChat::netVisual_individual(cci_obj, signaling = pathways.show, pairLR.use = LR.show, layout = "chord")
+```
+
+```{r cci-9, fig.width=5, fig.height=6}
+CellChat::netVisual_bubble(cci_obj, sources.use = 4, targets.use = c(5:11), remove.isolate = FALSE)
+```
+
+
+
+<!--chapter:end:cci.Rmd-->
+
+# SVP
+Robust analysis of 'gene set' activity in spatial or single-cell data.
+
+```{r}
+library(SpatialExperiment)
+library(SingleCellExperiment)
+library(scuttle)
+library(SVP)
+library(ggplot2)
+library(ggsc)
+```
+
+## runSGSA
+Calculate the activity of gene sets in spatial or single-cell data with restart walk with restart and hyper test weighted.
+sceSubPbmc is a small SingleCellExperiment data set from pbmck3 which contains 1304 genes and 800 cells (extract randomly).
+```{r}
+data(sceSubPbmc)
+sceSubPbmc <- scuttle::logNormCounts(sceSubPbmc)
+# the using runMCA to perform MCA (Multiple Correspondence Analysis)
+# this is refer to the CelliD, but we using the Eigen to speed up.
+# You can view the help information of runMCA using ?runMCA.
+sceSubPbmc <- runMCA(sceSubPbmc, assay.type = 'logcounts')
+```
+
+
+CellCycle.Hs is the S and G2M gene list are from the Seurat which refer to this article (doi:10.1126/science.aad050), the G1 gene list is from the G1_PHASE of Human Gene Set in MSigDB, but remove the duplicated records with S and G2M gene list.
+```{r}
+# Next, we can calculate the activity score of gene sets provided.
+# Here, we use the Cell Cycle gene set from the Seurat 
+# You can use other gene set, such as KEGG pathway, GO, Hallmark of MSigDB
+# or TFs gene sets etc.
+data(CellCycle.Hs)
+sceSubPbmc <- runSGSA(sceSubPbmc, gset.idx.list = CellCycle.Hs, gsvaExp.name = 'CellCycle')
+# Then a SVPE class which inherits SingleCellExperiment, is return.
+sceSubPbmc
+```
+
+```{r}
+# You can obtaion the score matrix by following the commond
+sceSubPbmc |> gsvaExp('CellCycle') 
+sceSubPbmc |> gsvaExp("CellCycle") |> assay() |> t() |> head()
+```
+
+```{r}
+# Then you can use the ggsc or other package to visulize
+# and you can try to use the findMarkers of scran or other packages to identify
+# the different gene sets.   
+sceSubPbmc <- sceSubPbmc |> 
+                scater::runPCA(assay.type = 'logcounts', ntop = 600) |>
+                scater::runUMAP(dimred = 'PCA')
+# withReducedDim = TRUE, the original reducetion results from original gene features
+# will be add the colData in the sce.cellcycle.
+sce.cellcycle <- sceSubPbmc |> gsvaExp('CellCycle', withReducedDim=TRUE)
+sce.cellcycle
+```
+
+```{r svp-cc-violin, fig.width=10, fig.height=10}
+sce.cellcycle |> sc_violin(
+                      features = rownames(sce.cellcycle), 
+                      mapping = aes(x=seurat_annotations, fill = seurat_annotations)
+                   ) + 
+                   scale_x_discrete(guide=guide_axis(angle=-45))
+```
+
+```{r svp-cc-s-umap, fig.width=10, fig.height=10}
+sce.cellcycle |> sc_feature(features= "S", reduction='UMAP')
+```
+
+```{r}
+library(scran)
+cellcycle.test.res <- sce.cellcycle |> findMarkers(
+                group = sce.cellcycle$seurat_annotations, 
+                test.type = 'wilcox', 
+                assay.type = 'affi.score', 
+                add.summary = TRUE
+                )
+cellcycle.test.res$B
+```
+
+## runLISA
+hpda_spe_cell_dec is the result of runSGSA with HPDA A sample from (doi:10.1038/s41587-019-0392-8). 
+Each item in the matrix is the marker gene set activity in the spot. The marker gene set represents the cell type.
+We can use svp the investigate if a cell type cluters and if two cell types appear in the same region.
+Usage of local indicators of spatial association (LISA) to identify the hotspot in the spatial space
+```{r}
+data(hpda_spe_cell_dec)
+
+# r$> assay(hpda_spe_cell_dec)[1:5,1:5]
+# 5 x 5 sparse Matrix of class "dgCMatrix"
+#                                             Spot1        Spot2        Spot3        Spot4        Spot5
+# Acinar cells                         3.283881e-04 6.931743e-06 4.820951e-05 1.882577e-03 9.269843e-04
+# Cancer clone A                       2.880388e-04 2.013973e-04 9.167013e-05 9.642225e-05 6.704812e-05
+# Cancer clone B                       1.569730e-04 2.744810e-04 2.151324e-04 1.502651e-05 4.283322e-06
+# Ductal APOL1 high-hypoxic            3.132481e-05 3.902286e-04 4.240874e-05 3.140970e-06 1.464118e-04
+# Ductal CRISP3 high-centroacinar like 9.546611e-05 5.025320e-03 2.112512e-03 1.140155e-03 3.873088e-03
+
+svres <- runDetectSVG(hpda_spe_cell_dec, assay.type = 'affi.score', 
+                      method = 'moransi', action = 'only') 
+
+# r$> svres |> dplyr::arrange(rank) |> head()
+#                                            obs expect.moransi sd.moransi Z.moransi        pvalue          padj rank
+# Cancer clone A                       0.7086916    -0.00234192 0.02803920  25.35855 3.616015e-142 7.232030e-141    1
+# Acinar cells                         0.6958980    -0.00234192 0.02788076  25.04379 1.020141e-138 1.020141e-137    2
+# Cancer clone B                       0.6586104    -0.00234192 0.02803039  23.57985 3.102650e-123 2.068434e-122    3
+# mDCs A                               0.5824019    -0.00234192 0.02760394  21.18334 6.801396e-100  3.400698e-99    4
+# Ductal CRISP3 high-centroacinar like 0.5605955    -0.00234192 0.02794187  20.14673  1.437344e-90  5.749375e-90    5
+# Endothelial cells                    0.5362475    -0.00234192 0.02757573  19.53128  2.976221e-85  9.920735e-85    6
+```
+
+
+```{r}
+lisa.res12 <- hpda_spe_cell_dec |>
+   runLISA(
+     features = c(1, 2, 3), 
+     assay.type = 'affi.score',
+     weight.method = "knn",
+     k = 10,
+     action = 'get',
+   )
+lisa.res12
+lisa.res12[['Acinar cells']] |> head()
+lisa.res12[["Cancer clone A"]] |> head()
+colData(hpda_spe_cell_dec)$`cluster.test.Cancer.A` <- lisa.res12[["Cancer clone A"]] |>
+dplyr::pull(cluster.test)
+colData(hpda_spe_cell_dec)$`cluster.test.Acinar` <- lisa.res12[["Acinar cells"]] |>
+dplyr::pull(cluster.test)
+colData(hpda_spe_cell_dec)$`cluster.test.Cancer.B` <- lisa.res12[["Cancer clone B"]] |>
+dplyr::pull(cluster.test)
+```
+
+```{r svp-hpda-spatial-1, fig.width=10, fig.height=10}
+p1 <- sc_spatial(hpda_spe_cell_dec,
+            features = rownames(hpda_spe_cell_dec),
+            mapping = aes(x=x, y=y, color=cluster.test.Cancer.A),
+            plot.pie = T,
+            pie.radius.scale = .8,
+            bg_circle_radius = 1.1,
+            color=NA,
+            linewidth=2
+) + scale_color_manual(values=c("black", "white"))
+p1
+```
+
+
+```{r svp-hpda-spatial-2, fig.width=10, fig.height=10}
+f1 <- sc_spatial(hpda_spe_cell_dec, features="Cancer clone A",
+            mapping=aes(x = x, y = y),
+            pointsize=10) + 
+        geom_scattermore2(mapping = aes(bg_color=cluster.test.Cancer.A, 
+                          subset=cluster.test.Cancer.A=="High"),
+                          bg_line_width = .16,
+                          gap_line_width = .14,
+                          pointsize = 7) +
+        scale_bg_color_manual(values=c('black'))
+f1
+```
+
+
+```{r svp-hpda-spatial-3, fig.width=10, fig.height=10}
+
+f2 <- sc_spatial(hpda_spe_cell_dec, features="Acinar cells",
+            mapping=aes(x=x,y=y),
+            pointsize=10) +
+        geom_scattermore2(mapping = aes(bg_color=cluster.test.Acinar, subset=cluster.test.Acinar=="High"),
+                          bg_line_width = .16,
+                          gap_line_width = .14,
+                          pointsize = 7) +
+        scale_bg_color_manual(values=c('black'))
+f2
+```
+
+
+
+```{r svp-hpda-spatial-4, fig.width=10, fig.height=10}
+f3 <- sc_spatial(hpda_spe_cell_dec, features="Cancer clone B",
+            mapping=aes(x=x,y=y),
+            pointsize=10) +
+        geom_scattermore2(mapping = aes(bg_color=cluster.test.Cancer.B, subset=cluster.test.Cancer.B=="High"),
+                          bg_line_width = .18,
+                          gap_line_width = .14,
+                          pointsize = 8) +
+        scale_bg_color_manual(values=c('black'))
+f3
+```
+
+
+## runLOCALBV
+explore the local bivariate relationship in the spatial space.
+```{r eval = FALSE}
+res1 <- hpda_spe_cell_dec |> runLOCALBV(
+          features1 = 'Cancer clone A', 
+          features2 = 'Cancer clone B', 
+          assay.type='affi.score'
+        )
+res1
+res1[['Cancer clone A_VS_Cancer clone B']] |> head()
+
+
+#        LocalLee           Gi       E.Gi       Var.Gi       Z.Gi Pr (z > E(Gi)) cluster.no.test cluster.test
+# Spot1 0.2656572 0.0007993283 0.00234192 1.685012e-06 -1.1883644      0.8826551             Low       NoSign
+# Spot2 0.1928726 0.0006520670 0.00234192 3.060135e-06 -0.9660035      0.8329788             Low       NoSign
+# Spot3 0.2098906 0.0007134499 0.00234192 2.544445e-06 -1.0209003      0.8463492             Low       NoSign
+# Spot4 0.2609793 0.0007131499 0.00234192 2.545557e-06 -1.0208654      0.8463409             Low       NoSign
+# Spot5 0.1769749 0.0007300670 0.00234192 3.059710e-06 -0.9214789      0.8215998             Low       NoSign
+# Spot6 0.1736672 0.0004656579 0.00234192 2.175086e-06 -1.2721999      0.8983489             Low       NoSign
+```
+
+<!--chapter:end:svp.Rmd-->
+
+# Interoperability
+
+`sclet` aims to bridge the gap between Seurat, SingleCellExperiment (SCE), and Python's AnnData.
+
+## Seurat and SCE Conversion
+
+We provide simple wrappers to convert between Seurat and SCE objects.
+
+```r
+library(sclet)
+
+# SCE to Seurat
+# seurat_obj <- as.Seurat(sce_obj)
+
+# Seurat to SCE
+# sce_obj <- as.SCE(seurat_obj)
+```
+
+## AnnData (h5ad)
+
+Python's AnnData format (.h5ad) is widely used. `sclet` wraps `zellkonverter` to provide easy read/write functions.
+
+```r
+# Read h5ad
+# sce <- ReadH5AD("path/to/data.h5ad")
+
+# Write h5ad
+# WriteH5AD(sce, "path/to/output.h5ad")
+```
+
+This allows you to easily move data between R and Python environments, leveraging the best tools from both ecosystems (e.g. `sclet`/Bioconductor in R and `scanpy` in Python).
+
+<!--chapter:end:interoperability.Rmd-->
+
+\printindex
+\backmatter
+
+\newpage
+
+# References {-}
+
+
+
+
+
+<!--chapter:end:B-references.Rmd-->
+

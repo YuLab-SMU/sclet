@@ -32,17 +32,24 @@ geometry: "left=35mm,right=35mm,top=25mm,bottom=25mm"
 
 
 ```{r setup, include=FALSE}
-library(conflicted)
-library(sclet)
-library(aplot)
-library(ggplot2)
-library(ggsc)
-library(yulab.utils)
+library(knitr)
+eval_chunks <- tolower(Sys.getenv("SCLET_BOOKDOWN_EVAL", "true")) %in% c("true", "1", "yes")
+
+if (eval_chunks) {
+  library(conflicted)
+  library(sclet)
+  library(aplot)
+  library(ggplot2)
+  library(ggsc)
+  library(yulab.utils)
+  Biocpkg <- yulab.utils::Biocpkg
+} else {
+  Biocpkg <- function(x) x
+}
 
 options(width=60)
 
-library(knitr)
-opts_chunk$set(message=FALSE, warning=FALSE, eval=TRUE, echo=TRUE, cache=TRUE)
+opts_chunk$set(message=FALSE, warning=FALSE, eval=eval_chunks, echo=TRUE, cache=TRUE)
 ```
 
 
