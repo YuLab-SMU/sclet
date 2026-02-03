@@ -63,14 +63,29 @@ RenameIdents <- function(object, new_ids) {
     old_ids <- colLabels(object)
     lv <- levels(old_ids)
 
-    if (!is.null(names(new_ids))) {
-        new_ids <- new_ids[lv]
+    if (is.null(old_ids)) {
+        stop("No identities found in 'object'. Please run FindClusters() first.")
+    }
+
+    if (is.null(names(new_ids))) {
+        if (length(new_ids) == 1) {
+            labels <- rep(new_ids, length(lv))
+        } else {
+            if (length(new_ids) != length(lv)) {
+                stop("`new_ids` must have length equal to number of identity levels, or be a named vector mapping old->new.")
+            }
+            labels <- new_ids
+        }
+    } else {
+        labels <- lv
+        matched <- intersect(names(new_ids), lv)
+        labels[match(matched, lv)] <- unname(new_ids[matched])
     }
 
     colLabels(object) <- factor(
         old_ids, 
         levels = lv, 
-        labels = new_ids
+        labels = labels
     )
     
     return(object)
