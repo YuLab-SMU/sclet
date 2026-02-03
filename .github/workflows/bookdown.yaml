@@ -60,7 +60,7 @@ jobs:
       - name: Install dependencies
         run: |
           Rscript -e 'install.packages(c("remotes","BiocManager"))'
-          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); install.packages(c("bookdown","rmarkdown","knitr","qs","shadowtext","conflicted","aplot","ggplot2","ggsc","yulab.utils"))'
+          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); install.packages(c("bookdown","rmarkdown","knitr","qs","shadowtext","conflicted","aplot","ggplot2","ggsc","yulab.utils","pkgbuild"))'
           Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); if (!requireNamespace("qs", quietly = TRUE)) remotes::install_github("qsbase/qs", upgrade = "never"); stopifnot(requireNamespace("qs", quietly = TRUE))'
           Rscript -e 'BiocManager::install(c("clusterProfiler","scater","scran","scuttle","TENxPBMCData","scRNAseq","MouseThymusAgeing","SingleR","celldex","DropletUtils","SingleCellExperiment","SummarizedExperiment","velociraptor","SpatialExperiment","enrichplot","org.Mm.eg.db","iSEE"), ask = FALSE, update = FALSE)'
           Rscript -e 'remotes::install_deps("sclet-src", dependencies = c("Depends","Imports","LinkingTo"), upgrade = "never")'
