@@ -50,7 +50,14 @@ NormalizeData <- function(object, scale.factor = 10000) {
     # }
     
     # Use scuttle::logNormCounts which is standard for SCE
-    object <- scuttle::logNormCounts(object, scale=scale.factor, name="logcounts")
+    libsize <- MatrixGenerics::colSums(SummarizedExperiment::assay(object, "counts"))
+    size_factors <- libsize / scale.factor
+    object <- scuttle::logNormCounts(
+        object,
+        size.factors = size_factors,
+        center.size.factors = FALSE,
+        name = "logcounts"
+    )
     
     return(object)
 }
