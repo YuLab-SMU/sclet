@@ -10,7 +10,7 @@
 #' @param k.knn number of nearest neighbors to build KNN graph
 #' @return SingleCellExperiment object
 #' @export
-RunSuperCell <- function(object, assay = "logcounts", nHVG = 2000, hvg_method = "seurat",
+RunSuperCell <- function(object, assay = "logcounts", nHVG = 2000, hvg_method = "scran",
                         cellname = "Barcode", gamma = 20, k.knn = 5) {
 
   if (!requireNamespace("SuperCell", quietly = TRUE)) {

@@ -75,8 +75,14 @@ NormalizeData <- function(object, scale.factor = 10000) {
 #' @importFrom SummarizedExperiment 'rowData<-'
 #' @importFrom stats loess
 #' @export
-FindVariableFeatures <- function(object, nfeatures = 2000, method = "seurat", ...) {
+FindVariableFeatures <- function(object, nfeatures = 2000, method = "scran", ...) {
     method <- match.arg(method, c("seurat", "scran"))
+
+    rn <- rownames(object)
+    if (is.null(rn)) {
+        rn <- as.character(seq_len(nrow(object)))
+        rownames(object) <- rn
+    }
 
     if (method == "seurat") {
         if (!requireNamespace("Seurat", quietly = TRUE)) {
@@ -84,14 +90,31 @@ FindVariableFeatures <- function(object, nfeatures = 2000, method = "seurat", ..
              hvf.info <- scran::modelGeneVar(object, ...)
              method <- "scran"
         } else {
-             hvf.info <- FindVariableFeatures_seurat(object)
+             cm <- counts(object)
+             use_seurat <- inherits(cm, "dgCMatrix")
+             if (!use_seurat) {
+                 warning("Counts matrix is not a dgCMatrix. Falling back to scran method.")
+                 hvf.info <- scran::modelGeneVar(object, ...)
+                 method <- "scran"
+             } else {
+                 hvf.info <- tryCatch(
+                     FindVariableFeatures_seurat(object),
+                     error = function(e) NULL
+                 )
+                 if (is.null(hvf.info)) {
+                     warning("Seurat method failed. Falling back to scran method.")
+                     hvf.info <- scran::modelGeneVar(object, ...)
+                     method <- "scran"
+                 }
+             }
         }
     } else {
         hvf.info <- scran::modelGeneVar(object, ...)
     }
 
+    hvf.info <- hvf.info[rn, , drop = FALSE]
     rd <- rowData(object)
-    SummarizedExperiment::rowData(object) <- cbind(rd, hvf.info[rownames(rd),])
+    SummarizedExperiment::rowData(object) <- cbind(rd, hvf.info)
     object@metadata$nVariableFeatures <- nfeatures
     object@metadata$hvgmethod <- method
     object@metadata$hvgcols <- names(hvf.info)
@@ -157,7 +180,7 @@ FindVariableFeatures_seurat <- function(object) {
 #' @param ... additional parameters for 'method = "scran"', see also `scran::getTopHVGs()`
 #' @return highly variable features
 #' @export
-VariableFeatures <- function(object, method = "seurat", ...) {
+VariableFeatures <- function(object, method = "scran", ...) {
     method <- match.arg(method, c("seurat", "scran"))
 
     nfeatures <- object@metadata$nVariableFeatures

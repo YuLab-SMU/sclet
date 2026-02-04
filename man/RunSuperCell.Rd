@@ -8,7 +8,7 @@ RunSuperCell(
   object,
   assay = "logcounts",
   nHVG = 2000,
-  hvg_method = "seurat",
+  hvg_method = "scran",
   cellname = "Barcode",
   gamma = 20,
   k.knn = 5

@@ -4,7 +4,7 @@
 \alias{VariableFeatures}
 \title{VariableFeatures}
 \usage{
-VariableFeatures(object, method = "seurat", ...)
+VariableFeatures(object, method = "scran", ...)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}

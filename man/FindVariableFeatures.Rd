@@ -4,7 +4,7 @@
 \alias{FindVariableFeatures}
 \title{FindVariableFeatures}
 \usage{
-FindVariableFeatures(object, nfeatures = 2000, method = "seurat", ...)
+FindVariableFeatures(object, nfeatures = 2000, method = "scran", ...)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
