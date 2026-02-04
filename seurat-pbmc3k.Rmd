@@ -65,8 +65,8 @@ plot_list(p1, p2)
 
 ```{r variablefeatureplot-pbmc, fig.width=10, fig.height=7.5}
 pbmc <- NormalizeData(pbmc)
-pbmc <- FindVariableFeatures(pbmc)
-top10 <- head(VariableFeatures(pbmc), 10)
+pbmc <- FindVariableFeatures(pbmc, method = "seurat")
+top10 <- head(VariableFeatures(pbmc, method = "seurat"), 10)
 top10
 VariableFeaturePlot(pbmc, label = top10)
 ```
@@ -75,7 +75,7 @@ VariableFeaturePlot(pbmc, label = top10)
 
 ```{r elbowplot-pbmc, fig.width=10, fig.height=7}
 pbmc <- ScaleData(pbmc)
-pbmc <- runPCA(pbmc, subset_row = VariableFeatures(pbmc), exprs_values = "scaled")
+pbmc <- runPCA(pbmc, subset_row = VariableFeatures(pbmc, method = "seurat"), exprs_values = "scaled")
 ElbowPlot(pbmc)
 ```
 
