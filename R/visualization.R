@@ -54,31 +54,58 @@ FeatureScatter <- function(object, feature1, feature2) {
 #' @title VariableFeaturePlot
 #' @param object a SingleCellExperiment object
 #' @param label display selected features
+#' @param method one of 'seurat' or 'scran'. If NULL, use stored method or infer from rowData.
 #' @return scatter plot
 #' @export
 #' @importFrom ggrepel geom_text_repel
 #' @importFrom ggplot2 scale_x_log10
 #' @importFrom ggplot2 xlab
 #' @importFrom ggplot2 scale_color_manual
-VariableFeaturePlot <- function(object, label = NULL) {
+VariableFeaturePlot <- function(object, label = NULL, method = NULL) {
     d <- as.data.frame(rowData(object))
-    d$type <- "Non-variable"
-    d$type[d$Symbol %in% VariableFeatures(object)] <- "Variable"
-    legend <- sprintf("%s count: %d", unique(d$type), table(d$type))
+    gene <- if ("Symbol" %in% names(d)) d$Symbol else rownames(object)
+    d$gene <- gene
 
-    p <- ggplot(d, aes(.data$mean, .data$variance.standardized)) + 
+    if (is.null(method)) method <- object@metadata$hvgmethod
+    if (is.null(method)) {
+        method <- if ("variance.standardized" %in% names(d)) "seurat" else "scran"
+    }
+    method <- match.arg(method, c("seurat", "scran"))
+
+    if (method == "seurat") {
+        ycol <- "variance.standardized"
+        ylab_txt <- "Standardized Variance"
+    } else {
+        if ("bio" %in% names(d)) {
+            ycol <- "bio"
+            ylab_txt <- "Biological Variance"
+        } else if ("total" %in% names(d)) {
+            ycol <- "total"
+            ylab_txt <- "Total Variance"
+        } else {
+            stop("scran HVG stats not found in rowData(): expect column 'bio' or 'total'.")
+        }
+    }
+
+    hvgs <- VariableFeatures(object, method = method)
+    d$type <- "Non-variable"
+    d$type[d$gene %in% hvgs] <- "Variable"
+    tab <- table(d$type)
+    legend <- sprintf("%s count: %d", names(tab), as.integer(tab))
+
+    p <- ggplot(d, aes(.data$mean, .data[[ycol]])) + 
         geom_point(aes(color = .data$type)) + 
         scale_x_log10() +
         xlab("Average Expression") + 
-        ylab("Standardized Variance") +
+        ylab(ylab_txt) +
         scale_color_manual(values = c("black", "red"), name="", labels=legend) +
         theme_classic()
 
     if (is.null(label)) return(p)
 
-    d2 <- d[d$Symbol %in% label, ]
+    d2 <- d[d$gene %in% label, ]
     p + ggrepel::geom_text_repel(
-            aes(label = .data$Symbol), 
+            aes(label = .data$gene), 
             data = d2
         )
 }

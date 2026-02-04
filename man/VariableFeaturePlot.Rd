@@ -4,12 +4,14 @@
 \alias{VariableFeaturePlot}
 \title{VariableFeaturePlot}
 \usage{
-VariableFeaturePlot(object, label = NULL)
+VariableFeaturePlot(object, label = NULL, method = NULL)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
 \item{label}{display selected features}
+
+\item{method}{one of 'seurat' or 'scran'. If NULL, use stored method or infer from rowData.}
 }
 \value{
 scatter plot
