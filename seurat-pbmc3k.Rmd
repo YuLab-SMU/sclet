@@ -68,7 +68,7 @@ pbmc <- NormalizeData(pbmc)
 pbmc <- FindVariableFeatures(pbmc, method = "seurat")
 top10 <- head(VariableFeatures(pbmc, method = "seurat"), 10)
 top10
-VariableFeaturePlot(pbmc, label = top10)
+VariableFeaturePlot(pbmc, label = top10, method = "seurat")
 ```
 
 ## Dimensional reduction
