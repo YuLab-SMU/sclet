@@ -121,9 +121,30 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
   #提取高度可变基因
   method <- get_hvg_method(sce)
   
+  # DEBUG
+  message("[DEBUG] BatchRemover called.")
+  message("[DEBUG] hvg method: ", if(is.null(method)) "NULL" else method)
+  message("[DEBUG] hvginfo colnames: ", paste(colnames(hvginfo), collapse=", "))
+
   if (is.null(HVG)) {    
     if (method == "scran") {
-      HVG <- scran::getTopHVGs(hvginfo, nHVG)
+      var_field <- "bio"
+      if (!"bio" %in% colnames(hvginfo)) {
+          message("[WARNING] 'bio' column missing for scran method. Checking alternatives...")
+          if ("variance.standardized" %in% colnames(hvginfo)) {
+              message("[INFO] Found 'variance.standardized', switching to Seurat-like HVG selection.")
+              HVG <- getTopHVGs_seurat(hvginfo, nHVG)
+              # avoid calling scran::getTopHVGs below
+              var_field <- NULL 
+          } else if ("total" %in% colnames(hvginfo)) {
+              message("[INFO] Using 'total' variance as 'bio' is missing.")
+              var_field <- "total"
+          }
+      }
+      
+      if (!is.null(var_field)) {
+          HVG <- scran::getTopHVGs(hvginfo, nHVG, var.field = var_field)
+      }
     } else {
       HVG <- getTopHVGs_seurat(hvginfo, nHVG)
     }
@@ -211,6 +232,9 @@ sce_merge <- function(sce_list, combineVarParams = list(equiweight = TRUE, ncell
   combineVarParams$all.batches <- sce_list
   combined_hvginfo <- do.call(CombineVariableFeatures, combineVarParams)
   
+  # DEBUG
+  message("[DEBUG] sce_merge: combined_hvginfo colnames: ", paste(colnames(combined_hvginfo), collapse=", "))
+
   hvg_temp <- setdiff(colnames(rowData(sce_list[[1]])),colnames(combined_hvginfo))
   rowdata_combined <- cbind(rowData(sce_list[[1]])[,hvg_temp],combined_hvginfo)
 
