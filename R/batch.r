@@ -235,6 +235,9 @@ sce_merge <- function(sce_list, combineVarParams = list(equiweight = TRUE, ncell
     metadata = metadata_combined
   )
   
+  combined_sce@metadata$hvgmethod <- get_hvg_method(sce_list[[1]])
+  combined_sce@metadata$hvgcols <- colnames(combined_hvginfo)
+  
   combined_sce$batch <- factor(rep(seq_along(sce_list), sapply(sce_list, ncol)))
   
   return(combined_sce)
