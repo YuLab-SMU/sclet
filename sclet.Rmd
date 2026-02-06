@@ -144,14 +144,14 @@ ElbowPlot(pbmc)
 ```
 
 ## Clustering {#FindClusters}
-
-```{r}
-set.seed(2024-10-01)
-pbmc <- FindNeighbors(pbmc, dims = 1:10)
-pbmc <- FindClusters(pbmc)
-
-head(Idents(pbmc), 5)
-```
+ 
+ ```{r}
+ set.seed(2024-10-01)
+ pbmc <- FindNeighbors(pbmc, dims = 1:10)
+ pbmc <- FindClusters(pbmc, resolution = 0.5)
+ 
+ head(Idents(pbmc), 5)
+ ```
 
 
 ## UMAP
@@ -212,13 +212,13 @@ gene_table
 ![](figures/marker_gene_summary.png)
 
 ## Cell cluster annotation {#manual-annotation}
-
-```{r umap-pbmc-cell}
-new_labels <- c("CD8+ T","B","Memory CD4+","CD14+ Mono",
-    "NK","FCGR3A+ Mono","Native CD4+ T","Platelet")
-pbmc <- RenameIdents(pbmc, new_labels)
-DimPlot(pbmc, reduction="UMAP") + ggsc::sc_dim_geom_label()
-```
+ 
+ ```{r umap-pbmc-cell}
+ new_labels <- c("Native CD4+ T", "Memory CD4+", "CD14+ Mono", "B",
+     "CD8+ T", "FCGR3A+ Mono", "NK", "DC", "Platelet")
+ pbmc <- RenameIdents(pbmc, new_labels)
+ DimPlot(pbmc, reduction="UMAP") + ggsc::sc_dim_geom_label()
+ ```
 
 ## Automatic Annotation (SingleR)
 
