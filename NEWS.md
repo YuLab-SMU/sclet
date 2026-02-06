@@ -1,5 +1,8 @@
-# sclet 0.99.1
+# sclet 0.99.2
 
++ Performance improvement: `FindAllMarkers()` uses `presto` for faster calculation (2026-02-06, Fri)
++ Bug fix: `BatchRemover()` robustness improvements (2026-02-06, Fri)
++ Internal: Renamed source files from `.r` to `.R` (2026-02-06, Fri)
 + `runMilo` and `refit_milo` for Milo differential abundance analysis (2026-01-30, Fri)
 
 # sclet 0.99.1

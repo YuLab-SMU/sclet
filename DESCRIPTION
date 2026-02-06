@@ -63,6 +63,7 @@ Suggests:
     SuperCell,
     iSEE,
     org.Hs.eg.db,
+    presto,
     testthat (>= 3.0.0)
 License: Artistic-2.0
 Encoding: UTF-8
@@ -73,4 +74,5 @@ Remotes:
     YuLab-SMU/ggsc,
     YuLab-SMU/yulab.utils,
     YuLab-SMU/fanyi,
-    jinworks/CellChat
+    jinworks/CellChat,
+    immunogenomics/presto

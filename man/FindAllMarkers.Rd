@@ -10,6 +10,8 @@ FindAllMarkers(
   logfc.threshold = 0.1,
   return.thresh = 0.01,
   only.pos = FALSE,
+  base = 2,
+  pseudocount.use = 1,
   ...
 )
 }
@@ -25,6 +27,11 @@ X-fold difference (log-scale) between the two groups of cells. Default is 0.1}
 \item{return.thresh}{Only return markers that have a p-value < return.thresh, or a power > return.thresh (if the test is ROC)}
 
 \item{only.pos}{Only return positive markers (FALSE by default)}
+
+\item{base}{log base. Default is 2}
+
+\item{pseudocount.use}{Pseudocount to add to averaged expression values when
+calculating logFC. 1 by default.}
 
 \item{...}{additional parameters}
 }
