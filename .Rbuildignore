@@ -6,3 +6,5 @@
 ^dev-plan\\.md$
 ^\\.github$
 ^runMilo_v2$
+.github
+README.Rmd

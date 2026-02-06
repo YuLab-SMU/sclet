@@ -4,7 +4,7 @@
 \alias{FindClusters}
 \title{FindClusters}
 \usage{
-FindClusters(object, resolution = 1)
+FindClusters(object, resolution = 0.5)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
