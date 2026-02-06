@@ -23,7 +23,7 @@ FindNeighbors <- function(object, dims, k = 10) {
 #' @importFrom igraph cluster_louvain
 # @importFrom SingleCellExperiment 'colLabels<-'
 #' @export
-FindClusters <- function(object, resolution = 1) {
+FindClusters <- function(object, resolution = 0.5) {
     g <- object@metadata$knn_graph
     clusters <- igraph::cluster_louvain(g, resolution=resolution)
     

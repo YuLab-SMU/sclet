@@ -181,6 +181,9 @@ FindVariableFeatures_seurat <- function(object) {
 #' @return highly variable features
 #' @export
 VariableFeatures <- function(object, method = "scran", ...) {
+    if (missing(method) && !is.null(object@metadata$hvgmethod)) {
+        method <- object@metadata$hvgmethod
+    }
     method <- match.arg(method, c("seurat", "scran"))
 
     nfeatures <- object@metadata$nVariableFeatures
@@ -189,7 +192,9 @@ VariableFeatures <- function(object, method = "scran", ...) {
     }
 
     if (method == "scran") {
-        res <- scran::getTopHVGs(object, n=nfeatures, ...)
+        # Pass rowData instead of object to avoid assay access issues 
+        # when assays are missing (e.g. after BatchRemover)
+        res <- scran::getTopHVGs(SummarizedExperiment::rowData(object), n=nfeatures, ...)
     } else {
         res <- getTopHVGs_seurat(object, n=nfeatures)
     }

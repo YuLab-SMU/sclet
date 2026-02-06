@@ -113,7 +113,6 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
   #默认设置5000，结果图会好看一点不会是密密的团
   if (is.null(nHVG)) {
     nHVG <- sce@metadata$nVariableFeatures
-    message("nHVG is automatically set to ", nHVG, '.')
   }
   
   hvginfo <- rowData(sce)
@@ -121,7 +120,6 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
   #提取高度可变基因
   method <- get_hvg_method(sce)
   
-
   if (is.null(HVG)) {    
     # Fix: Check if method is NULL first to avoid comparison error
     if (is.null(method)) {
@@ -142,6 +140,7 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
           HVG <- scran::getTopHVGs(hvginfo, nHVG, var.field = var_field)
       }
     } else {
+      # seurat
       HVG <- getTopHVGs_seurat(hvginfo, nHVG)
     }
   }
@@ -150,7 +149,6 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
   corrected <- batchelor::batchCorrect(sce, batch = batch, 
                                        subset.row = HVG, PARAM = PARAM, 
                                        restrict = restrict, correct.all = correct.all) 
-  
   
   corrected@metadata <- sce@metadata
   corrected@metadata$nVariableFeatures <- nHVG
