@@ -75,4 +75,5 @@ Remotes:
     YuLab-SMU/yulab.utils,
     YuLab-SMU/fanyi,
     jinworks/CellChat,
-    immunogenomics/presto
+    immunogenomics/presto,
+    GfellerLab/SuperCell
