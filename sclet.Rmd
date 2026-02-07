@@ -148,7 +148,7 @@ ElbowPlot(pbmc)
  ```{r}
  set.seed(2024-10-01)
  pbmc <- FindNeighbors(pbmc, dims = 1:10)
- pbmc <- FindClusters(pbmc, resolution = 0.5)
+ pbmc <- FindClusters(pbmc, resolution = 0.9)
  
  head(Idents(pbmc), 5)
  ```
@@ -214,8 +214,7 @@ gene_table
 ## Cell cluster annotation {#manual-annotation}
  
  ```{r umap-pbmc-cell}
- new_labels <- c("Native CD4+ T", "Memory CD4+", "CD14+ Mono", "B",
-     "CD8+ T", "FCGR3A+ Mono", "NK", "DC", "Platelet")
+ new_labels <- c("CD8+ T", "B", "Memory CD4+", "CD14+ Mono", "NK", "FCGR3A+ Mono", "Naive CD4+ T", "DC", "Platelet")
  pbmc <- RenameIdents(pbmc, new_labels)
  DimPlot(pbmc, reduction="UMAP") + ggsc::sc_dim_geom_label()
  ```
@@ -246,11 +245,18 @@ DimPlot(pbmc, reduction="UMAP") +
 
 ## Load datasets
 
+We load the PBMC 3k and 4k datasets using `TENxPBMCData`. Note that these datasets use Ensembl IDs as row names by default. To facilitate downstream analysis (e.g., cell type annotation with `SingleR` which requires Gene Symbols matching the reference), we map the Ensembl IDs to Gene Symbols. We use `scuttle::uniquifyFeatureNames()` to perform this mapping while ensuring that the resulting row names remain unique.
+
 ```{r pbmc3k4k}
 library(TENxPBMCData)
+library(scuttle)
 
 pbmc3k <- TENxPBMCData(dataset = "pbmc3k")
+# Replace Ensembl IDs with Gene Symbols (ensuring uniqueness) for compatibility with downstream tools
+rownames(pbmc3k) <- scuttle::uniquifyFeatureNames(rownames(pbmc3k), rowData(pbmc3k)$Symbol_TENx)
+
 pbmc4k <- TENxPBMCData(dataset = "pbmc4k")
+rownames(pbmc4k) <- scuttle::uniquifyFeatureNames(rownames(pbmc4k), rowData(pbmc4k)$Symbol_TENx)
 ```
 
 
