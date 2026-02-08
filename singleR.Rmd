@@ -37,6 +37,9 @@ pbmc[['dice_label']] <- res2$labels
 ### Comparision with manual annotation result
 
 ```{r annotation-comparison, fig.width=16, fig.height=6}
+# Ensure manual labels are available in colData for comparison
+pbmc$label <- colLabels(pbmc)
+
 x <- colData(pbmc)[, c("label", "hpca_label", "dice_label")]
 
 plot_list(
