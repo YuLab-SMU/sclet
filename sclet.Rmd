@@ -73,6 +73,18 @@ knitr::opts_chunk$set(warning = FALSE,
 
 f <- "data/pbmc-3k-sce.qs"
 pbmc <- qs::qread(f)
+
+# Ensure gene symbols are used as rownames for compatibility with SingleR
+if (any(grepl("^ENSG", rownames(pbmc)))) {
+  library(scuttle)
+  library(SummarizedExperiment)
+  # Try to find symbol column
+  rd <- rowData(pbmc)
+  sym_col <- grep("Symbol", colnames(rd), value=TRUE)
+  if (length(sym_col) > 0) {
+    rownames(pbmc) <- scuttle::uniquifyFeatureNames(rownames(pbmc), rd[[sym_col[1]]])
+  }
+}
 ```
 
 ## Read 10X data
