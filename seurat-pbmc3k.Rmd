@@ -84,7 +84,7 @@ ElbowPlot(pbmc)
 ```{r}
 set.seed(2024-10-01)
 pbmc <- FindNeighbors(pbmc, dims = 1:10)
-pbmc <- FindClusters(pbmc, resolution = 0.88)
+pbmc <- FindClusters(pbmc, resolution = 0.9)
 
 head(Idents(pbmc), 5)
 ```
@@ -150,18 +150,7 @@ gene_table
 ## Cell cluster annotation {#manual-annotation}
 
 ```{r umap-pbmc-cell}
-new_labels <- c(
-    "1" = "Naive CD4 T",
-    "4" = "CD14+ Mono",
-    "3" = "Memory CD4 T",
-    "2" = "B",
-    "5" = "CD8 T",
-    "7" = "FCGR3A+ Mono",
-    "9" = "NK",
-    "6" = "DC",
-    "8" = "Platelet"
-)
-                
+new_labels <- c("CD8+ T", "B", "Memory CD4+", "CD14+ Mono", "NK", "FCGR3A+ Mono", "Naive CD4+ T", "DC", "Platelet")
 pbmc <- RenameIdents(pbmc, new_labels)
 DimPlot(pbmc, reduction="UMAP") + ggsc::sc_dim_geom_label()
 ```
