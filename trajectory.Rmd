@@ -150,6 +150,8 @@ velo.out
 
 ```{r velocity-plot, fig.width=12, fig.height=8.5}
 library(scater)
+library(sclet)
+conflicted::conflicts_prefer(sclet::runPCA)
 
 set.seed(100)
 sce <- runPCA(sce, subset_row=hvgs)
