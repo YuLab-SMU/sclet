@@ -13,8 +13,7 @@ It should be noted that all trajectory inference methods are based on the curren
 ```{r}
 panc <- readRDS("data/pancreas_sub_sce.rds")
 
-# RunSlingshot now uses cluster.labels instead of group
-panc <- RunSlingshot(object = panc, cluster.labels = "SubCellType", reduction = "UMAP")
+panc <- RunSlingshot(sce = panc, group = "SubCellType", reduction = "UMAP")
 ```
 
 
