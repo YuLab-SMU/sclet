@@ -11,8 +11,8 @@ The `RunSuperCell()` function is a wrapper function to run [SuperCell](https://g
 
 
 ```{r run-SC}
-pbmc <- RunSuperCell(pbmc4k, gamma = 5)
-pbmc
+sce_sc <- RunSuperCell(pbmc4k, gamma = 5)
+sce_sc
 ```
 
 
@@ -21,22 +21,22 @@ The output of `RunSuperCell()` is a `SingleCellExperiment` object that stores ge
 We can use it for downstram analysis.
 
 ```{r supercell, fig.width=5, fig.height=4}
-post_process <- function(pbmc) {
-    pbmc <- NormalizeData(pbmc)
-    pbmc <- FindVariableFeatures(pbmc)
-    pbmc <- ScaleData(pbmc)
-    pbmc <- runPCA(pbmc, subset_row = VariableFeatures(pbmc), exprs_values = "scaled")
+post_process <- function(sce) {
+    sce <- NormalizeData(sce)
+    sce <- FindVariableFeatures(sce)
+    sce <- ScaleData(sce)
+    sce <- runPCA(sce, subset_row = VariableFeatures(sce), exprs_values = "scaled")
     
-    pbmc <- FindNeighbors(pbmc, dims = 1:10)
-    pbmc <- FindClusters(pbmc)
-    pbmc <- RunUMAP(pbmc)
-    return(pbmc)
+    sce <- FindNeighbors(sce, dims = 1:10)
+    sce <- FindClusters(sce)
+    sce <- RunUMAP(sce)
+    return(sce)
 }
 
-pbmc2 <- post_process(pbmc)
+sce_sc <- post_process(sce_sc)
 
 library(ggsc)
-sc_dim(pbmc2, reduction="UMAP") + sc_dim_geom_label()
+sc_dim(sce_sc, reduction="UMAP") + sc_dim_geom_label()
 ```
 
 
@@ -46,7 +46,7 @@ sc_dim(pbmc2, reduction="UMAP") + sc_dim_geom_label()
 
 pbmc4k2 <- post_process(pbmc4k)
 
-SC <- metadata(pbmc2)$SuperCell
+SC <- metadata(sce_sc)$SuperCell
 
 purity <- SuperCell::supercell_purity(pbmc4k2$label, SC$membership, method = 'entropy')
 
