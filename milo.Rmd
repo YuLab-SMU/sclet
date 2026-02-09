@@ -14,7 +14,7 @@ UMAP is optional (used for visualization only).
 
 ## Two-group DA (GLM)
 
-```{r milo-glm, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE)}
+```{r milo-glm, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE), cache=FALSE}
 library(MouseThymusAgeing)
 library(scater)
 
@@ -42,7 +42,7 @@ head(da)
 
 Use `per_contrast = FALSE` to fit one model and test multiple contrasts jointly. Use `per_contrast = TRUE` to run each contrast and stack results.
 
-```{r milo-multi-contrast, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE)}
+```{r milo-multi-contrast, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE), cache=FALSE}
 contrasts <- c(
   "Age1wk - Age4wk",
   "Age4wk - Age16wk",
@@ -68,7 +68,7 @@ head(res2$da_results)
 
 When samples are not independent (e.g., repeated measures), a random intercept can help control correlation structure.
 
-```{r milo-glmm, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("scRNAseq", quietly = TRUE)}
+```{r milo-glmm, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("scRNAseq", quietly = TRUE), cache=FALSE}
 library(scRNAseq)
 library(scater)
 library(scran)
