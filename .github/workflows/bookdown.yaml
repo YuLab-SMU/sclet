@@ -58,7 +58,9 @@ jobs:
             libpng-dev \
             libtiff5-dev \
             libjpeg-dev \
-            libcairo2-dev
+            libcairo2-dev \
+            libbz2-dev \
+            liblzma-dev
           if ! ldconfig -p | grep -q 'libglpk\.so\.40'; then
             sudo apt-get install -y libglpk40 || sudo apt-get install -y libglpk40t64 || sudo apt-get install -y libglpk-dev
           fi
@@ -71,7 +73,9 @@ jobs:
           Rscript -e 'BiocManager::install("YuLab-SMU/ggtree", ask = FALSE, update = FALSE)'
           Rscript -e 'BiocManager::install("clusterProfiler", ask = FALSE, update = TRUE, force = TRUE)'
           Rscript -e 'stopifnot(requireNamespace("clusterProfiler", quietly = TRUE))'
-          Rscript -e 'BiocManager::install(c("scater","scran","scuttle","TENxPBMCData","scRNAseq","MouseThymusAgeing","SingleR","celldex","DropletUtils","SingleCellExperiment","SummarizedExperiment","velociraptor","SpatialExperiment","enrichplot","org.Mm.eg.db","org.Hs.eg.db","batchelor","iSEE","slingshot","miloR","ensembldb","AnnotationHub"), ask = FALSE, update = FALSE)'
+          Rscript -e 'BiocManager::install(c("ensembldb", "AnnotationHub"), ask = FALSE, update = TRUE, force = TRUE)'
+          Rscript -e 'stopifnot(requireNamespace("ensembldb", quietly = TRUE))'
+          Rscript -e 'BiocManager::install(c("scater","scran","scuttle","TENxPBMCData","scRNAseq","MouseThymusAgeing","SingleR","celldex","DropletUtils","SingleCellExperiment","SummarizedExperiment","velociraptor","SpatialExperiment","enrichplot","org.Mm.eg.db","org.Hs.eg.db","batchelor","iSEE","slingshot","miloR"), ask = FALSE, update = FALSE)'
           Rscript -e 'remotes::install_github(c("immunogenomics/presto", "GfellerLab/SuperCell"), upgrade = "never")'
           Rscript -e 'remotes::install_deps("sclet-src", dependencies = c("Depends","Imports","LinkingTo"), upgrade = "never")'
           R CMD INSTALL sclet-src
