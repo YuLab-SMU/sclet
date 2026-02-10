@@ -68,7 +68,7 @@ head(res2$da_results)
 
 When samples are not independent (e.g., repeated measures), a random intercept can help control correlation structure.
 
-```{r milo-glmm, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("scRNAseq", quietly = TRUE), cache=FALSE}
+```{r milo-glmm, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("scRNAseq", quietly = TRUE) && requireNamespace("ensembldb", quietly = TRUE), cache=FALSE}
 library(scRNAseq)
 library(scater)
 library(scran)
