@@ -159,6 +159,7 @@ runMilo <- function(
         test_args$REML <- REML
         test_args$max.iters <- max.iters
         test_args$fail.on.error <- fail.on.error
+        test_args$force <- TRUE # Override the small N warning
     }
 
     if (!per_contrast) {
