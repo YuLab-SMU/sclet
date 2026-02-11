@@ -7,11 +7,6 @@ author:
 date: "`r Sys.Date()`"
 knit: "bookdown::render_book"
 site: bookdown::bookdown_site
-output:
-  bookdown::gitbook:
-  bookdown::pdf_book:
-    dev: "cairo_pdf"
-    latex_engine: xelatex
 bibliography: references.bib
 biblio-style: apalike
 always_allow_html: yes
