@@ -50,7 +50,7 @@ refit_milo <- function(
     milo2 <- if (length(bad_hood) > 0) milo[-bad_hood, ] else milo
 
     test_args <- list(
-        milo2,
+        x = milo2,
         design = stats::as.formula(formula),
         design.df = design_df,
         model.contrasts = contrasts,
@@ -65,6 +65,7 @@ refit_milo <- function(
         test_args$REML <- REML
         test_args$max.iters <- max.iters
         test_args$fail.on.error <- fail.on.error
+        test_args$force <- TRUE
     }
     da_new <- do.call(miloR::testNhoods, test_args)
 

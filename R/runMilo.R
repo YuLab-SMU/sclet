@@ -146,7 +146,7 @@ runMilo <- function(
     }
 
     test_args <- list(
-        milo,
+        x = milo,
         design = fml,
         design.df = design_df,
         fdr.weighting = "graph-overlap",
