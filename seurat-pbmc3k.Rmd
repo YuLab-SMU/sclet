@@ -75,7 +75,7 @@ VariableFeaturePlot(pbmc, label = top10, method = "seurat")
 
 ```{r elbowplot-pbmc, fig.width=10, fig.height=7}
 pbmc <- ScaleData(pbmc)
-pbmc <- runPCA(pbmc, subset_row = VariableFeatures(pbmc, method = "seurat"), exprs_values = "scaled")
+pbmc <- RunPCA(pbmc, subset_row = VariableFeatures(pbmc, method = "seurat"), exprs_values = "scaled")
 ElbowPlot(pbmc)
 ```
 

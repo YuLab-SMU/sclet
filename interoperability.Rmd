@@ -29,3 +29,91 @@ Python's AnnData format (.h5ad) is widely used. `sclet` wraps `zellkonverter` to
 ```
 
 This allows you to easily move data between R and Python environments, leveraging the best tools from both ecosystems (e.g. `sclet`/Bioconductor in R and `scanpy` in Python).
+
+# Recommended usage
+
+`sclet` is still centered on `SingleCellExperiment`. The recommended way to use the package is to treat the SCE object as the single source of truth, and then layer `sclet` wrappers on top for common analysis steps.
+
+## For end users
+
+The shortest recommended workflow is:
+
+```r
+library(sclet)
+
+sce <- NormalizeData(sce)
+sce <- FindVariableFeatures(sce)
+sce <- RunPCA(sce, subset_row = VariableFeatures(sce))
+sce <- FindNeighbors(sce, dims = 1:10)
+sce <- FindClusters(sce)
+sce <- RunUMAP(sce, dims = 1:10)
+```
+
+In current `sclet`, user-facing analysis verbs are standardized on the `Run*` style. Use `RunPCA()`, `RunMilo()`, and `RunCellChat()` as the recommended public API. Legacy `run*` names are kept for backward compatibility, but should not be used in new examples, scripts, or extensions.
+
+For interactive exploration, it is better to rely on the state-aware accessors instead of reaching directly into object internals:
+
+- `DefaultAssay()`, `DefaultReduction()`, `DefaultGraph()`, and `ActiveIdent()` expose the current active view.
+- `CommandLog()` shows which wrapper functions have been applied.
+- `get_hvg()`, `get_graph()`, `get_milo()`, `get_trajectory()`, and `get_cellchat()` expose structured analysis records.
+- `has_*()` helpers are the preferred way to check whether an analysis result is available.
+
+This means the recommended mental model is simple: keep one SCE object, run the `sclet` wrappers in sequence, and inspect state through the exported accessors instead of through ad hoc metadata fields.
+
+## For pipeline authors
+
+If you are writing a reusable script or package around `sclet`, prefer patterns that are stable under future extension:
+
+- Pass the SCE object through each step and return the updated object explicitly.
+- Prefer exported wrappers such as `RunPCA()` and `RunUMAP()` over calling lower-level functions directly when `sclet` already provides a wrapper.
+- Read results through accessors (`get_*`, `has_*`, `Default*`, `ActiveIdent`) instead of assuming a fixed metadata layout.
+- When using `RunCellChat()`, request `return = "sce"` or `return = "both"` if downstream code needs the updated SCE with recorded analysis state.
+
+# Developer design notes
+
+This section is for contributors who want to extend `sclet` without making the package harder to reason about.
+
+## Core object contract
+
+`SingleCellExperiment` remains the only core container. New features should fit into the existing object rather than introducing a parallel class unless there is a very strong reason.
+
+Internal state is collected under `metadata(sce)$sclet`. In practice, contributors should think in terms of a few stable buckets:
+
+- `active`: current assay, reduction, graph, and identity source
+- `features`: feature-level records such as HVG metadata
+- `graphs`: graph registry entries
+- `analyses`: higher-level outputs such as trajectory, milo, batch, supercell, and cellchat
+- `commands`: command log entries
+
+## How to add a new analysis wrapper
+
+When adding a new user-facing analysis function, the recommended pattern is:
+
+1. Use a canonical `Run*` name for the public entry point.
+2. Keep any older `run*` name only as a thin compatibility alias.
+3. Write structured outputs into the state layer with `sclet_set_analysis()`, or the relevant state helper.
+4. Record the call with `sclet_log_command()`.
+5. Expose the result through `get_*()` and `has_*()` helpers if users will need to inspect it later.
+
+The goal is not just to make a wrapper run once. The goal is to make the result discoverable, inspectable, and reusable across later steps.
+
+## Implementation rules for contributors
+
+Contributors should follow a few practical rules:
+
+- Do not access deep S4 internals when an accessor already exists.
+- Do not add a second storage path if the state layer can already represent the result.
+- Preserve backward compatibility where possible by reading old metadata if needed, but write new results to the unified state schema.
+- Keep changes surgical: one new wrapper should normally come with its state write-back, accessor path, and focused tests.
+
+## What should be tested
+
+For each new wrapper or state feature, tests should ideally cover:
+
+- the result is stored in the unified state layer
+- the corresponding accessor can read it back
+- `has_*()` returns the expected boolean
+- active state is updated if the wrapper changes the current assay, reduction, graph, or identity
+- command log entries use the canonical public command name
+
+This keeps `sclet` close to a Seurat-like user experience while still staying grounded in the clearer `SingleCellExperiment` and Bioconductor model.

@@ -151,10 +151,10 @@ velo.out
 ```{r velocity-plot, fig.width=12, fig.height=8.5}
 library(scater)
 library(sclet)
-conflicted::conflicts_prefer(sclet::runPCA)
+conflicted::conflicts_prefer(sclet::RunPCA)
 
 set.seed(100)
-sce <- runPCA(sce, subset_row=hvgs)
+sce <- RunPCA(sce, subset_row=hvgs)
 sce <- runTSNE(sce, dimred="PCA", perplexity = 30)
 
 sce$velocity_pseudotime <- velo.out$velocity_pseudotime

@@ -52,7 +52,7 @@ rm_batch_pbmc <- BatchRemover(combined_pbmc)
 
 ```{r clustering-batch}
 sce_clustering <- function(sce, assay = "logcounts", dims = 1:10) {
-  sce <- runPCA(sce, subset_row = VariableFeatures(sce), exprs_values = assay)
+  sce <- RunPCA(sce, subset_row = VariableFeatures(sce), exprs_values = assay)
   sce <- FindNeighbors(sce, dims = dims)
   sce <- FindClusters(sce)
   sce <- RunUMAP(sce, dims = dims)

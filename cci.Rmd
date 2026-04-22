@@ -3,7 +3,7 @@
 
 ## Input
 
-The `runCellChat()` function requires a `SingleCellExperiment` object that includes cell clustering information. For details, refer to the [Clustering](#FindClusters) session.
+The recommended entry point is `RunCellChat()`. It requires a `SingleCellExperiment` object that includes cell clustering information. For details, refer to the [Clustering](#FindClusters) session.
 
 The `group` parameter should reference a variable within the `SingleCellExperiment` object that holds the clustering data.
 
@@ -26,7 +26,9 @@ library(aplot)
 
 # use demo data from CellChat, hmskin_sce
 sce <- qs::qread("data/hmskin_sce.qs")
-cci_obj <- runCellChat(sce, group = "labels")
+res <- RunCellChat(sce, group = "labels", return = "both")
+sce <- res$sce
+cci_obj <- res$cellchat
 ```
 
 ## visulization
