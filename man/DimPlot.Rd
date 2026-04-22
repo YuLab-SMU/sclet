@@ -4,12 +4,12 @@
 \alias{DimPlot}
 \title{DimPlot}
 \usage{
-DimPlot(object, reduction = "UMAP", ...)
+DimPlot(object, reduction = NULL, ...)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
-\item{reduction}{reduction method, default is "UMAP"}
+\item{reduction}{reduction method. If NULL, use the active reduction tracked by sclet.}
 
 \item{...}{additional parameters passed to ggsc::sc_dim}
 }

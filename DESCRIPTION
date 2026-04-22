@@ -20,7 +20,6 @@ Depends:
     R (>= 4.1.0)
 Imports:
     aplot,
-    clusterProfiler,
     dplyr,
     fanyi,
     ggplot2,
@@ -54,6 +53,7 @@ Suggests:
     viridis,
     CellChat,
     ComplexHeatmap,
+    clusterProfiler,
     S4Vectors,
     Seurat,
     SingleR,

@@ -32,7 +32,7 @@
 #' \item{da_results}{Data.frame of DA testing results.}
 #'
 #' @export
-runMilo <- function(
+RunMilo <- function(
     sce,
     sample_col,
     condition_col,
@@ -183,27 +183,42 @@ runMilo <- function(
         }
     }
 
-    sce@metadata$milo_results <- list(
-        da_results = da_results,
-        design_df = design_df,
-        formula = deparse(fml),
-        contrasts = contrasts,
+    sce <- sclet_set_analysis(
+        sce,
+        "milo",
+        list(
+            da_results = da_results,
+            design_df = design_df,
+            formula = deparse(fml),
+            contrasts = contrasts,
+            params = list(
+                k1 = k1,
+                k2 = k2,
+                d1 = d1,
+                d2 = d2,
+                d3 = d3,
+                prop = prop,
+                overlap = overlap,
+                is_refined = is_refined,
+                seed = seed,
+                glmm = glmm,
+                random_effect = random_effect,
+                glmm_solver = glmm_solver,
+                REML = REML,
+                max.iters = max.iters,
+                fail.on.error = fail.on.error
+            )
+        )
+    )
+    sce <- sclet_log_command(
+        sce,
+        "RunMilo",
         params = list(
-            k1 = k1,
-            k2 = k2,
-            d1 = d1,
-            d2 = d2,
-            d3 = d3,
-            prop = prop,
-            overlap = overlap,
-            is_refined = is_refined,
-            seed = seed,
+            sample_col = sample_col,
+            condition_col = condition_col,
+            contrasts = contrasts,
             glmm = glmm,
-            random_effect = random_effect,
-            glmm_solver = glmm_solver,
-            REML = REML,
-            max.iters = max.iters,
-            fail.on.error = fail.on.error
+            seed = seed
         )
     )
 
@@ -212,4 +227,62 @@ runMilo <- function(
         milo = milo,
         da_results = da_results
     ))
+}
+
+#' @rdname RunMilo
+#' @export
+runMilo <- function(
+    sce,
+    sample_col,
+    condition_col,
+    covariates = NULL,
+    contrasts = NULL,
+    k1 = 10,
+    k2 = 10,
+    d1 = 30,
+    d2 = 30,
+    d3 = 30,
+    prop = 0.1,
+    overlap = 1,
+    per_contrast = TRUE,
+    is_refined = TRUE,
+    refinement_scheme = "graph",
+    adjustment = "BH",
+    glmm = FALSE,
+    random_effect = NULL,
+    glmm_solver = "Fisher",
+    REML = TRUE,
+    max.iters = 50,
+    fail.on.error = FALSE,
+    BPPARAM = NULL,
+    seed = 2025,
+    ...
+) {
+    RunMilo(
+        sce = sce,
+        sample_col = sample_col,
+        condition_col = condition_col,
+        covariates = covariates,
+        contrasts = contrasts,
+        k1 = k1,
+        k2 = k2,
+        d1 = d1,
+        d2 = d2,
+        d3 = d3,
+        prop = prop,
+        overlap = overlap,
+        per_contrast = per_contrast,
+        is_refined = is_refined,
+        refinement_scheme = refinement_scheme,
+        adjustment = adjustment,
+        glmm = glmm,
+        random_effect = random_effect,
+        glmm_solver = glmm_solver,
+        REML = REML,
+        max.iters = max.iters,
+        fail.on.error = fail.on.error,
+        BPPARAM = BPPARAM,
+        seed = seed,
+        ...
+    )
 }

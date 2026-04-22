@@ -9,7 +9,6 @@
 #' @param output one of 'html', 'pdf', 'png', 'md', 'csv' or 'data.frame'
 #' @param browse whether open the output file
 #' @return output file path
-#' @importFrom clusterProfiler bitr
 #' @importFrom fanyi gene_summary
 #' @importFrom tinytable tt
 #' @importFrom tinytable group_tt

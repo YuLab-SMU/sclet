@@ -12,6 +12,8 @@
 #' @param base log base. Default is 2
 #' @param pseudocount.use Pseudocount to add to averaged expression values when
 #' calculating logFC. 1 by default.
+#' @param assay assay used for marker testing. If NULL, sclet resolves from
+#' `DefaultAssay(object)` and falls back to `logcounts` when needed.
 #' @param ... additional parameters
 #' @export
 FindAllMarkers <- function(
@@ -22,10 +24,12 @@ FindAllMarkers <- function(
     only.pos = FALSE,
     base = 2,
     pseudocount.use = 1,
+    assay = NULL,
     ...) {
 
     idents <- Idents(object)
     if (is.null(idents)) stop("No identities found. Please run FindClusters() first.")
+    assay <- resolve_marker_assay(object, assay)
     
     # Ensure presto is available
     if (!is.installed("presto")) {
@@ -36,8 +40,7 @@ FindAllMarkers <- function(
     message("Calculating markers for all clusters using presto...")
     
     # presto::wilcoxauc works directly on the matrix
-    # We use logcounts (standard for marker discovery in sclet)
-    mat <- SummarizedExperiment::assay(object, "logcounts")
+    mat <- SummarizedExperiment::assay(object, assay)
     results <- wilcoxauc(mat, idents)
 
     # presto returns: feature, group, avg_logFC, pval, padj, pct_in, pct_out, auc
@@ -124,6 +127,8 @@ FindAllMarkers <- function(
 #' @param base log base. Default is 2
 #' @param pseudocount.use Pseudocount to add to averaged expression values when
 #' calculating logFC. 1 by default.
+#' @param assay assay used for marker testing. If NULL, sclet resolves from
+#' `DefaultAssay(object)` and falls back to `logcounts` when needed.
 #' @param ... additional parameters
 #' @export
 FindMarkers <- function(
@@ -134,10 +139,12 @@ FindMarkers <- function(
     logfc.threshold = 0.1, 
     base=2,
     pseudocount.use=1,
+    assay = NULL,
     ...) {
+        assay <- resolve_marker_assay(object, assay)
 
         FindMarkers_Presto(
-        object = object@assays@data$logcounts,
+        object = SummarizedExperiment::assay(object, assay),
         ident.1 = ident.1,
         ident.2 = ident.2,
         clusters = Idents(object),
@@ -147,6 +154,24 @@ FindMarkers <- function(
         pseudocount.use = pseudocount.use,
         ...
         )
+}
+
+resolve_marker_assay <- function(object, assay = NULL) {
+    assay_names <- SummarizedExperiment::assayNames(object)
+    if (is.null(assay)) {
+        assay <- DefaultAssay(object)
+    }
+    if (is.null(assay)) {
+        assay <- if ("logcounts" %in% assay_names) "logcounts" else assay_names[[1]]
+    }
+    if (identical(assay, "scaled") && "logcounts" %in% assay_names) {
+        message("Using 'logcounts' for marker testing instead of active assay 'scaled'.")
+        assay <- "logcounts"
+    }
+    if (!assay %in% assay_names) {
+        stop("Assay '", assay, "' not found in object.")
+    }
+    assay
 }
 
 #' @importFrom yulab.utils install_zip_gh

@@ -12,6 +12,7 @@ FindMarkers(
   logfc.threshold = 0.1,
   base = 2,
   pseudocount.use = 1,
+  assay = NULL,
   ...
 )
 }
@@ -33,6 +34,9 @@ X-fold difference (log-scale) between the two groups of cells. Default is 0.1}
 
 \item{pseudocount.use}{Pseudocount to add to averaged expression values when
 calculating logFC. 1 by default.}
+
+\item{assay}{assay used for marker testing. If NULL, sclet resolves from
+\code{DefaultAssay(object)} and falls back to \code{logcounts} when needed.}
 
 \item{...}{additional parameters}
 }

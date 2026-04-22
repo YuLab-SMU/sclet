@@ -18,7 +18,7 @@ RunSuperCell <- function(object, assay = "logcounts", nHVG = 2000, hvg_method = 
   }
   
   # Ensure VariableFeatures are computed
-  if (is.null(object@metadata$nVariableFeatures)) {
+  if (is.null(sclet_get_hvg_nfeatures(object))) {
       object <- FindVariableFeatures(object, nfeatures = nHVG, method = hvg_method)
   }
 
@@ -48,8 +48,18 @@ RunSuperCell <- function(object, assay = "logcounts", nHVG = 2000, hvg_method = 
   )
 
   mdata <- S4Vectors::metadata(object)
-  mdata$nVariableFeatures <- NULL
-  mdata$SuperCell <- SC
+  state <- sclet_get_state(object)
+  if (!is.null(state$features$hvg)) {
+      state$features$hvg$n <- NULL
+  }
+  state$analyses$supercell <- list(
+      method = "SuperCell::SCimplify",
+      gamma = gamma,
+      k.knn = k.knn,
+      cellname = cellname,
+      object = SC
+  )
+  mdata$sclet <- state
 
   assay_names <- names(SummarizedExperiment::assays(object))
   asy <- lapply(assay_names, \(nn)  SuperCell::supercell_GE(assay(object, nn), SC$membership))

@@ -4,6 +4,7 @@
 ^README\\.md$
 ^ggsc-visualization-requirements\\.md$
 ^dev-plan\\.md$
+^dev-notes($|/)
 ^\\.github$
 ^runMilo_v2$
 .github

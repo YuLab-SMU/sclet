@@ -3,7 +3,7 @@
 + Performance improvement: `FindAllMarkers()` uses `presto` for faster calculation (2026-02-06, Fri)
 + Bug fix: `BatchRemover()` robustness improvements (2026-02-06, Fri)
 + Internal: Renamed source files from `.r` to `.R` (2026-02-06, Fri)
-+ `runMilo` and `refit_milo` for Milo differential abundance analysis (2026-01-30, Fri)
++ `RunMilo` and `refit_milo` for Milo differential abundance analysis (2026-01-30, Fri)
 
 # sclet 0.99.1
 
@@ -65,7 +65,7 @@
 # sclet 0.0.3
 
 + Adding cell-cell communication module. (2024-10-06, Sun)
-    - `runCellChat()` wrapper function for running CellChat.
+    - `RunCellChat()` wrapper function for running CellChat.
 + `gene_summary_table()` to add gene summary information to marker gene table (2024-10-02, Wed)
 
 # sclet 0.0.2
@@ -95,8 +95,8 @@
     - `Idents()`
     - `RenameIdents()`
     - `RunUMAP()`
+    - `RunPCA()`
 + re-export:
     - `SummarizedExperiment::colData()`
     - `SummarizedExperiment::rowData()`
     - `SummarizedExperiment::assay()`
-    - `scater::runPCA()`

@@ -24,6 +24,11 @@ downstream tools, including trajectory inference, enrichment analysis,
 cell type annotation, cell-cell communication, and Milo differential
 abundance.
 
+For user-facing analysis verbs, `sclet` now uses `Run*` as the
+canonical API naming style, such as `RunPCA()`, `RunMilo()`, and
+`RunCellChat()`. Legacy `run*` names are still available as
+compatibility aliases.
+
 ## :writing_hand: Authors
 
 Guangchuang YU

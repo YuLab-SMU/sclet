@@ -49,10 +49,12 @@ RunSlingshot <- function(
 
   ## run slingshot
   set.seed(seed)
+  prev_state <- sclet_get_state(sce)
   
   sce <- slingshot::slingshot(data = sce, clusterLabels = group, 
                               reducedDim = reduction, start.clus = start_cluster, 
                               end.clus = end_cluster)
+  sce <- sclet_restore_state(sce, prev_state)
   
   ## reverse the pseudotime and align the start_cell to the maximum if necessary
   slingpseudotime_cols <- grep("^slingPseudotime", colnames(colData(sce)), value = TRUE)
@@ -72,15 +74,37 @@ RunSlingshot <- function(
   
   ssds <- slingshot::SlingshotDataSet(sce) 
   
-  # Store Slingshot results
   colData(sce)$slingPseudotime <- as.data.frame(slingshot::slingPseudotime(ssds))
   colData(sce)$slingBranchID <- slingshot::slingBranchID(ssds)
-  # SummarizedExperiment::metadata(sce)$slingshot_info <- ssds
-  sce@metadata$slingshot_info <- ssds
-
-  # Store PseudotimeOrdering S4 object in metadata
-  # SummarizedExperiment::metadata(sce)$slingshot <- sce$slingshot
-  sce@metadata$slingshot <- sce$slingshot
+  sce <- sclet_set_analysis(
+    sce,
+    "trajectory",
+    list(
+      method = "slingshot",
+      reduction = reduction,
+      group = group,
+      start_cluster = start_cluster,
+      end_cluster = end_cluster,
+      reverse = reverse,
+      align_start = align_start,
+      pseudotime_cols = slingpseudotime_cols,
+      dataset = ssds,
+      ordering = sce$slingshot
+    )
+  )
+  sce <- sclet_log_command(
+    sce,
+    "RunSlingshot",
+    params = list(
+      group = group,
+      reduction = reduction,
+      start_cluster = start_cluster,
+      end_cluster = end_cluster,
+      reverse = reverse,
+      align_start = align_start,
+      seed = seed
+    )
+  )
   sce$slingshot <- NULL
   
   return(sce)

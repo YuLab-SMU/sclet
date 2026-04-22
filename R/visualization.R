@@ -66,7 +66,7 @@ VariableFeaturePlot <- function(object, label = NULL, method = NULL) {
     gene <- if ("Symbol" %in% names(d)) d$Symbol else rownames(object)
     d$gene <- gene
 
-    if (is.null(method)) method <- object@metadata$hvgmethod
+    if (is.null(method)) method <- sclet_get_hvg_method(object)
     if (is.null(method)) {
         method <- if ("variance.standardized" %in% names(d)) "seurat" else "scran"
     }
@@ -114,11 +114,17 @@ VariableFeaturePlot <- function(object, label = NULL, method = NULL) {
 #' 
 #' @title DimPlot
 #' @param object a SingleCellExperiment object
-#' @param reduction reduction method, default is "UMAP"
+#' @param reduction reduction method. If NULL, use the active reduction tracked by sclet.
 #' @param ... additional parameters passed to ggsc::sc_dim
 #' @return ggplot object
 #' @importFrom ggsc sc_dim
 #' @export
-DimPlot <- function(object, reduction = "UMAP", ...) {
+DimPlot <- function(object, reduction = NULL, ...) {
+    if (is.null(reduction)) {
+        reduction <- DefaultReduction(object)
+    }
+    if (is.null(reduction)) {
+        stop("No dimensional reduction found in object.")
+    }
     ggsc::sc_dim(object, reduction = reduction, ...)
 }

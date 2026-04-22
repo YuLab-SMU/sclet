@@ -4,12 +4,16 @@
 \alias{RunUMAP}
 \title{RunUMAP}
 \usage{
-RunUMAP(object, dims)
+RunUMAP(object, dims = NULL, reduction = NULL)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
-\item{dims}{dimensions used in UMAP}
+\item{dims}{dimensions used in UMAP. If NULL, use all dimensions from the
+selected source reduction.}
+
+\item{reduction}{source reduction used to build UMAP. If NULL, sclet first
+tries \code{DefaultReduction(object)}, then falls back to a non-UMAP reduction.}
 }
 \value{
 updated SingleCellExperiment object with UMAP dimension reduction

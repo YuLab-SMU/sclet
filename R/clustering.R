@@ -9,8 +9,19 @@
 #' @export
 FindNeighbors <- function(object, dims, k = 10) {
     object <- set_dimred(object, dims)    
-    object@metadata$knn_graph <- scran::buildSNNGraph(
+    graph <- scran::buildSNNGraph(
         object, use.dimred = ".dimred", k = k, type = "rank")
+    object <- sclet_set_graph(
+        object,
+        graph = graph,
+        name = "knn_graph",
+        params = list(dims = dims, k = k, type = "rank")
+    )
+    object <- sclet_log_command(
+        object,
+        "FindNeighbors",
+        params = list(dims = dims, k = k)
+    )
     return(object)
 }
 
@@ -24,10 +35,23 @@ FindNeighbors <- function(object, dims, k = 10) {
 # @importFrom SingleCellExperiment 'colLabels<-'
 #' @export
 FindClusters <- function(object, resolution = 0.5) {
-    g <- object@metadata$knn_graph
+    graph_name <- DefaultGraph(object)
+    if (is.null(graph_name)) {
+        graph_name <- "knn_graph"
+    }
+    g <- get_graph(object, graph_name, "object")
+    if (is.null(g)) {
+        stop("No KNN graph found. Please run FindNeighbors() first.")
+    }
     clusters <- igraph::cluster_louvain(g, resolution=resolution)
     
     SingleCellExperiment::colLabels(object) <- factor(clusters$membership)
+    object <- sclet_set_active_ident(object, "colLabels")
+    object <- sclet_log_command(
+        object,
+        "FindClusters",
+        params = list(resolution = resolution)
+    )
     return(object)
 }
 
@@ -40,14 +64,22 @@ FindClusters <- function(object, resolution = 0.5) {
 #' @importFrom SummarizedExperiment colData
 #' @importFrom stats setNames
 Idents <- function(object) {
-    if (is.null(colLabels(object))) {
-        if (!is.null(colData(object)$label)) {
-            colLabels(object) <- colData(object)$label
-        } else {
-            return(NULL)
+    active_ident <- ActiveIdent(object)
+    if (is.null(active_ident) || identical(active_ident, "colLabels")) {
+        if (is.null(colLabels(object))) {
+            if (!is.null(colData(object)$label)) {
+                colLabels(object) <- colData(object)$label
+            } else {
+                return(NULL)
+            }
         }
+        return(setNames(colLabels(object), colnames(object)))
     }
-    setNames(colLabels(object), colnames(object))
+    values <- colData(object)[[active_ident]]
+    if (is.null(values)) {
+        return(NULL)
+    }
+    setNames(values, colnames(object))
 }
 
 #' rename cluster ids
@@ -87,6 +119,7 @@ RenameIdents <- function(object, new_ids) {
         levels = lv, 
         labels = labels
     )
+    object <- sclet_set_active_ident(object, "colLabels")
     
     return(object)
 }

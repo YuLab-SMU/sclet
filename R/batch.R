@@ -22,12 +22,15 @@ IntersectGenes <- function(..., verbose = TRUE) {
 }
 
 get_hvg_method <- function(object) {
-    return(object@metadata$hvgmethod)
+    return(get_hvg(object, "method"))
 }
 
 get_hvginfo <- function(object) {
-    hvgcols <- object@metadata$hvgcols
-    return(rowData(object)[, hvgcols])    
+    hvginfo <- get_hvg(object, "rowData")
+    if (is.null(hvginfo)) {
+        stop("HVG statistics not found. Please run `FindVariableFeatures()` first.")
+    }
+    return(hvginfo)    
 }
 
 CombineVariableFeatures <- function(all.batches, ...) {
@@ -104,15 +107,17 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
     has_logcounts <-  "logcounts" %in% assay_all
     if (all(has_logcounts)) {
       message("'assay.type' will be set to 'logcounts' automatically.")
+      assay.type <- "logcounts"
     } else {
       message("'assay.type' will be log transformed using 'batchelor::multiBatchNor()")
       sce <- batchelor::multiBatchNorm(sce, batch = batch, assay.type = "counts", preserve.single = TRUE)
+      assay.type <- "logcounts"
     }
   } 
   
   #默认设置5000，结果图会好看一点不会是密密的团
   if (is.null(nHVG)) {
-    nHVG <- sce@metadata$nVariableFeatures
+    nHVG <- sclet_get_hvg_nfeatures(sce)
   }
   
   hvginfo <- rowData(sce)
@@ -149,19 +154,36 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
   corrected <- batchelor::batchCorrect(sce, batch = batch, 
                                        subset.row = HVG, PARAM = PARAM, 
                                        restrict = restrict, correct.all = correct.all) 
+  S4Vectors::metadata(corrected) <- S4Vectors::metadata(sce)
   
-  corrected@metadata <- sce@metadata
-  corrected@metadata$nVariableFeatures <- nHVG
+  corrected <- sclet_set_hvg_state(
+    corrected,
+    nfeatures = nHVG,
+    method = method,
+    hvgcols = sclet_get_hvg_cols(sce),
+    selected = HVG
+  )
   
-  # Record batch correction parameters
   batch_record <- list(
       method = "batchelor::batchCorrect",
       param = PARAM,
       hvg_n = nHVG,
+      assay.type = assay.type,
       batch_var = if(is.null(batch)) "internal_batch" else "user_provided",
       timestamp = Sys.time()
   )
-  corrected@metadata$batch_correction <- batch_record
+  corrected <- sclet_set_analysis(corrected, "batch", batch_record)
+  corrected <- sclet_set_active_assay(corrected, assay.type)
+  corrected <- sclet_log_command(
+    corrected,
+    "BatchRemover",
+    params = list(
+      nHVG = nHVG,
+      assay.type = assay.type,
+      correct.all = correct.all
+    ),
+    outputs = list(analysis = "batch", hvg = "selected")
+  )
 
   subset.rowdata <- rowData(sce)[HVG,]
   new.rowdata <- rowData(corrected)
@@ -251,8 +273,12 @@ sce_merge <- function(sce_list, combineVarParams = list(equiweight = TRUE, ncell
     metadata = metadata_combined
   )
   
-  combined_sce@metadata$hvgmethod <- get_hvg_method(sce_list[[1]])
-  combined_sce@metadata$hvgcols <- colnames(combined_hvginfo)
+  combined_sce <- sclet_set_hvg_state(
+    combined_sce,
+    nfeatures = sclet_get_hvg_nfeatures(sce_list[[1]]),
+    method = get_hvg_method(sce_list[[1]]),
+    hvgcols = colnames(combined_hvginfo)
+  )
   
   combined_sce$batch <- factor(rep(seq_along(sce_list), sapply(sce_list, ncol)))
   

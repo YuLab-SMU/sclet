@@ -42,11 +42,10 @@ lineage_plot <- function(
     geom = sc_geom_point,
     linewidth = 0.9, ...){
   
-  # Retrieve SlingshotDataSet
-  sds <- sce@metadata$slingshot_info
-  if (is.null(sds)) {
-      stop("No slingshot results found in metadata(sce)$slingshot_info. Please run RunSlingshot first.")
+  if (!has_trajectory(sce)) {
+      stop("No slingshot results found. Please run RunSlingshot first.")
   }
+  sds <- get_trajectory(sce, "dataset")
   
   # Use accessor to get curves safely
   lineage_curves <- slingshot::slingCurves(sds)
@@ -56,9 +55,6 @@ lineage_plot <- function(
   }
   
   ## set the lineage colors (adjust to ensure enough colors for the number of lineages)
-  # num_trajectories <- length(sce@metadata$slingshot_info@lineages)
-  
-  
   ## set the lineage data for the input of ggplot2
   lineage_data <- lapply(seq_len(length(lineage_curves)), function(i) {
     temp <- as.data.frame(lineage_curves[[i]]$s) |> setNames(c("x", "y"))

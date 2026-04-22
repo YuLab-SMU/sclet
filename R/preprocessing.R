@@ -52,11 +52,19 @@ NormalizeData <- function(object, scale.factor = 10000) {
     # Use scuttle::logNormCounts which is standard for SCE
     libsize <- MatrixGenerics::colSums(SummarizedExperiment::assay(object, "counts"))
     size_factors <- libsize / scale.factor
+    prev_state <- sclet_get_state(object)
     object <- scuttle::logNormCounts(
         object,
         size.factors = size_factors,
         center.size.factors = FALSE,
         name = "logcounts"
+    )
+    object <- sclet_restore_state(object, prev_state)
+    object <- sclet_set_active_assay(object, "logcounts")
+    object <- sclet_log_command(
+        object,
+        "NormalizeData",
+        params = list(scale.factor = scale.factor)
     )
     
     return(object)
@@ -77,6 +85,7 @@ NormalizeData <- function(object, scale.factor = 10000) {
 #' @export
 FindVariableFeatures <- function(object, nfeatures = 2000, method = "scran", ...) {
     method <- match.arg(method, c("seurat", "scran"))
+    prev_state <- sclet_get_state(object)
 
     rn <- rownames(object)
     if (is.null(rn)) {
@@ -115,9 +124,18 @@ FindVariableFeatures <- function(object, nfeatures = 2000, method = "scran", ...
     hvf.info <- hvf.info[rn, , drop = FALSE]
     rd <- rowData(object)
     SummarizedExperiment::rowData(object) <- cbind(rd, hvf.info)
-    object@metadata$nVariableFeatures <- nfeatures
-    object@metadata$hvgmethod <- method
-    object@metadata$hvgcols <- names(hvf.info)
+    object <- sclet_restore_state(object, prev_state)
+    object <- sclet_set_hvg_state(
+        object,
+        nfeatures = nfeatures,
+        method = method,
+        hvgcols = names(hvf.info)
+    )
+    object <- sclet_log_command(
+        object,
+        "FindVariableFeatures",
+        params = list(nfeatures = nfeatures, method = method)
+    )
 
     return(object)
 }
@@ -129,7 +147,7 @@ FindVariableFeatures_seurat <- function(object) {
     }
 
     sce <- object
-    if (!is.null(sce@metadata$nVariableFeatures)) {
+    if (!is.null(sclet_get_hvg_nfeatures(sce))) {
         rd <- rowData(sce)
         items <- c("mean", "variance", "variance.expected", "variance.standardized")
         if (all(items %in% names(rd))) {
@@ -181,12 +199,12 @@ FindVariableFeatures_seurat <- function(object) {
 #' @return highly variable features
 #' @export
 VariableFeatures <- function(object, method = "scran", ...) {
-    if (missing(method) && !is.null(object@metadata$hvgmethod)) {
-        method <- object@metadata$hvgmethod
+    if (missing(method)) {
+        method <- sclet_get_hvg_method(object)
     }
     method <- match.arg(method, c("seurat", "scran"))
 
-    nfeatures <- object@metadata$nVariableFeatures
+    nfeatures <- sclet_get_hvg_nfeatures(object)
     if (is.null(nfeatures)) {
         stop("You should run 'FindVariableFeatures' first.")
     }
@@ -225,6 +243,7 @@ getTopHVGs_seurat <- function(object, n) {
 #' @export
 #' @importFrom stats sd
 ScaleData <- function(object, features = NULL, assay = "logcounts") {
+    prev_state <- sclet_get_state(object)
     if (is.null(features)) {
         # all genes
         features <- rownames(object)
@@ -292,6 +311,22 @@ ScaleData <- function(object, features = NULL, assay = "logcounts") {
         scaled <- (mat - rm) / rs
     }
     
-    SummarizedExperiment::assay(object, "scaled") <- scaled
+    if (length(features) == nrow(object)) {
+        scaled_assay <- scaled
+    } else {
+        scaled_assay <- SummarizedExperiment::assay(object, assay)
+        scaled_assay[features, ] <- scaled
+    }
+    SummarizedExperiment::assay(object, "scaled") <- scaled_assay
+    object <- sclet_restore_state(object, prev_state)
+    object <- sclet_set_active_assay(object, "scaled")
+    object <- sclet_log_command(
+        object,
+        "ScaleData",
+        params = list(
+            features = features,
+            assay = assay
+        )
+    )
     return(object)
 }

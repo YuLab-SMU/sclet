@@ -19,14 +19,26 @@ RunSlingshot_trajectory <- function(object, reduction = "UMAP", cluster.labels =
     # Run slingshot
     sds <- slingshot::slingshot(data = rd, clusterLabels = cluster.labels, start.clus = start.clus, ...)
     
-    # Store results
-    # Store in 'slingshot_info' to match sling_plot.R expectations
-    object@metadata$slingshot_info <- sds
-    
-    # Store pseudotime as a single DataFrame column named 'slingPseudotime'
-    # This matches the expectation of pseudo_plot and genecurve_plot
     pt <- as.data.frame(slingshot::slingPseudotime(sds))
     colData(object)$slingPseudotime <- pt
+    object <- sclet_set_analysis(
+        object,
+        "trajectory",
+        list(
+            method = "slingshot",
+            reduction = reduction,
+            start_cluster = start.clus,
+            dataset = sds
+        )
+    )
+    object <- sclet_log_command(
+        object,
+        "RunSlingshot_trajectory",
+        params = list(
+            reduction = reduction,
+            start.clus = start.clus
+        )
+    )
     
     return(object)
 }
