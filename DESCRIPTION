@@ -1,6 +1,6 @@
 Package: sclet
-Title: Lightweight Single-Cell Analysis Toolkit for SingleCellExperiment
-Version: 0.99.2
+Title: A State-Aware Single-Cell Analysis Toolkit for SingleCellExperiment
+Version: 0.99.3
 Authors@R: c(
     person(given = "Guangchuang", family = "Yu", email = "guangchuangyu@gmail.com", role  = c("aut", "cre"), comment = c(ORCID = "0000-0002-6485-8781")),
     person(given = "Kaijia", family = "Huang", email = "2947569391@qq.com", role  = "ctb"),
@@ -8,23 +8,27 @@ Authors@R: c(
     person(given = "Ming", family = "Li", email = "limiang929@gmail.com", role = "ctb"),
     person(given = "Junrui", family = "Li", email = "1523467190@qq.com", role = "ctb")
     )
-Description: Provides a lightweight set of Seurat-like helpers for
-    single-cell analysis based on the Bioconductor SingleCellExperiment
-    class. Includes preprocessing, dimensionality reduction, clustering,
-    visualization, batch correction, and pseudobulk differential
-    expression, plus interoperability with AnnData. Optional wrappers
-    integrate popular downstream tools for trajectory inference,
-    enrichment analysis, cell type annotation, cell-cell communication,
-    and differential abundance.
+Description: Provides a comprehensive, state-aware toolkit for single-cell
+    analysis based on the Bioconductor SingleCellExperiment class. It introduces
+    a lightweight analysis-state contract to manage dependencies and provenance
+    across workflows. Features include standard pipelines (preprocessing, 
+    dimensionality reduction, clustering, multi-backend integration), 
+    reference mapping, trajectory inference, differential expression and 
+    enrichment, differential abundance, cell-cell communication, metacell 
+    aggregation, and enhanced visualization. Seamless interoperability with
+    AnnData and Seurat objects is also supported.
 Depends:
     R (>= 4.1.0)
 Imports:
     aplot,
+    bluster,
     dplyr,
+    DropletUtils,
     fanyi,
     ggplot2,
     ggrepel,
     ggsc,
+    HDF5Array,
     igraph,
     Matrix,
     MatrixGenerics,
@@ -33,42 +37,40 @@ Imports:
     scater,
     scran,
     scuttle,
+    SingleCellExperiment,
     stats,
+    SummarizedExperiment,
     tidyr,
     tinytable,
     utils,
-    yulab.utils,
-    bluster,
-    DropletUtils,
-    SingleCellExperiment,
-    SummarizedExperiment,
-    HDF5Array
+    yulab.utils
 Suggests:
     batchelor,
+    BiocNeighbors,
     BiocParallel,
+    CellChat,
+    celldex,
+    clusterProfiler,
+    ComplexHeatmap,
+    DESeq2,
+    enrichplot,
     grid,
+    harmony,
+    iSEE,
     mgcv,
     miloR,
-    reshape2,
-    slingshot,
-    scrapper,
-    viridis,
-    CellChat,
-    ComplexHeatmap,
-    clusterProfiler,
-    S4Vectors,
-    Seurat,
-    SingleR,
-    celldex,
-    DESeq2,
-    zellkonverter,
-    SuperCell,
-    iSEE,
     org.Hs.eg.db,
     presto,
+    reshape2,
+    S4Vectors,
+    scrapper,
+    Seurat,
+    SingleR,
+    slingshot,
+    SuperCell,
     testthat (>= 3.0.0),
-    BiocNeighbors,
-    harmony
+    viridis,
+    zellkonverter
 License: Artistic-2.0
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

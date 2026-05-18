@@ -5,9 +5,9 @@
 \alias{sclet}
 \alias{sclet-package}
 \alias{package-sclet}
-\title{sclet: Lightweight Single-Cell Analysis Toolkit for SingleCellExperiment}
+\title{sclet: A State-Aware Single-Cell Analysis Toolkit for SingleCellExperiment}
 \description{
-Provides a lightweight set of Seurat-like helpers for single-cell analysis based on the Bioconductor SingleCellExperiment class. Includes preprocessing, dimensionality reduction, clustering, visualization, batch correction, and pseudobulk differential expression, plus interoperability with AnnData. Optional wrappers integrate popular downstream tools for trajectory inference, enrichment analysis, cell type annotation, cell-cell communication, and differential abundance.
+Provides a comprehensive, state-aware toolkit for single-cell analysis based on the Bioconductor SingleCellExperiment class. It introduces a lightweight analysis-state contract to manage dependencies and provenance across workflows. Features include standard pipelines (preprocessing, dimensionality reduction, clustering, multi-backend integration), reference mapping, trajectory inference, differential expression and enrichment, differential abundance, cell-cell communication, metacell aggregation, and enhanced visualization. Seamless interoperability with AnnData and Seurat objects is also supported.
 }
 \author{
 \strong{Maintainer}: Guangchuang Yu \email{guangchuangyu@gmail.com} (\href{https://orcid.org/0000-0002-6485-8781}{ORCID})

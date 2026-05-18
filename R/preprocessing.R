@@ -113,6 +113,7 @@ NormalizeData <- function(object, scale.factor = 10000) {
 #' @importFrom SingleCellExperiment logcounts
 #' @importFrom SummarizedExperiment 'rowData<-'
 #' @importFrom stats loess
+#' @importFrom scran modelGeneVar
 #' @export
 FindVariableFeatures <- function(object, nfeatures = 2000, method = "scran", ...) {
     method <- match.arg(method, c("seurat", "scran", "scrapper"))

@@ -150,7 +150,7 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
   
   hvginfo <- rowData(sce)
   
-  #提取高度可变基因
+  # Extract HVGs
   method <- get_hvg_method(sce)
   
   if (is.null(HVG)) {    
@@ -180,7 +180,7 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
     }
   }
   
-  #校正
+  # Batch correction
   corrected <- sclet_muffle_known_warnings(
       batchelor::batchCorrect(
           sce,
@@ -191,8 +191,7 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
           correct.all = correct.all
       ),
       patterns = c(
-          "'normalizeCounts' is deprecated",
-          "normalizeCounts不再有用"
+          "'normalizeCounts' is deprecated"
       )
   )
   S4Vectors::metadata(corrected) <- S4Vectors::metadata(sce)

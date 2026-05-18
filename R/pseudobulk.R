@@ -21,17 +21,24 @@ AggregateExpression <- function(object, group_by, assay.type = "counts", fun = "
         stop("Not all grouping variables are present in colData.")
     }
     
-    # Use scuttle::aggregateAcrossCells for efficient aggregation
+    # Use scrapper::aggregateAcrossCells.se if available, otherwise fallback to scuttle
     # It returns a SummarizedExperiment
     ids <- colData(object)[, group_by, drop=FALSE]
     
     # aggregateAcrossCells handles "sum" (counts) naturally
     # If other stats needed, we might need other approach, but for pseudobulk DE, sum is standard.
     if (fun != "sum") {
-        warning("Currently only 'sum' is supported optimally via scuttle::aggregateAcrossCells. Using 'sum'.")
+        warning("Currently only 'sum' is supported optimally. Using 'sum'.")
     }
     
-    agg_sce <- scuttle::aggregateAcrossCells(object, ids = ids, use.assay.type = assay.type, statistics = "sum")
+    if (requireNamespace("scrapper", quietly = TRUE)) {
+        agg_sce <- scrapper::aggregateAcrossCells.se(object, ids = ids, use.assay.type = assay.type, statistics = "sum")
+    } else {
+        agg_sce <- sclet_muffle_known_warnings(
+            scuttle::aggregateAcrossCells(object, ids = ids, use.assay.type = assay.type, statistics = "sum"),
+            patterns = c("'aggregateAcrossCells' is deprecated")
+        )
+    }
     
     return(agg_sce)
 }
