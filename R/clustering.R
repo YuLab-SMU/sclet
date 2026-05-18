@@ -3,24 +3,66 @@
 #' @title FindNeighbors
 #' @param object a SingleCellExperiment object
 #' @param dims number of dimensions to be used to build the KNN graph
+#' @param reduction reduction to use. If NULL, use `DefaultReduction(object)` or fallback to "PCA".
 #' @param k number of neighbors
 #' @return updated SingleCellExperiment object with KNN graph
-#' @importFrom scran buildSNNGraph
+#' @importFrom bluster makeSNNGraph
 #' @export
-FindNeighbors <- function(object, dims, k = 10) {
-    object <- set_dimred(object, dims)    
-    graph <- scran::buildSNNGraph(
-        object, use.dimred = ".dimred", k = k, type = "rank")
+FindNeighbors <- function(object, dims, reduction = NULL, k = 10) {
+    if (is.null(reduction)) {
+        reduction <- DefaultReduction(object)
+    }
+    if (is.null(reduction)) {
+        reduction <- "PCA"
+    }
+    source_reduction <- reduction
+    reduction_id <- tolower(reduction)
+    reduction_state <- sclet_get_state_record(object, "reduction", reduction_id)
+    integration <- NULL
+    layer <- NULL
+    if (!is.null(reduction_state)) {
+        layer <- reduction_state$inputs$layer
+        integration <- reduction_state$inputs$integration
+    }
+    object <- set_dimred(object, dims, reduction = source_reduction)    
+    graph <- bluster::makeSNNGraph(
+        SingleCellExperiment::reducedDim(object, ".dimred"),
+        k = k,
+        type = "rank"
+    )
     object <- sclet_set_graph(
         object,
         graph = graph,
         name = "knn_graph",
-        params = list(dims = dims, k = k, type = "rank")
+        params = list(dims = dims, reduction = source_reduction, k = k, type = "rank")
+    )
+    object <- sclet_set_analysis_state(
+        object = object,
+        type = "graph",
+        id = "knn_graph",
+        method = "bluster::makeSNNGraph",
+        inputs = list(
+            dims = dims,
+            reduction = source_reduction,
+            layer = layer,
+            integration = integration
+        ),
+        artifacts = list(
+            graph = "knn_graph"
+        ),
+        params = list(
+            k = k,
+            type = "rank"
+        ),
+        summary = list(
+            n_vertices = igraph::vcount(graph),
+            n_edges = igraph::ecount(graph)
+        )
     )
     object <- sclet_log_command(
         object,
         "FindNeighbors",
-        params = list(dims = dims, k = k)
+        params = list(dims = dims, reduction = source_reduction, k = k)
     )
     return(object)
 }
@@ -43,10 +85,32 @@ FindClusters <- function(object, resolution = 0.5) {
     if (is.null(g)) {
         stop("No KNN graph found. Please run FindNeighbors() first.")
     }
+    graph_state <- sclet_get_state_record(object, "graph", graph_name)
     clusters <- igraph::cluster_louvain(g, resolution=resolution)
     
     SingleCellExperiment::colLabels(object) <- factor(clusters$membership)
     object <- sclet_set_active_ident(object, "colLabels")
+    object <- sclet_set_analysis_state(
+        object = object,
+        type = "clustering",
+        id = "louvain_clusters",
+        method = "igraph::cluster_louvain",
+        inputs = list(
+            graph = graph_name,
+            reduction = if (!is.null(graph_state)) graph_state$inputs$reduction else NULL,
+            layer = if (!is.null(graph_state)) graph_state$inputs$layer else NULL,
+            integration = if (!is.null(graph_state)) graph_state$inputs$integration else NULL
+        ),
+        artifacts = list(
+            ident = "colLabels"
+        ),
+        params = list(
+            resolution = resolution
+        ),
+        summary = list(
+            n_clusters = length(unique(clusters$membership))
+        )
+    )
     object <- sclet_log_command(
         object,
         "FindClusters",

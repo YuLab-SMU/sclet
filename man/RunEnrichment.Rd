@@ -5,16 +5,26 @@
 \title{RunEnrichment}
 \usage{
 RunEnrichment(
-  markers,
+  object,
+  id = NULL,
+  p_val_cutoff = 0.05,
+  logfc_cutoff = 0.25,
   db = c("GO", "KEGG"),
   orgDb = "org.Hs.eg.db",
   keyType = "SYMBOL",
   ont = "BP",
+  name = "enrichment",
   ...
 )
 }
 \arguments{
-\item{markers}{Data frame returned by FindAllMarkers or FindMarkers}
+\item{object}{A SingleCellExperiment object}
+
+\item{id}{ID of the detest state to use for enrichment. If NULL, uses the active detest state.}
+
+\item{p_val_cutoff}{p-value threshold for marker selection (default 0.05)}
+
+\item{logfc_cutoff}{logFC threshold for marker selection (default 0.25)}
 
 \item{db}{Database to use ("GO" or "KEGG")}
 
@@ -24,10 +34,12 @@ RunEnrichment(
 
 \item{ont}{Ontology for GO ("BP", "MF", "CC", "ALL")}
 
+\item{name}{Analysis record id. Defaults to "enrichment".}
+
 \item{...}{Additional arguments passed to enrichGO or enrichKEGG}
 }
 \value{
-A clusterProfiler result object (compareClusterResult)
+A SingleCellExperiment object with enrichment state added
 }
 \description{
 Run Functional Enrichment Analysis

@@ -80,5 +80,69 @@
 - 完整 `devtools::check()` 目前仍保留 2 个 NOTE，其中 `future file timestamps` 更像环境时钟问题；为消除隐藏目录 NOTE，计划目录从 `.dev` 迁移为 `dev-notes`
 - 完整 `check()` 在清理隐藏目录 NOTE 后暴露出 `clusterProfiler` 的强依赖 warning，随后通过将其改回可选依赖并移除 NAMESPACE 顶层 import 修复
 
+## P9-P27 已落地扩展
+- `bookdown/*.Rmd` 的用户可见口径已统一到 `Run*`，并补入面向用户/开发者的设计说明
+- 已形成并落地 `analysis-state contract` 主线，而不再局限于早期 `assay/layer contract`
+- 已实现 `layer registry` 与用户接口：`Layers()`、`LayerData()`、`DefaultLayer()`
+- `NormalizeData()`、`ScaleData()`、`BatchRemover()` 已接入 layer/state 写回
+- `RunPCA()`、`RunUMAP()`、`FindNeighbors()`、`FindClusters()` 已记录 layer 与 integration provenance
+- `sce_merge()` 已写入 merge provenance，`BatchRemover()` 已写入 active integration state，并可追踪 merge 来源
+- `RunSingleR()` 已接入 `annotation` + `mapping` contract，支持 `get_annotation()` / `get_mapping()`
+- `RunSlingshot()` / `RunSlingshot_trajectory()` 已接入可命名 `trajectory` contract 与 active/id 读取
+- `RunSuperCell()` 已接入 `aggregation` contract，返回对象记录 parent-child provenance，并统一使用 `sclet_set_analysis()`
+- `RunCellChat()` 已接入可命名 `communication` contract 与 active/id 读取
+- `RunMilo()` 已接入可命名 `milo` contract 与 active/id 读取
+- `get_*` / `has_*` 主路径已基本统一到 state/accessor 模式，保留 legacy fallback
+- `CommandLog()` 已与 canonical `Run*`、typed outputs 和主要 downstream 模块对齐
+
+## 当前已完成能力
+- 核心状态层：`metadata(sce)$sclet`、active state、command log、typed analysis states
+- 表达空间管理：`DefaultAssay()`、`DefaultLayer()`、logical layer -> physical assay 解析
+- 主分析链：preprocess、reduction、graph、clustering 的统一 state/provenance
+- 下游 contract：`annotation`、`mapping`、`trajectory`、`aggregation`、`communication`、`milo`
+- provenance 主线：merge -> integration -> downstream analysis
+- 用户文档同步：每轮代码改动后均已更新相关 `bookdown/*.Rmd`，未渲染 bookdown
+
+## 当前验证状态
+- `state-refactor` 与相关定向测试已多轮通过
+- 最近一轮全局收口验证结果：
+  - `Rscript -e 'devtools::test(filter = "state-refactor|advanced")'` 通过
+  - `Rscript -e 'devtools::check()'` 结果为 `0 errors / 0 warnings / 0 notes`
+- 当前保留的 warnings 主要来自上游 Bioconductor 依赖的 deprecated API 提示，不是本轮 contract 改造引入的新错误
+
+## Remaining Gaps
+- 上游依赖弃用接口的**公开主链调用**已基本清理完成：
+  - `NormalizeData()` 已改为 `scuttle::calculateCPM + log1p`
+  - `FindNeighbors()` 已改为 `bluster::makeSNNGraph`
+  - HVG 选择与批次合并不再直接调用 `scran::getTopHVGs()` / `scran::combineBlocks()`
+- 当前剩余技术债主要在**低层兼容 helper**，而不是用户可见主流程：
+  - `sclet_model_gene_var()` / `sclet_fit_trend_var()` 仍依赖部分 `scran` 内部低层统计逻辑来保持现有行为
+  - `test-deprecation-cleanup.R` 仍需要持续盯住上游 warning 变化
+  - 后续若 Bioconductor 上游给出更稳定的低层替代接口，再评估是否继续收口
+- `get_*` / `has_*` 已统一，legacy metadata fallback 已收到统一的内部 helper：
+  - `sclet_get_legacy_graph_entry()` 统一 `knn_graph` 旧 metadata 读取
+  - `sclet_get_legacy_analysis_record()` 统一 `trajectory / milo / supercell / batch` 旧 metadata 读取
+  - 全仓外围调用点已扫描完毕：所有消费侧均走 `get_*` / `has_*`，无绕开 accessor 的直读点
+- `mapping` 目前是最小 contract，后续若接更多 reference transfer 方法，需要把 schema 再抽象一层
+- `supercell` / `cellchat` / `milo` 的 rich object 目前仍以单对象载荷为主，若将来支持对象集合或惰性载入，可能需要扩展 payload 约定
+
+## Next Phase Candidates
+1. ~~全仓读取路径再收口~~ ✅ 已完成
+   - 旧 metadata 直读路径已统一到内部 helper，外围调用均走 accessor
+2. ~~cross-analysis helpers~~ ✅ 已完成
+   - 在现有 state contract 之上，继续增加更高层的用户视角 helper
+   - 新增 `RunStandardPipeline()` 作为主分析流程总入口，完全消费 `analysis-state contract`
+   - 新增 `PipelineSummary()` 提供直观的文字版流水线摘要
+3. 上游低层兼容 helper 观察
+   - 持续关注 `scran` / `scuttle` 上游变化
+   - 只有在出现明确稳定替代接口时，再收紧 `sclet_model_gene_var()` 等低层兼容实现
+4. `scop` 其它未完成模块 (Mapping / SuperCell 等高阶集成)
+   - 基于 `RunSingleR` 扩展更多的 Reference Mapping
+   - 根据需求进一步增强 Integration 与 Visualization 消费约定
+
+## Recommended Next Step
+- 鉴于 `RunStandardPipeline` 和 `PipelineSummary` 的引入，`scop` 对标计划中提到的核心平台体验（标准入口、状态注册表、可视化与切换机制）的**基础框架已全部打通**。
+- 下一步建议根据真实业务场景需求，切入更高阶的下游能力（如 Mapping、SuperCell 或自定义 Integration ），或开始准备对外发版前的文档与 Vignette 打磨。
+
 ## Status
-**In Progress** - 已完成 P0-P6 的状态层重构、统一读取/存在性接口建设，以及包级回归验证；当前正在推进 P7 的对外 API 命名统一。
+**Phase Complete** - `analysis-state contract` 主线、layer/integration provenance、主要 downstream contract、标准工作流总入口 `RunStandardPipeline` 与 `PipelineSummary` 已经全部落地，包级验证通过。`scop` 对标中最重要的“平台化心智”已被成功引入 `sclet`。

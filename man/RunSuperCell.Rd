@@ -7,17 +7,23 @@
 RunSuperCell(
   object,
   assay = "logcounts",
+  layer = NULL,
   nHVG = 2000,
   hvg_method = "scran",
   cellname = "Barcode",
   gamma = 20,
-  k.knn = 5
+  k.knn = 5,
+  name = "supercell"
 )
 }
 \arguments{
 \item{object}{SingleCellExperiment object}
 
-\item{assay}{selected assay used to build KNN graph}
+\item{assay}{selected assay used to build KNN graph. If \code{layer} is provided,
+this is treated as a compatibility alias.}
+
+\item{layer}{layer used to build the metacell representation. If \code{NULL},
+sclet resolves it from \code{DefaultLayer(object)}.}
 
 \item{nHVG}{number of HVGs to use}
 
@@ -28,6 +34,8 @@ RunSuperCell(
 \item{gamma}{graining level, that is number_of_cells / number_of_metacells}
 
 \item{k.knn}{number of nearest neighbors to build KNN graph}
+
+\item{name}{aggregation record id. Defaults to \code{"supercell"}.}
 }
 \value{
 SingleCellExperiment object

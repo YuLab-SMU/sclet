@@ -24,6 +24,7 @@
 #' @param fail.on.error Logical; GLMM continues on errors if FALSE.
 #' @param BPPARAM BiocParallel param for fitting.
 #' @param seed Random seed for reproducibility.
+#' @param name milo record id. Defaults to `"milo"`.
 #' @param ... Additional arguments passed to underlying miloR functions.
 #'
 #' @return A list with:
@@ -57,6 +58,7 @@ RunMilo <- function(
     fail.on.error = FALSE,
     BPPARAM = NULL,
     seed = 2025,
+    name = "milo",
     ...
 ) {
     if (!requireNamespace("miloR", quietly = TRUE)) {
@@ -187,6 +189,7 @@ RunMilo <- function(
         sce,
         "milo",
         list(
+            id = name,
             da_results = da_results,
             design_df = design_df,
             formula = deparse(fml),
@@ -210,6 +213,50 @@ RunMilo <- function(
             )
         )
     )
+    sce <- sclet_set_analysis_state(
+        object = sce,
+        type = "milo",
+        id = name,
+        method = "miloR",
+        inputs = list(
+            reduction = "PCA",
+            sample_col = sample_col,
+            condition_col = condition_col,
+            covariates = covariates
+        ),
+        artifacts = list(
+            analysis_key = "milo",
+            da_results = da_results,
+            design_df = design_df,
+            formula = deparse(fml),
+            contrasts = contrasts
+        ),
+        params = list(
+            k1 = k1,
+            k2 = k2,
+            d1 = d1,
+            d2 = d2,
+            d3 = d3,
+            prop = prop,
+            overlap = overlap,
+            per_contrast = per_contrast,
+            is_refined = is_refined,
+            refinement_scheme = refinement_scheme,
+            adjustment = adjustment,
+            glmm = glmm,
+            random_effect = random_effect,
+            glmm_solver = glmm_solver,
+            REML = REML,
+            max.iters = max.iters,
+            fail.on.error = fail.on.error,
+            seed = seed
+        ),
+        summary = list(
+            n_nhood_results = nrow(da_results),
+            n_samples = nrow(design_df)
+        ),
+        active = TRUE
+    )
     sce <- sclet_log_command(
         sce,
         "RunMilo",
@@ -218,7 +265,12 @@ RunMilo <- function(
             condition_col = condition_col,
             contrasts = contrasts,
             glmm = glmm,
-            seed = seed
+            seed = seed,
+            name = name
+        ),
+        outputs = list(
+            analysis = "milo",
+            milo = name
         )
     )
 
@@ -256,6 +308,7 @@ runMilo <- function(
     fail.on.error = FALSE,
     BPPARAM = NULL,
     seed = 2025,
+    name = "milo",
     ...
 ) {
     RunMilo(
@@ -283,6 +336,7 @@ runMilo <- function(
         fail.on.error = fail.on.error,
         BPPARAM = BPPARAM,
         seed = seed,
+        name = name,
         ...
     )
 }

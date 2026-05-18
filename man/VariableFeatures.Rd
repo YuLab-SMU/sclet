@@ -9,9 +9,9 @@ VariableFeatures(object, method = "scran", ...)
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
-\item{method}{one of 'seurat' or 'scran'}
+\item{method}{one of 'seurat', 'scran' or 'scrapper'}
 
-\item{...}{additional parameters for 'method = "scran"', see also \code{scran::getTopHVGs()}}
+\item{...}{additional parameters for ranking the \code{method = "scran"} HVG table}
 }
 \value{
 highly variable features

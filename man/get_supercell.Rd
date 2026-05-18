@@ -4,12 +4,14 @@
 \alias{get_supercell}
 \title{get_supercell}
 \usage{
-get_supercell(object, element = NULL)
+get_supercell(object, element = NULL, id = NULL)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
-\item{element}{optional element name to extract from the stored SuperCell record}
+\item{element}{optional element name to extract from the selected SuperCell record}
+
+\item{id}{optional aggregation record id. If NULL, use the active aggregation record.}
 }
 \value{
 the full SuperCell analysis record, a selected element, or \code{NULL}

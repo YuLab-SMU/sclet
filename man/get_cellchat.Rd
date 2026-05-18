@@ -4,12 +4,14 @@
 \alias{get_cellchat}
 \title{get_cellchat}
 \usage{
-get_cellchat(object, element = NULL)
+get_cellchat(object, element = NULL, id = NULL)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
-\item{element}{optional element name to extract from the stored CellChat record}
+\item{element}{optional element name to extract from the selected CellChat record}
+
+\item{id}{optional communication record id. If NULL, use the active communication record.}
 }
 \value{
 the full CellChat record, a selected element, or \code{NULL}

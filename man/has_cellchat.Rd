@@ -4,10 +4,12 @@
 \alias{has_cellchat}
 \title{has_cellchat}
 \usage{
-has_cellchat(object)
+has_cellchat(object, id = NULL)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
+
+\item{id}{optional communication record id}
 }
 \value{
 logical

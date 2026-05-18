@@ -4,12 +4,14 @@
 \alias{FindNeighbors}
 \title{FindNeighbors}
 \usage{
-FindNeighbors(object, dims, k = 10)
+FindNeighbors(object, dims, reduction = NULL, k = 10)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
 \item{dims}{number of dimensions to be used to build the KNN graph}
+
+\item{reduction}{reduction to use. If NULL, use \code{DefaultReduction(object)} or fallback to "PCA".}
 
 \item{k}{number of neighbors}
 }

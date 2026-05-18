@@ -14,6 +14,8 @@
 #' calculating logFC. 1 by default.
 #' @param assay assay used for marker testing. If NULL, sclet resolves from
 #' `DefaultAssay(object)` and falls back to `logcounts` when needed.
+#' @param layer layer used for marker testing. If NULL, sclet uses
+#' `DefaultLayer(object)`.
 #' @param ... additional parameters
 #' @export
 FindAllMarkers <- function(
@@ -25,11 +27,12 @@ FindAllMarkers <- function(
     base = 2,
     pseudocount.use = 1,
     assay = NULL,
+    layer = NULL,
     ...) {
 
     idents <- Idents(object)
     if (is.null(idents)) stop("No identities found. Please run FindClusters() first.")
-    assay <- resolve_marker_assay(object, assay)
+    assay <- resolve_marker_assay(object, assay = assay, layer = layer)
     
     # Ensure presto is available
     if (!is.installed("presto")) {
@@ -129,6 +132,8 @@ FindAllMarkers <- function(
 #' calculating logFC. 1 by default.
 #' @param assay assay used for marker testing. If NULL, sclet resolves from
 #' `DefaultAssay(object)` and falls back to `logcounts` when needed.
+#' @param layer layer used for marker testing. If NULL, sclet uses
+#' `DefaultLayer(object)`.
 #' @param ... additional parameters
 #' @export
 FindMarkers <- function(
@@ -140,8 +145,9 @@ FindMarkers <- function(
     base=2,
     pseudocount.use=1,
     assay = NULL,
+    layer = NULL,
     ...) {
-        assay <- resolve_marker_assay(object, assay)
+        assay <- resolve_marker_assay(object, assay = assay, layer = layer)
 
         FindMarkers_Presto(
         object = SummarizedExperiment::assay(object, assay),
@@ -156,22 +162,85 @@ FindMarkers <- function(
         )
 }
 
-resolve_marker_assay <- function(object, assay = NULL) {
-    assay_names <- SummarizedExperiment::assayNames(object)
-    if (is.null(assay)) {
-        assay <- DefaultAssay(object)
+#' Run Differential Expression Test
+#'
+#' @title RunDEtest
+#' @param object A SingleCellExperiment object
+#' @param ident.1 Identity class to define markers for. If NULL, runs FindAllMarkers.
+#' @param ident.2 A second identity class for comparison
+#' @param name Analysis record id. Defaults to "detest".
+#' @param ... Passed to FindMarkers or FindAllMarkers
+#' @return A SingleCellExperiment object with detest state added
+#' @export
+RunDEtest <- function(object, ident.1 = NULL, ident.2 = NULL, name = "detest", ...) {
+    if (is.null(ident.1)) {
+        res <- FindAllMarkers(object, ...)
+        method <- "FindAllMarkers"
+    } else {
+        res <- FindMarkers(object, ident.1 = ident.1, ident.2 = ident.2, ...)
+        method <- "FindMarkers"
     }
-    if (is.null(assay)) {
-        assay <- if ("logcounts" %in% assay_names) "logcounts" else assay_names[[1]]
-    }
-    if (identical(assay, "scaled") && "logcounts" %in% assay_names) {
-        message("Using 'logcounts' for marker testing instead of active assay 'scaled'.")
-        assay <- "logcounts"
-    }
-    if (!assay %in% assay_names) {
-        stop("Assay '", assay, "' not found in object.")
-    }
-    assay
+    
+    state_inputs <- list(
+        ident.1 = ident.1,
+        ident.2 = ident.2,
+        active_ident = ActiveIdent(object)
+    )
+    
+    object <- sclet_set_analysis_state(
+        object = object,
+        type = "detest",
+        id = name,
+        method = method,
+        inputs = state_inputs,
+        artifacts = list(result = res),
+        summary = list(n_markers = nrow(res)),
+        active = TRUE
+    )
+    
+    object <- sclet_log_command(
+        object,
+        "RunDEtest",
+        params = list(ident.1 = ident.1, ident.2 = ident.2, name = name),
+        outputs = list(detest = name)
+    )
+    
+    return(object)
+}
+
+#' Get Differential Expression Test Results
+#'
+#' @title get_detest
+#' @param object A SingleCellExperiment object
+#' @param id Analysis record id. If NULL, uses the active detest state.
+#' @return The detest state record
+#' @export
+get_detest <- function(object, id = NULL) {
+    if (is.null(id)) id <- sclet_get_active_state(object, "detest")
+    if (is.null(id)) return(NULL)
+    sclet_get_state_record(object, "detest", id)
+}
+
+#' Check if Differential Expression Test Results exist
+#'
+#' @title has_detest
+#' @param object A SingleCellExperiment object
+#' @param id Analysis record id. If NULL, uses the active detest state.
+#' @return Logical indicating if the detest state exists
+#' @export
+has_detest <- function(object, id = NULL) {
+    !is.null(get_detest(object, id))
+}
+
+resolve_marker_assay <- function(object, assay = NULL, layer = NULL) {
+    source <- sclet_resolve_expression_source(
+        object = object,
+        layer = layer,
+        assay = assay,
+        prefer_nonscaled = TRUE,
+        context = "marker testing"
+    )
+    source$assay
 }
 
 #' @importFrom yulab.utils install_zip_gh

@@ -4,7 +4,7 @@
 \alias{RunUMAP}
 \title{RunUMAP}
 \usage{
-RunUMAP(object, dims = NULL, reduction = NULL)
+RunUMAP(object, dims = NULL, reduction = NULL, layer = NULL)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
@@ -14,6 +14,10 @@ selected source reduction.}
 
 \item{reduction}{source reduction used to build UMAP. If NULL, sclet first
 tries \code{DefaultReduction(object)}, then falls back to a non-UMAP reduction.}
+
+\item{layer}{source layer annotation used for provenance. If NULL, sclet
+tries to infer it from the source reduction state, then falls back to
+\code{DefaultLayer(object)}.}
 }
 \value{
 updated SingleCellExperiment object with UMAP dimension reduction

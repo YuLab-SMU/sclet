@@ -30,6 +30,7 @@ RunMilo(
   fail.on.error = FALSE,
   BPPARAM = NULL,
   seed = 2025,
+  name = "milo",
   ...
 )
 
@@ -58,6 +59,7 @@ runMilo(
   fail.on.error = FALSE,
   BPPARAM = NULL,
   seed = 2025,
+  name = "milo",
   ...
 )
 }
@@ -109,6 +111,8 @@ runMilo(
 \item{BPPARAM}{BiocParallel param for fitting.}
 
 \item{seed}{Random seed for reproducibility.}
+
+\item{name}{milo record id. Defaults to \code{"milo"}.}
 
 \item{...}{Additional arguments passed to underlying miloR functions.}
 }

@@ -12,7 +12,8 @@ RunSlingshot(
   end_cluster = NULL,
   reverse = FALSE,
   align_start = FALSE,
-  seed = 2025
+  seed = 2025,
+  name = "slingshot"
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ RunSlingshot(
 \item{align_start}{A logical value indicating whether to align the starting pseudotime values at the maximum pseudotime. Default is FALSE.}
 
 \item{seed}{Random seed for reproducibility.}
+
+\item{name}{trajectory record id. Defaults to \code{"slingshot"}.}
 }
 \value{
 A SingleCellExperiment object with added pseudotime information in colData.

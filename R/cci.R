@@ -5,12 +5,16 @@
 #' @title RunCellChat
 #' @param sce singlecellExperiment object.
 #' @param group parameter to group data, must be one column in colData(obj).
-#' @param assay_name the name of assay
+#' @param assay_name the name of assay. If NULL, sclet resolves it from the
+#' selected `layer`.
+#' @param layer layer used for communication analysis. If NULL, use
+#' `DefaultLayer(sce)`.
 #' @param species one of human, mouse
 #' @param db_item one of  "all", "except Non-protein","Secreted Signaling", "ECM-Receptor", "Cell-Cell Contact" and "Non-protein Signaling"
 #' @param type one of  "triMean", "truncatedMean", "thresholdedMean", "median"
 #' @param trim the fraction (0 to 0.25) of observations to be trimmed from each end of x before the mean is computed
 #' @param min.cells min cells to filter
+#' @param name communication record id. Defaults to `"cellchat"`.
 #' @param return one of `"cellchat"`, `"sce"` or `"both"`
 #' @return by default a CellChat object; if `return = "sce"`, returns the
 #' updated SingleCellExperiment; if `return = "both"`, returns a list with both
@@ -18,12 +22,14 @@
 #' @importFrom SummarizedExperiment assayNames
 #' @export
 RunCellChat <- function(sce, group = "label",
-                        assay_name = "logcounts",
+                        assay_name = NULL,
+                        layer = NULL,
                         species = "human",
                         db_item = c("Secreted Signaling"),
                         type = "triMean",
                         trim = 0.1,
                         min.cells = 10,
+                        name = "cellchat",
                         return = c("cellchat", "sce", "both")) {
 
     if (!requireNamespace("CellChat", quietly = TRUE)) {
@@ -45,6 +51,14 @@ RunCellChat <- function(sce, group = "label",
         stop("group must be in the colData of sce")
     }
 
+    source <- sclet_resolve_expression_source(
+        object = sce,
+        layer = layer,
+        assay = assay_name,
+        prefer_nonscaled = TRUE,
+        context = "CellChat analysis"
+    )
+    assay_name <- source$assay
     data <- assay(sce, assay_name)
     meta <- as.data.frame(colData(sce)) 
 
@@ -85,10 +99,12 @@ RunCellChat <- function(sce, group = "label",
         sce,
         "cellchat",
         list(
+            id = name,
             method = "CellChat",
             object = cellchat_obj,
             group = group,
             assay = assay_name,
+            layer = source$layer,
             species = species,
             db_item = db_item,
             params = list(
@@ -98,17 +114,48 @@ RunCellChat <- function(sce, group = "label",
             )
         )
     )
+    sce <- sclet_set_analysis_state(
+        object = sce,
+        type = "communication",
+        id = name,
+        method = "CellChat",
+        inputs = list(
+            assay = assay_name,
+            layer = source$layer,
+            group = group
+        ),
+        artifacts = list(
+            analysis_key = "cellchat"
+        ),
+        params = list(
+            species = species,
+            db_item = db_item,
+            type = type,
+            trim = trim,
+            min.cells = min.cells
+        ),
+        summary = list(
+            n_groups = length(unique(meta[[group]]))
+        ),
+        active = TRUE
+    )
     sce <- sclet_log_command(
         sce,
         "RunCellChat",
         params = list(
             group = group,
             assay_name = assay_name,
+            layer = source$layer,
             species = species,
             db_item = db_item,
             type = type,
             trim = trim,
-            min.cells = min.cells
+            min.cells = min.cells,
+            name = name
+        ),
+        outputs = list(
+            analysis = "communication",
+            communication = name
         )
     )
 
@@ -129,23 +176,26 @@ RunCellChat <- function(sce, group = "label",
 #' @rdname RunCellChat
 #' @export
 runCellChat <- function(sce, group = "label",
-                        assay_name = "logcounts",
+                        assay_name = NULL,
+                        layer = NULL,
                         species = "human",
                         db_item = c("Secreted Signaling"),
                         type = "triMean",
                         trim = 0.1,
                         min.cells = 10,
+                        name = "cellchat",
                         return = c("cellchat", "sce", "both")) {
     RunCellChat(
         sce = sce,
         group = group,
         assay_name = assay_name,
+        layer = layer,
         species = species,
         db_item = db_item,
         type = type,
         trim = trim,
         min.cells = min.cells,
+        name = name,
         return = return
     )
 }
-

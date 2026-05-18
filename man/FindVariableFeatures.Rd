@@ -11,9 +11,13 @@ FindVariableFeatures(object, nfeatures = 2000, method = "scran", ...)
 
 \item{nfeatures}{number of features to be selected as highly variable features}
 
-\item{method}{one of 'seurat' or 'scran'}
+\item{method}{one of 'seurat', 'scran' or 'scrapper'}
 
-\item{...}{additional parameters for 'method = 'scran', see also \code{scran::modelGeneVar()}}
+\item{...}{additional parameters for variance modelling. For \code{method = "scran"},
+they are passed to \code{scran::modelGeneVar()}. For \code{method = "scrapper"},
+wrapper-level arguments such as \code{block}, \code{num.threads}, \code{assay.type},
+\code{include.per.block}, \code{more.var.args} and \code{more.choose.args} are supported;
+any remaining named arguments are forwarded into \code{more.var.args}.}
 }
 \value{
 an updated SingleCellExperiment object with identified highly variable features

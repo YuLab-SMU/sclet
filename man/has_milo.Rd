@@ -4,10 +4,12 @@
 \alias{has_milo}
 \title{has_milo}
 \usage{
-has_milo(object)
+has_milo(object, id = NULL)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
+
+\item{id}{optional milo record id}
 }
 \value{
 logical

@@ -4,7 +4,14 @@
 \alias{RunSingleR}
 \title{RunSingleR}
 \usage{
-RunSingleR(object, ref = NULL, labels = NULL, assay.type = "logcounts", ...)
+RunSingleR(
+  object,
+  ref = NULL,
+  labels = NULL,
+  assay.type = NULL,
+  layer = NULL,
+  ...
+)
 }
 \arguments{
 \item{object}{A SingleCellExperiment object}
@@ -13,7 +20,9 @@ RunSingleR(object, ref = NULL, labels = NULL, assay.type = "logcounts", ...)
 
 \item{labels}{Labels in the reference dataset. If NULL, tries to use 'label.main'.}
 
-\item{assay.type}{Assay to use for annotation. Default is "logcounts".}
+\item{assay.type}{Assay to use for annotation. If NULL, resolved from \code{layer}.}
+
+\item{layer}{Layer to use for annotation. If NULL, use \code{DefaultLayer(object)}.}
 
 \item{...}{Additional arguments passed to SingleR::SingleR}
 }

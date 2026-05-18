@@ -8,7 +8,8 @@
 RunPCA(
   object,
   subset_row = NULL,
-  exprs_values = "logcounts",
+  exprs_values = NULL,
+  layer = NULL,
   ncomponents = 50,
   ...
 )
@@ -16,7 +17,8 @@ RunPCA(
 runPCA(
   object,
   subset_row = NULL,
-  exprs_values = "logcounts",
+  exprs_values = NULL,
+  layer = NULL,
   ncomponents = 50,
   ...
 )
@@ -26,7 +28,10 @@ runPCA(
 
 \item{subset_row}{subset of rows used for PCA}
 
-\item{exprs_values}{assay used for PCA}
+\item{exprs_values}{assay used for PCA. If NULL, sclet resolves it from the
+selected \code{layer}.}
+
+\item{layer}{layer used for PCA. If NULL, use \code{DefaultLayer(object)}.}
 
 \item{ncomponents}{number of components}
 

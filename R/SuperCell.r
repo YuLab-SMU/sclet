@@ -2,16 +2,20 @@
 #' 
 #' @title RunSuperCell
 #' @param object SingleCellExperiment object
-#' @param assay selected assay used to build KNN graph
+#' @param assay selected assay used to build KNN graph. If `layer` is provided,
+#' this is treated as a compatibility alias.
+#' @param layer layer used to build the metacell representation. If `NULL`,
+#' sclet resolves it from `DefaultLayer(object)`.
 #' @param nHVG number of HVGs to use
 #' @param hvg_method one of 'seurat' or 'scran', see also `FindVariableFeatures()`
 #' @param cellname IDs to label the cells, use 'Barcode' by default
 #' @param gamma graining level, that is number_of_cells / number_of_metacells
 #' @param k.knn number of nearest neighbors to build KNN graph
+#' @param name aggregation record id. Defaults to `"supercell"`.
 #' @return SingleCellExperiment object
 #' @export
-RunSuperCell <- function(object, assay = "logcounts", nHVG = 2000, hvg_method = "scran",
-                        cellname = "Barcode", gamma = 20, k.knn = 5) {
+RunSuperCell <- function(object, assay = "logcounts", layer = NULL, nHVG = 2000, hvg_method = "scran",
+                        cellname = "Barcode", gamma = 20, k.knn = 5, name = "supercell") {
 
   if (!requireNamespace("SuperCell", quietly = TRUE)) {
       stop("Package 'SuperCell' is needed for this function to work. Please install it.")
@@ -23,6 +27,14 @@ RunSuperCell <- function(object, assay = "logcounts", nHVG = 2000, hvg_method = 
   }
 
   # gene expression matrix
+  source <- sclet_resolve_expression_source(
+      object = object,
+      layer = layer,
+      assay = assay,
+      prefer_nonscaled = TRUE,
+      context = "SuperCell aggregation"
+  )
+  assay <- source$assay
   GE <- SummarizedExperiment::assay(object, assay)
   if (is.null(colnames(GE))) {
       colnames(GE) <- paste0("Cell", seq_len(ncol(GE)))
@@ -52,13 +64,6 @@ RunSuperCell <- function(object, assay = "logcounts", nHVG = 2000, hvg_method = 
   if (!is.null(state$features$hvg)) {
       state$features$hvg$n <- NULL
   }
-  state$analyses$supercell <- list(
-      method = "SuperCell::SCimplify",
-      gamma = gamma,
-      k.knn = k.knn,
-      cellname = cellname,
-      object = SC
-  )
   mdata$sclet <- state
 
   assay_names <- names(SummarizedExperiment::assays(object))
@@ -73,6 +78,78 @@ RunSuperCell <- function(object, assay = "logcounts", nHVG = 2000, hvg_method = 
     rowData = rowData(object),
     colData = cdata,
     metadata = mdata
+  )
+  sce <- sclet_set_active_assay(sce, assay)
+  if (!is.null(source$layer) && source$layer %in% Layers(sce)) {
+      sce <- sclet_set_active_layer(sce, source$layer)
+  }
+  sce <- sclet_set_analysis(
+      sce,
+      "supercell",
+      list(
+          method = "SuperCell::SCimplify",
+          id = name,
+          gamma = gamma,
+          k.knn = k.knn,
+          assay = assay,
+          layer = source$layer,
+          cellname = cellname,
+          parent = list(
+              assay = assay,
+              layer = source$layer,
+              n_cells = ncol(object),
+              n_genes = nrow(object)
+          ),
+          child = list(
+              n_cells = length(SC$supercell_size)
+          ),
+          object = SC
+      )
+  )
+  sce <- sclet_set_analysis_state(
+      object = sce,
+      type = "aggregation",
+      id = name,
+      method = "SuperCell::SCimplify",
+      inputs = list(
+          assay = assay,
+          layer = source$layer,
+          cellname = cellname,
+          n_hvg = length(hvgs),
+          parent_n_cells = ncol(object),
+          parent_n_genes = nrow(object)
+      ),
+      artifacts = list(
+          analysis_key = "supercell",
+          size_col = "size"
+      ),
+      params = list(
+          gamma = gamma,
+          k.knn = k.knn,
+          hvg_method = hvg_method
+      ),
+      summary = list(
+          n_metacells = length(SC$supercell_size),
+          mean_metacell_size = mean(SC$supercell_size)
+      )
+  )
+  sce <- sclet_log_command(
+      sce,
+      "RunSuperCell",
+      params = list(
+          assay = assay,
+          layer = source$layer,
+          nHVG = nHVG,
+          hvg_method = hvg_method,
+          cellname = cellname,
+          gamma = gamma,
+          k.knn = k.knn,
+          name = name
+      ),
+      outputs = list(
+          analysis = "supercell",
+          aggregation = name
+      )
   )
   return(sce)
 }

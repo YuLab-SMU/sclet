@@ -13,6 +13,7 @@ FindMarkers(
   base = 2,
   pseudocount.use = 1,
   assay = NULL,
+  layer = NULL,
   ...
 )
 }
@@ -37,6 +38,9 @@ calculating logFC. 1 by default.}
 
 \item{assay}{assay used for marker testing. If NULL, sclet resolves from
 \code{DefaultAssay(object)} and falls back to \code{logcounts} when needed.}
+
+\item{layer}{layer used for marker testing. If NULL, sclet uses
+\code{DefaultLayer(object)}.}
 
 \item{...}{additional parameters}
 }

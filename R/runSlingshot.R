@@ -10,6 +10,7 @@
 #' @param reverse A logical value indicating whether to reverse the pseudotime. Default is FALSE.
 #' @param align_start A logical value indicating whether to align the starting pseudotime values at the maximum pseudotime. Default is FALSE.
 #' @param seed Random seed for reproducibility.
+#' @param name trajectory record id. Defaults to `"slingshot"`.
 #' 
 #' @importFrom SingleCellExperiment colData reducedDims
 #' @importFrom graphics plot lines
@@ -24,7 +25,8 @@ RunSlingshot <- function(
     end_cluster = NULL,
     reverse = FALSE,
     align_start = FALSE,
-    seed = 2025){
+    seed = 2025,
+    name = "slingshot"){
   
   if (!requireNamespace("slingshot", quietly = TRUE)) {
       stop("Package 'slingshot' is needed for this function to work. Please install it.")
@@ -92,6 +94,32 @@ RunSlingshot <- function(
       ordering = sce$slingshot
     )
   )
+  sce <- sclet_set_analysis_state(
+    object = sce,
+    type = "trajectory",
+    id = name,
+    method = "slingshot",
+    inputs = list(
+      reduction = reduction,
+      group = group
+    ),
+    artifacts = list(
+      analysis_key = "trajectory",
+      pseudotime_cols = slingpseudotime_cols,
+      branch_col = "slingBranchID"
+    ),
+    params = list(
+      start_cluster = start_cluster,
+      end_cluster = end_cluster,
+      reverse = reverse,
+      align_start = align_start,
+      seed = seed
+    ),
+    summary = list(
+      n_lineages = ncol(slingshot::slingPseudotime(ssds))
+    ),
+    active = TRUE
+  )
   sce <- sclet_log_command(
     sce,
     "RunSlingshot",
@@ -102,7 +130,12 @@ RunSlingshot <- function(
       end_cluster = end_cluster,
       reverse = reverse,
       align_start = align_start,
-      seed = seed
+      seed = seed,
+      name = name
+    ),
+    outputs = list(
+      analysis = "trajectory",
+      trajectory = name
     )
   )
   sce$slingshot <- NULL

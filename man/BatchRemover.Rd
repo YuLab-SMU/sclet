@@ -12,7 +12,8 @@ BatchRemover(
   assay.type = "logcounts",
   PARAM = NULL,
   restrict = NULL,
-  correct.all = FALSE
+  correct.all = FALSE,
+  name = "batchcorrect"
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ BatchRemover(
 \item{restrict}{A list of length equal to the number of objects in \code{...}. Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.}
 
 \item{correct.all}{A logical scalar indicating whether to return corrected expression values for all genes, even if \code{subset.row} is set. Used to ensure that the output is of the same dimensionality as the input.}
+
+\item{name}{Integration record id. Defaults to "batchcorrect".}
 }
 \value{
 A SingleCellExperiment object

@@ -4,10 +4,12 @@
 \alias{has_supercell}
 \title{has_supercell}
 \usage{
-has_supercell(object)
+has_supercell(object, id = NULL)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
+
+\item{id}{optional aggregation record id}
 }
 \value{
 logical

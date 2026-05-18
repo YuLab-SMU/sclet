@@ -4,12 +4,14 @@
 \alias{get_trajectory}
 \title{get_trajectory}
 \usage{
-get_trajectory(object, element = NULL)
+get_trajectory(object, element = NULL, id = NULL)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
-\item{element}{optional element name to extract from the stored trajectory record}
+\item{element}{optional element name to extract from the selected trajectory record}
+
+\item{id}{optional trajectory record id. If NULL, use the active trajectory record.}
 }
 \value{
 the full trajectory analysis record, a selected element, or \code{NULL}

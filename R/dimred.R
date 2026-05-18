@@ -77,7 +77,7 @@ DefaultGraph <- function(object) {
 #' @export
 "DefaultGraph<-" <- function(object, value) {
     graph_names <- names(sclet_get_state(object)$graphs)
-    legacy_graphs <- if (!is.null(S4Vectors::metadata(object)$knn_graph)) "knn_graph" else character()
+    legacy_graphs <- if (!is.null(sclet_get_legacy_graph_entry(object, "knn_graph"))) "knn_graph" else character()
     valid_graphs <- unique(c(graph_names, legacy_graphs))
     if (!value %in% valid_graphs) {
         stop("Graph '", value, "' not found in sclet graph registry.")
@@ -162,8 +162,11 @@ CommandLog <- function(object, details = FALSE) {
 }
 
 #' @importFrom SingleCellExperiment 'reducedDim<-'
-set_dimred <- function(object, dims) {
-    reducedDim(object, ".dimred") <- reducedDim(object, "PCA")[, dims]
+set_dimred <- function(object, dims, reduction = "PCA") {
+    if (!reduction %in% SingleCellExperiment::reducedDimNames(object)) {
+        stop(paste("Reduction", reduction, "not found in object."))
+    }
+    reducedDim(object, ".dimred") <- reducedDim(object, reduction)[, dims, drop = FALSE]
     return(object)
 }
 
@@ -172,14 +175,24 @@ set_dimred <- function(object, dims) {
 #' @title RunPCA
 #' @param object a SingleCellExperiment object
 #' @param subset_row subset of rows used for PCA
-#' @param exprs_values assay used for PCA
+#' @param exprs_values assay used for PCA. If NULL, sclet resolves it from the
+#' selected `layer`.
+#' @param layer layer used for PCA. If NULL, use `DefaultLayer(object)`.
 #' @param ncomponents number of components
 #' @param ... additional parameters passed to 'scater::runPCA'
 #' @return an updated SingleCellExperiment object with PCA dimension reduction 
 #' @export
 #' @importFrom scater runPCA
-RunPCA <- function(object, subset_row = NULL, exprs_values = "logcounts", ncomponents = 50, ...) {
+RunPCA <- function(object, subset_row = NULL, exprs_values = NULL, layer = NULL, ncomponents = 50, ...) {
     prev_state <- sclet_get_state(object)
+    source <- sclet_resolve_expression_source(
+        object = object,
+        layer = layer,
+        assay = exprs_values,
+        context = "PCA"
+    )
+    integration <- sclet_resolve_integration_dependency(object, layer = source$layer)
+    exprs_values <- source$assay
     object <- scater::runPCA(
         object,
         subset_row = subset_row,
@@ -189,10 +202,32 @@ RunPCA <- function(object, subset_row = NULL, exprs_values = "logcounts", ncompo
     )
     object <- sclet_restore_state(object, prev_state)
     object <- sclet_set_active_reduction(object, "PCA")
+    object <- sclet_set_analysis_state(
+        object = object,
+        type = "reduction",
+        id = "pca",
+        method = "scater::runPCA",
+        inputs = list(
+            layer = source$layer,
+            assay = exprs_values,
+            subset_row = subset_row,
+            integration = integration
+        ),
+        artifacts = list(
+            reduction = "PCA"
+        ),
+        params = list(
+            ncomponents = ncomponents
+        ),
+        summary = list(
+            n_components = ncol(SingleCellExperiment::reducedDim(object, "PCA"))
+        )
+    )
     object <- sclet_log_command(
         object,
         "RunPCA",
         params = list(
+            layer = source$layer,
             subset_row = subset_row,
             exprs_values = exprs_values,
             ncomponents = ncomponents
@@ -203,11 +238,12 @@ RunPCA <- function(object, subset_row = NULL, exprs_values = "logcounts", ncompo
 
 #' @rdname RunPCA
 #' @export
-runPCA <- function(object, subset_row = NULL, exprs_values = "logcounts", ncomponents = 50, ...) {
+runPCA <- function(object, subset_row = NULL, exprs_values = NULL, layer = NULL, ncomponents = 50, ...) {
     RunPCA(
         object = object,
         subset_row = subset_row,
         exprs_values = exprs_values,
+        layer = layer,
         ncomponents = ncomponents,
         ...
     )
@@ -221,10 +257,13 @@ runPCA <- function(object, subset_row = NULL, exprs_values = "logcounts", ncompo
 #' selected source reduction.
 #' @param reduction source reduction used to build UMAP. If NULL, sclet first
 #' tries `DefaultReduction(object)`, then falls back to a non-UMAP reduction.
+#' @param layer source layer annotation used for provenance. If NULL, sclet
+#' tries to infer it from the source reduction state, then falls back to
+#' `DefaultLayer(object)`.
 #' @return updated SingleCellExperiment object with UMAP dimension reduction 
 #' @export
 #' @importFrom scater runUMAP
-RunUMAP <- function(object, dims = NULL, reduction = NULL) {
+RunUMAP <- function(object, dims = NULL, reduction = NULL, layer = NULL) {
     prev_state <- sclet_get_state(object)
     available_reductions <- SingleCellExperiment::reducedDimNames(object)
     if (is.null(reduction)) {
@@ -244,10 +283,43 @@ RunUMAP <- function(object, dims = NULL, reduction = NULL) {
     object <- scater::runUMAP(object, dimred = '.dimred')
     object <- sclet_restore_state(object, prev_state)
     object <- sclet_set_active_reduction(object, "UMAP")
+    reduction_id <- tolower(reduction)
+    reduction_state <- sclet_get_state_record(object, "reduction", reduction_id)
+    if (is.null(layer) && !is.null(reduction_state) && !is.null(reduction_state$inputs$layer)) {
+        layer <- reduction_state$inputs$layer
+    }
+    if (is.null(layer)) {
+        layer <- DefaultLayer(object)
+    }
+    integration <- NULL
+    if (!is.null(reduction_state) && !is.null(reduction_state$inputs$integration)) {
+        integration <- reduction_state$inputs$integration
+    }
+    if (is.null(integration)) {
+        integration <- sclet_resolve_integration_dependency(object, layer = layer)
+    }
+    object <- sclet_set_analysis_state(
+        object = object,
+        type = "reduction",
+        id = "umap",
+        method = "scater::runUMAP",
+        inputs = list(
+            reduction = reduction,
+            layer = layer,
+            dims = dims,
+            integration = integration
+        ),
+        artifacts = list(
+            reduction = "UMAP"
+        ),
+        summary = list(
+            n_components = ncol(SingleCellExperiment::reducedDim(object, "UMAP"))
+        )
+    )
     object <- sclet_log_command(
         object,
         "RunUMAP",
-        params = list(dims = dims, reduction = reduction)
+        params = list(dims = dims, reduction = reduction, layer = layer)
     )
     object
 }

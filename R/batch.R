@@ -58,13 +58,38 @@ CombineVariableFeatures <- function(all.batches, ...) {
             return(x)
         })
     }
-    res <- scran::combineVar(hvg.info, ...)
+    if (method == "scrapper") {
+        res <- combine_variable_features_scrapper(hvg.info)
+    } else {
+        res <- sclet_combine_var(hvg.info, ...)
+    }
     if (method == "seurat") {
         res$p.value <- NULL
         res$FDR <- NULL
     }
 
     return(res)
+}
+
+combine_variable_features_scrapper <- function(hvg.info) {
+    suffixes <- c("means", "variances", "fitted", "residuals")
+    output <- S4Vectors::DataFrame(row.names = rownames(hvg.info[[1]]))
+    for (suffix in suffixes) {
+        cur_cols <- vapply(hvg.info, sclet_find_hvg_column, suffix = suffix, hvg_cols = NULL, FUN.VALUE = character(1), USE.NAMES = FALSE)
+        if (!length(cur_cols) || any(cur_cols == "")) {
+            next
+        }
+        cur_mat <- do.call(cbind, Map(function(info, col) info[[col]], hvg.info, cur_cols))
+        output[[suffix]] <- rowMeans(cur_mat, na.rm = TRUE)
+    }
+    hvg_cols <- vapply(hvg.info, sclet_find_hvg_column, suffix = "hvg", hvg_cols = NULL, FUN.VALUE = character(1), USE.NAMES = FALSE)
+    if (!length(hvg_cols) || any(hvg_cols == "")) {
+        stop("scrapper HVG indicator column not found when combining batches.")
+    }
+    hvg_mat <- do.call(cbind, Map(function(info, col) as.numeric(info[[col]]), hvg.info, hvg_cols))
+    output$hvg_frequency <- rowMeans(hvg_mat, na.rm = TRUE)
+    output$hvg <- output$hvg_frequency > 0
+    output
 }
 
 #' Batch correction
@@ -80,11 +105,12 @@ CombineVariableFeatures <- function(all.batches, ...) {
 #' @param PARAM batch correction method, see also `batchelor::batchCorrect()`.
 #' @param restrict A list of length equal to the number of objects in `...`. Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.
 #' @param correct.all A logical scalar indicating whether to return corrected expression values for all genes, even if `subset.row` is set. Used to ensure that the output is of the same dimensionality as the input.
+#' @param name Integration record id. Defaults to "batchcorrect".
 #' @return A SingleCellExperiment object
 #' @export
 BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000, 
                           assay.type = "logcounts", PARAM = NULL, 
-                          restrict = NULL, correct.all = FALSE) { 
+                          restrict = NULL, correct.all = FALSE, name = "batchcorrect") { 
   
   if (!requireNamespace("batchelor", quietly = TRUE)) {
       stop("Package 'batchelor' is needed for this function to work. Please install it.")
@@ -98,6 +124,8 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
     stop("The input object needs to be a SingleCellExperiment object.")
   }
   
+  batch_supplied <- !is.null(batch)
+
   if(is.null(batch)) {  
     batch <- sce$batch
   }
@@ -142,8 +170,10 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
       }
       
       if (!is.null(var_field)) {
-          HVG <- scran::getTopHVGs(hvginfo, nHVG, var.field = var_field)
+          HVG <- choose_hvgs_by_variance(hvginfo, n = nHVG, var.field = var_field)
       }
+    } else if (method == "scrapper") {
+      HVG <- getTopHVGs_scrapper(hvginfo, nHVG)
     } else {
       # seurat
       HVG <- getTopHVGs_seurat(hvginfo, nHVG)
@@ -151,9 +181,20 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
   }
   
   #校正
-  corrected <- batchelor::batchCorrect(sce, batch = batch, 
-                                       subset.row = HVG, PARAM = PARAM, 
-                                       restrict = restrict, correct.all = correct.all) 
+  corrected <- sclet_muffle_known_warnings(
+      batchelor::batchCorrect(
+          sce,
+          batch = batch,
+          subset.row = HVG,
+          PARAM = PARAM,
+          restrict = restrict,
+          correct.all = correct.all
+      ),
+      patterns = c(
+          "'normalizeCounts' is deprecated",
+          "normalizeCounts不再有用"
+      )
+  )
   S4Vectors::metadata(corrected) <- S4Vectors::metadata(sce)
   
   corrected <- sclet_set_hvg_state(
@@ -173,16 +214,83 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
       timestamp = Sys.time()
   )
   corrected <- sclet_set_analysis(corrected, "batch", batch_record)
-  corrected <- sclet_set_active_assay(corrected, assay.type)
+  corrected_assay <- if ("corrected" %in% SummarizedExperiment::assayNames(corrected)) {
+    "corrected"
+  } else if ("reconstructed" %in% SummarizedExperiment::assayNames(corrected)) {
+    "reconstructed"
+  } else if (assay.type %in% SummarizedExperiment::assayNames(corrected)) {
+    assay.type
+  } else {
+    SummarizedExperiment::assayNames(corrected)[[1]]
+  }
+  if (assay.type %in% SummarizedExperiment::assayNames(corrected)) {
+    corrected <- sclet_set_layer(
+      corrected,
+      name = assay.type,
+      assay = assay.type,
+      role = assay.type,
+      active = FALSE
+    )
+  }
+  corrected <- sclet_set_layer(
+    corrected,
+    name = "corrected",
+    assay = corrected_assay,
+    role = "corrected",
+    params = list(
+      method = "batchelor::batchCorrect",
+      source = assay.type
+    )
+  )
+  corrected <- sclet_set_analysis_state(
+    object = corrected,
+    type = "integration",
+    id = name,
+    method = "batchelor::batchCorrect",
+    inputs = list(
+      assay = assay.type,
+      layer = if (assay.type %in% Layers(corrected)) assay.type else NULL,
+      batch = batch,
+      hvg = HVG,
+      merge = {
+        merge_state <- sclet_get_state_record(sce, "integration", "merged_inputs")
+        if (is.null(merge_state)) {
+          NULL
+        } else {
+          list(
+            type = "integration",
+            id = "merged_inputs",
+            method = merge_state$method
+          )
+        }
+      }
+    ),
+    artifacts = list(
+      layer = "corrected",
+      assay = corrected_assay,
+      analysis_key = "batch"
+    ),
+    params = list(
+      nHVG = nHVG,
+      correct.all = correct.all,
+      restrict = restrict
+    ),
+    summary = list(
+      n_hvg = length(HVG),
+      batch_source = if (batch_supplied) "supplied" else "colData$batch"
+    )
+  )
+  corrected <- sclet_set_active_assay(corrected, corrected_assay)
   corrected <- sclet_log_command(
     corrected,
     "BatchRemover",
     params = list(
       nHVG = nHVG,
       assay.type = assay.type,
-      correct.all = correct.all
+      correct.all = correct.all,
+      name = name
     ),
-    outputs = list(analysis = "batch", hvg = "selected")
+    outputs = list(analysis = "batch", hvg = "selected", integration = name)
   )
 
   subset.rowdata <- rowData(sce)[HVG,]
@@ -281,6 +389,37 @@ sce_merge <- function(sce_list, combineVarParams = list(equiweight = TRUE, ncell
   )
   
   combined_sce$batch <- factor(rep(seq_along(sce_list), sapply(sce_list, ncol)))
+  combined_sce <- sclet_set_analysis_state(
+    object = combined_sce,
+    type = "integration",
+    id = "merged_inputs",
+    method = "sce_merge",
+    inputs = list(
+      objects = names(sce_list),
+      assays = asys
+    ),
+    artifacts = list(
+      batch_col = "batch",
+      assays = asys
+    ),
+    summary = list(
+      n_inputs = length(sce_list),
+      n_cells = ncol(combined_sce)
+    ),
+    active = FALSE
+  )
+  combined_sce <- sclet_log_command(
+    combined_sce,
+    "sce_merge",
+    params = list(
+      n_inputs = length(sce_list),
+      assays = asys
+    ),
+    outputs = list(
+      state = "integration",
+      integration = "merged_inputs"
+    )
+  )
   
   return(combined_sce)
 }

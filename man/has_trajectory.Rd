@@ -4,10 +4,12 @@
 \alias{has_trajectory}
 \title{has_trajectory}
 \usage{
-has_trajectory(object)
+has_trajectory(object, id = NULL)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
+
+\item{id}{optional trajectory record id}
 }
 \value{
 logical

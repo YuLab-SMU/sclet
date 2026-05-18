@@ -8,24 +8,28 @@
 RunCellChat(
   sce,
   group = "label",
-  assay_name = "logcounts",
+  assay_name = NULL,
+  layer = NULL,
   species = "human",
   db_item = c("Secreted Signaling"),
   type = "triMean",
   trim = 0.1,
   min.cells = 10,
+  name = "cellchat",
   return = c("cellchat", "sce", "both")
 )
 
 runCellChat(
   sce,
   group = "label",
-  assay_name = "logcounts",
+  assay_name = NULL,
+  layer = NULL,
   species = "human",
   db_item = c("Secreted Signaling"),
   type = "triMean",
   trim = 0.1,
   min.cells = 10,
+  name = "cellchat",
   return = c("cellchat", "sce", "both")
 )
 }
@@ -34,7 +38,11 @@ runCellChat(
 
 \item{group}{parameter to group data, must be one column in colData(obj).}
 
-\item{assay_name}{the name of assay}
+\item{assay_name}{the name of assay. If NULL, sclet resolves it from the
+selected \code{layer}.}
+
+\item{layer}{layer used for communication analysis. If NULL, use
+\code{DefaultLayer(sce)}.}
 
 \item{species}{one of human, mouse}
 
@@ -45,6 +53,8 @@ runCellChat(
 \item{trim}{the fraction (0 to 0.25) of observations to be trimmed from each end of x before the mean is computed}
 
 \item{min.cells}{min cells to filter}
+
+\item{name}{communication record id. Defaults to \code{"cellchat"}.}
 
 \item{return}{one of \code{"cellchat"}, \code{"sce"} or \code{"both"}}
 }

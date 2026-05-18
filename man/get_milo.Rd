@@ -4,12 +4,14 @@
 \alias{get_milo}
 \title{get_milo}
 \usage{
-get_milo(object, element = NULL)
+get_milo(object, element = NULL, id = NULL)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
-\item{element}{optional element name to extract from the stored milo record}
+\item{element}{optional element name to extract from the selected milo record}
+
+\item{id}{optional milo record id. If NULL, use the active milo record.}
 }
 \value{
 the full milo analysis record, a selected element, or \code{NULL}
