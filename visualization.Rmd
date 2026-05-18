@@ -1,0 +1,80 @@
+# Enhanced Visualization
+
+`sclet` provides an enhanced visualization ecosystem tightly integrated with the `ggsc` package. It offers a set of high-level plotting functions that operate directly on `SingleCellExperiment` objects while returning standard `ggplot2` objects for easy customization.
+
+## Loading data
+
+```{r vis-load, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+```{r vis-data}
+library(sclet)
+f <- "data/pbmc-3k-sce.qs"
+pbmc <- qs::qread(f)
+```
+
+## Dimensionality Reduction Plots
+
+`sclet` wraps `ggsc::sc_dim` and `ggsc::sc_feature` to provide `CellDimPlot` and `FeatureDimPlot`. These functions automatically resolve the active reduction and layer from the object's state.
+
+### CellDimPlot
+
+`CellDimPlot` is used to visualize categorical cell metadata on a reduced dimensional space (e.g., UMAP, PCA).
+
+```{r cell-dim-plot, fig.width=12, fig.height=5}
+library(ggplot2)
+library(aplot)
+
+# Visualize clustering results
+p1 <- CellDimPlot(pbmc, group.by = "ident") + ggtitle("Clusters")
+
+# Visualize batch or other metadata
+# Assuming we have a 'label' column in colData
+if ("label" %in% colnames(colData(pbmc))) {
+    p2 <- CellDimPlot(pbmc, group.by = "label") + ggtitle("Cell Types")
+    plot_list(p1, p2)
+} else {
+    p1
+}
+```
+
+### FeatureDimPlot
+
+`FeatureDimPlot` is used to visualize continuous variables, such as gene expression levels, on the reduced dimensional space.
+
+```{r feature-dim-plot, fig.width=12, fig.height=5}
+# Visualize expression of specific marker genes
+FeatureDimPlot(pbmc, features = c("MS4A1", "CD8A"))
+```
+
+## Expression Heatmaps
+
+`GroupHeatmap` provides a convenient way to visualize the average expression of features across different cell groups using `scater::plotGroupedHeatmap`.
+
+```{r group-heatmap, fig.width=8, fig.height=6}
+# Define a set of marker genes
+markers <- c("IL7R", "CD14", "LYZ", "MS4A1", "CD8A", "FCGR3A", "MS4A7")
+
+# Plot average expression by cluster
+GroupHeatmap(pbmc, features = markers, group.by = "ident", scale = TRUE)
+```
+
+## Cell Statistics
+
+`CellStatPlot` is useful for visualizing the composition of cell groups (e.g., cell type proportions across different conditions).
+
+```{r cell-stat-plot, fig.width=8, fig.height=5}
+# If we have multiple samples or batches, we can plot the proportion of each cluster
+# Here we just use a simulated 'batch' column for demonstration if one doesn't exist
+if (!"batch" %in% colnames(colData(pbmc))) {
+    set.seed(123)
+    pbmc$batch <- sample(c("Sample1", "Sample2"), ncol(pbmc), replace = TRUE)
+}
+
+CellStatPlot(pbmc, stat.by = "ident", group.by = "batch", position = "fill") +
+    ylab("Proportion") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+These visualization wrappers are designed to minimize boilerplate code while remaining fully compatible with `ggplot2` grammar (`+ theme()`, `+ scale_color_manual()`, etc.).

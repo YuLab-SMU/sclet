@@ -17,11 +17,12 @@ UMAP is optional (used for visualization only).
 ```{r milo-glm, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE), cache=FALSE}
 library(MouseThymusAgeing)
 library(scater)
+library(sclet)
 
 sce <- MouseSMARTseqData()
 colData(sce)$Sample <- paste(colData(sce)$SortDay, colData(sce)$Age, sep = "_")
 
-sce <- logNormCounts(sce)
+sce <- NormalizeData(sce)
 sce <- RunPCA(sce)
 sce <- RunUMAP(sce)
 
@@ -29,6 +30,7 @@ res <- RunMilo(
   sce = sce,
   sample_col = "Sample",
   condition_col = "Age",
+  name = "milo_main",
   contrasts = c("Age1wk - Age4wk"),
   k1 = 11, k2 = 11, d1 = 40, d2 = 40, prop = 0.2
 )
@@ -36,6 +38,7 @@ res <- RunMilo(
 da <- res$da_results
 table(da$SpatialFDR < 0.1)
 head(da)
+get_milo(res$sce)
 ```
 
 ## Multi-contrast testing
@@ -54,6 +57,7 @@ res2 <- RunMilo(
   sce = sce,
   sample_col = "Sample",
   condition_col = "Age",
+  name = "milo_multi",
   contrasts = contrasts,
   per_contrast = TRUE,
   k1 = 11, k2 = 11, d1 = 40, d2 = 40, d3 = 40,
@@ -73,6 +77,7 @@ library(scRNAseq)
 library(scater)
 library(scran)
 library(scuttle)
+library(sclet)
 
 sce2 <- KotliarovPBMCData(mode = "rna", ensembl = FALSE)
 colData(sce2)$ObsID <- paste(colData(sce2)$tenx_lane, colData(sce2)$sampleid, sep = "_")
@@ -81,7 +86,7 @@ set.seed(42)
 keep_samps <- sample(unique(colData(sce2)$ObsID), size = 40)
 sce2 <- sce2[, colData(sce2)$ObsID %in% keep_samps]
 
-sce2 <- logNormCounts(sce2)
+sce2 <- NormalizeData(sce2)
 sce2 <- RunPCA(sce2, ncomponents = 30)
 sce2 <- RunUMAP(sce2, dims = 1:30)
 
@@ -89,6 +94,7 @@ res3 <- RunMilo(
   sce = sce2,
   sample_col = "ObsID",
   condition_col = "adjmfc.time",
+  name = "milo_glmm",
   contrasts = c("adjmfc.timed0 high"),
   glmm = TRUE,
   random_effect = "tenx_lane",
@@ -103,6 +109,8 @@ head(res3$da_results)
 ## Refit after dropping separated neighbourhoods
 
 In GLMM mode, some neighbourhoods can show perfect separation and return unstable estimates. You can diagnose with `miloR::checkSeparation()` and refit after dropping those neighbourhoods.
+
+If you keep multiple Milo runs in the same object, give them different `name` values and inspect a specific record with `get_milo(sce, id = "your_id")`.
 
 ```{r milo-refit, eval = requireNamespace("miloR", quietly = TRUE) && exists("res3")}
 milo_info <- get_milo(res3$sce)

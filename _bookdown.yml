@@ -4,6 +4,7 @@ output_dir: docs
 delete_merged_file: true
 rmd_files: ["index.Rmd",
   "seurat-pbmc3k.Rmd",
+  "visualization.Rmd",
   "batch-correction.Rmd",
   "SuperCell.rmd",
   "singleR.Rmd",

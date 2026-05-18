@@ -75,9 +75,11 @@ VariableFeaturePlot(pbmc, label = top10, method = "seurat")
 
 ```{r elbowplot-pbmc, fig.width=10, fig.height=7}
 pbmc <- ScaleData(pbmc)
-pbmc <- RunPCA(pbmc, subset_row = VariableFeatures(pbmc, method = "seurat"), exprs_values = "scaled")
+pbmc <- RunPCA(pbmc, subset_row = VariableFeatures(pbmc, method = "seurat"), layer = "scaled")
 ElbowPlot(pbmc)
 ```
+
+Here the PCA step is intentionally pointed to the logical `scaled` layer. In current `sclet`, this is the recommended way to declare which expression view should drive the downstream reduction, instead of hard-coding the underlying assay name.
 
 ## Clustering {#FindClusters}
 
@@ -174,12 +176,20 @@ sclet provides `RunSingleR` to easily perform automatic annotation using SingleR
 # It defaults to HumanPrimaryCellAtlasData if ref is not provided
 pbmc <- RunSingleR(pbmc)
 
+# or be explicit about the expression layer used for annotation
+pbmc <- RunSingleR(pbmc, layer = "logcounts")
+
 # View the results
 head(pbmc$SingleR_labels)
+get_mapping(pbmc)
 
 # Visualize
 DimPlot(pbmc, reduction="UMAP") + 
     ggplot2::aes(color = SingleR_labels)
 ```
+
+`RunSingleR()` now follows the same layer contract as the rest of the package. If you do not specify `layer`, it resolves from `DefaultLayer(pbmc)` and falls back to a non-scaled expression source when needed.
+
+In addition to writing annotation labels back to `colData`, it also records a lightweight reference-mapping state that you can inspect with `get_mapping(pbmc)`.
 
 

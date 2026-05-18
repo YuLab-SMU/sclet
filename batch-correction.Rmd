@@ -38,31 +38,70 @@ pbmc4k <- sce_process(pbmc4k)
 pbmc_list <- list(pbmc3k = pbmc3k, pbmc4k = pbmc4k)
 ```
 
-## Batch correction
+## Integration Workflow
+
+`sclet` provides a unified `RunIntegration` entry point to perform multi-backend data integration (e.g., `fastMNN`, `Harmony`). It automatically manages the resulting representations (layers or reductions) and registers an active integration state so that downstream tools can consume them seamlessly.
 
 ```{r batch-remove}
 # Merge datasets
 combined_pbmc <- sce_merge(pbmc_list)
 
-# Batch correction
-rm_batch_pbmc <- BatchRemover(combined_pbmc)
+# Integration using fastMNN (default)
+rm_batch_pbmc <- RunIntegration(combined_pbmc, method = "fastMNN", batch = "batch")
+
+# RunIntegration registers a logical "corrected" layer for fastMNN
+DefaultLayer(rm_batch_pbmc)
+Layers(rm_batch_pbmc)
+
+# and records a typed integration state
+has_integration(rm_batch_pbmc)
+get_integration(rm_batch_pbmc)
+```
+
+Alternatively, you can use `Harmony`, which operates on the PCA space and returns a corrected reduction rather than an expression layer:
+
+```{r run-harmony, eval=FALSE}
+# Integration using Harmony
+rm_harmony_pbmc <- RunIntegration(combined_pbmc, method = "Harmony", batch = "batch")
+
+# Harmony creates a reduction named "HARMONY" and sets it as the active reduction
+sclet_get_active_reduction(rm_harmony_pbmc)
 ```
 
 ## Clustering
 
 ```{r clustering-batch}
-sce_clustering <- function(sce, assay = "logcounts", dims = 1:10) {
-  sce <- RunPCA(sce, subset_row = VariableFeatures(sce), exprs_values = assay)
+sce_clustering <- function(sce, layer = DefaultLayer(sce), dims = 1:10) {
+  # For uncorrected data, we run PCA first
+  if (!"PCA" %in% reducedDimNames(sce)) {
+      sce <- RunPCA(sce, subset_row = VariableFeatures(sce), layer = layer)
+  }
+  
+  # Downstream tools automatically perceive the integration state
+  # (e.g., FindNeighbors will use "HARMONY" if it is the active reduction)
   sce <- FindNeighbors(sce, dims = dims)
   sce <- FindClusters(sce)
-  sce <- RunUMAP(sce, dims = dims)
+  sce <- RunUMAP(sce, dims = dims, layer = layer)
   return(sce)
 }
 
-combined_pbmc <- sce_clustering(combined_pbmc, assay="logcounts")
+combined_pbmc <- sce_clustering(combined_pbmc, layer = "logcounts")
 
-rm_batch_pbmc <- sce_clustering(rm_batch_pbmc, assay = "reconstructed")
+rm_batch_pbmc <- sce_clustering(rm_batch_pbmc, layer = "corrected")
 
+```
+
+The important point is that downstream wrappers can now consume the integration outputs directly, without requiring users to manually point to the `reconstructed` assay or the `HARMONY` reduction. `RunIntegration()` sets up the active pointers in the `analysis-state` contract.
+
+The merge step is also part of that story now. `sce_merge()` stores a non-active `merged_inputs` integration record, and `BatchRemover()` points back to it. This gives the merged object and the corrected object a connected provenance chain instead of two unrelated transformations.
+
+You can inspect how this provenance is carried into downstream states:
+
+```{r batch-provenance, eval = FALSE}
+get_integration(rm_batch_pbmc)
+sclet_get_state_record(rm_batch_pbmc, "reduction", "pca")$inputs$integration
+sclet_get_state_record(rm_batch_pbmc, "graph", "knn_graph")$inputs$integration
+sclet_get_state_record(rm_batch_pbmc, "clustering", "louvain_clusters")$inputs$integration
 ```
 
 ## Visualization

@@ -7,6 +7,8 @@ The recommended entry point is `RunCellChat()`. It requires a `SingleCellExperim
 
 The `group` parameter should reference a variable within the `SingleCellExperiment` object that holds the clustering data.
 
+`RunCellChat()` now follows the same layer contract as the rest of `sclet`. In most RNA workflows, `layer = "logcounts"` is the safest explicit choice. If you omit it, the function resolves from `DefaultLayer(sce)` and avoids scaled layers when necessary.
+
 Users can add their own clustering using the following commands:
 
 ```
@@ -26,10 +28,14 @@ library(aplot)
 
 # use demo data from CellChat, hmskin_sce
 sce <- qs::qread("data/hmskin_sce.qs")
-res <- RunCellChat(sce, group = "labels", return = "both")
+res <- RunCellChat(sce, group = "labels", layer = "logcounts", name = "cellchat_main", return = "both")
 sce <- res$sce
 cci_obj <- res$cellchat
 ```
+
+After running `RunCellChat()`, the updated SCE keeps a structured communication record. This is useful when you want downstream code to check `has_cellchat(sce)` or inspect metadata through `get_cellchat(sce)`.
+
+If you keep multiple communication runs in the same object, give them different `name` values and inspect a specific record with `get_cellchat(sce, id = "your_id")`.
 
 ## visulization
 ```{r cci-1, fig.width=15, fig.height=8}

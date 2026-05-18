@@ -8,6 +8,7 @@ library(scuttle)
 library(SVP)
 library(ggplot2)
 library(ggsc)
+library(sclet)
 ```
 
 ## runSGSA
@@ -15,7 +16,7 @@ Calculate the activity of gene sets in spatial or single-cell data with restart 
 sceSubPbmc is a small SingleCellExperiment data set from pbmck3 which contains 1304 genes and 800 cells (extract randomly).
 ```{r}
 data(sceSubPbmc)
-sceSubPbmc <- scuttle::logNormCounts(sceSubPbmc)
+sceSubPbmc <- NormalizeData(sceSubPbmc)
 # the using runMCA to perform MCA (Multiple Correspondence Analysis)
 # this is refer to the CelliD, but we using the Eigen to speed up.
 # You can view the help information of runMCA using ?runMCA.

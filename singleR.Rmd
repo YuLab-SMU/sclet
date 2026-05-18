@@ -7,12 +7,51 @@ Please refer to the [Cell cluster annotation](#manual-annotation) session.
 
 
 ## Automatic annotation
+    
+The low-level `SingleR::SingleR()` call is still useful for understanding the underlying method. In daily `sclet` workflows, however, the recommended entry point is `RunSingleR()`, because it records the annotation result and its provenance back into the unified state layer.
+
+Alternatively, `sclet` also provides a lightweight reference mapping implementation via `RunKNNPredict()` (or `RunReferenceMapping()`), which transfers labels from a reference dataset to your query dataset based on KNN.
+
+### Lightweight Reference Mapping (KNN)
+
+If you have a reference `SingleCellExperiment` with cell type annotations, you can use it to map labels to your query dataset quickly:
+
+```{r run-knn-predict, eval = FALSE}
+# Assuming 'ref_sce' is a reference dataset with 'cell_type' in colData
+pbmc <- RunKNNPredict(
+    query = pbmc, 
+    ref = ref_sce, 
+    ref_label = "cell_type"
+)
+
+# Inspect the recorded reference-mapping state
+get_mapping(pbmc)
+
+# Visualize the query and reference in the same projection space
+ProjectionPlot(pbmc, ref = ref_sce, ref_label = "cell_type")
+```
+
+### Run SingleR with sclet
+
+```{r run-singleR-sclet, eval = FALSE}
+library(sclet)
+
+pbmc <- RunSingleR(pbmc)
+
+# explicitly choose the layer used for annotation
+pbmc <- RunSingleR(pbmc, layer = "logcounts")
+
+# inspect the recorded annotation state
+get_annotation(pbmc)
+
+# inspect the recorded reference-mapping state
+get_mapping(pbmc)
+```
 
 
 ### Run SingleR
 
 ```{r run-singleR}
-library(SingleR)
 
 hpca <- celldex::HumanPrimaryCellAtlasData()
 hpca
@@ -24,6 +63,10 @@ dice <- celldex::DatabaseImmuneCellExpressionData()
 res2 <- SingleR(test = assay(pbmc, "logcounts"), ref = dice, labels = dice$label.main)
 head(res2)
 ```
+
+When you use the low-level `SingleR()` call directly, you are responsible for deciding which matrix to pass. In contrast, `RunSingleR()` follows the current `sclet` layer contract and resolves that choice from `DefaultLayer(pbmc)` unless you override it.
+
+If the current layer comes from a corrected integration workflow, both the annotation state and the mapping state record that provenance. In practice, this means `get_annotation(pbmc)$inputs$integration` and `get_mapping(pbmc)$inputs$integration` can tell you whether the label transfer was performed on top of a corrected representation rather than the raw normalized layer.
 
 ### Annotate with SingleR result
 

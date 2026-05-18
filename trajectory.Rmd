@@ -16,6 +16,10 @@ panc <- readRDS("data/pancreas_sub_sce.rds")
 panc <- RunSlingshot(sce = panc, group = "SubCellType", reduction = "UMAP")
 ```
 
+`RunSlingshot()` writes its result back into the unified state layer, so downstream helpers such as `lineage_plot()` and `pseudo_plot()` can consume the recorded trajectory object directly. If needed, you can also check `has_trajectory(panc)` or inspect `get_trajectory(panc)`.
+
+If you keep multiple trajectory runs in the same object, give them different `name` values and inspect them explicitly with `get_trajectory(panc, id = "your_id")`.
+
 
 
 
@@ -125,10 +129,8 @@ sce <- sce[, 1:500]
 ```
 
 ```{r velocity-hvgs}
-library(scuttle)
-sce <- logNormCounts(sce, assay.type=1)
-
 library(sclet)
+sce <- NormalizeData(sce)
 sce <- FindVariableFeatures(sce, method="scran")
 hvgs <- VariableFeatures(sce, method="scran")
 ```
@@ -154,7 +156,7 @@ library(sclet)
 conflicted::conflicts_prefer(sclet::RunPCA)
 
 set.seed(100)
-sce <- RunPCA(sce, subset_row=hvgs)
+sce <- RunPCA(sce, subset_row=hvgs, layer = "logcounts")
 sce <- runTSNE(sce, dimred="PCA", perplexity = 30)
 
 sce$velocity_pseudotime <- velo.out$velocity_pseudotime

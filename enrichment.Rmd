@@ -1,34 +1,46 @@
-# Functional Enrichment Analysis {#enrichment}
+# Differential Expression & Enrichment {#enrichment}
 
-`sclet` provides `RunEnrichment` to seamlessly perform GO/KEGG enrichment analysis on marker genes.
+`sclet` provides `RunDEtest` and `RunEnrichment` to seamlessly perform differential expression and functional enrichment analysis (GO/KEGG). These functions register their results into the `analysis-state` contract, making it easy for downstream visualization tools to consume them.
 
-## Load data and find markers
+## Differential Expression
 
-```{r}
+We can find markers for all clusters using `RunDEtest()`, which wraps `FindMarkers` or `FindAllMarkers` and saves the result as a state.
+
+```{r detest, fig.width=10, fig.height=8}
 library(sclet)
 sce <- readRDS("data/pancreas_sub_sce.rds")
-# Find markers for all clusters
-markers <- FindAllMarkers(sce, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
-head(markers)
+
+# Run differential expression test and record the state
+sce <- RunDEtest(sce, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+
+# Inspect the recorded DE state
+has_detest(sce)
+head(get_detest(sce)$results)
+
+# Visualize the DE results using a Volcano plot
+DEtestPlot(sce)
 ```
 
 ## GO Enrichment
+
+`RunEnrichment()` automatically reads the significant up-regulated markers from the active `detest` state.
 
 ```{r go_enrich, fig.width=10, fig.height=8}
 # Ensure you have org.Mm.eg.db installed for Mouse data
 # or org.Hs.eg.db for Human
 library(org.Mm.eg.db) 
 
-go_res <- RunEnrichment(
-    markers, 
+# Run enrichment analysis based on the DEtest state
+sce <- RunEnrichment(
+    sce, 
     db = "GO", 
     orgDb = "org.Mm.eg.db", 
     keyType = "SYMBOL", 
     ont = "BP"
 )
 
-library(enrichplot)
-dotplot(go_res, showCategory=5)
+# Visualize the enrichment results using EnrichmentPlot (wraps enrichplot::dotplot)
+EnrichmentPlot(sce, showCategory=5)
 ```
 
 ## KEGG Enrichment
@@ -37,6 +49,6 @@ For KEGG, it is recommended to convert gene symbols to Entrez IDs first, or prov
 
 ```{r kegg_enrich, eval=FALSE}
 # Example if markers had ENTREZID
-# kegg_res <- RunEnrichment(markers_with_entrez, db = "KEGG", organism = "mmu")
-# dotplot(kegg_res)
+# sce <- RunEnrichment(sce, db = "KEGG", organism = "mmu")
+# EnrichmentPlot(sce)
 ```
