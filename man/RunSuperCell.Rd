@@ -20,7 +20,7 @@ RunSuperCell(
 \item{object}{SingleCellExperiment object}
 
 \item{assay}{selected assay used to build KNN graph. If \code{layer} is provided,
-this is treated as a compatibility alias.}
+this is treated as a legacy argument alias.}
 
 \item{layer}{layer used to build the metacell representation. If \code{NULL},
 sclet resolves it from \code{DefaultLayer(object)}.}
@@ -41,5 +41,5 @@ sclet resolves it from \code{DefaultLayer(object)}.}
 SingleCellExperiment object
 }
 \description{
-wraper function to run SuperCell
+Run SuperCell aggregation
 }

@@ -1,9 +1,9 @@
-#' wraper function to run SuperCell
+#' Run SuperCell aggregation
 #' 
 #' @title RunSuperCell
 #' @param object SingleCellExperiment object
 #' @param assay selected assay used to build KNN graph. If `layer` is provided,
-#' this is treated as a compatibility alias.
+#' this is treated as a legacy argument alias.
 #' @param layer layer used to build the metacell representation. If `NULL`,
 #' sclet resolves it from `DefaultLayer(object)`.
 #' @param nHVG number of HVGs to use

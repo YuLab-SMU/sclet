@@ -39,5 +39,5 @@ A SingleCellExperiment object with integration results recorded.
 Run Integration
 }
 \details{
-A universal wrapper for batch correction and integration methods.
+Unified entry point for batch correction and integration methods.
 }

@@ -24,5 +24,5 @@ ggplot object
 Feature Dimensional Reduction Plot
 }
 \details{
-A wrapper to plot feature expression on dimensional reduction, defaulting to the active reduction and active layer.
+Plot feature expression on a dimensional reduction, defaulting to the active reduction and active layer.
 }

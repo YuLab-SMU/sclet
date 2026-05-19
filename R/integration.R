@@ -1,6 +1,6 @@
 #' Run Integration
 #' 
-#' A universal wrapper for batch correction and integration methods.
+#' Unified entry point for batch correction and integration methods.
 #' 
 #' @title RunIntegration
 #' @param object A SingleCellExperiment object

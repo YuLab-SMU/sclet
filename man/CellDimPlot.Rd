@@ -22,5 +22,5 @@ ggplot object
 Cell Dimensional Reduction Plot
 }
 \details{
-A wrapper around DimPlot/sc_dim that defaults to the active reduction and active identity.
+Dimensional reduction plot that defaults to the active reduction and active identity.
 }

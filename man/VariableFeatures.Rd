@@ -9,7 +9,9 @@ VariableFeatures(object, method = "scran", ...)
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
-\item{method}{one of 'seurat', 'scran' or 'scrapper'}
+\item{method}{one of 'scran' or 'scrapper'. The legacy value \code{'seurat'}
+remains readable for older objects and maps to Seurat-style HVG ranking
+when the required columns already exist in \code{rowData(object)}.}
 
 \item{...}{additional parameters for ranking the \code{method = "scran"} HVG table}
 }

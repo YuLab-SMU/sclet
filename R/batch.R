@@ -94,7 +94,7 @@ combine_variable_features_scrapper <- function(hvg.info) {
 
 #' Batch correction
 #' 
-#' This is a wrapper function of `batchelor::batchCorrect()`.
+#' State-aware batch correction built on `batchelor::batchCorrect()`.
 #' 
 #' @title BatchRemover
 #' @param sce A SingleCellExperiment object

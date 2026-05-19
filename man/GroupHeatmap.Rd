@@ -24,6 +24,6 @@ ggplot or ComplexHeatmap object
 Group Heatmap Plot
 }
 \details{
-A wrapper to plot heatmap of features across cell groups.
+Plot a heatmap of features across cell groups.
 If \code{ggsc} handles it, we use it, otherwise fall back to \code{scater}.
 }

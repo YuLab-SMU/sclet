@@ -42,5 +42,5 @@ A SingleCellExperiment object
 Batch correction
 }
 \details{
-This is a wrapper function of \code{batchelor::batchCorrect()}.
+State-aware batch correction built on \code{batchelor::batchCorrect()}.
 }

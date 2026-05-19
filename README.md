@@ -43,11 +43,9 @@ selected Python tools managed through the `basilisk` sandbox:
   powered by the `aisdk` framework that reads the object’s provenance to
   perform rigorous cross-chain error control.
 
-For user-facing analysis verbs, `sclet` uses `Run*` as the canonical API
-naming style, such as `RunIntegration()`, `RunSCENIC()`, and
-`RunVelocity()`. Some legacy `run*` names are still available as
-compatibility aliases, but they are retained for transition support
-rather than as the conceptual center of the package.
+For user-facing analysis verbs, `sclet` uses the `Run*` naming style
+throughout, such as `RunIntegration()`, `RunSCENIC()`, and
+`RunVelocity()`. This is now the public analysis API of the package.
 
 ## :writing_hand: Authors
 

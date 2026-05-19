@@ -11,11 +11,12 @@ FindVariableFeatures(object, nfeatures = 2000, method = "scran", ...)
 
 \item{nfeatures}{number of features to be selected as highly variable features}
 
-\item{method}{one of 'seurat', 'scran' or 'scrapper'}
+\item{method}{one of 'scran' or 'scrapper'. The legacy value \code{'seurat'}
+is accepted for transition but is deprecated and redirected to \code{'scran'}.}
 
 \item{...}{additional parameters for variance modelling. For \code{method = "scran"},
 they are passed to \code{scran::modelGeneVar()}. For \code{method = "scrapper"},
-wrapper-level arguments such as \code{block}, \code{num.threads}, \code{assay.type},
+function-level arguments such as \code{block}, \code{num.threads}, \code{assay.type},
 \code{include.per.block}, \code{more.var.args} and \code{more.choose.args} are supported;
 any remaining named arguments are forwarded into \code{more.var.args}.}
 }

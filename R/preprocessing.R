@@ -106,7 +106,7 @@ NormalizeData <- function(object, scale.factor = 10000) {
 #'   is accepted for transition but is deprecated and redirected to `'scran'`.
 #' @param ... additional parameters for variance modelling. For `method = "scran"`,
 #'   they are passed to `scran::modelGeneVar()`. For `method = "scrapper"`,
-#'   wrapper-level arguments such as `block`, `num.threads`, `assay.type`,
+#'   function-level arguments such as `block`, `num.threads`, `assay.type`,
 #'   `include.per.block`, `more.var.args` and `more.choose.args` are supported;
 #'   any remaining named arguments are forwarded into `more.var.args`.
 #' @return an updated SingleCellExperiment object with identified highly variable features

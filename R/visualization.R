@@ -131,7 +131,7 @@ DimPlot <- function(object, reduction = NULL, ...) {
 
 #' Cell Dimensional Reduction Plot
 #' 
-#' A wrapper around DimPlot/sc_dim that defaults to the active reduction and active identity.
+#' Dimensional reduction plot that defaults to the active reduction and active identity.
 #' 
 #' @title CellDimPlot
 #' @param object a SingleCellExperiment object
@@ -180,7 +180,7 @@ CellDimPlot <- function(object, group.by = NULL, reduction = NULL, ...) {
 
 #' Feature Dimensional Reduction Plot
 #' 
-#' A wrapper to plot feature expression on dimensional reduction, defaulting to the active reduction and active layer.
+#' Plot feature expression on a dimensional reduction, defaulting to the active reduction and active layer.
 #' 
 #' @title FeatureDimPlot
 #' @param object a SingleCellExperiment object
@@ -211,7 +211,7 @@ FeatureDimPlot <- function(object, features, layer = NULL, reduction = NULL, ...
 
 #' Group Heatmap Plot
 #' 
-#' A wrapper to plot heatmap of features across cell groups. 
+#' Plot a heatmap of features across cell groups.
 #' If `ggsc` handles it, we use it, otherwise fall back to `scater`.
 #' 
 #' @title GroupHeatmap
