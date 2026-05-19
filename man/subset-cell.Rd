@@ -7,7 +7,7 @@
 subset_cell(x, feature = "nFeature_RNA", method = "mad", n = 3)
 }
 \arguments{
-\item{x}{Seurat object}
+\item{x}{a SingleCellExperiment object}
 
 \item{feature}{selected features to filter out cells}
 

@@ -64,12 +64,8 @@ RunSuperCell <- function(object, assay = "logcounts", layer = NULL, nHVG = 2000,
     )
   )
 
-  mdata <- S4Vectors::metadata(object)
-  state <- sclet_get_state(object)
-  if (!is.null(state$features$hvg)) {
-      state$features$hvg$n <- NULL
-  }
-  mdata$sclet <- state
+  source_state <- sclet_get_state(object)
+  external_metadata <- sclet_merge_external_metadata(object)
 
   assay_names <- names(SummarizedExperiment::assays(object))
   asy <- lapply(assay_names, \(nn)  SuperCell::supercell_GE(assay(object, nn), SC$membership))
@@ -82,9 +78,14 @@ RunSuperCell <- function(object, assay = "logcounts", layer = NULL, nHVG = 2000,
     assays = asy,
     rowData = rowData(object),
     colData = cdata,
-    metadata = mdata
+    metadata = external_metadata
   )
-  sce <- sclet_set_active_assay(sce, assay)
+  sce <- sclet_rebuild_internal_state(
+      sce,
+      hvg = source_state$features$hvg,
+      commands = list(),
+      active_assay = assay
+  )
   if (!is.null(source$layer) && source$layer %in% Layers(sce)) {
       sce <- sclet_set_active_layer(sce, source$layer)
   }

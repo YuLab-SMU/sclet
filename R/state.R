@@ -87,6 +87,56 @@ sclet_restore_state <- function(object, previous_state = NULL) {
     object
 }
 
+sclet_internal_metadata_keys <- function() {
+    c(
+        "sclet",
+        "hvgcols",
+        "hvgmethod",
+        "nVariableFeatures",
+        "knn_graph",
+        "slingshot_info",
+        "milo_results",
+        "SuperCell",
+        "batch_correction"
+    )
+}
+
+sclet_strip_internal_metadata <- function(metadata) {
+    if (is.null(metadata) || length(metadata) == 0) {
+        return(list())
+    }
+    metadata[setdiff(names(metadata), sclet_internal_metadata_keys())]
+}
+
+sclet_merge_external_metadata <- function(...) {
+    inputs <- list(...)
+    merged <- list()
+    for (x in inputs) {
+        if (inherits(x, "SingleCellExperiment")) {
+            x <- S4Vectors::metadata(x)
+        }
+        merged <- utils::modifyList(merged, sclet_strip_internal_metadata(x))
+    }
+    merged
+}
+
+sclet_rebuild_internal_state <- function(object, hvg = NULL, commands = NULL, active_assay = NULL) {
+    external_metadata <- sclet_strip_internal_metadata(S4Vectors::metadata(object))
+    state <- sclet_state_template()
+    if (!is.null(hvg)) {
+        state$features$hvg <- hvg
+    }
+    if (!is.null(commands)) {
+        state$commands <- commands
+    }
+    if (!is.null(active_assay) && active_assay %in% SummarizedExperiment::assayNames(object)) {
+        state$active$assay <- active_assay
+    }
+    external_metadata$sclet <- state
+    S4Vectors::metadata(object) <- external_metadata
+    object
+}
+
 sclet_set_active_reduction <- function(object, reduction) {
     object <- sclet_init_state(object)
     md <- S4Vectors::metadata(object)
@@ -348,12 +398,6 @@ sclet_get_active_ident <- function(object) {
     }
     if (!is.null(SingleCellExperiment::colLabels(object))) {
         return("colLabels")
-    }
-    cd_names <- colnames(SummarizedExperiment::colData(object))
-    for (candidate in c("label", "cluster", "ident")) {
-        if (candidate %in% cd_names) {
-            return(candidate)
-        }
     }
     NULL
 }

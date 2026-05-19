@@ -1,4 +1,4 @@
-test_that("Idents gets/sets colLabels", {
+test_that("Idents requires an explicit active identity source", {
   library(SingleCellExperiment)
   sce <- SingleCellExperiment(assays = list(counts = matrix(rpois(100, 5), ncol=10)))
   colnames(sce) <- paste0("Cell", 1:10)
@@ -12,13 +12,14 @@ test_that("Idents gets/sets colLabels", {
   expect_equal(as.character(ids), rep(c("A", "B"), each=5))
   expect_equal(names(ids), colnames(sce))
   
-  # Fallback to colData$label if colLabels is NULL
+  # Non-default colData labels no longer become active identities implicitly
   colLabels(sce) <- NULL
-  colData(sce)$label <- factor(rep(c("X", "Y"), each=5))
-  # Should sync back to colLabels
+  colData(sce)$manual_label <- factor(rep(c("X", "Y"), each=5))
+  expect_null(Idents(sce))
+
+  ActiveIdent(sce) <- "manual_label"
   ids <- Idents(sce)
   expect_equal(as.character(ids), rep(c("X", "Y"), each=5))
-  expect_equal(as.character(colLabels(sce)), rep(c("X", "Y"), each=5))
 })
 
 test_that("subset_cell works", {
@@ -29,4 +30,18 @@ test_that("subset_cell works", {
   # Just run to check no error
   sce_sub <- subset_cell(sce, feature = "nFeature_RNA", method = "sd", n = 1)
   expect_s4_class(sce_sub, "SingleCellExperiment")
+})
+
+test_that("FindVariableFeatures legacy seurat method redirects to scran", {
+  library(SingleCellExperiment)
+  skip_if_not_installed("scuttle")
+  skip_if_not_installed("scran")
+
+  sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+  sce <- NormalizeData(sce)
+  expect_warning(
+    sce <- FindVariableFeatures(sce, nfeatures = 10, method = "seurat"),
+    "deprecated"
+  )
+  expect_equal(sclet::get_hvg(sce, "method"), "scran")
 })

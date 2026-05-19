@@ -41,7 +41,7 @@ pseudo_heatmap <- function(
   }
   
   if (!pseudotime.data %in% colnames(colData(sce))){
-    stop("SCE lacks pseudotime data. Please run 'runSlingshot' before this function.")
+    stop("SCE lacks pseudotime data. Please run 'RunSlingshot' before this function.")
   }
   
   if(! "logcounts" %in% assayNames(sce)){

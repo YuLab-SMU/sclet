@@ -242,19 +242,6 @@ RunPCA <- function(object, subset_row = NULL, exprs_values = NULL, layer = NULL,
     object
 }
 
-#' @rdname RunPCA
-#' @export
-runPCA <- function(object, subset_row = NULL, exprs_values = NULL, layer = NULL, ncomponents = 50, ...) {
-    RunPCA(
-        object = object,
-        subset_row = subset_row,
-        exprs_values = exprs_values,
-        layer = layer,
-        ncomponents = ncomponents,
-        ...
-    )
-}
-
 #' run umap
 #' 
 #' @title RunUMAP

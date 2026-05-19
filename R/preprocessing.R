@@ -102,7 +102,8 @@ NormalizeData <- function(object, scale.factor = 10000) {
 #' @title FindVariableFeatures
 #' @param object a SingleCellExperiment object
 #' @param nfeatures number of features to be selected as highly variable features
-#' @param method one of 'seurat', 'scran' or 'scrapper'
+#' @param method one of 'scran' or 'scrapper'. The legacy value `'seurat'`
+#'   is accepted for transition but is deprecated and redirected to `'scran'`.
 #' @param ... additional parameters for variance modelling. For `method = "scran"`,
 #'   they are passed to `scran::modelGeneVar()`. For `method = "scrapper"`,
 #'   wrapper-level arguments such as `block`, `num.threads`, `assay.type`,
@@ -117,6 +118,13 @@ NormalizeData <- function(object, scale.factor = 10000) {
 #' @export
 FindVariableFeatures <- function(object, nfeatures = 2000, method = "scran", ...) {
     method <- match.arg(method, c("seurat", "scran", "scrapper"))
+    if (identical(method, "seurat")) {
+        warning(
+            "'method = \"seurat\"' is deprecated in sclet and now redirects to 'scran'.",
+            call. = FALSE
+        )
+        method <- "scran"
+    }
     prev_state <- sclet_get_state(object)
 
     rn <- rownames(object)
@@ -125,31 +133,7 @@ FindVariableFeatures <- function(object, nfeatures = 2000, method = "scran", ...
         rownames(object) <- rn
     }
 
-    if (method == "seurat") {
-        if (!requireNamespace("Seurat", quietly = TRUE)) {
-             warning("Seurat is not installed. Falling back to scran method.")
-             hvf.info <- sclet_model_gene_var(object, ...)
-             method <- "scran"
-        } else {
-             cm <- counts(object)
-             use_seurat <- inherits(cm, "dgCMatrix")
-             if (!use_seurat) {
-                 warning("Counts matrix is not a dgCMatrix. Falling back to scran method.")
-                 hvf.info <- sclet_model_gene_var(object, ...)
-                 method <- "scran"
-             } else {
-                 hvf.info <- tryCatch(
-                     FindVariableFeatures_seurat(object),
-                     error = function(e) NULL
-                 )
-                 if (is.null(hvf.info)) {
-                     warning("Seurat method failed. Falling back to scran method.")
-                    hvf.info <- sclet_model_gene_var(object, ...)
-                     method <- "scran"
-                 }
-             }
-        }
-    } else if (method == "scrapper") {
+    if (method == "scrapper") {
         if (!requireNamespace("scrapper", quietly = TRUE)) {
             warning("scrapper is not installed. Falling back to scran method.")
             hvf.info <- sclet_model_gene_var(object, ...)
@@ -180,61 +164,14 @@ FindVariableFeatures <- function(object, nfeatures = 2000, method = "scran", ...
     return(object)
 }
 
-FindVariableFeatures_seurat <- function(object) {
-    # Check for Seurat namespace again to be safe
-    if (!requireNamespace("Seurat", quietly = TRUE)) {
-        stop("Seurat package is required for method='seurat'")
-    }
-
-    sce <- object
-    if (!is.null(sclet_get_hvg_nfeatures(sce))) {
-        rd <- rowData(sce)
-        items <- c("mean", "variance", "variance.expected", "variance.standardized")
-        if (all(items %in% names(rd))) {
-            return(rd[, items])
-        }
- 
-    }
-
-    object <- counts(sce)
-    SparseRowVar2 <- get_fun_from_pkg('Seurat', "SparseRowVar2")
-    SparseRowVarStd <- get_fun_from_pkg('Seurat', "SparseRowVarStd")
-
-    ## taken from Seurat
-    clip.max <- sqrt(x = ncol(x = object))
-    hvf.info <- data.frame(mean = Matrix::rowMeans(object))
-    hvf.info$variance <- SparseRowVar2(
-      mat = object,
-      mu = hvf.info$mean,
-      display_progress = TRUE
-    )
-    hvf.info$variance.expected <- 0
-    hvf.info$variance.standardized <- 0
-    not.const <- hvf.info$variance > 0
-    fit <- loess(
-      formula = log10(x = variance) ~ log10(x = mean),
-      data = hvf.info[not.const, ],
-      span = .3
-    )
-    hvf.info$variance.expected[not.const] <- 10 ^ fit$fitted
-    hvf.info$variance.standardized <- SparseRowVarStd(
-      mat = object,
-      mu = hvf.info$mean,
-      sd = sqrt(hvf.info$variance.expected),
-      vmax = clip.max,
-      display_progress = TRUE
-    )
-    ## end of seurat code
-
-    return(hvf.info)
-}
-
 
 #' get variable features
 #' 
 #' @title VariableFeatures
 #' @param object a SingleCellExperiment object
-#' @param method one of 'seurat', 'scran' or 'scrapper'
+#' @param method one of 'scran' or 'scrapper'. The legacy value `'seurat'`
+#'   remains readable for older objects and maps to Seurat-style HVG ranking
+#'   when the required columns already exist in `rowData(object)`.
 #' @param ... additional parameters for ranking the `method = "scran"` HVG table
 #' @return highly variable features
 #' @export

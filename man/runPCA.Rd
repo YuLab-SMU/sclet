@@ -2,19 +2,9 @@
 % Please edit documentation in R/dimred.R
 \name{RunPCA}
 \alias{RunPCA}
-\alias{runPCA}
 \title{RunPCA}
 \usage{
 RunPCA(
-  object,
-  subset_row = NULL,
-  exprs_values = NULL,
-  layer = NULL,
-  ncomponents = 50,
-  ...
-)
-
-runPCA(
   object,
   subset_row = NULL,
   exprs_values = NULL,

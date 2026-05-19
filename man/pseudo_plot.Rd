@@ -13,7 +13,7 @@ pseudo_plot(
 )
 }
 \arguments{
-\item{sce}{A SingleCellExperiment object after runSlingshot which contains the pseudotime and reduction data.}
+\item{sce}{A SingleCellExperiment object after \code{RunSlingshot()} which contains the pseudotime and reduction data.}
 
 \item{reduction}{A string specifying the reduction method to be used for plotting. Default is \code{NULL}.}
 

@@ -2,26 +2,11 @@
 % Please edit documentation in R/cci.R
 \name{RunCellChat}
 \alias{RunCellChat}
-\alias{runCellChat}
 \title{RunCellChat}
 \usage{
 RunCellChat(
   sce,
-  group = "label",
-  assay_name = NULL,
-  layer = NULL,
-  species = "human",
-  db_item = c("Secreted Signaling"),
-  type = "triMean",
-  trim = 0.1,
-  min.cells = 10,
-  name = "cellchat",
-  return = c("cellchat", "sce", "both")
-)
-
-runCellChat(
-  sce,
-  group = "label",
+  group = NULL,
   assay_name = NULL,
   layer = NULL,
   species = "human",
@@ -34,9 +19,12 @@ runCellChat(
 )
 }
 \arguments{
-\item{sce}{singlecellExperiment object.}
+\item{sce}{A SingleCellExperiment object.}
 
-\item{group}{parameter to group data, must be one column in colData(obj).}
+\item{group}{Grouping variable used for communication analysis. If \code{NULL},
+sclet resolves it from \code{ActiveIdent(sce)}. When the active identity is
+\code{colLabels}, sclet uses a temporary metadata column derived from
+\code{SingleCellExperiment::colLabels(sce)}.}
 
 \item{assay_name}{the name of assay. If NULL, sclet resolves it from the
 selected \code{layer}.}
@@ -63,7 +51,7 @@ by default a CellChat object; if \code{return = "sce"}, returns the
 updated SingleCellExperiment; if \code{return = "both"}, returns a list with both
 }
 \description{
-wrapper function for running cellchat on default parameter.
+Run CellChat communication analysis
 }
 \details{
 https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/CellChat-vignette.html#c-starting-from-a-singlecellexperiment-object

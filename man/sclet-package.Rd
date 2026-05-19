@@ -5,9 +5,9 @@
 \alias{sclet}
 \alias{sclet-package}
 \alias{package-sclet}
-\title{sclet: A State-Aware Single-Cell Analysis Toolkit for SingleCellExperiment}
+\title{sclet: A State-Aware Single-Cell and Spatial Transcriptomics Toolkit for SingleCellExperiment}
 \description{
-Provides a comprehensive, state-aware toolkit for single-cell analysis based on the Bioconductor SingleCellExperiment class. It introduces a lightweight analysis-state contract to manage dependencies and provenance across workflows. Features include standard pipelines (preprocessing, dimensionality reduction, clustering, multi-backend integration), reference mapping, trajectory inference, differential expression and enrichment, differential abundance, cell-cell communication, metacell aggregation, and enhanced visualization. Seamless interoperability with AnnData and Seurat objects is also supported.
+Provides a comprehensive, state-aware toolkit for single-cell and spatial transcriptomics analysis built around the Bioconductor SingleCellExperiment class. It introduces a lightweight analysis-state contract to manage dependencies, active context, and provenance across workflows. Features include end-to-end preprocessing, dimensionality reduction, clustering, multi-backend integration, reference mapping, trajectory inference, differential expression and enrichment, differential abundance, cell-cell communication, metacell aggregation, spatial deconvolution, in-silico perturbation, and enhanced visualization. Interoperability with AnnData and legacy compatibility aliases are supported, but the primary design is centered on SingleCellExperiment-native analysis.
 }
 \author{
 \strong{Maintainer}: Guangchuang Yu \email{guangchuangyu@gmail.com} (\href{https://orcid.org/0000-0002-6485-8781}{ORCID})

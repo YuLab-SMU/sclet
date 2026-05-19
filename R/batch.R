@@ -181,6 +181,9 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
   }
   
   # Batch correction
+  source_state <- sclet_get_state(sce)
+  source_commands <- sclet_get_commands(sce)
+
   corrected <- sclet_muffle_known_warnings(
       batchelor::batchCorrect(
           sce,
@@ -196,7 +199,9 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
           "more singular values/vectors requested than available"
       )
   )
-  S4Vectors::metadata(corrected) <- S4Vectors::metadata(sce)
+  SingleCellExperiment::reducedDims(corrected) <- S4Vectors::SimpleList()
+  SingleCellExperiment::colLabels(corrected) <- NULL
+  S4Vectors::metadata(corrected) <- sclet_merge_external_metadata(sce, corrected)
   
   corrected <- sclet_set_hvg_state(
     corrected,
@@ -224,6 +229,12 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
   } else {
     SummarizedExperiment::assayNames(corrected)[[1]]
   }
+  corrected <- sclet_rebuild_internal_state(
+    corrected,
+    hvg = source_state$features$hvg,
+    commands = source_commands,
+    active_assay = corrected_assay
+  )
   if (assay.type %in% SummarizedExperiment::assayNames(corrected)) {
     corrected <- sclet_set_layer(
       corrected,
@@ -368,12 +379,13 @@ sce_merge <- function(sce_list, combineVarParams = list(equiweight = TRUE, ncell
   
   coldata_combined <- do.call(rbind, lapply(sce_list, colData))
   
-  metadata_combined <- S4Vectors::metadata(sce_list[[1]])
-  
-  for (i in 2:length(sce_list)) {
-    metadata_combined <- modifyList(metadata_combined, S4Vectors::metadata(sce_list[[i]]))
+  metadata_combined <- do.call(sclet_merge_external_metadata, sce_list)
+  active_assay <- sclet_get_active_assay(sce_list[[1]])
+  if (!active_assay %in% asys) {
+    active_assay <- NULL
   }
-  
+  active_layer <- sclet_get_active_layer(sce_list[[1]])
+
   
   combined_sce <- SingleCellExperiment(
     assays = cbn_assays,
@@ -381,13 +393,22 @@ sce_merge <- function(sce_list, combineVarParams = list(equiweight = TRUE, ncell
     colData = coldata_combined,
     metadata = metadata_combined
   )
+  SingleCellExperiment::colLabels(combined_sce) <- NULL
   
+  combined_sce <- sclet_rebuild_internal_state(
+    combined_sce,
+    commands = list(),
+    active_assay = active_assay
+  )
   combined_sce <- sclet_set_hvg_state(
     combined_sce,
     nfeatures = sclet_get_hvg_nfeatures(sce_list[[1]]),
     method = get_hvg_method(sce_list[[1]]),
     hvgcols = colnames(combined_hvginfo)
   )
+  if (!is.null(active_layer) && active_layer %in% Layers(combined_sce)) {
+    combined_sce <- sclet_set_active_layer(combined_sce, active_layer)
+  }
   
   combined_sce$batch <- factor(rep(seq_along(sce_list), sapply(sce_list, ncol)))
   combined_sce <- sclet_set_analysis_state(

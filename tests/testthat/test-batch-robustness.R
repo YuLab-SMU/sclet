@@ -3,6 +3,8 @@ test_that("BatchRemover and subsequent clustering workflow works", {
     skip_if_not_installed("scuttle")
     skip_if_not_installed("batchelor")
     skip_if_not_installed("scran")
+    skip_if_not_installed("scater")
+    skip_if_not_installed("igraph")
     
     # Mock data
     set.seed(123)
@@ -17,7 +19,13 @@ test_that("BatchRemover and subsequent clustering workflow works", {
     # Pre-process (simulate user workflow)
     # We use scran method by default now
     sce1 <- FindVariableFeatures(sce1, nfeatures = 50)
+    sce1 <- RunPCA(sce1, subset_row = VariableFeatures(sce1), ncomponents = 5)
+    sce1 <- FindNeighbors(sce1, dims = 1:5)
+    sce1 <- FindClusters(sce1)
     sce2 <- FindVariableFeatures(sce2, nfeatures = 50)
+    sce2 <- RunPCA(sce2, subset_row = VariableFeatures(sce2), ncomponents = 5)
+    sce2 <- FindNeighbors(sce2, dims = 1:5)
+    sce2 <- FindClusters(sce2)
     
     # Merge
     pbmc_list <- list(pbmc1 = sce1, pbmc2 = sce2)
@@ -28,6 +36,9 @@ test_that("BatchRemover and subsequent clustering workflow works", {
     expect_true(has_integration(combined, id = "merged_inputs"))
     expect_equal(get_integration(combined, id = "merged_inputs")$method, "sce_merge")
     expect_equal(get_integration(combined, id = "merged_inputs")$summary$n_inputs, 2)
+    expect_null(DefaultReduction(combined))
+    expect_null(DefaultGraph(combined))
+    expect_null(ActiveIdent(combined))
     
     # Batch Correction
     rm_batch <- BatchRemover(combined)
@@ -41,6 +52,9 @@ test_that("BatchRemover and subsequent clustering workflow works", {
     expect_equal(get_integration(rm_batch, "method"), "batchelor::batchCorrect")
     expect_equal(get_integration(rm_batch, "artifacts")$layer, "corrected")
     expect_equal(get_integration(rm_batch, "inputs")$merge$id, "merged_inputs")
+    expect_null(DefaultReduction(rm_batch))
+    expect_null(DefaultGraph(rm_batch))
+    expect_null(ActiveIdent(rm_batch))
     
     # The critical failure point was running VariableFeatures on this result
     # because it might look for assays that don't exist or are named differently
@@ -58,7 +72,7 @@ test_that("BatchRemover and subsequent clustering workflow works", {
             assay_to_use <- "reconstructed"
         }
         
-        rm_batch <- runPCA(rm_batch, subset_row = vf, exprs_values = assay_to_use)
+        rm_batch <- RunPCA(rm_batch, subset_row = vf, exprs_values = assay_to_use)
         rm_batch <- FindNeighbors(rm_batch, dims = 1:5)
         rm_batch <- FindClusters(rm_batch, resolution = 0.5)
     })

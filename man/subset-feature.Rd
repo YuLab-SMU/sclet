@@ -7,7 +7,7 @@
 subset_feature(x, mincell, peek = TRUE)
 }
 \arguments{
-\item{x}{Seurat object}
+\item{x}{a SingleCellExperiment object}
 
 \item{mincell}{feature should be detected with selected minimal cells, otherwise will be filter out}
 

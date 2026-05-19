@@ -24,7 +24,7 @@ test_that("FindNeighbors stores graph under metadata sclet and FindClusters can 
     sce <- scuttle::mockSCE(ncells = 40, ngenes = 120)
     sce <- NormalizeData(sce)
     sce <- FindVariableFeatures(sce, nfeatures = 30, method = "scran")
-    sce <- runPCA(sce, subset_row = VariableFeatures(sce), ncomponents = 10)
+    sce <- RunPCA(sce, subset_row = VariableFeatures(sce), ncomponents = 10)
     sce <- FindNeighbors(sce, dims = 1:5)
 
     state <- S4Vectors::metadata(sce)$sclet
@@ -187,7 +187,7 @@ test_that("CommandLog records preprocessing and dimred steps", {
     sce <- scuttle::mockSCE(ncells = 24, ngenes = 80)
     sce <- NormalizeData(sce)
     sce <- FindVariableFeatures(sce, nfeatures = 20, method = "scran")
-    sce <- runPCA(sce, subset_row = VariableFeatures(sce), ncomponents = 5)
+    sce <- RunPCA(sce, subset_row = VariableFeatures(sce), ncomponents = 5)
 
     log_df <- CommandLog(sce)
     log_df_details <- CommandLog(sce, details = TRUE)
@@ -216,7 +216,7 @@ test_that("main pipeline updates active assay, graph and ident", {
     expect_equal(DefaultLayer(sce), "logcounts")
 
     sce <- FindVariableFeatures(sce, nfeatures = 20, method = "scran")
-    sce <- runPCA(sce, subset_row = VariableFeatures(sce), ncomponents = 5)
+    sce <- RunPCA(sce, subset_row = VariableFeatures(sce), ncomponents = 5)
     expect_equal(sclet_get_active_state(sce, "reduction"), "pca")
     expect_equal(sclet_get_state_record(sce, "reduction")$artifacts$reduction, "PCA")
     sce <- FindNeighbors(sce, dims = 1:5)
@@ -259,7 +259,7 @@ test_that("RunUMAP can infer source reduction when dims are omitted", {
     sce <- scuttle::mockSCE(ncells = 30, ngenes = 100)
     sce <- NormalizeData(sce)
     sce <- FindVariableFeatures(sce, nfeatures = 20, method = "scran")
-    sce <- runPCA(sce, subset_row = VariableFeatures(sce), ncomponents = 5)
+    sce <- RunPCA(sce, subset_row = VariableFeatures(sce), ncomponents = 5)
     sce <- RunUMAP(sce)
 
     expect_true("UMAP" %in% SingleCellExperiment::reducedDimNames(sce))
@@ -451,7 +451,7 @@ test_that("analysis-state registry stores typed records and active selections", 
     expect_equal(get_cellchat(sce, id = "cellchat_alt")$inputs$group, "sample")
 })
 
-test_that("analysis getters return stored records and support legacy fallback", {
+test_that("analysis getters return stored records and prefer current contract", {
     sce <- SingleCellExperiment::SingleCellExperiment(
         list(counts = matrix(1, nrow = 5, ncol = 4))
     )
@@ -545,14 +545,16 @@ test_that("analysis getters return stored records and support legacy fallback", 
     md$sclet$analyses$trajectory <- NULL
     md$sclet$analyses$milo <- NULL
     md$sclet$analyses$supercell <- NULL
-    md$sclet$states$milo <- NULL
-    md$sclet$states$annotation <- NULL
-    md$sclet$states$mapping <- NULL
-    md$sclet$states$aggregation <- NULL
-    md$sclet$active$milo <- NULL
-    md$sclet$active$annotation <- NULL
-    md$sclet$active$mapping <- NULL
-    md$sclet$active$aggregation <- NULL
+    md$sclet$states$records$trajectory <- NULL
+    md$sclet$states$records$milo <- NULL
+    md$sclet$states$records$annotation <- NULL
+    md$sclet$states$records$mapping <- NULL
+    md$sclet$states$records$aggregation <- NULL
+    md$sclet$states$active$trajectory <- NULL
+    md$sclet$states$active$milo <- NULL
+    md$sclet$states$active$annotation <- NULL
+    md$sclet$states$active$mapping <- NULL
+    md$sclet$states$active$aggregation <- NULL
     md$slingshot_info <- structure(list(dummy = TRUE), class = "mock_slingshot")
     md$milo_results <- list(da_results = data.frame(id = 3:4))
     md$SuperCell <- list(membership = 5:8)
@@ -560,16 +562,16 @@ test_that("analysis getters return stored records and support legacy fallback", 
     SummarizedExperiment::colData(sce)$SingleR_labels <- rep(c("A", "B"), length.out = ncol(sce))
     S4Vectors::metadata(sce) <- md
 
-    expect_s3_class(get_trajectory(sce)$dataset, "mock_slingshot")
-    expect_true(has_trajectory(sce))
-    expect_true(has_milo(sce))
-    expect_true(has_supercell(sce))
-    expect_true(has_batch(sce))
+    expect_false(has_trajectory(sce))
+    expect_false(has_milo(sce))
+    expect_false(has_supercell(sce))
+    expect_false(has_batch(sce))
+    expect_null(get_trajectory(sce))
+    expect_null(get_milo(sce))
+    expect_null(get_supercell(sce))
+    expect_null(get_batch(sce))
     expect_true(has_annotation(sce))
     expect_true(has_mapping(sce))
-    expect_equal(nrow(get_milo(sce, "da_results")), 2)
-    expect_equal(get_supercell(sce, "object")$membership, 5:8)
-    expect_equal(get_batch(sce, "method"), "batchelor::batchCorrect")
     expect_equal(get_annotation(sce, "method"), "SingleR")
     expect_equal(get_mapping(sce, "artifacts")$mapping_type, "reference_mapping")
 })
@@ -685,7 +687,7 @@ test_that("get_hvg, get_batch and get_graph expose unified records", {
     expect_equal(hvg$n, 12)
     expect_true(all(c("mean", "total", "tech", "bio", "p.value", "FDR") %in% colnames(hvg$rowData)))
 
-    sce <- runPCA(sce, subset_row = VariableFeatures(sce), ncomponents = 5)
+    sce <- RunPCA(sce, subset_row = VariableFeatures(sce), ncomponents = 5)
     sce <- FindNeighbors(sce, dims = 1:5)
     graph_info <- get_graph(sce)
     expect_true(has_graph(sce))
@@ -696,9 +698,12 @@ test_that("get_hvg, get_batch and get_graph expose unified records", {
     sce <- sclet_set_analysis(sce, "batch", list(method = "batchelor::batchCorrect", hvg_n = 12))
     batch_info <- get_batch(sce)
     expect_true(has_batch(sce))
+    expect_equal(batch_info$type, "batch")
+    expect_equal(batch_info$id, "batchcorrect")
     expect_equal(batch_info$method, "batchelor::batchCorrect")
     expect_equal(batch_info$hvg_n, 12)
     expect_true(has_integration(sce))
+    expect_equal(get_integration(sce)$type, "integration")
     expect_equal(get_integration(sce, "method"), "batchelor::batchCorrect")
 })
 

@@ -1,10 +1,13 @@
-#' wrapper function for running cellchat on default parameter.
+#' Run CellChat communication analysis
 #' 
 #' https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/CellChat-vignette.html#c-starting-from-a-singlecellexperiment-object
 #' 
 #' @title RunCellChat
-#' @param sce singlecellExperiment object.
-#' @param group parameter to group data, must be one column in colData(obj).
+#' @param sce A SingleCellExperiment object.
+#' @param group Grouping variable used for communication analysis. If `NULL`,
+#' sclet resolves it from `ActiveIdent(sce)`. When the active identity is
+#' `colLabels`, sclet uses a temporary metadata column derived from
+#' `SingleCellExperiment::colLabels(sce)`.
 #' @param assay_name the name of assay. If NULL, sclet resolves it from the
 #' selected `layer`.
 #' @param layer layer used for communication analysis. If NULL, use
@@ -21,7 +24,7 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom SummarizedExperiment assayNames
 #' @export
-RunCellChat <- function(sce, group = "label",
+RunCellChat <- function(sce, group = NULL,
                         assay_name = NULL,
                         layer = NULL,
                         species = "human",
@@ -47,10 +50,6 @@ RunCellChat <- function(sce, group = "label",
         sce <- NormalizeData(sce)
     }
 
-    if( !group %in% colnames(colData(sce))){
-        stop("group must be in the colData of sce")
-    }
-
     source <- sclet_resolve_expression_source(
         object = sce,
         layer = layer,
@@ -60,7 +59,10 @@ RunCellChat <- function(sce, group = "label",
     )
     assay_name <- source$assay
     data <- assay(sce, assay_name)
-    meta <- as.data.frame(colData(sce)) 
+    meta <- as.data.frame(colData(sce))
+    resolved_group <- sclet_resolve_group_column(sce, meta = meta, group = group)
+    meta <- resolved_group$meta
+    group <- resolved_group$group
 
     cellchat_obj <- CellChat::createCellChat(object = data, 
                                              meta = meta, 
@@ -173,29 +175,31 @@ RunCellChat <- function(sce, group = "label",
     return(cellchat_obj)
 }
 
-#' @rdname RunCellChat
-#' @export
-runCellChat <- function(sce, group = "label",
-                        assay_name = NULL,
-                        layer = NULL,
-                        species = "human",
-                        db_item = c("Secreted Signaling"),
-                        type = "triMean",
-                        trim = 0.1,
-                        min.cells = 10,
-                        name = "cellchat",
-                        return = c("cellchat", "sce", "both")) {
-    RunCellChat(
-        sce = sce,
-        group = group,
-        assay_name = assay_name,
-        layer = layer,
-        species = species,
-        db_item = db_item,
-        type = type,
-        trim = trim,
-        min.cells = min.cells,
-        name = name,
-        return = return
-    )
+sclet_resolve_group_column <- function(sce, meta, group = NULL) {
+    if (!is.null(group)) {
+        if (!group %in% colnames(meta)) {
+            stop("Grouping column '", group, "' was not found in colData(sce).")
+        }
+        return(list(meta = meta, group = group))
+    }
+
+    active_ident <- ActiveIdent(sce)
+    if (is.null(active_ident)) {
+        stop("No grouping column was supplied and no active identity is set. Please provide `group` or set `ActiveIdent(sce)`.")
+    }
+
+    if (identical(active_ident, "colLabels")) {
+        labels <- SingleCellExperiment::colLabels(sce)
+        if (is.null(labels)) {
+            stop("Active identity is 'colLabels' but `colLabels(sce)` is empty.")
+        }
+        meta$.sclet_group <- labels
+        return(list(meta = meta, group = ".sclet_group"))
+    }
+
+    if (!active_ident %in% colnames(meta)) {
+        stop("Active identity '", active_ident, "' was not found in colData(sce).")
+    }
+
+    list(meta = meta, group = active_ident)
 }

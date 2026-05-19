@@ -14,12 +14,13 @@ get_trajectory <- function(object, element = NULL, id = NULL) {
     if (!is.null(id)) {
         result <- sclet_get_state_record(object, "trajectory", id = id)
     }
-    if (is.null(result)) {
-        result <- sclet_get_analysis(object, "trajectory")
-    }
-    if (is.null(result)) {
-        result <- sclet_get_legacy_analysis_record(object, "trajectory")
-    }
+    result <- sclet_normalize_analysis_record(
+        type = "trajectory",
+        id = if (is.null(id)) "trajectory" else id,
+        record = result,
+        analysis = sclet_get_analysis(object, "trajectory"),
+        default_method = "slingshot"
+    )
     extract_analysis_element(result, element)
 }
 
@@ -54,35 +55,13 @@ get_milo <- function(object, element = NULL, id = NULL) {
             result <- candidate
         }
     }
-    analysis <- sclet_get_analysis(object, "milo")
-    if (!is.null(result) && !is.null(analysis)) {
-        if (is.null(result$da_results) && !is.null(result$artifacts$da_results)) {
-            result$da_results <- result$artifacts$da_results
-        }
-        if (is.null(result$design_df) && !is.null(result$artifacts$design_df)) {
-            result$design_df <- result$artifacts$design_df
-        }
-        if (is.null(result$formula) && !is.null(result$artifacts$formula)) {
-            result$formula <- result$artifacts$formula
-        }
-        if (is.null(result$contrasts) && !is.null(result$artifacts$contrasts)) {
-            result$contrasts <- result$artifacts$contrasts
-        }
-    }
-    if (is.null(result)) {
-        result <- analysis
-    }
-    legacy <- sclet_get_legacy_analysis_record(object, "milo")
-    if (!is.null(result) && !is.null(legacy)) {
-        for (nm in c("da_results", "design_df", "formula", "contrasts")) {
-            if (is.null(result[[nm]]) && !is.null(legacy[[nm]])) {
-                result[[nm]] <- legacy[[nm]]
-            }
-        }
-    }
-    if (is.null(result)) {
-        result <- legacy
-    }
+    result <- sclet_normalize_analysis_record(
+        type = "milo",
+        id = if (is.null(id)) "milo" else id,
+        record = result,
+        analysis = sclet_get_analysis(object, "milo"),
+        default_method = "miloR"
+    )
     extract_analysis_element(result, element)
 }
 
@@ -117,22 +96,13 @@ get_supercell <- function(object, element = NULL, id = NULL) {
             result <- candidate
         }
     }
-    analysis <- sclet_get_analysis(object, "supercell")
-    if (!is.null(result) && !is.null(analysis)) {
-        result$object <- analysis$object
-        result$parent <- analysis$parent
-        result$child <- analysis$child
-    }
-    if (is.null(result)) {
-        result <- analysis
-    }
-    legacy <- sclet_get_legacy_analysis_record(object, "aggregation")
-    if (!is.null(result) && is.null(result$object) && !is.null(legacy)) {
-        result$object <- legacy$object
-    }
-    if (is.null(result)) {
-        result <- legacy
-    }
+    result <- sclet_normalize_analysis_record(
+        type = "aggregation",
+        id = if (is.null(id)) "supercell" else id,
+        record = result,
+        analysis = sclet_get_analysis(object, "supercell"),
+        default_method = "SuperCell::SCimplify"
+    )
     extract_analysis_element(result, element)
 }
 
@@ -167,15 +137,13 @@ get_cellchat <- function(object, element = NULL, id = NULL) {
             result <- candidate
         }
     }
-    analysis <- sclet_get_analysis(object, "cellchat")
-    if (!is.null(result) && !is.null(analysis)) {
-        result$object <- analysis$object
-        result$species <- analysis$species
-        result$db_item <- analysis$db_item
-    }
-    if (is.null(result)) {
-        result <- analysis
-    }
+    result <- sclet_normalize_analysis_record(
+        type = "communication",
+        id = if (is.null(id)) "cellchat" else id,
+        record = result,
+        analysis = sclet_get_analysis(object, "cellchat"),
+        default_method = "CellChat"
+    )
     extract_analysis_element(result, element)
 }
 
@@ -298,6 +266,46 @@ extract_analysis_element <- function(result, element = NULL) {
     result[[element]]
 }
 
+sclet_normalize_analysis_record <- function(type, id, record = NULL, analysis = NULL, default_method = NULL) {
+    if (is.null(record) && is.null(analysis)) {
+        return(NULL)
+    }
+
+    result <- record
+    if (is.null(result)) {
+        result <- list()
+    }
+
+    if (!is.null(analysis)) {
+        for (nm in names(analysis)) {
+            if (is.null(result[[nm]])) {
+                result[[nm]] <- analysis[[nm]]
+            }
+        }
+    }
+
+    if (is.null(result$id)) {
+        result$id <- id
+    }
+    if (is.null(result$type)) {
+        result$type <- type
+    }
+    if (is.null(result$method) && !is.null(default_method)) {
+        result$method <- default_method
+    }
+    if (is.null(result$inputs)) {
+        result$inputs <- list()
+    }
+    if (is.null(result$artifacts)) {
+        result$artifacts <- list()
+    }
+    if (is.null(result$summary)) {
+        result$summary <- list()
+    }
+
+    result
+}
+
 #' Access batch correction results
 #'
 #' @title get_batch
@@ -306,10 +314,11 @@ extract_analysis_element <- function(result, element = NULL) {
 #' @return the full batch record, a selected element, or `NULL`
 #' @export
 get_batch <- function(object, element = NULL) {
-    result <- sclet_get_analysis(object, "batch")
-    if (is.null(result)) {
-        result <- sclet_get_legacy_analysis_record(object, "batch")
-    }
+    result <- sclet_normalize_analysis_record(
+        type = "batch",
+        id = "batchcorrect",
+        analysis = sclet_get_analysis(object, "batch")
+    )
     extract_analysis_element(result, element)
 }
 
@@ -345,13 +354,20 @@ get_integration <- function(object, element = NULL, id = NULL) {
     if (is.null(result)) {
         batch <- get_batch(object)
         if (is.null(id) && !is.null(batch)) {
-            result <- list(
-                id = "batchcorrect",
+            result <- sclet_normalize_analysis_record(
                 type = "integration",
-                method = batch$method,
-                artifacts = list(layer = "corrected", analysis_key = "batch"),
-                summary = list(n_hvg = batch$hvg_n)
+                id = "batchcorrect",
+                analysis = batch,
+                default_method = batch$method
             )
+            result$type <- "integration"
+            result$artifacts <- utils::modifyList(
+                list(layer = "corrected", analysis_key = "batch"),
+                result$artifacts
+            )
+            if (is.null(result$summary$n_hvg) && !is.null(batch$hvg_n)) {
+                result$summary$n_hvg <- batch$hvg_n
+            }
         }
     }
     extract_analysis_element(result, element)

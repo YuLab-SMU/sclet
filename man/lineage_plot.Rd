@@ -50,7 +50,7 @@ The cells are colored by their respective lineage trajectories and the lineages 
 }
 \examples{
 \dontrun{
-p <- lineage_plot(sce = pancreas, group = "label", reduction = "UMAP")
+p <- lineage_plot(sce = pancreas, group = "celltype", reduction = "UMAP")
 print(p)
 }
 

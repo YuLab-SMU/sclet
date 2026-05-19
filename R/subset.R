@@ -13,23 +13,17 @@ setMethod("subset", "SingleCellExperiment",
 
 #' @title subset_feature
 #' @rdname subset-feature
-#' @param x Seurat object
+#' @param x a SingleCellExperiment object
 #' @param mincell feature should be detected with selected minimal cells, otherwise will be filter out
 #' @param peek logical. If TRUE, print information of the feature and not performing subsetting
 #' @return updated object if peek is FALSE
 #' @importFrom SingleCellExperiment counts
 #' @export
 subset_feature <- function(x, mincell, peek = TRUE) {
-    if (!inherits(x, c('Seurat', 'SingleCellExperiment'))) {
-        stop("Only Seurat and SingleCellExperiment object is supported")
+    if (!inherits(x, "SingleCellExperiment")) {
+        stop("Only SingleCellExperiment objects are supported.")
     }
-
-    if (inherits(x, "Seurat")) {
-        #y <- x[[Assays(x)]]$counts
-        y <- x@assays[[1]]$counts
-    } else {
-        y <- counts(x)
-    }
+    y <- counts(x)
     
     if (!peek) {
         return(x[Matrix::rowSums(y > 0) >= mincell, ])
@@ -49,7 +43,7 @@ subset_feature <- function(x, mincell, peek = TRUE) {
 
 ##' @title subset_cell
 ##' @rdname subset-cell
-##' @param x Seurat object
+##' @param x a SingleCellExperiment object
 ##' @param feature selected features to filter out cells
 ##' @param method selected method to detect outliers to be filtered. One of 'mad', 'sd', and 'quantile'
 ##' @param n if method='quantile' and e.g. n=.98, then the lower and upper side of 1% data will be filter out; 
@@ -57,8 +51,8 @@ subset_feature <- function(x, mincell, peek = TRUE) {
 ##' @return updated object
 ##' @export
 subset_cell <- function(x, feature = "nFeature_RNA", method = 'mad', n = 3) {
-    if (!inherits(x, c('Seurat', 'SingleCellExperiment'))) {
-        stop("Only Seurat and SingleCellExperiment object is supported")
+    if (!inherits(x, "SingleCellExperiment")) {
+        stop("Only SingleCellExperiment objects are supported.")
     }
 
     if (length(feature) == 1) {
@@ -94,11 +88,7 @@ subset_cell <- function(x, feature = "nFeature_RNA", method = 'mad', n = 3) {
 
 #' @importFrom stats mad median quantile sd
 subset_cell_internal <- function(x, feature = "nFeature_RNA", method = 'mad', n = 3) {
-    if (inherits(x, "SingleCellExperiment")) {
-        md <- colData(x)
-    } else {
-        md <- x[[]]
-    }
+    md <- colData(x)
     y <- md[[feature]]
     method <- tolower(method)
     if (method == 'quantile') {

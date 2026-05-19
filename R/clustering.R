@@ -129,13 +129,12 @@ FindClusters <- function(object, resolution = 0.5) {
 #' @importFrom stats setNames
 Idents <- function(object) {
     active_ident <- ActiveIdent(object)
-    if (is.null(active_ident) || identical(active_ident, "colLabels")) {
+    if (is.null(active_ident)) {
+        return(NULL)
+    }
+    if (identical(active_ident, "colLabels")) {
         if (is.null(colLabels(object))) {
-            if (!is.null(colData(object)$label)) {
-                colLabels(object) <- colData(object)$label
-            } else {
-                return(NULL)
-            }
+            return(NULL)
         }
         return(setNames(colLabels(object), colnames(object)))
     }

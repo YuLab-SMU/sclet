@@ -20,8 +20,8 @@
 #' @examples
 #' \dontrun{
 #‘ pancreas <- readRDS("./pancreas_sub_sce.rds")
-#’ pancreas <- RunSlingshot(sce = pancreas, group = "label", reduction = "UMAP")
-#' p <- lineage_plot(sce = pancreas, group = "label", reduction = "UMAP")
+#’ pancreas <- RunSlingshot(sce = pancreas, group = "celltype", reduction = "UMAP")
+#' p <- lineage_plot(sce = pancreas, group = "celltype", reduction = "UMAP")
 #' print(p)
 #' }
 #' 
@@ -80,7 +80,7 @@ lineage_plot <- function(
 
 #' Visualize pseudotime data on reduction plots
 #'
-#' @param sce A SingleCellExperiment object after runSlingshot which contains the pseudotime and reduction data.
+#' @param sce A SingleCellExperiment object after `RunSlingshot()` which contains the pseudotime and reduction data.
 #' @param reduction A string specifying the reduction method to be used for plotting. Default is `NULL`.
 #' @param pseudotime.data The name of the column in the colData of `sce` that contains the pseudotime data. Default is `"slingPseudotime"`.
 #' @param lineage selected lineage to be displayed, all lineages will be used by default.
@@ -109,7 +109,7 @@ pseudo_plot <- function(
   }
   
   if (!pseudotime.data %in% colnames(colData(sce))) {
-    stop("SCE lacks pseudotime data. Please run 'runSlingshot' before this function.")
+    stop("SCE lacks pseudotime data. Please run 'RunSlingshot' before this function.")
   }
   
   ## Extract pseudotime data
