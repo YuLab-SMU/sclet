@@ -1,0 +1,75 @@
+# State-Aware Analysis Contract {#state-aware}
+
+Ever found yourself lost in "parameter hell"?
+
+After running batch correction, you have to memorize whether your reduced dimension matrix is named `fastMNN` or `scVI`. When you move downstream to visualization, you have to manually specify `reduction = "fastMNN"`. If you introduce trajectory inference, gene set scoring, or spatial deconvolution along the way, the scattered results wrap around your `SingleCellExperiment` (SCE) object like spaghetti. Hand this analysis over to a colleague—or return to it yourself three months later—and no one will remember which `umap` was derived from which batch-corrected matrix.
+
+This is a common systemic flaw in transcriptomic workflows: **We have the data, but we lose the context.**
+
+To solve this, `sclet` introduces its core design philosophy: the **Analysis-State Contract**.
+
+## What is the State Contract?
+
+In `sclet`, the data flow adapts to your analysis pipeline, rather than forcing you to memorize key names. When you run `RunIntegration()`, the object remembers the "active integration state". When you subsequently run `RunUMAP()`, it automatically perceives the output from the previous step.
+
+More importantly, `sclet` quietly records a **Directed Acyclic Graph (DAG)** in the background. This is your analysis provenance (or "bloodline").
+
+## Macro View: `Status()`
+
+Let's look at a minimal runnable example. By simply calling `Status()`, `sclet` provides a comprehensive health report of your object:
+
+```{r state-status}
+library(sclet)
+# Load a pre-processed PBMC dataset
+pbmc <- qs::qread("data/pbmc-3k-sce.qs")
+
+# Check the current status of the object
+Status(pbmc)
+```
+
+Whether you are using native R functions or invoking top-tier Python algorithms via the `basilisk` sandbox, the traces they leave are unified and clearly displayed.
+
+## Digging Deeper: `get_analysis_context()`
+
+If you need to inspect the details of a specific state, `sclet` provides a family of `get_*()` and `has_*()` macros.
+
+```{r state-context}
+# Get the full DAG provenance tree
+# This highly structured context is perfect for feeding into an AI Copilot
+ctx <- get_analysis_context(pbmc)
+
+# List all recorded advanced analysis records
+names(ctx$records)
+```
+
+**Bottom Line:**
+Stop wrestling with `reducedDims` and `colData` variable names. Go with the flow, let the `sclet` state machine remember the details, and focus on the actual biology.
+
+## Manual Overrides: Layers and Default APIs
+
+While the state machine handles 99% of routing automatically, there are times when you want manual control. For example, maybe you want to switch the default visualization from UMAP back to t-SNE, or you want to temporarily access the raw, uncorrected counts instead of the integrated layer.
+
+`sclet` provides a suite of intuitive setter/getter macros:
+
+```{r defaults, eval=eval_chunks}
+# Check available layers
+Layers(pbmc)
+
+# Get the data for a specific layer
+raw_data <- LayerData(pbmc, layer = DefaultLayer(pbmc))
+dim(raw_data)
+
+# Change the default reduction used by DimPlot, if available
+if ("PCA" %in% reducedDimNames(pbmc)) {
+    DefaultReduction(pbmc) <- "PCA"
+}
+DefaultReduction(pbmc)
+
+# Change the default assay to a concrete assay stored in the object
+if ("logcounts" %in% assayNames(pbmc)) {
+    DefaultAssay(pbmc) <- "logcounts"
+}
+DefaultAssay(pbmc)
+```
+
+These macros mimic the Seurat API perfectly, ensuring that users migrating to `SingleCellExperiment` feel right at home while retaining the robust Bioconductor data structure under the hood.

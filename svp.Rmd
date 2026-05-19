@@ -1,7 +1,24 @@
-# SVP
-Robust analysis of 'gene set' activity in spatial or single-cell data.
+# SVP: Gene Set Activity in Spatial and Single-Cell Data
 
-```{r}
+Not every downstream analysis begins with cluster markers or differential expression. In many settings, the real question is whether a predefined biological program, pathway, or cell-type signature is active in a given cell or spatial location.
+
+The `SVP` ecosystem is designed for this use case. This chapter shows how gene set activity can be quantified and explored in both single-cell and spatial settings, using `SingleCellExperiment`-compatible workflows.
+
+Because the required packages and example datasets are lightweight enough for CI, most chunks in this chapter are executed in the GitHub Actions bookdown workflow when the dependencies are available.
+
+```{r svp-setup, include=FALSE, eval=TRUE}
+svp_ready <- eval_chunks &&
+  requireNamespace("SpatialExperiment", quietly = TRUE) &&
+  requireNamespace("SingleCellExperiment", quietly = TRUE) &&
+  requireNamespace("scuttle", quietly = TRUE) &&
+  requireNamespace("SVP", quietly = TRUE) &&
+  requireNamespace("ggplot2", quietly = TRUE) &&
+  requireNamespace("ggsc", quietly = TRUE) &&
+  requireNamespace("sclet", quietly = TRUE) &&
+  requireNamespace("scran", quietly = TRUE)
+```
+
+```{r svp-libraries, eval=svp_ready}
 library(SpatialExperiment)
 library(SingleCellExperiment)
 library(scuttle)
@@ -12,9 +29,11 @@ library(sclet)
 ```
 
 ## runSGSA
-Calculate the activity of gene sets in spatial or single-cell data with restart walk with restart and hyper test weighted.
-sceSubPbmc is a small SingleCellExperiment data set from pbmck3 which contains 1304 genes and 800 cells (extract randomly).
-```{r}
+
+`runSGSA()` calculates the activity of gene sets in spatial or single-cell data.
+
+`sceSubPbmc` is a small `SingleCellExperiment` dataset derived from PBMC3k and contains 1304 genes across 800 randomly selected cells.
+```{r svp-mca, eval=svp_ready}
 data(sceSubPbmc)
 sceSubPbmc <- NormalizeData(sceSubPbmc)
 # the using runMCA to perform MCA (Multiple Correspondence Analysis)
@@ -24,28 +43,26 @@ sceSubPbmc <- runMCA(sceSubPbmc, assay.type = 'logcounts')
 ```
 
 
-CellCycle.Hs is the S and G2M gene list are from the Seurat which refer to this article (doi:10.1126/science.aad050), the G1 gene list is from the G1_PHASE of Human Gene Set in MSigDB, but remove the duplicated records with S and G2M gene list.
-```{r}
-# Next, we can calculate the activity score of gene sets provided.
-# Here, we use the Cell Cycle gene set from the Seurat 
-# You can use other gene set, such as KEGG pathway, GO, Hallmark of MSigDB
-# or TFs gene sets etc.
+`CellCycle.Hs` contains cell-cycle-related gene sets. The S and G2M signatures follow the Seurat convention, while the G1 signature is derived from the `G1_PHASE` human gene set in MSigDB after removing duplicated genes.
+```{r svp-sgsa, eval=svp_ready}
+# Next, we calculate gene set activity scores.
+# Here, we use the cell-cycle signatures, but the same workflow applies
+# to KEGG pathways, GO terms, Hallmark collections, transcription factor
+# target sets, and other curated gene sets.
 data(CellCycle.Hs)
 sceSubPbmc <- runSGSA(sceSubPbmc, gset.idx.list = CellCycle.Hs, gsvaExp.name = 'CellCycle')
-# Then a SVPE class which inherits SingleCellExperiment, is return.
+# The result is an SVPE object, which extends SingleCellExperiment.
 sceSubPbmc
 ```
 
-```{r}
-# You can obtaion the score matrix by following the commond
+```{r svp-gsvaexp, eval=svp_ready}
+# You can retrieve the score matrix directly.
 sceSubPbmc |> gsvaExp('CellCycle') 
 sceSubPbmc |> gsvaExp("CellCycle") |> assay() |> t() |> head()
 ```
 
-```{r}
-# Then you can use the ggsc or other package to visulize
-# and you can try to use the findMarkers of scran or other packages to identify
-# the different gene sets.   
+```{r svp-embed, eval=svp_ready}
+# The resulting scores can then be visualized or used in downstream testing.
 sceSubPbmc <- sceSubPbmc |> 
                 scater::runPCA(assay.type = 'logcounts', ntop = 600) |>
                 scater::runUMAP(dimred = 'PCA')
@@ -55,7 +72,7 @@ sce.cellcycle <- sceSubPbmc |> gsvaExp('CellCycle', withReducedDim=TRUE)
 sce.cellcycle
 ```
 
-```{r svp-cc-violin, fig.width=10, fig.height=10}
+```{r svp-cc-violin, fig.width=10, fig.height=10, eval=svp_ready}
 sce.cellcycle |> sc_violin(
                       features = rownames(sce.cellcycle), 
                       mapping = aes(x=seurat_annotations, fill = seurat_annotations)
@@ -63,11 +80,11 @@ sce.cellcycle |> sc_violin(
                    scale_x_discrete(guide=guide_axis(angle=-45))
 ```
 
-```{r svp-cc-s-umap, fig.width=10, fig.height=10}
+```{r svp-cc-s-umap, fig.width=10, fig.height=10, eval=svp_ready}
 sce.cellcycle |> sc_feature(features= "S", reduction='UMAP')
 ```
 
-```{r}
+```{r svp-markers, eval=svp_ready}
 library(scran)
 cellcycle.test.res <- sce.cellcycle |> findMarkers(
                 group = sce.cellcycle$seurat_annotations, 
@@ -83,7 +100,7 @@ hpda_spe_cell_dec is the result of runSGSA with HPDA A sample from (doi:10.1038/
 Each item in the matrix is the marker gene set activity in the spot. The marker gene set represents the cell type.
 We can use svp the investigate if a cell type cluters and if two cell types appear in the same region.
 Usage of local indicators of spatial association (LISA) to identify the hotspot in the spatial space
-```{r}
+```{r svp-detect-svg, eval=svp_ready}
 data(hpda_spe_cell_dec)
 
 # r$> assay(hpda_spe_cell_dec)[1:5,1:5]
@@ -109,7 +126,7 @@ svres <- runDetectSVG(hpda_spe_cell_dec, assay.type = 'affi.score',
 ```
 
 
-```{r}
+```{r svp-lisa, eval=svp_ready}
 lisa.res12 <- hpda_spe_cell_dec |>
    runLISA(
      features = c(1, 2, 3), 
@@ -129,7 +146,7 @@ colData(hpda_spe_cell_dec)$`cluster.test.Cancer.B` <- lisa.res12[["Cancer clone 
 dplyr::pull(cluster.test)
 ```
 
-```{r svp-hpda-spatial-1, fig.width=10, fig.height=10}
+```{r svp-hpda-spatial-1, fig.width=10, fig.height=10, eval=svp_ready}
 p1 <- sc_spatial(hpda_spe_cell_dec,
             features = rownames(hpda_spe_cell_dec),
             mapping = aes(x=x, y=y, color=cluster.test.Cancer.A),
@@ -143,7 +160,7 @@ p1
 ```
 
 
-```{r svp-hpda-spatial-2, fig.width=10, fig.height=10}
+```{r svp-hpda-spatial-2, fig.width=10, fig.height=10, eval=svp_ready}
 f1 <- sc_spatial(hpda_spe_cell_dec, features="Cancer clone A",
             mapping=aes(x = x, y = y),
             pointsize=10) + 
@@ -157,7 +174,7 @@ f1
 ```
 
 
-```{r svp-hpda-spatial-3, fig.width=10, fig.height=10}
+```{r svp-hpda-spatial-3, fig.width=10, fig.height=10, eval=svp_ready}
 
 f2 <- sc_spatial(hpda_spe_cell_dec, features="Acinar cells",
             mapping=aes(x=x,y=y),
@@ -172,7 +189,7 @@ f2
 
 
 
-```{r svp-hpda-spatial-4, fig.width=10, fig.height=10}
+```{r svp-hpda-spatial-4, fig.width=10, fig.height=10, eval=svp_ready}
 f3 <- sc_spatial(hpda_spe_cell_dec, features="Cancer clone B",
             mapping=aes(x=x,y=y),
             pointsize=10) +
@@ -187,7 +204,7 @@ f3
 
 ## runLOCALBV
 explore the local bivariate relationship in the spatial space.
-```{r eval = FALSE}
+```{r svp-localbv, eval=svp_ready}
 res1 <- hpda_spe_cell_dec |> runLOCALBV(
           features1 = 'Cancer clone A', 
           features2 = 'Cancer clone B', 

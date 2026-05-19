@@ -1,5 +1,8 @@
-# Cell-cell communication
+# Cell-Cell Communication
 
+Once cell identities have been assigned, one common next question is how these populations may interact with one another. Ligand-receptor analysis is a natural way to move from isolated cell types toward a more explicit view of the tissue microenvironment.
+
+This chapter introduces the `sclet` interface to `CellChat`, with an emphasis on keeping communication analysis aligned with the same layer-aware and state-aware conventions used elsewhere in the package.
 
 ## Input
 

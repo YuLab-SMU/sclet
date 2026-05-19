@@ -1,6 +1,8 @@
 # Enhanced Visualization
 
-`sclet` provides an enhanced visualization ecosystem tightly integrated with the `ggsc` package. It offers a set of high-level plotting functions that operate directly on `SingleCellExperiment` objects while returning standard `ggplot2` objects for easy customization.
+Once a dataset has been processed, plotting becomes the main way we inspect whether the workflow is behaving as expected. We need to check clusters, marker expression, sample composition, and structured summaries across groups, often with many small figure adjustments along the way.
+
+`sclet` provides an enhanced visualization ecosystem tightly integrated with the `ggsc` package. It offers high-level plotting functions that operate directly on `SingleCellExperiment` objects while still returning standard `ggplot2` objects, so you keep both convenience and full downstream customizability.
 
 ## Loading data
 

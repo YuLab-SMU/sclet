@@ -1,0 +1,74 @@
+# Automation & Provenance Logs {#pipeline-logs}
+
+Ever found yourself lost in parameter hell? You spend a week tweaking PCA dimensions, resolution parameters, and variable feature counts. Three months later, when it's time to write the "Materials and Methods" section for your manuscript, you stare at your `SingleCellExperiment` object and think: *"Wait, did I use 2000 or 3000 highly variable genes for this?"*
+
+`sclet` solves this pain point beautifully with two features: **Automated Pipelines** and **Provenance Logs**.
+
+In the bookdown workflow, the examples below are executed against a packaged PBMC object rather than a user-specific raw directory. This keeps the chapter reproducible while still showing the intended day-to-day workflow.
+
+```{r pipeline-setup, include=FALSE, eval=TRUE}
+pipeline_ready <- eval_chunks && requireNamespace("qs", quietly = TRUE)
+
+if (pipeline_ready) {
+    library(sclet)
+    sce_pipeline_input <- qs::qread("data/pbmc-3k-sce.qs")
+    sce_pipeline_input <- sce_pipeline_input[, seq_len(min(800, ncol(sce_pipeline_input)))]
+}
+```
+
+## The One-Liner Pipeline
+
+If you just want to get from a raw count matrix to a UMAP plot as fast as possible without writing 10 lines of boilerplate code, `RunStandardPipeline()` is your best friend.
+
+```{r pipeline, eval=pipeline_ready}
+# In a real project you might start from:
+# sce <- Read10X(data.dir = "filtered_feature_bc_matrix/")
+#
+# For a runnable documentation example we reuse a packaged PBMC object.
+sce <- sce_pipeline_input
+
+# Run everything from normalization to UMAP in one line
+sce <- RunStandardPipeline(
+    sce, 
+    nfeatures = 2000, 
+    dims = 1:20, 
+    resolution = 0.8
+)
+
+# Boom. Ready to inspect.
+sce
+```
+
+Under the hood, `RunStandardPipeline()` sequentially executes:
+1. `NormalizeData()`
+2. `FindVariableFeatures()`
+3. `ScaleData()`
+4. `RunPCA()`
+5. `FindNeighbors()`
+6. `FindClusters()`
+7. `RunUMAP()`
+
+## The Provenance Log (CommandLog)
+
+The true magic happens *after* you run your analysis. Every major function in `sclet` (whether you use the pipeline or run them step-by-step) automatically records its exact parameters and timestamp into the object's `CommandLog`.
+
+You can view the raw log anytime:
+
+```{r cmdlog, eval=pipeline_ready}
+# Peek at the raw command logs
+CommandLog(sce, details = TRUE)
+```
+
+## Writing Methods for You: `PipelineSummary`
+
+Looking at a raw list of parameters is better than nothing, but it's not exactly manuscript-ready. This is where `PipelineSummary()` shines. It reads the `CommandLog` and translates it into a human-readable English summary.
+
+```{r summary, eval=pipeline_ready}
+# Generate a manuscript-ready methods summary
+PipelineSummary(sce)
+```
+
+**Output example:**
+> The data was normalized using the LogNormalize method. Highly variable features were identified using the vst method (n=2000). The data was scaled and centered. Principal Component Analysis (PCA) was performed, and the first 20 dimensions were used for downstream analysis. A K-nearest neighbor (KNN) graph was constructed based on these dimensions (k.param=20). Cells were clustered using the Louvain algorithm with a resolution of 0.8. Finally, Uniform Manifold Approximation and Projection (UMAP) was run for 2D visualization.
+
+Life is simply too short to manually write boilerplate methods sections. Let `sclet` do the heavy lifting for you.

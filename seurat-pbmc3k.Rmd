@@ -1,7 +1,8 @@
-# Basic: preprocessing and clustering
+# Basic Preprocessing and Clustering
 
+This chapter is the fastest way to get a feel for the package. If you are new to `sclet`, think of it as the equivalent of the classic PBMC tutorial: read the data, perform quality control, normalize, identify highly variable genes, reduce dimensions, cluster cells, and inspect marker genes.
 
-We created Seurat-like functions to help you get started effortlessly.
+The difference is that everything happens on top of `SingleCellExperiment`, with the `sclet` wrappers providing a familiar Seurat-like user experience. The goal here is not only to reproduce a standard workflow, but also to show how little boilerplate is needed once the state-aware design is in place.
 
 ```{r pbmc-data, include=FALSE}
 knitr::opts_chunk$set(warning = FALSE,
@@ -13,12 +14,13 @@ pbmc <- qs::qread(f)
 
 ## Read 10X data
 
-```{r readdata, eval = FALSE}
+```{r readdata, eval = eval_chunks && requireNamespace("TENxPBMCData", quietly = TRUE)}
 library(sclet)
-
-dir <- "filtered_gene_bc_matrices/hg19"
-pbmc <- Read10X(dir)
+pbmc_10x <- TENxPBMCData::TENxPBMCData("pbmc3k")
+pbmc_10x
 ```
+
+If you are starting from a local Cell Ranger directory instead, the corresponding `sclet` call is simply `pbmc <- Read10X("filtered_feature_bc_matrix/")`.
 
 
 ## QC
@@ -171,20 +173,20 @@ DimPlot(pbmc, reduction="UMAP") + ggsc::sc_dim_geom_label()
 
 sclet provides `RunSingleR` to easily perform automatic annotation using SingleR.
 
-```{r run-singler, eval = FALSE}
-# This requires SingleR and celldex packages
-# It defaults to HumanPrimaryCellAtlasData if ref is not provided
-pbmc <- RunSingleR(pbmc)
+```{r run-singler, eval = eval_chunks && requireNamespace("SingleR", quietly = TRUE) && requireNamespace("celldex", quietly = TRUE)}
+# This requires SingleR and celldex packages.
+hpca <- celldex::HumanPrimaryCellAtlasData()
+pbmc2 <- RunSingleR(pbmc, ref = hpca, labels = hpca$label.main)
 
 # or be explicit about the expression layer used for annotation
-pbmc <- RunSingleR(pbmc, layer = "logcounts")
+pbmc2 <- RunSingleR(pbmc, ref = hpca, labels = hpca$label.main, layer = "logcounts")
 
 # View the results
-head(pbmc$SingleR_labels)
-get_mapping(pbmc)
+head(pbmc2$SingleR_labels)
+get_mapping(pbmc2)
 
 # Visualize
-DimPlot(pbmc, reduction="UMAP") + 
+DimPlot(pbmc2, reduction="UMAP") + 
     ggplot2::aes(color = SingleR_labels)
 ```
 

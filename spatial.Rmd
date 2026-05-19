@@ -1,0 +1,62 @@
+# Spatial & In-Silico Perturbation {#spatial}
+
+Single-cell RNA sequencing (scRNA-seq) dissociates tissues. We learn "what cells are present," but we lose the crucial information of "where they are." Conversely, Spatial Transcriptomics (ST) preserves location, but mainstream technologies like 10x Visium lack single-cell resolution—a single spot might contain a mixture of 5 to 10 different cells.
+
+How do we bridge this gap? Furthermore, how can we predict the trajectory shift of a cell state if we knockout a critical gene?
+
+This chapter addresses both questions by moving from conventional single-cell interpretation toward spatial context and perturbation-aware modeling. `sclet` embraces top-tier deep generative models based on PyTorch, while still presenting them through a consistent interface that fits naturally into the broader workflow.
+
+The code examples in this chapter are intentionally shown without execution during book rendering. Spatial deconvolution and in-silico perturbation typically require substantial model setup, external inputs, and longer runtimes than a documentation build should assume. Here the hard part is not merely "Python support", but the need for matched reference objects, spatial count matrices, and in the perturbation case an exported GRN scaffold that is specific to the biological system under study.
+
+## High-Resolution Spatial Deconvolution: Cell2location
+
+`cell2location` is widely recognized as the "gold standard" for spatial deconvolution. It uses a negative binomial regression model to map scRNA-seq reference data onto spatial spots, inferring the true absolute abundance of each cell type within a given location.
+
+In `sclet`, this complex Bayesian inference is simplified into a single line of code:
+
+To run this locally, the minimum prerequisites are a spatial object with a `counts` assay, a reference `SCE` with the same gene space, and a biologically meaningful cell-type column in `colData(sce_ref)`.
+
+```{r spatial-deconv, eval=FALSE}
+library(sclet)
+# Assume 'sce_spatial' is your spatial transcriptomics object, 
+# and 'sce_ref' is your single-cell reference object with a "cell_type" column.
+
+sce_spatial <- RunSpatialDeconvolution(
+  sce_spatial, 
+  sce_ref, 
+  ref_group_key = "cell_type",
+  max_epochs = 50
+)
+```
+
+**Under the Hood:**
+The function invokes the GPU (if available) via the `basilisk` environment to train the model. Once complete, the predicted abundances for each cell type are directly appended to `colData(sce_spatial)`, and the `spatial` state is activated. You can immediately use spatial plotting functions to visualize the distribution of specific cell types across the tissue slice.
+
+## In-Silico Gene Perturbation: CellOracle
+
+Differential expression tells you "what changed," SCENIC tells you "who is controlling," but **CellOracle** allows you to conduct **thought experiments (In-silico Perturbation)**.
+
+Imagine asking: *If I knockout the GATA2 gene in hematopoietic stem cells, how will their developmental trajectory shift?* Performing this in vitro is costly and time-consuming. In `sclet`, it takes only a few minutes of simulation.
+
+This simulation only makes sense after you have already constructed a compatible GRN prior and a dimensional representation that captures the state manifold you want to perturb.
+
+```{r spatial-perturb, eval=FALSE}
+# Assume 'sce' has already been processed through SCENIC (to obtain a GRN), 
+# has an active dimensional reduction space, and you have exported a base GRN file.
+base_grn_path <- "path/to/celloracle_base_grn.csv"
+
+sce <- RunInSilicoPerturbation(
+  sce, 
+  target_gene = "GATA2", 
+  perturbation_value = 0.0, # Simulate a full knockout
+  base_grn_path = base_grn_path,
+  cluster_key = "cell_type",
+  reduction = "PCA"
+)
+
+# Inspect the perturbation state
+get_perturbation(sce)
+```
+
+**The Impact:**
+The inferred cellular shift vectors are carefully recorded. When combined with streamplots or vector field visualizations, you can intuitively observe on the UMAP space: in a parallel universe without *GATA2*, which terminal state are these cells "fleeing" from, and which incorrect lineage are they "rushing" toward?

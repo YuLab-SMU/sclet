@@ -1,5 +1,8 @@
 # Batch Correction
 
+As soon as a project contains multiple samples, donors, or experimental runs, batch effects become impossible to ignore. If they are not handled properly, cells separate by technical origin instead of biology, and every downstream result becomes harder to trust.
+
+This chapter shows how `sclet` handles multi-sample workflows in a way that remains explicit and inspectable. We start from preprocessing multiple datasets, then move into integration and corrected views that can be reused consistently by downstream steps.
 
 ## Load datasets
 
@@ -58,14 +61,23 @@ has_integration(rm_batch_pbmc)
 get_integration(rm_batch_pbmc)
 ```
 
-Alternatively, you can use `Harmony`, which operates on the PCA space and returns a corrected reduction rather than an expression layer:
+Alternatively, you can use `Harmony` or `scVI` (Deep Learning via `basilisk`), which operate on the latent space and return a corrected reduction rather than an expression layer:
 
-```{r run-harmony, eval=FALSE}
+The Harmony example is executed during book rendering, which means it also serves as a regression test in CI. The `scVI` call is also executed when the Python-backed `basilisk` environment is available, giving the book a minimal end-to-end test of the deep generative integration path.
+
+```{r run-harmony-scvi}
 # Integration using Harmony
 rm_harmony_pbmc <- RunIntegration(combined_pbmc, method = "Harmony", batch = "batch")
 
 # Harmony creates a reduction named "HARMONY" and sets it as the active reduction
 sclet_get_active_reduction(rm_harmony_pbmc)
+
+```
+
+```{r run-scvi, eval=eval_chunks && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
+# Integration using scVI (Requires Python basilisk environment)
+rm_scvi_pbmc <- RunIntegration(combined_pbmc, method = "scVI", batch = "batch")
+sclet_get_active_reduction(rm_scvi_pbmc) # Returns "scVI"
 ```
 
 ## Clustering
@@ -97,11 +109,10 @@ The merge step is also part of that story now. `sce_merge()` stores a non-active
 
 You can inspect how this provenance is carried into downstream states:
 
-```{r batch-provenance, eval = FALSE}
+```{r batch-provenance, eval = eval_chunks}
 get_integration(rm_batch_pbmc)
-sclet_get_state_record(rm_batch_pbmc, "reduction", "pca")$inputs$integration
-sclet_get_state_record(rm_batch_pbmc, "graph", "knn_graph")$inputs$integration
-sclet_get_state_record(rm_batch_pbmc, "clustering", "louvain_clusters")$inputs$integration
+get_graph(rm_batch_pbmc)$inputs$integration
+get_analysis_context(rm_batch_pbmc)$active
 ```
 
 ## Visualization
@@ -123,6 +134,8 @@ plot_list(p3, p4, ncol=1, heights=c(1, 2))
 ## Pseudobulk Differential Expression
 
 sclet now supports pseudobulk analysis to perform robust differential expression between conditions/samples.
+
+This pseudobulk example is also shown without execution, because real use requires meaningful biological replicates and an analysis-specific design formula. In other words, the missing piece here is experimental design rather than software support: a documentation build can fabricate toy labels, but it cannot invent biologically valid replicate structure.
 
 ```{r pseudobulk-de, eval = FALSE}
 # 1. Aggregate counts by cluster and batch (or sample)

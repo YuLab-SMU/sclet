@@ -1,7 +1,9 @@
-# Milo: differential abundance
+# Milo: Differential Abundance
+
+Changes in gene expression are only part of the story. In many studies, the more important biological signal is that certain cell states become more or less abundant across conditions, donors, or time points.
 
 `sclet` provides a lightweight wrapper around `miloR` for cell neighbourhood differential abundance (DA) analysis.
-The Milo functionality in `sclet` is an optional dependency: you need to install `miloR` to run the examples.
+The Milo functionality in `sclet` is an optional dependency: you need to install `miloR` to run the examples. In the GitHub Actions bookdown workflow, these chunks are executed when the required packages are available, so this chapter also acts as a regression check for the DA wrapper.
 
 ## Requirements
 
@@ -14,7 +16,7 @@ UMAP is optional (used for visualization only).
 
 ## Two-group DA (GLM)
 
-```{r milo-glm, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE), cache=FALSE}
+```{r milo-glm, eval = eval_chunks && requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE), cache=FALSE}
 library(MouseThymusAgeing)
 library(scater)
 library(sclet)
@@ -45,7 +47,7 @@ get_milo(res$sce)
 
 Use `per_contrast = FALSE` to fit one model and test multiple contrasts jointly. Use `per_contrast = TRUE` to run each contrast and stack results.
 
-```{r milo-multi-contrast, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE), cache=FALSE}
+```{r milo-multi-contrast, eval = eval_chunks && requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE), cache=FALSE}
 contrasts <- c(
   "Age1wk - Age4wk",
   "Age4wk - Age16wk",
@@ -72,7 +74,7 @@ head(res2$da_results)
 
 When samples are not independent (e.g., repeated measures), a random intercept can help control correlation structure.
 
-```{r milo-glmm, eval = requireNamespace("miloR", quietly = TRUE) && requireNamespace("scRNAseq", quietly = TRUE) && requireNamespace("ensembldb", quietly = TRUE) && requireNamespace("AnnotationHub", quietly = TRUE), cache=FALSE}
+```{r milo-glmm, eval = eval_chunks && requireNamespace("miloR", quietly = TRUE) && requireNamespace("scRNAseq", quietly = TRUE) && requireNamespace("ensembldb", quietly = TRUE) && requireNamespace("AnnotationHub", quietly = TRUE), cache=FALSE}
 library(scRNAseq)
 library(scater)
 library(scran)
@@ -112,7 +114,7 @@ In GLMM mode, some neighbourhoods can show perfect separation and return unstabl
 
 If you keep multiple Milo runs in the same object, give them different `name` values and inspect a specific record with `get_milo(sce, id = "your_id")`.
 
-```{r milo-refit, eval = requireNamespace("miloR", quietly = TRUE) && exists("res3")}
+```{r milo-refit, eval = eval_chunks && requireNamespace("miloR", quietly = TRUE) && exists("res3")}
 milo_info <- get_milo(res3$sce)
 design_df <- milo_info$design_df
 

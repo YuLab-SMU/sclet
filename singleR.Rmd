@@ -1,5 +1,8 @@
-# Cell type annotation 
+# Cell Type Annotation
 
+After clustering, the natural next question is simple: what do these clusters actually represent? In practice, annotation usually combines two strategies. We first inspect clusters manually using known markers, and then we use a reference-based method to make the process faster, more systematic, and easier to reproduce.
+
+This chapter introduces both perspectives. It keeps the biological intuition of manual annotation, while emphasizing the state-aware wrappers that make annotation results reusable in later steps.
 
 ## Manual annotation
 
@@ -12,46 +15,58 @@ The low-level `SingleR::SingleR()` call is still useful for understanding the un
 
 Alternatively, `sclet` also provides a lightweight reference mapping implementation via `RunKNNPredict()` (or `RunReferenceMapping()`), which transfers labels from a reference dataset to your query dataset based on KNN.
 
+In this chapter, both the low-level `SingleR()` workflow and the `sclet` wrapper examples are executed during book rendering when the required Bioconductor dependencies are available. This keeps the chapter useful as documentation while also exercising the annotation layer in CI.
+
 ### Lightweight Reference Mapping (KNN)
 
 If you have a reference `SingleCellExperiment` with cell type annotations, you can use it to map labels to your query dataset quickly:
 
-```{r run-knn-predict, eval = FALSE}
-# Assuming 'ref_sce' is a reference dataset with 'cell_type' in colData
-pbmc <- RunKNNPredict(
-    query = pbmc, 
-    ref = ref_sce, 
-    ref_label = "cell_type"
+```{r run-knn-predict, eval = eval_chunks && requireNamespace("BiocNeighbors", quietly = TRUE)}
+set.seed(1)
+ref_idx <- sample(seq_len(ncol(pbmc)), 500)
+ref_sce <- pbmc[, ref_idx]
+query_sce <- pbmc[, -ref_idx]
+
+ref_sce$label <- as.character(SingleCellExperiment::colLabels(ref_sce))
+
+query_sce <- RunKNNPredict(
+    object = query_sce,
+    ref = ref_sce,
+    labels = "label",
+    layer = "logcounts",
+    k = 5,
+    name = "knn_demo"
 )
 
 # Inspect the recorded reference-mapping state
-get_mapping(pbmc)
+get_mapping(query_sce)
 
 # Visualize the query and reference in the same projection space
-ProjectionPlot(pbmc, ref = ref_sce, ref_label = "cell_type")
+ProjectionPlot(query_sce, ref_sce)
 ```
 
 ### Run SingleR with sclet
 
-```{r run-singleR-sclet, eval = FALSE}
+```{r run-singleR-sclet, eval = eval_chunks && requireNamespace("SingleR", quietly = TRUE) && requireNamespace("celldex", quietly = TRUE)}
 library(sclet)
+hpca <- celldex::HumanPrimaryCellAtlasData()
 
-pbmc <- RunSingleR(pbmc)
+pbmc2 <- RunSingleR(pbmc, ref = hpca, labels = hpca$label.main)
 
 # explicitly choose the layer used for annotation
-pbmc <- RunSingleR(pbmc, layer = "logcounts")
+pbmc2 <- RunSingleR(pbmc, ref = hpca, labels = hpca$label.main, layer = "logcounts")
 
 # inspect the recorded annotation state
-get_annotation(pbmc)
+get_annotation(pbmc2)
 
 # inspect the recorded reference-mapping state
-get_mapping(pbmc)
+get_mapping(pbmc2)
 ```
 
 
 ### Run SingleR
 
-```{r run-singleR}
+```{r run-singleR, eval = eval_chunks && requireNamespace("SingleR", quietly = TRUE) && requireNamespace("celldex", quietly = TRUE)}
 
 hpca <- celldex::HumanPrimaryCellAtlasData()
 hpca
@@ -70,7 +85,7 @@ If the current layer comes from a corrected integration workflow, both the annot
 
 ### Annotate with SingleR result
 
-```{r annotation}
+```{r annotation, eval = eval_chunks && exists("res") && exists("res2")}
 pbmc[['hpca_label']] <- res$labels
 
 pbmc[['dice_label']] <- res2$labels
@@ -79,9 +94,9 @@ pbmc[['dice_label']] <- res2$labels
 
 ### Comparision with manual annotation result
 
-```{r annotation-comparison, fig.width=16, fig.height=6}
+```{r annotation-comparison, fig.width=16, fig.height=6, eval = eval_chunks && exists("res") && exists("res2")}
 # Ensure manual labels are available in colData for comparison
-pbmc$label <- colLabels(pbmc)
+pbmc$label <- SingleCellExperiment::colLabels(pbmc)
 
 x <- colData(pbmc)[, c("label", "hpca_label", "dice_label")]
 

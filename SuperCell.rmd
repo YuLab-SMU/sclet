@@ -1,31 +1,32 @@
-# Coarse-graining of large single-cell data into metacells using SuperCell {#supercell}
+# Metacells with SuperCell {#supercell}
+
+As single-cell datasets continue to grow, it is often useful to replace highly redundant individual cells with a smaller number of representative metacells. This reduces computational burden, improves robustness in some downstream analyses, and can make large datasets easier to interpret.
+
+In `sclet`, this workflow is exposed through `RunSuperCell()`, which wraps the `SuperCell` package while keeping the result inside a `SingleCellExperiment`-compatible workflow. In this chapter, we use the `pbmc4k` dataset introduced earlier in the batch-correction chapter.
+
+Because `SuperCell` is installed in the bookdown GitHub Actions workflow, the examples in this chapter are executed during documentation build and therefore also serve as regression checks.
 
 
-Here, we use the `pbmc4k` dataset as presented in [Batch correction](https://yulab-smu.top/sclet/batch-correction.html#preprocess). 
+## RunSuperCell
 
 
-## `RunSuperCell` 
+The `RunSuperCell()` function provides the main entry point for metacell construction.
 
 
-The `RunSuperCell()` function is a wrapper function to run [SuperCell](https://github.com/GfellerLab/SuperCell).
-
-
-```{r run-SC}
+```{r run-SC, eval=eval_chunks && requireNamespace("SuperCell", quietly = TRUE)}
 sce_sc <- RunSuperCell(pbmc4k, gamma = 5)
 sce_sc
 ```
 
 
-The output of `RunSuperCell()` is a `SingleCellExperiment` object that stores gene expression matrix of metacells. 
+The output of `RunSuperCell()` is a `SingleCellExperiment` object whose columns now represent metacells rather than individual cells. From this point on, you can continue with a fairly standard downstream workflow.
 
-We can use it for downstram analysis.
-
-```{r supercell, fig.width=5, fig.height=4}
+```{r supercell, fig.width=5, fig.height=4, eval=eval_chunks && requireNamespace("SuperCell", quietly = TRUE)}
 post_process <- function(sce) {
     sce <- NormalizeData(sce)
     sce <- FindVariableFeatures(sce)
     sce <- ScaleData(sce)
-    sce <- runPCA(sce, subset_row = VariableFeatures(sce), exprs_values = "scaled")
+    sce <- RunPCA(sce, subset_row = VariableFeatures(sce), layer = "scaled")
     
     sce <- FindNeighbors(sce, dims = 1:10)
     sce <- FindClusters(sce)
@@ -40,15 +41,15 @@ sc_dim(sce_sc, reduction="UMAP") + sc_dim_geom_label()
 ```
 
 
-## Estimate SuperCell purity
+## Estimate SuperCell Purity
 
-```{r SC-purity}
+```{r SC-purity, eval=eval_chunks && requireNamespace("SuperCell", quietly = TRUE)}
 
 pbmc4k2 <- post_process(pbmc4k)
 
-SC <- metadata(sce_sc)$SuperCell
+SC <- get_supercell(sce_sc, element = "object")
 
-purity <- SuperCell::supercell_purity(pbmc4k2$label, SC$membership, method = 'entropy')
+purity <- SuperCell::supercell_purity(colLabels(pbmc4k2), SC$membership, method = "entropy")
 
 head(purity)
 

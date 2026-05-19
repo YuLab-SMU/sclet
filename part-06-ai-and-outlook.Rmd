@@ -1,0 +1,5 @@
+# (PART) AI, Interoperability & Outlook {-}
+
+We close the book by stepping back from individual analysis modules and looking at the bigger picture. Once state, provenance, and interoperability are in place, it becomes possible to think about workflows that are not only reproducible, but also easier to move across ecosystems and easier to audit with AI assistance.
+
+This final part therefore brings together interoperability guidance, AI-assisted analysis, and a broader view of where `sclet` fits in a modern single-cell workflow built around `SingleCellExperiment`.

@@ -1,14 +1,20 @@
 # Interactive Data Exploration {#interactive}
 
+Not every question is easiest to answer from a static figure or a scripted summary. Sometimes the fastest way to understand a dataset is to click, filter, inspect, and compare interactively.
+
 `sclet` integrates `iSEE` to provide a Shiny-based interactive explorer for your `SingleCellExperiment` objects.
+
+The examples in this chapter are shown but not executed during book rendering, because they launch an interactive Shiny session rather than producing a static result that can be embedded cleanly in the book. In other words, the issue here is not package availability but session lifetime: a documentation build should finish, whereas an interactive explorer is expected to stay open until the user closes it.
 
 ## Launch Explorer
 
 You can launch the explorer directly from your R console:
 
+To reproduce this locally, the only real prerequisites are an `SCE` object with at least one usable assay and dimensional reduction, plus the `iSEE` package.
+
 ```{r, eval=FALSE}
 library(sclet)
-sce <- readRDS("data/pbmc-3k-sce.qs")
+sce <- qs::qread("data/pbmc-3k-sce.qs")
 
 # Launch the app
 RunExplorer(sce)

@@ -1,0 +1,62 @@
+# Gene Regulatory Networks (pySCENIC) {#grn}
+
+How do Transcription Factors (TFs) regulate target genes? Traditional differential expression analysis only tells you "which genes changed," but SCENIC tells you "who is issuing the commands."
+
+If you have ever run the legacy R version of SCENIC, you undoubtedly remember its excruciatingly slow speed and the requirement to download tens of gigabytes of local databases. Today, the Python-based `pySCENIC` (powered by GRNBoost2) completely crushes the original R version in both speed and performance.
+
+Rather than forcing users to leave the `SingleCellExperiment` workflow and manually manage a separate Python environment, `sclet` brings this functionality back into the same state-aware framework. Leveraging the `basilisk` isolated environment, it provides an elegant wrapper for `pySCENIC`: `RunSCENIC()`.
+
+The examples in this chapter are shown but not executed during book rendering. A realistic `pySCENIC` workflow depends on external transcription-factor lists and cisTarget ranking databases, so it is more honest to present the code as a template that readers can adapt to their own resources. In practice, the limiting factor is not the Python environment itself, but the requirement to provide large database files that are version-matched to the species and genome build of your dataset.
+
+## Environment and Data Preparation
+
+You no longer need to manually configure complex Python environments or wrestle with `conda` conflicts. `sclet` securely prepares the sandbox in the background. You only need to provide three things:
+1. Your single-cell expression matrix (SCE object)
+2. A list of transcription factors (`.txt`)
+3. The Motif database file (in `Feather` format)
+
+For most human or mouse analyses, this also means checking that your TF list, motif annotation table, and cisTarget ranking database all come from the same release family before you start the run.
+
+```{r grn-setup, eval=FALSE}
+library(sclet)
+# Assuming 'sce' is your pre-processed object
+
+# Specify the paths to your downloaded databases
+tfs_path <- "path/to/hs_hgnc_tfs.txt"
+database_paths <- c(
+  "path/to/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather"
+)
+motif_annotations_path <- "path/to/motifs-v9-nr.hgnc-m0.001-o0.0.tbl"
+```
+
+## One-Click Inference and Scoring
+
+Next, call `RunSCENIC()`. All heavy lifting—GRNBoost2 inference, Motif pruning, and AUCell scoring—will be executed blazingly fast in the Python backend.
+
+```{r grn-run, eval=FALSE}
+sce <- RunSCENIC(
+  sce,
+  tfs_path = tfs_path,
+  motif_annotations_path = motif_annotations_path,
+  database_paths = database_paths,
+  assay_use = "counts",
+  num_workers = 8
+) # Supports multi-threading
+```
+
+## Result Retrieval and State Awareness
+
+After the run, where does the massive AUCell scoring matrix (tens of thousands of cells by hundreds of regulons) go?
+
+To keep the main SCE object clean and performant, `sclet` mounts this large scoring matrix as an `altExp` (Alternative Experiment) and records it in the `scenic` state.
+
+```{r grn-result, eval=FALSE}
+# Check the SCENIC state provenance
+get_scenic(sce)
+
+# Extract the AUCell matrix for downstream analysis
+auc_matrix <- SingleCellExperiment::altExp(sce, "SCENIC_AUC")
+```
+
+**Bottom Line:**
+You can now directly perform dimensionality reduction and clustering on this `auc_matrix` to see if your cells group together based on "regulatory network activity" rather than just "gene expression levels".

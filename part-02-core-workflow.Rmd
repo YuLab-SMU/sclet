@@ -1,0 +1,5 @@
+# (PART) Core Workflow {-}
+
+With the state-aware foundations in place, we can move to the standard analysis workflow. This part focuses on the steps that most users actually need first: preprocessing, visualization, batch correction, and reference-based annotation.
+
+The emphasis here is practical rather than abstract. The examples are meant to be readable, reusable, and close to real-world analysis scripts, so that users can adopt `sclet` without having to reverse-engineer package internals.

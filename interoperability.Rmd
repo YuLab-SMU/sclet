@@ -1,6 +1,8 @@
 # Interoperability
 
-`sclet` aims to bridge the gap between Seurat, SingleCellExperiment (SCE), and Python's AnnData.
+By this point in the book, one message should already be clear: `sclet` treats `SingleCellExperiment` as the central object, but it does not assume that users live in one ecosystem forever. Real projects often move between Seurat, Bioconductor, and Python-based workflows.
+
+This chapter explains how `sclet` handles that reality. The goal is not just file conversion for its own sake, but a workflow in which data can move across ecosystems without losing clarity about what the object represents and how it should be used next.
 
 ## Seurat and SCE Conversion
 

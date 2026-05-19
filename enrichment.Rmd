@@ -1,40 +1,29 @@
-# Differential Expression & Enrichment {#enrichment}
+# Functional Enrichment {#enrichment}
 
-`sclet` provides `RunDEtest` and `RunEnrichment` to seamlessly perform differential expression and functional enrichment analysis (GO/KEGG). These functions register their results into the `analysis-state` contract, making it easy for downstream visualization tools to consume them.
+Once you have identified robust marker genes (using either standard DE or Pseudobulk, as discussed in the previous chapter), the next logical step is to understand the biological pathways they participate in.
 
-## Differential Expression
+`sclet` provides `RunEnrichment()` to seamlessly perform functional enrichment analysis (GO/KEGG). This function wraps the powerful `clusterProfiler` package and registers its results into the `analysis-state` contract, making it incredibly easy for downstream visualization tools to consume.
 
-We can find markers for all clusters using `RunDEtest()`, which wraps `FindMarkers` or `FindAllMarkers` and saves the result as a state.
-
-```{r detest, fig.width=10, fig.height=8}
-library(sclet)
-sce <- readRDS("data/pancreas_sub_sce.rds")
-
-# Run differential expression test and record the state
-sce <- RunDEtest(sce, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
-
-# Inspect the recorded DE state
-has_detest(sce)
-head(get_detest(sce)$results)
-
-# Visualize the DE results using a Volcano plot
-DEtestPlot(sce)
-```
+The GO example is executed during book rendering so that the book also tests this part of the workflow in CI. The KEGG example remains demonstration-only, because it is more sensitive to identifier preparation and organism-specific setup.
 
 ## GO Enrichment
 
-`RunEnrichment()` automatically reads the significant up-regulated markers from the active `detest` state.
+If you have already run `RunDEtest()`, `RunEnrichment()` is smart enough to automatically read the significant up-regulated markers from the active `detest` state. No need to manually extract gene lists!
 
-```{r go_enrich, fig.width=10, fig.height=8}
+```{r go_enrich, fig.width=10, fig.height=8, eval=eval_chunks && requireNamespace("org.Hs.eg.db", quietly = TRUE)}
+library(sclet)
+sce <- qs::qread("data/pbmc-3k-sce.qs")
+sce <- RunDEtest(sce, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+
 # Ensure you have org.Mm.eg.db installed for Mouse data
 # or org.Hs.eg.db for Human
-library(org.Mm.eg.db) 
+library(org.Hs.eg.db) 
 
 # Run enrichment analysis based on the DEtest state
 sce <- RunEnrichment(
     sce, 
     db = "GO", 
-    orgDb = "org.Mm.eg.db", 
+    orgDb = "org.Hs.eg.db", 
     keyType = "SYMBOL", 
     ont = "BP"
 )
@@ -45,10 +34,15 @@ EnrichmentPlot(sce, showCategory=5)
 
 ## KEGG Enrichment
 
-For KEGG, it is recommended to convert gene symbols to Entrez IDs first, or provide a column with Entrez IDs if available.
+For KEGG pathway enrichment, it is highly recommended to convert gene symbols to Entrez IDs first, or provide a column with Entrez IDs if available. This example is intentionally left as a template rather than executed in CI, because KEGG runs are more sensitive to identifier hygiene and organism-specific setup than the GO workflow above.
 
 ```{r kegg_enrich, eval=FALSE}
 # Example if markers had ENTREZID
-# sce <- RunEnrichment(sce, db = "KEGG", organism = "mmu")
-# EnrichmentPlot(sce)
+sce <- RunEnrichment(
+    sce, 
+    db = "KEGG", 
+    organism = "hsa"
+)
+
+EnrichmentPlot(sce)
 ```

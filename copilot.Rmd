@@ -1,0 +1,60 @@
+# AI Copilot & Evidence Governance {#copilot}
+
+You ran the pipeline and generated the plots, but are you absolutely certain your results are "correct"?
+
+The most terrifying aspect of single-cell analysis isn't encountering an error; it's the **silent propagation of systemic biases**. If quality control thresholds for mitochondrial genes are too relaxed upstream, or if a batch correction algorithm (like `fastMNN` or `scVI`) over-aligns cell populations that possess genuine biological differences, these "false positive" signals will cascade down through dimensionality reduction and clustering, eventually landing squarely in your `FindMarkers` results. 
+
+When you draft a manuscript based on these markers, you have already fallen into the trap of **Transcriptomic Overload**.
+
+`sclet` is not just a tool library; it is your **intelligent research foundation**. Powered by the rigorous **Analysis-State Machine (Provenance DAG)** and the `aisdk` large language model (LLM) framework, we introduce a paradigm-shifting feature: `sclet_copilot` and cross-chain analysis auditing.
+
+The examples in this chapter are intentionally not executed during book rendering. AI-assisted workflows depend on user-side model configuration and, by design, should be run explicitly rather than silently triggered during documentation build.
+
+## `sclet_copilot`: An AI That Understands Your Objects
+
+Unlike thin-wrapper tools that merely concatenate strings to prompt an LLM, `sclet_copilot` genuinely reads and comprehends the complete operational bloodline of your `SingleCellExperiment` object.
+
+To reproduce these examples locally, you need `aisdk` installed and either a default model configured via `aisdk::get_model()` or a compatible fallback model configured in the environment.
+
+```{r copilot-setup, eval=FALSE}
+library(sclet)
+
+# Assume 'sce' has just completed Integration, UMAP, and Clustering.
+# We can ask the AI Copilot directly:
+sclet_copilot(sce, "I just finished scVI batch correction and clustering. Based on my records, please evaluate if the parameter settings are reasonable. Is there a potential risk of over-alignment?")
+```
+
+**What happens behind the scenes?**
+`sclet` instantly extracts the current cell count, gene count, active states, and most importantly, the **Analysis Provenance (e.g., scVI integration (batch=Donor) -> Louvain clustering)**. It feeds this highly structured context to the LLM (like DeepSeek or GPT-4). The AI isn't guessing blindly; it is diagnosing your data by reading its complete medical history.
+
+## `AuditAnalysisChain`: Cross-Chain Error Control
+
+Suppose you use `RunDEtest` and identify a fantastic set of marker genes. Before jumping to conclusions, you want to perform a "cross-examination."
+
+It shouldn't be hard. Call `AuditAnalysisChain`:
+
+```{r copilot-audit, eval=FALSE}
+# Suppose 'top_markers' are 5 candidate DE genes you just identified
+top_markers <- c("CD3D", "NKG7", "MS4A1", "LYZ", "GNLY")
+
+# Ask the AI to backtrack: Is the expression of these genes distorted by the algorithm 
+# when comparing the raw counts to the integrated layer?
+report <- AuditAnalysisChain(
+  sce, 
+  features = top_markers, 
+  raw_layer = "counts", 
+  integrated_layer = "corrected"
+)
+
+cat(report)
+```
+
+**How will the AI respond?**
+By tracing the DAG state machine and applying R.A. Fisher's "design foresight" alongside G.E.P. Box's "model humility," the AI calculates a **State-Dependency Confidence Score** for this gene set. 
+
+This type of audit is most meaningful when the active integration method exposes a corrected expression layer, such as `fastMNN`. If your workflow only produced a corrected reduction (for example `Harmony` or `scVI`), the expression-level comparison shown here is no longer the right abstraction and should be adapted accordingly.
+
+For example, it might warn you: *"MS4A1 shows no significant difference in the raw counts layer. Its apparent upregulation is an artifact caused by fastMNN forcibly aligning Donor 1 and Donor 2. The confidence score for this gene is Low; please exercise caution before using it as a biological marker."*
+
+**Bottom Line:**
+Stop placing blind faith in P-values. Let `sclet_copilot` audit your evidence chain, so you can focus on publishing robust, reproducible science.

@@ -1,0 +1,5 @@
+# (PART) Advanced Ecosystem & Python Interoperability {-}
+
+After covering the main statistical interpretation layer, we move to the modules that expand `sclet` beyond a conventional R-only workflow. This is where the package begins to act as a bridge: it keeps `SingleCellExperiment` as the central object, while exposing powerful methods from the broader single-cell ecosystem.
+
+These chapters highlight wrappers that connect to Python-backed tools for regulatory network analysis, RNA velocity, fate mapping, and spatial applications, while still keeping the user experience consistent with the rest of the package.

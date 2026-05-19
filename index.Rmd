@@ -52,5 +52,37 @@ opts_chunk$set(message=FALSE, warning=FALSE, eval=eval_chunks, echo=TRUE, cache=
 
 # Preface {-}
 
-Hello World.
+`sclet` is a state-aware single-cell and spatial transcriptomics analysis toolkit built around `SingleCellExperiment`. At one level, it provides a coherent set of high-level analysis verbs for routine workflows such as preprocessing, dimensionality reduction, clustering, annotation, visualization, and downstream interpretation. At another level, it introduces a more opinionated design: analysis results should not be scattered across ad hoc slots and forgotten parameter choices. Instead, they should be recorded, inspectable, and reusable as part of a coherent workflow.
+
+That design principle is what makes `sclet` different. Throughout this book, you will see that the package is not organized as a thin compatibility layer for another framework. Instead, it treats `SingleCellExperiment` as the primary analysis object and builds a unified state-aware workflow around it. Active layers, reductions, graphs, identities, and higher-level analysis records are all tracked in a shared contract. This makes routine analysis easier, but it also makes the workflow easier to explain, debug, extend, and eventually hand off to others.
+
+The goal of this book is therefore twofold. First, it serves as a practical guide for users who want to analyze single-cell and spatial transcriptomics data within a `SingleCellExperiment`-native workflow without writing endless glue code. Second, it explains the package architecture clearly enough that advanced users and contributors can understand how the pieces fit together.
+
+## How This Book Is Organized
+
+The book is organized into six parts.
+
+**Part I: Foundations & Core Concepts** introduces the design language of `sclet`, especially the analysis-state contract, provenance tracking, and pipeline logging. If you want to understand how the package thinks about state rather than only how to call functions, start here.
+
+**Part II: Core Workflow** walks through the standard single-cell workflow from preprocessing to annotation. These chapters emphasize examples that are close to what users actually run day to day.
+
+**Part III: Statistical Inference & Biological Interpretation** focuses on how to turn processed data into biological conclusions. This includes differential expression, pseudobulk analysis, functional enrichment, and gene set scoring.
+
+**Part IV: Advanced Ecosystem & Python Interoperability** moves beyond conventional R-only workflows. Here we cover the modules that connect `sclet` to the broader Python ecosystem, including RNA velocity, gene regulatory network analysis, and spatial extensions.
+
+**Part V: Specialized Extensions** collects modules for important but more targeted use cases, including metacells, cell-cell communication, differential abundance, interactive exploration, and SVP-related workflows.
+
+**Part VI: AI, Interoperability & Outlook** closes the book by discussing interoperability more broadly and showing how AI-assisted analysis can build on top of the state-aware design.
+
+You do not need to read every chapter linearly. If you are a new user, reading Parts I to III in order will give you the smoothest path. If you already know the basics, you can jump directly to the advanced or specialized modules that are most relevant to your work.
+
+## Example Conventions
+
+This book uses two kinds of examples.
+
+First, many chapters contain **directly runnable examples** based on bundled datasets or dependencies that are available in the GitHub Actions build environment. Whenever practical, these examples are executed during book rendering so that the documentation also serves as a lightweight regression test for the package.
+
+Second, some chapters contain **demonstration-only examples** that are shown but not executed during book rendering. This is intentional rather than accidental. In practice, these cases usually fall into one of four categories: they require external reference files or databases, interactive sessions, AI-specific configuration, or heavier Python-backed workflows that are still less stable than the R / Bioconductor-native parts of the book.
+
+When an example is not executed during the book build, the surrounding text explains why. The code is still written as real usage code, so readers can copy, adapt, and run it in their own environment when they are ready.
 

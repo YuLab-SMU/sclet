@@ -1,10 +1,8 @@
-# Trajectory inference and RNA velocity {#trajectory}
+# Trajectory Inference and RNA Velocity {#trajectory}
 
-According to [Wikipedia](https://en.wikipedia.org/wiki/Trajectory_inference):
+Static clustering tells us which cell states are present, but many biological systems are dynamic. Development, activation, differentiation, and response to perturbation all involve cells moving through transitional states rather than staying in discrete categories.
 
-> Trajectory inference or pseudotemporal ordering is a computational technique used in single-cell transcriptomics to determine the pattern of a dynamic process experienced by cells and then arrange cells based on their progression through the process.
-
-It should be noted that all trajectory inference methods are based on the current transcriptional state and the distance symmetry between cells. That is to say, the distance from cell A to cell B is equal to the distance from cell B to cell A. Therefore, the direction of the inferred trajectory is either missing (requiring user specification) or unreliable (using default settings).
+This chapter therefore shifts from classification to dynamics. We begin with trajectory inference based on transcriptional similarity, then move to RNA velocity and related methods that add directional information to the analysis. Together, these approaches help answer not only *what* a cell is, but also *where it may be going next*.
 
 
 ## Slingshot: cell lineage and pseudotime inference {#slingshot}
@@ -98,6 +96,8 @@ plot_list(hmp1, hmp2, hmp3, hmp4, ncol=1)
 
 ## RNA velocity {#Velocity}
 
+The velocity and CellRank examples in this section are executed during book rendering when the required Python environment can be provisioned through `basilisk`. This means the documentation now also exercises the cross-language trajectory stack in CI instead of only describing it conceptually.
+
 RNA metabolic process:
 
 + RNA is synthesized at a rate of alpha 
@@ -133,43 +133,58 @@ library(sclet)
 sce <- NormalizeData(sce)
 sce <- FindVariableFeatures(sce, method="scran")
 hvgs <- VariableFeatures(sce, method="scran")
+sce <- RunPCA(sce, subset_row = hvgs, layer = "logcounts")
+sce <- FindNeighbors(sce, dims = 1:20)
+sce <- FindClusters(sce)
+sce$cluster <- as.character(SingleCellExperiment::colLabels(sce))
+sce <- RunUMAP(sce, dims = 1:20)
 ```
 
 ### Run velocity analysis
 
-```{r velocity}
-library(velociraptor)
+`sclet` wraps the RNA velocity inference via `RunVelocity()`. Under the hood, it delegates the heavy lifting to `scVelo` (managed safely via the `basilisk`/`velociraptor` Python sandbox) and smoothly registers the outputs to the `velocity` analysis state. This eliminates the need for manual environment switching.
 
-velo.out <- scvelo(
-  sce, subset.row=hvgs, assay.X="spliced",
-  scvelo.params=list(neighbors=list(n_neighbors=30L))
-)
+```{r velocity, eval=eval_chunks && requireNamespace("velociraptor", quietly = TRUE)}
+# Run Velocity (Requires 'spliced' and 'unspliced' assays to be present)
+sce <- RunVelocity(sce, subset_row = hvgs, assay.X = "spliced", use.dimred = "PCA")
 
-velo.out
+# Check the provenance state to confirm successful execution
+get_velocity(sce)
 ```
 
 ### Visualize velocity-based trajectory
 
-```{r velocity-plot, fig.width=12, fig.height=8.5}
-library(scater)
-library(sclet)
-conflicted::conflicts_prefer(sclet::RunPCA)
+Once the `velocity` state is recorded, visualizing it is a breeze. You can use `VelocityPlot()` to draw the dynamic stream or arrows over any active dimensionality reduction space (like UMAP or t-SNE).
 
-set.seed(100)
-sce <- RunPCA(sce, subset_row=hvgs, layer = "logcounts")
-sce <- runTSNE(sce, dimred="PCA", perplexity = 30)
+```{r velocity-plot, eval=eval_chunks && requireNamespace("velociraptor", quietly = TRUE)}
+# Project the velocity stream onto the UMAP embedding
+VelocityPlot(sce, reduction = "UMAP")
+```
 
-sce$velocity_pseudotime <- velo.out$velocity_pseudotime
+## CellRank: Advanced Fate Mapping {#cellrank}
 
-embedded <- embedVelocity(reducedDim(sce, "TSNE"), velo.out)
-grid.df <- gridVectors(sce, embedded, use.dimred = "TSNE")
+When standard trajectory tools (like Slingshot) struggle with complex, cyclic, or highly heterogeneous developmental processes, **CellRank** shines. CellRank elegantly combines directed RNA velocity data with undirected transcriptomic similarity to robustly infer terminal states and cellular fate probabilities.
 
+`sclet` brings the full power of `CellRank` directly to your SCE object, again utilizing the isolated `basilisk` Python environment to prevent dependency conflicts.
 
-require(ggsc)
-sc_dim(sce, reduction='TSNE', mapping=aes(color=velocity_pseudotime)) + 
-    scale_color_viridis_c() +
-    geom_segment(data=grid.df, 
-        mapping=aes(x=start.1, y=start.2, 
-            xend=end.1, yend=end.2, colour=NULL), 
-        arrow=arrow(length=unit(0.05, "inches")), alpha=.6)
+### Run CellRank
+
+`RunCellRank()` is designed to automatically sense the upstream velocity data generated by `RunVelocity()`. It reads the state, computes the transition matrix, and identifies the terminal states.
+
+```{r cellrank-run, eval=eval_chunks && requireNamespace("velociraptor", quietly = TRUE) && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
+# Compute transition matrix, terminal states, and absorption probabilities
+sce <- RunCellRank(sce, reduction = "PCA", cluster_key = "cluster")
+
+# Inspect the CellRank analysis state
+get_cellrank(sce)
+```
+
+The resulting terminal state assignments and directional fate probabilities are written directly into `colData(sce)`. This means you can visualize these advanced metrics using standard `sclet` plotting functions like `CellDimPlot` or `FeatureDimPlot`.
+
+```{r cellrank-plot, eval=eval_chunks && requireNamespace("velociraptor", quietly = TRUE) && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
+# Plot the categorical terminal states assigned to the cells
+CellDimPlot(sce, group.by = "cellrank_terminal_states", reduction = "UMAP")
+
+# Inspect the first few absorption probabilities stored in the CellRank state
+head(get_cellrank(sce)$absorption_probs[, seq_len(min(3, ncol(get_cellrank(sce)$absorption_probs))), drop = FALSE])
 ```
