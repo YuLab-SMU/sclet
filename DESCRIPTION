@@ -1,6 +1,6 @@
 Package: sclet
 Title: A State-Aware Single-Cell Analysis Toolkit for SingleCellExperiment
-Version: 0.99.4
+Version: 0.99.5
 Authors@R: c(
     person(given = "Guangchuang", family = "Yu", email = "guangchuangyu@gmail.com", role  = c("aut", "cre"), comment = c(ORCID = "0000-0002-6485-8781")),
     person(given = "Kaijia", family = "Huang", email = "2947569391@qq.com", role  = "ctb"),
@@ -48,6 +48,7 @@ Imports:
     utils,
     yulab.utils
 Suggests:
+    aisdk,
     AUCell,
     batchelor,
     BiocNeighbors,

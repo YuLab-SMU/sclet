@@ -69,7 +69,7 @@ jobs:
       - name: Install dependencies
         run: |
           Rscript -e 'install.packages(c("remotes","BiocManager"))'
-          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); install.packages(c("bookdown","rmarkdown","knitr","qs","shadowtext","conflicted","aplot","ggplot2","ggsc","yulab.utils","pkgbuild","patchwork","gdtools","NMF","circlize"))'
+          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); install.packages(c("bookdown","rmarkdown","knitr","qs","shadowtext","conflicted","aplot","ggplot2","ggsc","yulab.utils","pkgbuild","patchwork","gdtools","NMF","circlize","reticulate"))'
           Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); if (!requireNamespace("qs", quietly = TRUE)) remotes::install_github("qsbase/qs", upgrade = "never"); stopifnot(requireNamespace("qs", quietly = TRUE))'
           Rscript -e 'BiocManager::install("YuLab-SMU/ggtree", ask = FALSE, update = FALSE)'
           Rscript -e 'BiocManager::install("clusterProfiler", ask = FALSE, update = TRUE, force = TRUE)'
@@ -78,9 +78,9 @@ jobs:
           Rscript -e 'stopifnot(requireNamespace("ensembldb", quietly = TRUE))'
           Rscript -e 'BiocManager::install("SpatialExperiment", ask = FALSE, update = FALSE, force = TRUE)'
           Rscript -e 'stopifnot(requireNamespace("SpatialExperiment", quietly = TRUE))'
-          Rscript -e 'BiocManager::install("SVP", ask = FALSE, update = FALSE)'
-          Rscript -e 'BiocManager::install(c("scater","scran","scuttle","TENxPBMCData","scRNAseq","MouseThymusAgeing","SingleR","celldex","DropletUtils","SingleCellExperiment","SummarizedExperiment","velociraptor","enrichplot","org.Mm.eg.db","org.Hs.eg.db","batchelor","iSEE","slingshot","miloR","ComplexHeatmap"), ask = FALSE, update = FALSE)'
-          Rscript -e 'remotes::install_github(c("immunogenomics/presto", "GfellerLab/SuperCell", "jinworks/CellChat"), upgrade = "never")'
+          Rscript -e 'BiocManager::install(c("SVP", "AUCell", "GSVA", "UCell", "basilisk", "zellkonverter"), ask = FALSE, update = FALSE)'
+          Rscript -e 'BiocManager::install(c("scater","scran","scuttle","TENxPBMCData","scRNAseq","MouseThymusAgeing","SingleR","celldex","DropletUtils","SingleCellExperiment","SummarizedExperiment","velociraptor","enrichplot","org.Mm.eg.db","org.Hs.eg.db","batchelor","iSEE","slingshot","miloR","ComplexHeatmap","harmony"), ask = FALSE, update = FALSE)'
+          Rscript -e 'remotes::install_github(c("immunogenomics/presto", "GfellerLab/SuperCell", "jinworks/CellChat", "YuLab-SMU/aisdk"), upgrade = "never")'
           Rscript -e 'remotes::install_deps("sclet-src", dependencies = c("Depends","Imports","LinkingTo"), upgrade = "never")'
           R CMD INSTALL sclet-src
           Rscript -e 'stopifnot(requireNamespace("sclet", quietly = TRUE))'

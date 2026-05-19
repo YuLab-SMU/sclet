@@ -27,7 +27,10 @@ Status <- function(object, details = FALSE) {
         if (has_supercell(object)) "aggregation",
         if (has_velocity(object)) "velocity",
         if (has_scenic(object)) "scenic",
-        if (has_geneset_scoring(object)) "geneset_scoring"
+        if (has_geneset_scoring(object)) "geneset_scoring",
+        if (has_cellrank(object)) "cellrank",
+        if (has_spatial(object)) "spatial",
+        if (has_perturbation(object)) "perturbation"
     )
 
     result <- list(

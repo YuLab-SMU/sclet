@@ -9,6 +9,10 @@ sclet_env <- basilisk::BasiliskEnvironment(
         "pandas==2.2.2",
         "pyscenic==0.12.1",
         "loompy==3.0.7",
-        "scvelo==0.3.2"
+        "scvelo==0.3.2",
+        "scvi-tools",
+        "cellrank",
+        "cell2location",
+        "celloracle"
     )
 )

@@ -4,7 +4,7 @@
 #' 
 #' @title RunIntegration
 #' @param object A SingleCellExperiment object
-#' @param method Integration method to use. Currently supports "fastMNN" and "Harmony".
+#' @param method Integration method to use. Currently supports "fastMNN", "Harmony", and "scVI".
 #' @param batch The column name in colData representing the batch variable.
 #' @param features Features to use for integration. If NULL, automatically uses VariableFeatures.
 #' @param layer Layer to use for expression-based integration (e.g. fastMNN). If NULL, uses DefaultLayer.
@@ -13,7 +13,7 @@
 #' @param ... Additional arguments passed to the underlying integration functions.
 #' @return A SingleCellExperiment object with integration results recorded.
 #' @export
-RunIntegration <- function(object, method = c("fastMNN", "Harmony"), batch = NULL, features = NULL, layer = NULL, reduction = NULL, name = NULL, ...) {
+RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), batch = NULL, features = NULL, layer = NULL, reduction = NULL, name = NULL, ...) {
     method <- match.arg(method)
     
     if (is.null(batch)) {
@@ -115,6 +115,93 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony"), batch = NUL
             "RunIntegration",
             params = list(method = method, batch = batch, reduction = reduction),
             outputs = list(integration = name, reduction = "HARMONY")
+        )
+    } else if (method == "scVI") {
+        if (!requireNamespace("basilisk", quietly = TRUE)) {
+            stop("Package 'basilisk' is required for scVI.")
+        }
+        
+        # Determine features
+        if (is.null(features)) {
+            features <- VariableFeatures(object)
+        }
+        if (length(features) == 0) {
+            stop("No VariableFeatures found. Please provide 'features' or run FindVariableFeatures.")
+        }
+        
+        # scVI typically uses raw counts.
+        if (!"counts" %in% SummarizedExperiment::assayNames(object)) {
+            stop("Assay 'counts' is required for scVI.")
+        }
+        
+        counts_mat <- t(as.matrix(SummarizedExperiment::assay(object, "counts")[features, ]))
+        batch_vec <- as.character(SummarizedExperiment::colData(object)[[batch]])
+        
+        message("Running scVI via basilisk...")
+        
+        latent <- basilisk::basiliskRun(env = sclet_env, fun = function(counts, batches, ...) {
+            scvi <- reticulate::import("scvi")
+            ad <- reticulate::import("anndata")
+            pd <- reticulate::import("pandas")
+            
+            obs <- pd$DataFrame(list(batch = batches), index = rownames(counts))
+            adata <- ad$AnnData(X = counts, obs = obs)
+            
+            scvi$model$SCVI$setup_anndata(adata, batch_key = "batch")
+            model <- scvi$model$SCVI(adata)
+            model$train(...)
+            
+            return(model$get_latent_representation())
+        }, counts = counts_mat, batches = batch_vec, ...)
+        
+        rownames(latent) <- colnames(object)
+        colnames(latent) <- paste0("scVI_", seq_len(ncol(latent)))
+        
+        SingleCellExperiment::reducedDim(object, "scVI") <- latent
+        
+        # Register integration state
+        object <- sclet_set_analysis_state(
+            object = object,
+            type = "integration",
+            id = name,
+            method = "scvi-tools",
+            inputs = list(
+                layer = "counts",
+                batch = batch
+            ),
+            artifacts = list(
+                reduction = "scVI"
+            ),
+            summary = list(
+                batch_var = batch,
+                n_components = ncol(latent)
+            )
+        )
+        
+        object <- sclet_set_analysis_state(
+            object = object,
+            type = "reduction",
+            id = "scvi",
+            method = "scvi-tools",
+            inputs = list(
+                layer = "counts",
+                integration = name
+            ),
+            artifacts = list(
+                reduction = "scVI"
+            ),
+            summary = list(
+                n_components = ncol(latent)
+            )
+        )
+        
+        object <- sclet_set_active_reduction(object, "scVI")
+        
+        object <- sclet_log_command(
+            object,
+            "RunIntegration",
+            params = list(method = method, batch = batch),
+            outputs = list(integration = name, reduction = "scVI")
         )
     }
     

@@ -469,7 +469,10 @@ get_analysis_context <- function(object, element = NULL) {
         aggregation = summarize_analysis_context_record(get_supercell(object)),
         velocity = summarize_analysis_context_record(get_velocity(object)),
         scenic = summarize_analysis_context_record(get_scenic(object)),
-        geneset_scoring = summarize_analysis_context_record(get_geneset_scoring(object))
+        geneset_scoring = summarize_analysis_context_record(get_geneset_scoring(object)),
+        cellrank = summarize_analysis_context_record(get_cellrank(object)),
+        spatial = summarize_analysis_context_record(get_spatial(object)),
+        perturbation = summarize_analysis_context_record(get_perturbation(object))
     )
     records <- records[!vapply(records, is.null, logical(1))]
 
@@ -584,4 +587,97 @@ get_geneset_scoring <- function(object, element = NULL, id = NULL) {
 #' @export
 has_geneset_scoring <- function(object, id = NULL) {
     !is.null(get_geneset_scoring(object, id = id))
+}
+
+#' Access CellRank analysis results
+#'
+#' @title get_cellrank
+#' @param object a SingleCellExperiment object
+#' @param element optional element name
+#' @param id optional cellrank record id
+#' @return the full cellrank analysis record, a selected element, or `NULL`
+#' @export
+get_cellrank <- function(object, element = NULL, id = NULL) {
+    if (is.null(id)) {
+        id <- sclet_get_active_state(object, "trajectory")
+    }
+    result <- NULL
+    if (!is.null(id) && id == "cellrank") {
+        result <- sclet_get_analysis(object, "cellrank")
+    } else if (is.null(id)) {
+        result <- sclet_get_analysis(object, "cellrank")
+    }
+    extract_analysis_element(result, element)
+}
+
+#' Check whether CellRank results are available
+#'
+#' @title has_cellrank
+#' @param object a SingleCellExperiment object
+#' @return logical
+#' @export
+has_cellrank <- function(object) {
+    !is.null(get_cellrank(object))
+}
+
+#' Access Spatial Deconvolution analysis results
+#'
+#' @title get_spatial
+#' @param object a SingleCellExperiment object
+#' @param element optional element name
+#' @param id optional spatial record id
+#' @return the full spatial analysis record, a selected element, or `NULL`
+#' @export
+get_spatial <- function(object, element = NULL, id = NULL) {
+    if (is.null(id)) {
+        id <- sclet_get_active_state(object, "spatial")
+    }
+    result <- NULL
+    if (!is.null(id) && id == "spatial_deconv") {
+        result <- sclet_get_analysis(object, "spatial_deconv")
+    } else if (is.null(id)) {
+        result <- sclet_get_analysis(object, "spatial_deconv")
+    }
+    extract_analysis_element(result, element)
+}
+
+#' Check whether Spatial Deconvolution results are available
+#'
+#' @title has_spatial
+#' @param object a SingleCellExperiment object
+#' @return logical
+#' @export
+has_spatial <- function(object) {
+    !is.null(get_spatial(object))
+}
+
+#' Access CellOracle Perturbation analysis results
+#'
+#' @title get_perturbation
+#' @param object a SingleCellExperiment object
+#' @param element optional element name
+#' @param id optional perturbation record id
+#' @return the full perturbation analysis record, a selected element, or `NULL`
+#' @export
+get_perturbation <- function(object, element = NULL, id = NULL) {
+    if (is.null(id)) {
+        id <- sclet_get_active_state(object, "perturbation")
+    }
+    result <- NULL
+    if (!is.null(id) && id == "celloracle") {
+        result <- sclet_get_analysis(object, "celloracle")
+    } else if (is.null(id)) {
+        result <- sclet_get_analysis(object, "celloracle")
+    }
+    extract_analysis_element(result, element)
+}
+
+#' Check whether CellOracle Perturbation results are available
+#'
+#' @title has_perturbation
+#' @param object a SingleCellExperiment object
+#' @return logical
+#' @export
+has_perturbation <- function(object) {
+    !is.null(get_perturbation(object))
 }

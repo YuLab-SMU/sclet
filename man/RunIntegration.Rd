@@ -6,7 +6,7 @@
 \usage{
 RunIntegration(
   object,
-  method = c("fastMNN", "Harmony"),
+  method = c("fastMNN", "Harmony", "scVI"),
   batch = NULL,
   features = NULL,
   layer = NULL,
@@ -18,7 +18,7 @@ RunIntegration(
 \arguments{
 \item{object}{A SingleCellExperiment object}
 
-\item{method}{Integration method to use. Currently supports "fastMNN" and "Harmony".}
+\item{method}{Integration method to use. Currently supports "fastMNN", "Harmony", and "scVI".}
 
 \item{batch}{The column name in colData representing the batch variable.}
 

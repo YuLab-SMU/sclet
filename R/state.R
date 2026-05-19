@@ -608,7 +608,9 @@ sclet_state_types <- function() {
         "enrichment",
         "velocity",
         "scenic",
-        "geneset_scoring"
+        "geneset_scoring",
+        "spatial",
+        "perturbation"
     )
 }
 
