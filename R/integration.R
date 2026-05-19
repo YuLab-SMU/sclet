@@ -56,17 +56,30 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
         }
         
         reduction_state <- sclet_get_state_record(object, "reduction", tolower(reduction))
-        
-        # harmony::RunHarmony modifies the object and adds a new reduction
-        # RunHarmony supports SCE out of the box if Seurat is not loaded, but to be safe we can use the matrix
-        # Or just pass the SCE directly
+
+        # RunHarmony.SingleCellExperiment operates on the "PCA" reducedDim and
+        # does not accept Seurat-style `reduction=` arguments. If the user asks
+        # for another source reduction, temporarily mirror it into "PCA".
+        had_pca <- "PCA" %in% SingleCellExperiment::reducedDimNames(object)
+        original_pca <- if (had_pca) SingleCellExperiment::reducedDim(object, "PCA") else NULL
+        if (!identical(reduction, "PCA")) {
+            SingleCellExperiment::reducedDim(object, "PCA") <- SingleCellExperiment::reducedDim(object, reduction)
+        }
+
         object <- harmony::RunHarmony(
             object, 
             group.by.vars = batch, 
-            reduction = reduction, 
             reduction.save = "HARMONY", 
             ...
         )
+
+        if (!identical(reduction, "PCA")) {
+            if (had_pca) {
+                SingleCellExperiment::reducedDim(object, "PCA") <- original_pca
+            } else {
+                SingleCellExperiment::reducedDim(object, "PCA") <- NULL
+            }
+        }
         
         # Register integration state
         # Harmony outputs a reduction, not a layer

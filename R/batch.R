@@ -191,7 +191,9 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
           correct.all = correct.all
       ),
       patterns = c(
-          "'normalizeCounts' is deprecated"
+          "'normalizeCounts' is deprecated",
+          "You're computing too large a percentage of total singular values, use a standard svd instead.",
+          "more singular values/vectors requested than available"
       )
   )
   S4Vectors::metadata(corrected) <- S4Vectors::metadata(sce)

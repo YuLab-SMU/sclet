@@ -4,29 +4,33 @@
 
 [![License:
 Artistic-2.0](https://img.shields.io/badge/license-Artistic--2.0-blue.svg)](https://cran.r-project.org/web/licenses/Artistic-2.0)
-[![](https://img.shields.io/badge/devel%20version-0.99.3-blue.svg)](https://github.com/YuLab-SMU/sclet)
+[![](https://img.shields.io/badge/devel%20version-0.99.5-blue.svg)](https://github.com/YuLab-SMU/sclet)
 [![](https://img.shields.io/github/languages/code-size/YuLab-SMU/sclet.svg)](https://github.com/YuLab-SMU/sclet)
 [![](https://img.shields.io/github/last-commit/YuLab-SMU/sclet.svg)](https://github.com/YuLab-SMU/sclet/commits/devel)
 
-Seurat is a mainstream tool for single-cell analysis, but its data
-structure can change between versions and may be less explicit for
-teaching and extension. In contrast, `SingleCellExperiment` is a
-well-defined Bioconductor class with a rich ecosystem in R and a
-corresponding Python counterpart, `AnnData`.
+`sclet` is a state-aware analysis toolkit built around
+`SingleCellExperiment`, the core Bioconductor container for single-cell
+data. Rather than treating `SingleCellExperiment` as a low-level backend
+hidden behind another framework, `sclet` takes it as the primary
+abstraction for modern single-cell and spatial transcriptomics
+workflows.
 
-The goal of `sclet` is to provide a lightweight yet powerful set of
-Seurat-like helpers for `SingleCellExperiment`. More importantly,
-`sclet` introduces an innovative **Analysis-State Contract (Provenance
-DAG)**. This means the object automatically tracks and manages upstream
-assumptions (like batch-corrected layers or dimensional reductions),
-eliminating “parameter hell” and allowing downstream functions (and even
-AI Copilots) to seamlessly consume the correct contextual data.
+The package introduces an explicit **Analysis-State Contract (Provenance
+DAG)**. In practice, this means the object records active layers,
+reductions, graphs, identities, and higher-level analysis outputs as
+part of a coherent workflow state. Upstream assumptions such as
+batch-corrected layers, dimensional reductions, and derived analysis
+results are therefore inspectable and reusable instead of being
+scattered across ad hoc slots or implicit conventions.
 
 In addition to core steps (preprocessing, dimensionality reduction,
-clustering, and visualization), `sclet` offers a robust ecosystem of
-wrappers for both R and Python top-tier tools via the `basilisk`
-sandbox:
+clustering, annotation, and visualization), `sclet` provides a broad
+workflow surface for both single-cell and spatial transcriptomics, with
+selected Python tools managed through the `basilisk` sandbox:
 
+- **Core Analysis**: State-aware preprocessing, dimensionality
+  reduction, clustering, annotation, and provenance-aware workflow
+  management.
 - **Integration**: Multi-backend support (`fastMNN`, `Harmony`, `scVI`).
 - **Python Interoperability**: Safe and isolated execution of `scVelo`
   (RNA Velocity), `pySCENIC` (Gene Regulatory Networks), `cellrank`
@@ -41,8 +45,9 @@ sandbox:
 
 For user-facing analysis verbs, `sclet` uses `Run*` as the canonical API
 naming style, such as `RunIntegration()`, `RunSCENIC()`, and
-`RunVelocity()`. Legacy `run*` names are still available as
-compatibility aliases.
+`RunVelocity()`. Some legacy `run*` names are still available as
+compatibility aliases, but they are retained for transition support
+rather than as the conceptual center of the package.
 
 ## :writing_hand: Authors
 

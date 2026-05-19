@@ -52,11 +52,16 @@ RunSuperCell <- function(object, assay = "logcounts", layer = NULL, nHVG = 2000,
   
   hvgs <- VariableFeatures(object, method = hvg_method)
 
-  SC <- SuperCell::SCimplify(
-    X = GE, 
-    genes.use = hvgs, 
-    gamma = gamma,
-    k.knn = k.knn
+  SC <- sclet_muffle_known_warnings(
+    SuperCell::SCimplify(
+      X = GE, 
+      genes.use = hvgs, 
+      gamma = gamma,
+      k.knn = k.knn
+    ),
+    patterns = c(
+      "Normal pca is computed because number of cell is low for irlba::irlba()"
+    )
   )
 
   mdata <- S4Vectors::metadata(object)

@@ -193,12 +193,18 @@ RunPCA <- function(object, subset_row = NULL, exprs_values = NULL, layer = NULL,
     )
     integration <- sclet_resolve_integration_dependency(object, layer = source$layer)
     exprs_values <- source$assay
-    object <- scater::runPCA(
-        object,
-        subset_row = subset_row,
-        exprs_values = exprs_values,
-        ncomponents = ncomponents,
-        ...
+    object <- sclet_muffle_known_warnings(
+        scater::runPCA(
+            object,
+            subset_row = subset_row,
+            exprs_values = exprs_values,
+            ncomponents = ncomponents,
+            ...
+        ),
+        patterns = c(
+            "You're computing too large a percentage of total singular values, use a standard svd instead.",
+            "more singular values/vectors requested than available"
+        )
     )
     object <- sclet_restore_state(object, prev_state)
     object <- sclet_set_active_reduction(object, "PCA")

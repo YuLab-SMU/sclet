@@ -31,9 +31,17 @@ AggregateExpression <- function(object, group_by, assay.type = "counts", fun = "
         warning("Currently only 'sum' is supported optimally. Using 'sum'.")
     }
     
-    if (requireNamespace("scrapper", quietly = TRUE)) {
-        agg_sce <- scrapper::aggregateAcrossCells.se(object, ids = ids, use.assay.type = assay.type, statistics = "sum")
+    if (requireNamespace("scrapper", quietly = TRUE) && identical(assay.type, "counts") && identical(fun, "sum")) {
+        ids_list <- stats::setNames(lapply(group_by, function(x) colData(object)[[x]]), group_by)
+        agg_sce <- tryCatch(
+            scrapper::aggregateAcrossCells.se(object, ids_list),
+            error = function(e) NULL
+        )
     } else {
+        agg_sce <- NULL
+    }
+
+    if (is.null(agg_sce)) {
         agg_sce <- sclet_muffle_known_warnings(
             scuttle::aggregateAcrossCells(object, ids = ids, use.assay.type = assay.type, statistics = "sum"),
             patterns = c("'aggregateAcrossCells' is deprecated")
