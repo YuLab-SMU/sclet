@@ -1,6 +1,6 @@
 Package: sclet
 Title: A State-Aware Single-Cell Analysis Toolkit for SingleCellExperiment
-Version: 0.99.3
+Version: 0.99.4
 Authors@R: c(
     person(given = "Guangchuang", family = "Yu", email = "guangchuangyu@gmail.com", role  = c("aut", "cre"), comment = c(ORCID = "0000-0002-6485-8781")),
     person(given = "Kaijia", family = "Huang", email = "2947569391@qq.com", role  = "ctb"),
@@ -21,6 +21,7 @@ Depends:
     R (>= 4.1.0)
 Imports:
     aplot,
+    basilisk,
     bluster,
     dplyr,
     DropletUtils,
@@ -33,7 +34,9 @@ Imports:
     Matrix,
     MatrixGenerics,
     methods,
+    reticulate,
     rlang,
+    S4Vectors,
     scater,
     scran,
     scuttle,
@@ -45,6 +48,7 @@ Imports:
     utils,
     yulab.utils
 Suggests:
+    AUCell,
     batchelor,
     BiocNeighbors,
     BiocParallel,
@@ -55,6 +59,7 @@ Suggests:
     DESeq2,
     enrichplot,
     grid,
+    GSVA,
     harmony,
     iSEE,
     mgcv,
@@ -62,13 +67,14 @@ Suggests:
     org.Hs.eg.db,
     presto,
     reshape2,
-    S4Vectors,
     scrapper,
     Seurat,
     SingleR,
     slingshot,
     SuperCell,
     testthat (>= 3.0.0),
+    UCell,
+    velociraptor,
     viridis,
     zellkonverter
 License: Artistic-2.0

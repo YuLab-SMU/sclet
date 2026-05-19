@@ -605,7 +605,10 @@ sclet_state_types <- function() {
         "communication",
         "mapping",
         "detest",
-        "enrichment"
+        "enrichment",
+        "velocity",
+        "scenic",
+        "geneset_scoring"
     )
 }
 

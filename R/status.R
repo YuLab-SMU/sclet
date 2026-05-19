@@ -24,7 +24,10 @@ Status <- function(object, details = FALSE) {
         if (has_trajectory(object)) "trajectory",
         if (has_cellchat(object)) "communication",
         if (has_milo(object)) "milo",
-        if (has_supercell(object)) "aggregation"
+        if (has_supercell(object)) "aggregation",
+        if (has_velocity(object)) "velocity",
+        if (has_scenic(object)) "scenic",
+        if (has_geneset_scoring(object)) "geneset_scoring"
     )
 
     result <- list(

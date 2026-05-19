@@ -466,7 +466,10 @@ get_analysis_context <- function(object, element = NULL) {
         trajectory = summarize_analysis_context_record(get_trajectory(object)),
         communication = summarize_analysis_context_record(get_cellchat(object)),
         milo = summarize_analysis_context_record(get_milo(object)),
-        aggregation = summarize_analysis_context_record(get_supercell(object))
+        aggregation = summarize_analysis_context_record(get_supercell(object)),
+        velocity = summarize_analysis_context_record(get_velocity(object)),
+        scenic = summarize_analysis_context_record(get_scenic(object)),
+        geneset_scoring = summarize_analysis_context_record(get_geneset_scoring(object))
     )
     records <- records[!vapply(records, is.null, logical(1))]
 
@@ -482,4 +485,103 @@ get_analysis_context <- function(object, element = NULL) {
     )
 
     extract_analysis_element(result, element)
+}
+
+#' Access RNA velocity analysis results
+#'
+#' @title get_velocity
+#' @param object a SingleCellExperiment object
+#' @param element optional element name to extract from the selected velocity record
+#' @param id optional velocity record id. If NULL, use the active velocity record.
+#' @return the full velocity analysis record, a selected element, or `NULL`
+#' @export
+get_velocity <- function(object, element = NULL, id = NULL) {
+    if (is.null(id)) {
+        id <- sclet_get_active_state(object, "velocity")
+    }
+    result <- NULL
+    if (!is.null(id)) {
+        result <- sclet_get_state_record(object, "velocity", id = id)
+    }
+    if (is.null(result)) {
+        result <- sclet_get_analysis(object, "velocity")
+    }
+    extract_analysis_element(result, element)
+}
+
+#' Check whether velocity results are available
+#'
+#' @title has_velocity
+#' @param object a SingleCellExperiment object
+#' @param id optional velocity record id
+#' @return logical
+#' @export
+has_velocity <- function(object, id = NULL) {
+    !is.null(get_velocity(object, id = id))
+}
+
+#' Access pySCENIC analysis results
+#'
+#' @title get_scenic
+#' @param object a SingleCellExperiment object
+#' @param element optional element name to extract from the selected scenic record
+#' @param id optional scenic record id. If NULL, use the active scenic record.
+#' @return the full scenic analysis record, a selected element, or `NULL`
+#' @export
+get_scenic <- function(object, element = NULL, id = NULL) {
+    if (is.null(id)) {
+        id <- sclet_get_active_state(object, "scenic")
+    }
+    result <- NULL
+    if (!is.null(id)) {
+        result <- sclet_get_state_record(object, "scenic", id = id)
+    }
+    if (is.null(result)) {
+        result <- sclet_get_analysis(object, "scenic")
+    }
+    extract_analysis_element(result, element)
+}
+
+#' Check whether SCENIC results are available
+#'
+#' @title has_scenic
+#' @param object a SingleCellExperiment object
+#' @param id optional scenic record id
+#' @return logical
+#' @export
+has_scenic <- function(object, id = NULL) {
+    !is.null(get_scenic(object, id = id))
+}
+
+#' Access gene set scoring analysis results
+#'
+#' @title get_geneset_scoring
+#' @param object a SingleCellExperiment object
+#' @param element optional element name to extract from the selected geneset_scoring record
+#' @param id optional geneset_scoring record id. If NULL, use the active geneset_scoring record.
+#' @return the full geneset_scoring analysis record, a selected element, or `NULL`
+#' @export
+get_geneset_scoring <- function(object, element = NULL, id = NULL) {
+    if (is.null(id)) {
+        id <- sclet_get_active_state(object, "geneset_scoring")
+    }
+    result <- NULL
+    if (!is.null(id)) {
+        result <- sclet_get_state_record(object, "geneset_scoring", id = id)
+    }
+    if (is.null(result)) {
+        result <- sclet_get_analysis(object, "geneset_scoring")
+    }
+    extract_analysis_element(result, element)
+}
+
+#' Check whether gene set scoring results are available
+#'
+#' @title has_geneset_scoring
+#' @param object a SingleCellExperiment object
+#' @param id optional geneset_scoring record id
+#' @return logical
+#' @export
+has_geneset_scoring <- function(object, id = NULL) {
+    !is.null(get_geneset_scoring(object, id = id))
 }
