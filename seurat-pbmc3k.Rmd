@@ -2,7 +2,7 @@
 
 This chapter is the fastest way to get a feel for the package. If you are new to `sclet`, think of it as the equivalent of the classic PBMC tutorial: read the data, perform quality control, normalize, identify highly variable genes, reduce dimensions, cluster cells, and inspect marker genes.
 
-The difference is that everything happens on top of `SingleCellExperiment`, with the `sclet` wrappers providing a familiar Seurat-like user experience. The goal here is not only to reproduce a standard workflow, but also to show how little boilerplate is needed once the state-aware design is in place.
+The difference is that everything happens directly on top of `SingleCellExperiment`, with `sclet` providing a coherent high-level analysis interface. The goal here is not only to reproduce a standard workflow, but also to show how little boilerplate is needed once the state-aware design is in place.
 
 ```{r pbmc-data, include=FALSE}
 knitr::opts_chunk$set(warning = FALSE,
@@ -99,7 +99,7 @@ head(Idents(pbmc), 5)
 pbmc <- RunUMAP(pbmc, 1:10)
 
 library(aplot)
-# DimPlot is a wrapper for ggsc::sc_dim
+# DimPlot delegates to ggsc::sc_dim
 p1 <- DimPlot(pbmc, reduction="PCA")
 p2 <- DimPlot(pbmc, reduction="UMAP")
 

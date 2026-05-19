@@ -2,7 +2,7 @@
 
 After clustering, the natural next question is simple: what do these clusters actually represent? In practice, annotation usually combines two strategies. We first inspect clusters manually using known markers, and then we use a reference-based method to make the process faster, more systematic, and easier to reproduce.
 
-This chapter introduces both perspectives. It keeps the biological intuition of manual annotation, while emphasizing the state-aware wrappers that make annotation results reusable in later steps.
+This chapter introduces both perspectives. It keeps the biological intuition of manual annotation, while emphasizing the state-aware analysis interface that makes annotation results reusable in later steps.
 
 ## Manual annotation
 
@@ -15,7 +15,7 @@ The low-level `SingleR::SingleR()` call is still useful for understanding the un
 
 Alternatively, `sclet` also provides a lightweight reference mapping implementation via `RunKNNPredict()` (or `RunReferenceMapping()`), which transfers labels from a reference dataset to your query dataset based on KNN.
 
-In this chapter, both the low-level `SingleR()` workflow and the `sclet` wrapper examples are executed during book rendering when the required Bioconductor dependencies are available. This keeps the chapter useful as documentation while also exercising the annotation layer in CI.
+In this chapter, both the low-level `SingleR()` workflow and the `sclet` analysis examples are executed during book rendering when the required Bioconductor dependencies are available. This keeps the chapter useful as documentation while also exercising the annotation layer in CI.
 
 ### Lightweight Reference Mapping (KNN)
 

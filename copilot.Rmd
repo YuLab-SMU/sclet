@@ -12,7 +12,7 @@ The examples in this chapter are intentionally not executed during book renderin
 
 ## `sclet_copilot`: An AI That Understands Your Objects
 
-Unlike thin-wrapper tools that merely concatenate strings to prompt an LLM, `sclet_copilot` genuinely reads and comprehends the complete operational bloodline of your `SingleCellExperiment` object.
+Unlike shallow prompt-chaining tools that merely concatenate strings for an LLM, `sclet_copilot` genuinely reads and comprehends the complete operational bloodline of your `SingleCellExperiment` object.
 
 To reproduce these examples locally, you need `aisdk` installed and either a default model configured via `aisdk::get_model()` or a compatible fallback model configured in the environment.
 

@@ -2,8 +2,8 @@
 
 Changes in gene expression are only part of the story. In many studies, the more important biological signal is that certain cell states become more or less abundant across conditions, donors, or time points.
 
-`sclet` provides a lightweight wrapper around `miloR` for cell neighbourhood differential abundance (DA) analysis.
-The Milo functionality in `sclet` is an optional dependency: you need to install `miloR` to run the examples. In the GitHub Actions bookdown workflow, these chunks are executed when the required packages are available, so this chapter also acts as a regression check for the DA wrapper.
+`sclet` provides a state-aware interface to `miloR` for cell neighbourhood differential abundance (DA) analysis.
+The Milo functionality in `sclet` is an optional dependency: you need to install `miloR` to run the examples. In the GitHub Actions bookdown workflow, these chunks are executed when the required packages are available, so this chapter also acts as a regression check for the DA integration layer.
 
 ## Requirements
 

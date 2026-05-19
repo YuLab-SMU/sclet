@@ -6,7 +6,7 @@ This chapter explains how `sclet` handles that reality. The goal is not just fil
 
 ## Seurat and SCE Conversion
 
-We provide simple wrappers to convert between Seurat and SCE objects.
+`sclet` provides simple conversion helpers between Seurat and SCE objects.
 
 ```r
 library(sclet)
@@ -20,7 +20,7 @@ library(sclet)
 
 ## AnnData (h5ad)
 
-Python's AnnData format (.h5ad) is widely used. `sclet` wraps `zellkonverter` to provide easy read/write functions.
+Python's AnnData format (.h5ad) is widely used. `sclet` uses `zellkonverter`-based helpers to provide easy read/write functions.
 
 ```r
 # Read h5ad
@@ -34,11 +34,11 @@ This allows you to easily move data between R and Python environments, leveragin
 
 # Recommended usage
 
-`sclet` is still centered on `SingleCellExperiment`. The recommended way to use the package is to treat the SCE object as the single source of truth, and then layer `sclet` wrappers on top for common analysis steps.
+`sclet` is still centered on `SingleCellExperiment`. The recommended way to use the package is to treat the SCE object as the single source of truth, and then apply `sclet` analysis functions on top for common analysis steps.
 
 ## For end users
  
- The shortest recommended workflow is to use the standard pipeline wrapper:
+ The shortest recommended workflow is to use the standard pipeline entry point:
  
  ```r
  library(sclet)
@@ -66,12 +66,12 @@ If `scrapper` is installed, `FindVariableFeatures(sce, method = "scrapper")` is 
 
 Because `scrapper` is an optional dependency, users need to install it explicitly if they want this backend instead of the default `scran` path.
 
-In current `sclet`, user-facing analysis verbs are standardized on the `Run*` style. Use `RunPCA()`, `RunMilo()`, and `RunCellChat()` as the recommended public API. Legacy `run*` names are kept for backward compatibility, but should not be used in new examples, scripts, or extensions.
+In current `sclet`, user-facing analysis verbs are standardized on the `Run*` style. Use `RunPCA()`, `RunMilo()`, and `RunCellChat()` as the recommended public API.
 
 The other important convention is that `sclet` now distinguishes between:
 
 - a physical `assay`, which is where the matrix is actually stored in the SCE object
-- a logical `layer`, which is the user-facing expression view that downstream wrappers consume
+- a logical `layer`, which is the user-facing expression view that downstream analysis functions consume
 
 For example, after normalization and scaling, a typical object may expose:
 
@@ -85,7 +85,7 @@ For interactive exploration, it is better to rely on the state-aware accessors i
 
 - `DefaultAssay()`, `DefaultLayer()`, `DefaultReduction()`, `DefaultGraph()`, and `ActiveIdent()` expose the current active view.
 - `Layers()` and `LayerData()` expose the available expression layers and their matrices.
-- `CommandLog()` shows which wrapper functions have been applied.
+- `CommandLog()` shows which analysis functions have been applied.
 - `PipelineSummary()` gives a clear textual report of the executed pipeline steps.
 - `Status()` gives a quick user-facing snapshot of the current object state.
 - `get_hvg()`, `get_graph()`, `get_milo()`, `get_trajectory()`, `get_cellchat()`, `get_integration()`, `get_annotation()`, and `get_mapping()` expose structured analysis records.
@@ -121,7 +121,7 @@ sce <- RunKNNPredict(sce, ref = ref_dataset, labels = "CellType", k = 5)
 ProjectionPlot(query = sce, ref = ref_dataset, reduction = "UMAP")
 ```
 
-This means the recommended mental model is simple: keep one SCE object, run the `sclet` wrappers in sequence, and inspect state through the exported accessors instead of through ad hoc metadata fields.
+This means the recommended mental model is simple: keep one SCE object, run the `sclet` analysis functions in sequence, and inspect state through the exported accessors instead of through ad hoc metadata fields.
 
 In practical terms:
 
@@ -145,9 +145,9 @@ For multi-sample workflows, the provenance chain can now start even earlier: `sc
 If you are writing a reusable script or package around `sclet`, prefer patterns that are stable under future extension:
 
 - Pass the SCE object through each step and return the updated object explicitly.
-- Prefer exported wrappers such as `RunPCA()` and `RunUMAP()` over calling lower-level functions directly when `sclet` already provides a wrapper.
+- Prefer exported entry points such as `RunPCA()` and `RunUMAP()` over calling lower-level functions directly when `sclet` already provides them.
 - Read results through accessors (`get_*`, `has_*`, `Default*`, `ActiveIdent`, `Layers`, `LayerData`) instead of assuming a fixed metadata layout.
-- If legacy metadata fallback is still required for backward compatibility, keep it centralized in shared internal helpers instead of re-implementing direct `metadata(...)` reads in multiple accessors.
+- If old metadata still needs to be read while migrating historical objects, keep that logic centralized in shared internal helpers instead of re-implementing direct `metadata(...)` reads in multiple accessors.
 - When using `RunCellChat()`, request `return = "sce"` or `return = "both"` if downstream code needs the updated SCE with recorded analysis state.
 - When a module can produce multiple records of the same type, give each run a stable `name` and read it back through `get_* (id = ...)` instead of assuming only one result exists.
 
@@ -169,18 +169,17 @@ Internal state is collected under `metadata(sce)$sclet`. In practice, contributo
 - `analyses`: higher-level outputs such as trajectory, milo, batch, supercell, and cellchat
 - `commands`: command log entries
 
-## How to add a new analysis wrapper
+## How to add a new analysis function
 
 When adding a new user-facing analysis function, the recommended pattern is:
 
 1. Use a canonical `Run*` name for the public entry point.
-2. Keep any older `run*` name only as a thin compatibility alias.
-3. Write structured outputs into the state layer with `sclet_set_analysis()`, or the relevant state helper.
-4. Record the call with `sclet_log_command()`.
-5. If the wrapper consumes expression matrices, make it resolve from `layer` first and only then to an underlying assay.
-6. Expose the result through `get_*()` and `has_*()` helpers if users will need to inspect it later.
+2. Write structured outputs into the state layer with `sclet_set_analysis()`, or the relevant state helper.
+3. Record the call with `sclet_log_command()`.
+4. If the function consumes expression matrices, make it resolve from `layer` first and only then to an underlying assay.
+5. Expose the result through `get_*()` and `has_*()` helpers if users will need to inspect it later.
 
-The goal is not just to make a wrapper run once. The goal is to make the result discoverable, inspectable, and reusable across later steps.
+The goal is not just to make a function run once. The goal is to make the result discoverable, inspectable, and reusable across later steps.
 
 ## Implementation rules for contributors
 
@@ -189,20 +188,20 @@ Contributors should follow a few practical rules:
 - Do not access deep S4 internals when an accessor already exists.
 - Do not add a second storage path if the state layer can already represent the result.
 - Do not introduce a new user-facing expression argument unless you have decided whether it should be a logical `layer` or a physical `assay`.
-- Preserve backward compatibility where possible by reading old metadata if needed, but write new results to the unified state schema.
-- Keep changes surgical: one new wrapper should normally come with its state write-back, accessor path, and focused tests.
+- When migration logic still needs to read old metadata, keep new results written to the unified state schema.
+- Keep changes surgical: one new analysis function should normally come with its state write-back, accessor path, and focused tests.
 - For derived-object workflows such as `RunSuperCell()`, record provenance on the returned object itself instead of inventing a separate container class.
 - When a workflow needs both a rich analysis object and a typed state record, prefer `sclet_set_analysis()` for the object payload and `sclet_set_analysis_state()` for the lightweight contract instead of hand-editing `metadata(sce)$sclet`.
 - If an upstream Bioconductor dependency emits known deprecation warnings that `sclet` cannot eliminate immediately, wrap the narrow call site with a targeted compatibility helper instead of using broad `suppressWarnings()`.
 
 ## What should be tested
 
-For each new wrapper or state feature, tests should ideally cover:
+For each new analysis function or state feature, tests should ideally cover:
 
 - the result is stored in the unified state layer
 - the corresponding accessor can read it back
 - `has_*()` returns the expected boolean
-- active state is updated if the wrapper changes the current assay, reduction, graph, or identity
+- active state is updated if the function changes the current assay, reduction, graph, or identity
 - command log entries use the canonical public command name
 
-This keeps `sclet` close to a Seurat-like user experience while still staying grounded in the clearer `SingleCellExperiment` and Bioconductor model.
+This keeps `sclet` ergonomic for end users while still staying grounded in the clearer `SingleCellExperiment` and Bioconductor model.

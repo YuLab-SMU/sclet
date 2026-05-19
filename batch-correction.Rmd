@@ -103,7 +103,7 @@ rm_batch_pbmc <- sce_clustering(rm_batch_pbmc, layer = "corrected")
 
 ```
 
-The important point is that downstream wrappers can now consume the integration outputs directly, without requiring users to manually point to the `reconstructed` assay or the `HARMONY` reduction. `RunIntegration()` sets up the active pointers in the `analysis-state` contract.
+The important point is that downstream analysis functions can now consume the integration outputs directly, without requiring users to manually point to the `reconstructed` assay or the `HARMONY` reduction. `RunIntegration()` sets up the active pointers in the `analysis-state` contract.
 
 The merge step is also part of that story now. `sce_merge()` stores a non-active `merged_inputs` integration record, and `BatchRemover()` points back to it. This gives the merged object and the corrected object a connected provenance chain instead of two unrelated transformations.
 

@@ -79,4 +79,4 @@ CellStatPlot(pbmc, stat.by = "ident", group.by = "batch", position = "fill") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-These visualization wrappers are designed to minimize boilerplate code while remaining fully compatible with `ggplot2` grammar (`+ theme()`, `+ scale_color_manual()`, etc.).
+These visualization functions are designed to minimize boilerplate code while remaining fully compatible with `ggplot2` grammar (`+ theme()`, `+ scale_color_manual()`, etc.).

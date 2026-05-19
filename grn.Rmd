@@ -4,7 +4,7 @@ How do Transcription Factors (TFs) regulate target genes? Traditional differenti
 
 If you have ever run the legacy R version of SCENIC, you undoubtedly remember its excruciatingly slow speed and the requirement to download tens of gigabytes of local databases. Today, the Python-based `pySCENIC` (powered by GRNBoost2) completely crushes the original R version in both speed and performance.
 
-Rather than forcing users to leave the `SingleCellExperiment` workflow and manually manage a separate Python environment, `sclet` brings this functionality back into the same state-aware framework. Leveraging the `basilisk` isolated environment, it provides an elegant wrapper for `pySCENIC`: `RunSCENIC()`.
+Rather than forcing users to leave the `SingleCellExperiment` workflow and manually manage a separate Python environment, `sclet` brings this functionality back into the same state-aware framework. Leveraging the `basilisk` isolated environment, it provides a native `sclet` entry point to `pySCENIC`: `RunSCENIC()`.
 
 The examples in this chapter are shown but not executed during book rendering. A realistic `pySCENIC` workflow depends on external transcription-factor lists and cisTarget ranking databases, so it is more honest to present the code as a template that readers can adapt to their own resources. In practice, the limiting factor is not the Python environment itself, but the requirement to provide large database files that are version-matched to the species and genome build of your dataset.
 
