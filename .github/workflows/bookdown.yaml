@@ -69,7 +69,9 @@ jobs:
       - name: Install dependencies
         run: |
           Rscript -e 'install.packages(c("remotes","BiocManager"))'
-          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); install.packages(c("bookdown","rmarkdown","knitr","shadowtext","conflicted","aplot","ggplot2","ggsc","yulab.utils","pkgbuild","patchwork","gdtools","NMF","circlize","reticulate"))'
+          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); install.packages(c("bookdown","rmarkdown","knitr"))'
+          Rscript -e 'stopifnot(requireNamespace("bookdown", quietly = TRUE), requireNamespace("rmarkdown", quietly = TRUE), requireNamespace("knitr", quietly = TRUE))'
+          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); install.packages(c("shadowtext","conflicted","aplot","ggplot2","pkgbuild","patchwork","gdtools","NMF","circlize","reticulate"))'
           Rscript -e 'BiocManager::install("YuLab-SMU/ggtree", ask = FALSE, update = FALSE)'
           Rscript -e 'BiocManager::install("clusterProfiler", ask = FALSE, update = TRUE, force = TRUE)'
           Rscript -e 'stopifnot(requireNamespace("clusterProfiler", quietly = TRUE))'
