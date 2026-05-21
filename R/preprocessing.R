@@ -6,7 +6,8 @@
 #' @export
 QCMetrics <- function(object) {
     qc_metrics <- scrapper::computeRnaQcMetrics(
-        SummarizedExperiment::assay(object, "counts")
+        SummarizedExperiment::assay(object, "counts"),
+        subsets = list()
     )
     SummarizedExperiment::colData(object)$nFeature_RNA <- qc_metrics$detected
     SummarizedExperiment::colData(object)$nCount_RNA <- qc_metrics$sum
