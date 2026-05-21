@@ -70,17 +70,17 @@ plot_list(p1, p2)
 
 ```{r variablefeatureplot-pbmc, fig.width=10, fig.height=7.5}
 pbmc <- NormalizeData(pbmc)
-pbmc <- FindVariableFeatures(pbmc, method = "seurat")
-top10 <- head(VariableFeatures(pbmc, method = "seurat"), 10)
+pbmc <- FindVariableFeatures(pbmc, method = "scran")
+top10 <- head(VariableFeatures(pbmc, method = "scran"), 10)
 top10
-VariableFeaturePlot(pbmc, label = top10, method = "seurat")
+VariableFeaturePlot(pbmc, label = top10, method = "scran")
 ```
 
 ## Dimensional reduction
 
 ```{r elbowplot-pbmc, fig.width=10, fig.height=7}
 pbmc <- ScaleData(pbmc)
-pbmc <- RunPCA(pbmc, subset_row = VariableFeatures(pbmc, method = "seurat"), layer = "scaled")
+pbmc <- RunPCA(pbmc, subset_row = VariableFeatures(pbmc, method = "scran"), layer = "scaled")
 ElbowPlot(pbmc)
 ```
 
