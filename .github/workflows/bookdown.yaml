@@ -105,6 +105,23 @@ jobs:
             exit 1
           fi
 
+      - name: Generate PBMC demo data
+        run: |
+          Rscript -e '
+            ws <- Sys.getenv("GITHUB_WORKSPACE")
+            bookdir <- Sys.getenv("BOOKDIR")
+            script_dir <- normalizePath(file.path(ws, "sclet-src", "bookdown", "data-raw"), mustWork = TRUE)
+            generated_file <- file.path(ws, "sclet-src", "bookdown", "data", "pbmc-3k-sce.rds")
+            target_dir <- file.path(ws, bookdir, "data")
+            target_file <- file.path(target_dir, "pbmc-3k-sce.rds")
+            dir.create(target_dir, recursive = TRUE, showWarnings = FALSE)
+            setwd(script_dir)
+            source("pbmc-3k-sce.R")
+            stopifnot(file.exists(generated_file))
+            file.copy(generated_file, target_file, overwrite = TRUE)
+            stopifnot(file.exists(target_file))
+          '
+
       - name: Build site
         run: |
           Rscript -e '
