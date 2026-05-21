@@ -60,13 +60,13 @@ raw_data <- LayerData(pbmc, layer = DefaultLayer(pbmc))
 dim(raw_data)
 
 # Change the default reduction used by DimPlot, if available
-if ("PCA" %in% reducedDimNames(pbmc)) {
+if ("PCA" %in% SingleCellExperiment::reducedDimNames(pbmc)) {
     DefaultReduction(pbmc) <- "PCA"
 }
 DefaultReduction(pbmc)
 
 # Change the default assay to a concrete assay stored in the object
-if ("logcounts" %in% assayNames(pbmc)) {
+if ("logcounts" %in% SummarizedExperiment::assayNames(pbmc)) {
     DefaultAssay(pbmc) <- "logcounts"
 }
 DefaultAssay(pbmc)

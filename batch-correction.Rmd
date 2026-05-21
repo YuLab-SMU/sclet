@@ -88,7 +88,7 @@ sclet_get_active_reduction(rm_scvi_pbmc) # Returns "scVI"
 ```{r clustering-batch}
 sce_clustering <- function(sce, layer = DefaultLayer(sce), dims = 1:10) {
   # For uncorrected data, we run PCA first
-  if (!"PCA" %in% reducedDimNames(sce)) {
+  if (!"PCA" %in% SingleCellExperiment::reducedDimNames(sce)) {
       sce <- RunPCA(sce, subset_row = VariableFeatures(sce), layer = layer)
   }
   
