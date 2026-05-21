@@ -5,8 +5,9 @@ setMethod("subset", "SingleCellExperiment",
     function(x, subset, select, ...) {
         subset <- rlang::enquo(arg = subset)
         cd <- as.data.frame(colData(x), row.names = colnames(x), optional = TRUE)
+        cd$.sclet_cell <- colnames(x)
         y <- dplyr::filter(cd, !!subset)
-        x[, colnames(x) %in% rownames(y)]                
+        x[, y$.sclet_cell, drop = FALSE]
     }
 )
 

@@ -52,11 +52,8 @@ NormalizeData <- function(object, scale.factor = 10000) {
     libsize <- MatrixGenerics::colSums(SummarizedExperiment::assay(object, "counts"))
     size_factors <- libsize / scale.factor
     prev_state <- sclet_get_state(object)
-    logcounts <- scuttle::calculateCPM(
-        object,
-        size.factors = size_factors,
-        assay.type = "counts"
-    )
+    counts_mat <- SummarizedExperiment::assay(object, "counts")
+    logcounts <- t(t(counts_mat) / size_factors)
     logcounts <- log1p(logcounts)
     SummarizedExperiment::assay(object, "logcounts") <- logcounts
     object <- sclet_restore_state(object, prev_state)
@@ -591,7 +588,37 @@ sclet_model_gene_var <- function(object, ..., assay.type = "logcounts",
         )
     }
 
-    x.stats <- compute_stats(subset.row)
+    x.stats <- tryCatch(
+        compute_stats(subset.row),
+        error = function(e) {
+            if (!grepl("no residual d\\.f\\.", conditionMessage(e))) {
+                stop(e)
+            }
+
+            warning(
+                "scran variance modelling failed for this dataset; falling back to simple logcounts variance ranking.",
+                call. = FALSE
+            )
+
+            idx <- sclet_subset2index(subset.row, mat)
+            submat <- mat[idx, , drop = FALSE]
+            means <- MatrixGenerics::rowMeans(submat)
+            vars <- MatrixGenerics::rowVars(submat)
+            out <- S4Vectors::DataFrame(
+                mean = means,
+                total = vars,
+                tech = NA_real_,
+                bio = vars,
+                p.value = NA_real_,
+                FDR = NA_real_
+            )
+            rownames(out) <- rownames(mat)[idx]
+            return(out)
+        }
+    )
+    if (inherits(x.stats, "DFrame")) {
+        return(x.stats)
+    }
     if (is.null(subset.fit)) {
         fit.stats <- x.stats
     } else {
