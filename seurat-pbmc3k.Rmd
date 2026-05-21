@@ -8,8 +8,8 @@ The difference is that everything happens directly on top of `SingleCellExperime
 knitr::opts_chunk$set(warning = FALSE,
                       message = TRUE)
 
-f <- "data/pbmc-3k-sce.qs"
-pbmc <- qs::qread(f)
+f <- "data/pbmc-3k-sce.rds"
+pbmc <- readRDS(f)
 ```
 
 ## Read 10X data
@@ -36,7 +36,10 @@ VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"))
 subset_feature(pbmc, 10)
 pbmc <- subset_feature(pbmc, mincell = 3, peek=FALSE)
 
-pbmc <- subset(pbmc, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+keep <- colData(pbmc)$nFeature_RNA > 200 &
+    colData(pbmc)$nFeature_RNA < 2500 &
+    colData(pbmc)$percent.mt < 5
+pbmc <- pbmc[, keep, drop = FALSE]
 pbmc
 ```
 

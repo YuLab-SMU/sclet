@@ -29,7 +29,10 @@ library(sclet)
 sce_process <- function(sce) {
   sce <- QCMetrics(sce)
   sce[["percent.mt"]] <- PercentageFeatureSet(sce, "^MT-")
-  sce <- subset(sce, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+  keep <- colData(sce)$nFeature_RNA > 200 &
+    colData(sce)$nFeature_RNA < 2500 &
+    colData(sce)$percent.mt < 5
+  sce <- sce[, keep, drop = FALSE]
   sce <- NormalizeData(sce)
   sce <- FindVariableFeatures(sce)
   return(sce)

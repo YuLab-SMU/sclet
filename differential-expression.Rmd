@@ -13,7 +13,7 @@ You can find markers for all clusters using `RunDEtest()`, which wraps `FindMark
 ```{r detest, fig.width=10, fig.height=8, warning=FALSE, message=FALSE}
 library(sclet)
 # Assuming 'sce' has been processed and clustered
-sce <- qs::qread("data/pbmc-3k-sce.qs")
+sce <- readRDS("data/pbmc-3k-sce.rds")
 
 # Run differential expression test and record the state
 sce <- RunDEtest(sce, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)

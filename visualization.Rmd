@@ -12,8 +12,8 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 
 ```{r vis-data}
 library(sclet)
-f <- "data/pbmc-3k-sce.qs"
-pbmc <- qs::qread(f)
+f <- "data/pbmc-3k-sce.rds"
+pbmc <- readRDS(f)
 ```
 
 ## Dimensionality Reduction Plots

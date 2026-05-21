@@ -12,7 +12,7 @@ If you have already run `RunDEtest()`, `RunEnrichment()` is smart enough to auto
 
 ```{r go_enrich, fig.width=10, fig.height=8, eval=eval_chunks && requireNamespace("org.Hs.eg.db", quietly = TRUE)}
 library(sclet)
-sce <- qs::qread("data/pbmc-3k-sce.qs")
+sce <- readRDS("data/pbmc-3k-sce.rds")
 sce <- RunDEtest(sce, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
 
 # Ensure you have org.Mm.eg.db installed for Mouse data

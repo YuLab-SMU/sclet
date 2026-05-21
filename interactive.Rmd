@@ -14,7 +14,7 @@ To reproduce this locally, the only real prerequisites are an `SCE` object with 
 
 ```{r, eval=FALSE}
 library(sclet)
-sce <- qs::qread("data/pbmc-3k-sce.qs")
+sce <- readRDS("data/pbmc-3k-sce.rds")
 
 # Launch the app
 RunExplorer(sce)

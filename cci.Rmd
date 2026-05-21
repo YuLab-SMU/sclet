@@ -29,9 +29,9 @@ Wrapper function for CellChat^[<https://htmlpreview.github.io/?https://github.co
 library(sclet)
 library(aplot)
 
-# use demo data from CellChat, hmskin_sce
-sce <- qs::qread("data/hmskin_sce.qs")
-res <- RunCellChat(sce, group = "labels", layer = "logcounts", name = "cellchat_main", return = "both")
+# use the bundled pancreas SCE demo object
+sce <- readRDS("data/pancreas_sub_sce.rds")
+res <- RunCellChat(sce, group = "CellType", layer = "logcounts", name = "cellchat_main", return = "both")
 sce <- res$sce
 cci_obj <- res$cellchat
 ```

@@ -21,7 +21,7 @@ Let's look at a minimal runnable example. By simply calling `Status()`, `sclet` 
 ```{r state-status}
 library(sclet)
 # Load a pre-processed PBMC dataset
-pbmc <- qs::qread("data/pbmc-3k-sce.qs")
+pbmc <- readRDS("data/pbmc-3k-sce.rds")
 
 # Check the current status of the object
 Status(pbmc)

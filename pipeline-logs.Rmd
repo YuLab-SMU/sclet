@@ -7,11 +7,11 @@ Ever found yourself lost in parameter hell? You spend a week tweaking PCA dimens
 In the bookdown workflow, the examples below are executed against a packaged PBMC object rather than a user-specific raw directory. This keeps the chapter reproducible while still showing the intended day-to-day workflow.
 
 ```{r pipeline-setup, include=FALSE, eval=TRUE}
-pipeline_ready <- eval_chunks && requireNamespace("qs", quietly = TRUE)
+pipeline_ready <- eval_chunks
 
 if (pipeline_ready) {
     library(sclet)
-    sce_pipeline_input <- qs::qread("data/pbmc-3k-sce.qs")
+    sce_pipeline_input <- readRDS("data/pbmc-3k-sce.rds")
     sce_pipeline_input <- sce_pipeline_input[, seq_len(min(800, ncol(sce_pipeline_input)))]
 }
 ```
