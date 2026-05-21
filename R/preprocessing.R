@@ -3,10 +3,11 @@
 #' @title QCMetrics
 #' @param object a 'SingleCellExperiment' object
 #' @return update object with two QC metrics ('nFeature_RNA' and 'nCount_RNA')
-#' @importFrom scuttle perCellQCMetrics
 #' @export
 QCMetrics <- function(object) {
-    qc_metrics <- scuttle::perCellQCMetrics(object)
+    qc_metrics <- scrapper::computeRnaQcMetrics(
+        SummarizedExperiment::assay(object, "counts")
+    )
     SummarizedExperiment::colData(object)$nFeature_RNA <- qc_metrics$detected
     SummarizedExperiment::colData(object)$nCount_RNA <- qc_metrics$sum
     return(object)
@@ -28,8 +29,15 @@ PercentageFeatureSet <- function(object, pattern = NULL, feature=NULL) {
     }
 
     has_pattern <- grep(pattern, features)
-    qc_metrics <- scuttle::perCellQCMetrics(object, subsets = list(pattern=has_pattern))
-    return(qc_metrics$subsets_pattern_percent)
+    qc_metrics <- scrapper::computeRnaQcMetrics(
+        SummarizedExperiment::assay(object, "counts"),
+        subsets = list(pattern = has_pattern)
+    )
+    percent <- qc_metrics$subset_proportion[[1]]
+    if (max(percent, na.rm = TRUE) <= 1) {
+        percent <- percent * 100
+    }
+    return(percent)
 }
 
 #' normalize data

@@ -123,14 +123,24 @@ jobs:
               )
             }
             script_dir <- dirname(normalizePath(script_file, mustWork = TRUE))
-            generated_file <- file.path(dirname(script_dir), "data", "pbmc-3k-sce.rds")
+            generated_file <- normalizePath(
+              file.path(dirname(script_dir), "data", "pbmc-3k-sce.rds"),
+              winslash = "/",
+              mustWork = FALSE
+            )
             target_dir <- file.path(ws, bookdir, "data")
-            target_file <- file.path(target_dir, "pbmc-3k-sce.rds")
+            target_file <- normalizePath(
+              file.path(target_dir, "pbmc-3k-sce.rds"),
+              winslash = "/",
+              mustWork = FALSE
+            )
             dir.create(target_dir, recursive = TRUE, showWarnings = FALSE)
             setwd(script_dir)
             source(basename(script_file))
             stopifnot(file.exists(generated_file))
-            file.copy(generated_file, target_file, overwrite = TRUE)
+            if (!identical(generated_file, target_file)) {
+              file.copy(generated_file, target_file, overwrite = TRUE)
+            }
             stopifnot(file.exists(target_file))
           '
 
