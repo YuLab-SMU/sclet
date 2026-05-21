@@ -54,7 +54,9 @@ FeatureScatter <- function(object, feature1, feature2) {
 #' @title VariableFeaturePlot
 #' @param object a SingleCellExperiment object
 #' @param label display selected features
-#' @param method one of 'seurat' or 'scran'. If NULL, use stored method or infer from rowData.
+#' @param method one of `'scran'` or legacy `'seurat'`. If `NULL`, sclet
+#'   prefers Bioconductor-native HVG metadata and does not silently fall back
+#'   to legacy Seurat-style statistics.
 #' @return scatter plot
 #' @export
 #' @importFrom ggrepel geom_text_repel
@@ -66,9 +68,13 @@ VariableFeaturePlot <- function(object, label = NULL, method = NULL) {
     gene <- if ("Symbol" %in% names(d)) d$Symbol else rownames(object)
     d$gene <- gene
 
-    if (is.null(method)) method <- sclet_get_hvg_method(object)
+    if (is.null(method)) method <- sclet_resolve_hvg_method(object)
     if (is.null(method)) {
-        method <- if ("variance.standardized" %in% names(d)) "seurat" else "scran"
+        stop(
+            "No Bioconductor-native HVG statistics found. Run `FindVariableFeatures()` ",
+            "with `method = \"scran\"` or `method = \"scrapper\"`, or set ",
+            "`method = \"seurat\"` explicitly for legacy objects."
+        )
     }
     method <- match.arg(method, c("seurat", "scran"))
 

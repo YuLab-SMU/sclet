@@ -45,3 +45,24 @@ test_that("FindVariableFeatures legacy seurat method redirects to scran", {
   )
   expect_equal(sclet::get_hvg(sce, "method"), "scran")
 })
+
+test_that("legacy seurat HVG metadata no longer becomes the default path", {
+  library(SingleCellExperiment)
+  skip_if_not_installed("scuttle")
+
+  sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+  rowData(sce)$mean <- seq_len(nrow(sce))
+  rowData(sce)$variance.standardized <- rev(seq_len(nrow(sce)))
+  sce <- sclet:::sclet_set_hvg_state(
+    sce,
+    nfeatures = 10,
+    method = "seurat",
+    hvgcols = c("mean", "variance.standardized")
+  )
+
+  expect_error(
+    VariableFeatures(sce),
+    "No Bioconductor-native HVG statistics found"
+  )
+  expect_length(VariableFeatures(sce, method = "seurat"), 10)
+})

@@ -7,7 +7,9 @@
 #' @param layer layer used to build the metacell representation. If `NULL`,
 #' sclet resolves it from `DefaultLayer(object)`.
 #' @param nHVG number of HVGs to use
-#' @param hvg_method one of 'seurat' or 'scran', see also `FindVariableFeatures()`
+#' @param hvg_method one of `'scran'`, `'scrapper'`, or legacy `'seurat'`;
+#'   defaults to the Bioconductor-native `'scran'` workflow. See also
+#'   `FindVariableFeatures()`.
 #' @param cellname IDs to label the cells, use 'Barcode' by default
 #' @param gamma graining level, that is number_of_cells / number_of_metacells
 #' @param k.knn number of nearest neighbors to build KNN graph

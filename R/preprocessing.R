@@ -176,16 +176,24 @@ FindVariableFeatures <- function(object, nfeatures = 2000, method = "scran", ...
 #' @title VariableFeatures
 #' @param object a SingleCellExperiment object
 #' @param method one of 'scran' or 'scrapper'. The legacy value `'seurat'`
-#'   remains readable for older objects and maps to Seurat-style HVG ranking
-#'   when the required columns already exist in `rowData(object)`.
+#'   remains available when requested explicitly for older objects, but default
+#'   resolution prefers Bioconductor-native HVG metadata.
 #' @param ... additional parameters for ranking the `method = "scran"` HVG table
 #' @return highly variable features
 #' @export
 VariableFeatures <- function(object, method = "scran", ...) {
     if (missing(method)) {
-        method <- sclet_get_hvg_method(object)
+        method <- sclet_resolve_hvg_method(object)
+    } else {
+        method <- sclet_resolve_hvg_method(object, method = method, allow_legacy = TRUE)
     }
-    method <- match.arg(method, c("seurat", "scran", "scrapper"))
+    if (is.null(method)) {
+        stop(
+            "No Bioconductor-native HVG statistics found. Re-run `FindVariableFeatures()` ",
+            "with `method = \"scran\"` or `method = \"scrapper\"`, or request ",
+            "`method = \"seurat\"` explicitly for legacy objects."
+        )
+    }
 
     nfeatures <- sclet_get_hvg_nfeatures(object)
     if (is.null(nfeatures)) {

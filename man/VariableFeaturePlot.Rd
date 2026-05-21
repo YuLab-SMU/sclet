@@ -11,7 +11,9 @@ VariableFeaturePlot(object, label = NULL, method = NULL)
 
 \item{label}{display selected features}
 
-\item{method}{one of 'seurat' or 'scran'. If NULL, use stored method or infer from rowData.}
+\item{method}{one of \code{'scran'} or legacy \code{'seurat'}. If \code{NULL}, sclet
+prefers Bioconductor-native HVG metadata and does not silently fall back
+to legacy Seurat-style statistics.}
 }
 \value{
 scatter plot

@@ -151,31 +151,27 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
   hvginfo <- rowData(sce)
   
   # Extract HVGs
-  method <- get_hvg_method(sce)
+  method <- sclet_resolve_hvg_method(sce)
   
   if (is.null(HVG)) {    
-    # Fix: Check if method is NULL first to avoid comparison error
-    if (is.null(method)) {
-      HVG <- getTopHVGs_seurat(hvginfo, nHVG)
-    } else if (method == "scran") {
+    if (is.null(method) || method == "scran") {
       var_field <- "bio"
       if (!"bio" %in% colnames(hvginfo)) {
-          if ("variance.standardized" %in% colnames(hvginfo)) {
-              HVG <- getTopHVGs_seurat(hvginfo, nHVG)
-              # avoid calling scran::getTopHVGs below
-              var_field <- NULL 
-          } else if ("total" %in% colnames(hvginfo)) {
+          if ("total" %in% colnames(hvginfo)) {
               var_field <- "total"
+          } else {
+              stop(
+                  "No Bioconductor-native HVG statistics found for automatic batch correction. ",
+                  "Run `FindVariableFeatures()` with `method = \"scran\"` or ",
+                  "`method = \"scrapper\"`, or supply `HVG` manually."
+              )
           }
       }
       
-      if (!is.null(var_field)) {
-          HVG <- choose_hvgs_by_variance(hvginfo, n = nHVG, var.field = var_field)
-      }
+      HVG <- choose_hvgs_by_variance(hvginfo, n = nHVG, var.field = var_field)
     } else if (method == "scrapper") {
       HVG <- getTopHVGs_scrapper(hvginfo, nHVG)
     } else {
-      # seurat
       HVG <- getTopHVGs_seurat(hvginfo, nHVG)
     }
   }

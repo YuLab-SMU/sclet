@@ -462,12 +462,34 @@ sclet_get_hvg_method <- function(object) {
         return(md$hvgmethod)
     }
     rd_names <- colnames(SummarizedExperiment::rowData(object))
-    if ("variance.standardized" %in% rd_names) {
-        return("seurat")
-    }
     if (any(c("bio", "total") %in% rd_names)) {
         return("scran")
     }
+    if ("variance.standardized" %in% rd_names) {
+        return("seurat")
+    }
+    NULL
+}
+
+sclet_resolve_hvg_method <- function(object, method = NULL, allow_legacy = FALSE) {
+    if (!is.null(method)) {
+        return(match.arg(method, c("seurat", "scran", "scrapper")))
+    }
+
+    inferred <- sclet_get_hvg_method(object)
+    if (!is.null(inferred) && !identical(inferred, "seurat")) {
+        return(inferred)
+    }
+
+    rd_names <- colnames(SummarizedExperiment::rowData(object))
+    if (any(c("bio", "total") %in% rd_names)) {
+        return("scran")
+    }
+
+    if (isTRUE(allow_legacy) && ("variance.standardized" %in% rd_names || identical(inferred, "seurat"))) {
+        return("seurat")
+    }
+
     NULL
 }
 

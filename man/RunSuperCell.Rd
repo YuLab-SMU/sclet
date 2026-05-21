@@ -27,7 +27,9 @@ sclet resolves it from \code{DefaultLayer(object)}.}
 
 \item{nHVG}{number of HVGs to use}
 
-\item{hvg_method}{one of 'seurat' or 'scran', see also \code{FindVariableFeatures()}}
+\item{hvg_method}{one of \code{'scran'}, \code{'scrapper'}, or legacy \code{'seurat'};
+defaults to the Bioconductor-native \code{'scran'} workflow. See also
+\code{FindVariableFeatures()}.}
 
 \item{cellname}{IDs to label the cells, use 'Barcode' by default}
 

@@ -10,8 +10,8 @@ VariableFeatures(object, method = "scran", ...)
 \item{object}{a SingleCellExperiment object}
 
 \item{method}{one of 'scran' or 'scrapper'. The legacy value \code{'seurat'}
-remains readable for older objects and maps to Seurat-style HVG ranking
-when the required columns already exist in \code{rowData(object)}.}
+remains available when requested explicitly for older objects, but default
+resolution prefers Bioconductor-native HVG metadata.}
 
 \item{...}{additional parameters for ranking the \code{method = "scran"} HVG table}
 }
