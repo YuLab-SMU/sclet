@@ -30,14 +30,14 @@ PercentageFeatureSet <- function(object, pattern = NULL, feature=NULL) {
     }
 
     has_pattern <- grep(pattern, features)
-    qc_metrics <- scrapper::computeRnaQcMetrics(
-        SummarizedExperiment::assay(object, "counts"),
-        subsets = list(pattern = has_pattern)
-    )
-    percent <- qc_metrics$subset_proportion[[1]]
-    if (max(percent, na.rm = TRUE) <= 1) {
-        percent <- percent * 100
+    counts_mat <- SummarizedExperiment::assay(object, "counts")
+    total_counts <- MatrixGenerics::colSums(counts_mat)
+    if (length(has_pattern) == 0) {
+        return(rep(0, ncol(object)))
     }
+    subset_counts <- MatrixGenerics::colSums(counts_mat[has_pattern, , drop = FALSE])
+    percent <- (subset_counts / total_counts) * 100
+    percent[is.na(percent)] <- 0
     return(percent)
 }
 
