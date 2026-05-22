@@ -26,7 +26,7 @@ DEtestPlot(sce)
 
 When you get a list of marker genes, you're often left staring at cryptic acronyms like `ZBTB16` or `KLRB1`. What do they actually do? 
 
-`sclet` provides a handy utility called `gene_summary_table()` that automatically fetches the full name and biological summary of the genes from the `orgDb` databases.
+`sclet` provides a handy utility called `gene_summary_table()` that automatically fetches the full name and biological summary of the genes from the selected `orgDb` annotation package.
 
 ```{r gene_summary, eval=requireNamespace("org.Hs.eg.db", quietly = TRUE)}
 # Get the raw DE results from the state
@@ -36,7 +36,11 @@ de_results <- get_detest(sce)$results
 top_genes <- head(de_results$gene, 5)
 
 # Fetch their biological summaries!
-summary_df <- gene_summary_table(top_genes, orgDb = "org.Hs.eg.db")
+summary_df <- gene_summary_table(
+    top_genes,
+    orgDb = "org.Hs.eg.db",
+    output = "data.frame"
+)
 print(summary_df)
 ```
 
