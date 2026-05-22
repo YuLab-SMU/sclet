@@ -65,9 +65,38 @@ gene_summary_table <- function(gene, gene_col = "gene", orgDb = "org.Hs.eg.db", 
         eid <- gene_col
     }
     
-    gs <- fanyi::gene_summary(gid)  
+    gs <- fanyi::gene_summary(gid)
+    gs <- as.data.frame(gs, stringsAsFactors = FALSE)
 
-    g2 <- merge(gene, gs, by.x=eid, by.y='uid', all.x=TRUE)
+    if (nrow(gs) == 0) {
+        gs <- data.frame(
+            uid = character(),
+            name = character(),
+            description = character(),
+            summary = character(),
+            stringsAsFactors = FALSE
+        )
+    }
+
+    if (!"uid" %in% colnames(gs)) {
+        candidate_id_cols <- intersect(
+            c("ENTREZID", "entrezid", "entrez", "gene_id", "geneid", "id"),
+            colnames(gs)
+        )
+
+        if (length(candidate_id_cols) > 0) {
+            colnames(gs)[match(candidate_id_cols[1], colnames(gs))] <- "uid"
+        } else if (nrow(gs) == length(gid)) {
+            gs$uid <- as.character(gid)
+        } else if (!is.null(rownames(gs)) && all(nzchar(rownames(gs)))) {
+            gs$uid <- rownames(gs)
+        } else {
+            stop("Unable to identify gene ID column in `fanyi::gene_summary()` result.")
+        }
+    }
+
+    gs$uid <- as.character(gs$uid)
+    g2 <- merge(gene, gs, by.x = eid, by.y = "uid", all.x = TRUE)
 
     if (output == "data.frame") {
         return(g2)
