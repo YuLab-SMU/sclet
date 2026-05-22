@@ -4,6 +4,7 @@
 #' open the result in various formats.
 #' @param gene a data frame of genes (e.g., marker genes, DE genes)
 #' @param gene_col column of the 'gene' that contains gene IDs
+#' @param orgDb OrgDb package name used for ID conversion when `keyType` is not `ENTREZID`
 #' @param keyType ID type of the gene IDs
 #' @param cluster_col column to cluster genes (optional)
 #' @param output one of 'html', 'pdf', 'png', 'md', 'csv' or 'data.frame'
@@ -30,23 +31,31 @@
 #' gene_summary_table(topn, gene_col = 'gene', cluster_col = 'cluster', keyType='SYMBOL')
 #' }
 #' @export
-gene_summary_table <- function(gene, gene_col = "gene", keyType = "SYMBOL", cluster_col, output = "html", browse = TRUE) {
+gene_summary_table <- function(gene, gene_col = "gene", orgDb = "org.Hs.eg.db", keyType = "SYMBOL", cluster_col, output = "html", browse = TRUE) {
     
     message(yulab.utils:::pkg_ref("fanyi"))
 
     output <- match.arg(output, c("html", "csv", "pdf", "png", "md", "data.frame"))
 
+    if (!is.data.frame(gene)) {
+        gene <- data.frame(gene = as.character(gene), stringsAsFactors = FALSE)
+    }
+
+    if (!gene_col %in% colnames(gene)) {
+        stop("Column '", gene_col, "' not found in input gene table.")
+    }
+
     gene[[gene_col]] <- sub("\\.\\d", "", gene[[gene_col]])
 
     if (keyType != "ENTREZID") {
-        if (!requireNamespace("org.Hs.eg.db", quietly = TRUE)) {
-             stop("Package 'org.Hs.eg.db' is needed for this function to work. Please install it.")
+        if (!requireNamespace(orgDb, quietly = TRUE)) {
+             stop("Package '", orgDb, "' is needed for this function to work. Please install it.")
         }
         g <- clusterProfiler::bitr(
             gene[[gene_col]], 
             fromType = keyType, 
             toType = 'ENTREZID', 
-            OrgDb = 'org.Hs.eg.db'
+            OrgDb = orgDb
         )
         gid <- g$ENTREZID
         gene <- merge(gene, g, by.x = gene_col, by.y=keyType, all.x=TRUE)

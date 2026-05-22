@@ -9,6 +9,7 @@ open the result in various formats.}
 gene_summary_table(
   gene,
   gene_col = "gene",
+  orgDb = "org.Hs.eg.db",
   keyType = "SYMBOL",
   cluster_col,
   output = "html",
@@ -19,6 +20,8 @@ gene_summary_table(
 \item{gene}{a data frame of genes (e.g., marker genes, DE genes)}
 
 \item{gene_col}{column of the 'gene' that contains gene IDs}
+
+\item{orgDb}{OrgDb package name used for ID conversion when \code{keyType} is not \code{ENTREZID}}
 
 \item{keyType}{ID type of the gene IDs}
 
