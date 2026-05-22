@@ -86,7 +86,7 @@ DefaultReduction(rm_harmony_pbmc)
 
 ```
 
-```{r run-scvi, eval=eval_chunks && tolower(Sys.getenv("SCLET_BOOKDOWN_EVAL_PYTHON", "false")) %in% c("true", "1", "yes") && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
+```{r run-scvi, eval=eval_chunks && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
 # Integration using scVI (Requires Python basilisk environment)
 rm_scvi_pbmc <- RunIntegration(combined_pbmc, method = "scVI", batch = "batch")
 DefaultReduction(rm_scvi_pbmc) # Returns "scVI"
