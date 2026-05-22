@@ -82,14 +82,14 @@ if (!"PCA" %in% SingleCellExperiment::reducedDimNames(combined_pbmc)) {
 rm_harmony_pbmc <- RunIntegration(combined_pbmc, method = "Harmony", batch = "batch")
 
 # Harmony creates a reduction named "HARMONY" and sets it as the active reduction
-sclet_get_active_reduction(rm_harmony_pbmc)
+DefaultReduction(rm_harmony_pbmc)
 
 ```
 
 ```{r run-scvi, eval=eval_chunks && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
 # Integration using scVI (Requires Python basilisk environment)
 rm_scvi_pbmc <- RunIntegration(combined_pbmc, method = "scVI", batch = "batch")
-sclet_get_active_reduction(rm_scvi_pbmc) # Returns "scVI"
+DefaultReduction(rm_scvi_pbmc) # Returns "scVI"
 ```
 
 ## Clustering
