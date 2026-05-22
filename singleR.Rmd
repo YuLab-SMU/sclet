@@ -70,12 +70,20 @@ get_mapping(pbmc2)
 
 hpca <- celldex::HumanPrimaryCellAtlasData()
 hpca
-res <- SingleR(test = assay(pbmc, "logcounts"), ref = hpca, labels = hpca$label.main)
+res <- SingleR::SingleR(
+    test = SummarizedExperiment::assay(pbmc, "logcounts"),
+    ref = hpca,
+    labels = hpca$label.main
+)
 head(res)
 
 
 dice <- celldex::DatabaseImmuneCellExpressionData()
-res2 <- SingleR(test = assay(pbmc, "logcounts"), ref = dice, labels = dice$label.main)
+res2 <- SingleR::SingleR(
+    test = SummarizedExperiment::assay(pbmc, "logcounts"),
+    ref = dice,
+    labels = dice$label.main
+)
 head(res2)
 ```
 
