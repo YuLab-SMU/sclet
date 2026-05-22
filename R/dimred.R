@@ -30,7 +30,21 @@ ElbowPlot <- function(object) {
 #' @return current default reduction or updated object
 #' @export
 DefaultReduction <- function(object) {
-    sclet_get_active_reduction(object)
+    state <- S4Vectors::metadata(object)$sclet
+    reduction <- state$active$reduction
+    if (!is.null(reduction)) {
+        return(reduction)
+    }
+    rd_names <- SingleCellExperiment::reducedDimNames(object)
+    for (candidate in c("UMAP", "PCA", "tSNE")) {
+        if (candidate %in% rd_names) {
+            return(candidate)
+        }
+    }
+    if (length(rd_names) > 0) {
+        return(rd_names[[1]])
+    }
+    NULL
 }
 
 #' @rdname DefaultReduction
@@ -50,7 +64,21 @@ DefaultReduction <- function(object) {
 #' @return current default assay or updated object
 #' @export
 DefaultAssay <- function(object) {
-    sclet_get_active_assay(object)
+    state <- S4Vectors::metadata(object)$sclet
+    assay <- state$active$assay
+    if (!is.null(assay)) {
+        return(assay)
+    }
+    assay_names <- SummarizedExperiment::assayNames(object)
+    for (candidate in c("scaled", "logcounts", "reconstructed", "counts")) {
+        if (candidate %in% assay_names) {
+            return(candidate)
+        }
+    }
+    if (length(assay_names) > 0) {
+        return(assay_names[[1]])
+    }
+    NULL
 }
 
 #' @rdname DefaultAssay
@@ -70,7 +98,18 @@ DefaultAssay <- function(object) {
 #' @return current default graph or updated object
 #' @export
 DefaultGraph <- function(object) {
-    sclet_get_active_graph(object)
+    state <- S4Vectors::metadata(object)$sclet
+    graph <- state$active$graph
+    if (!is.null(graph)) {
+        return(graph)
+    }
+    if (!is.null(sclet_get_legacy_graph_entry(object, "knn_graph")$object)) {
+        return("knn_graph")
+    }
+    if (length(state$graphs) > 0) {
+        return(names(state$graphs)[[1]])
+    }
+    NULL
 }
 
 #' @rdname DefaultGraph
@@ -93,7 +132,15 @@ DefaultGraph <- function(object) {
 #' @return current active identity source or updated object
 #' @export
 ActiveIdent <- function(object) {
-    sclet_get_active_ident(object)
+    state <- S4Vectors::metadata(object)$sclet
+    ident <- state$active$ident
+    if (!is.null(ident)) {
+        return(ident)
+    }
+    if (!is.null(SingleCellExperiment::colLabels(object))) {
+        return("colLabels")
+    }
+    NULL
 }
 
 #' @rdname ActiveIdent
