@@ -47,7 +47,7 @@ RunSpatialDeconvolution <- function(sce_spatial, sce_ref, ref_group_key, ref_bat
     
     message("Running Cell2location via basilisk (this is computationally intensive)...")
     
-    c2l_res <- basilisk::basiliskRun(env = sclet_env, fun = function(sp, ref, grp, btc, max_ep, ...) {
+    c2l_res <- basilisk::basiliskRun(env = sclet_cell2location_env, fun = function(sp, ref, grp, btc, max_ep, ...) {
         c2l <- reticulate::import("cell2location")
         ad <- reticulate::import("anndata")
         pd <- reticulate::import("pandas")

@@ -49,7 +49,7 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
     
     message("Running CellRank via basilisk...")
     
-    cr_res <- basilisk::basiliskRun(env = sclet_env, fun = function(v, s, u, emb, cl, ...) {
+    cr_res <- basilisk::basiliskRun(env = sclet_cellrank_env, fun = function(v, s, u, emb, cl, ...) {
         ad <- reticulate::import("anndata")
         cr <- reticulate::import("cellrank")
         pd <- reticulate::import("pandas")

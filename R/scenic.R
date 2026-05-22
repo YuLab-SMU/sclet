@@ -44,7 +44,7 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
     
     message("Running pySCENIC via basilisk (this may take a while)...")
     
-    auc_matrix <- basilisk::basiliskRun(env = sclet_env, fun = function(expr, genes, cells, tfs_f, motif_f, dbs, n_workers, s) {
+    auc_matrix <- basilisk::basiliskRun(env = sclet_scenic_env, fun = function(expr, genes, cells, tfs_f, motif_f, dbs, n_workers, s) {
         # Import Python modules
         pd <- reticulate::import("pandas")
         grnboost2 <- reticulate::import("arboreto.algo")$grnboost2

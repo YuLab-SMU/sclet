@@ -152,7 +152,7 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
         
         message("Running scVI via basilisk...")
         
-        latent <- basilisk::basiliskRun(env = sclet_env, fun = function(counts, batches, ...) {
+        latent <- basilisk::basiliskRun(env = sclet_scvi_env, fun = function(counts, batches, ...) {
             scvi <- reticulate::import("scvi")
             ad <- reticulate::import("anndata")
             pd <- reticulate::import("pandas")

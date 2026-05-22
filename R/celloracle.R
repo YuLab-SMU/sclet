@@ -42,7 +42,7 @@ RunInSilicoPerturbation <- function(sce, target_gene, perturbation_value = 0.0, 
     
     message("Running CellOracle via basilisk...")
     
-    co_res <- basilisk::basiliskRun(env = sclet_env, fun = function(counts, cl, emb, tgt, pval, grn_f, ...) {
+    co_res <- basilisk::basiliskRun(env = sclet_celloracle_env, fun = function(counts, cl, emb, tgt, pval, grn_f, ...) {
         ad <- reticulate::import("anndata")
         pd <- reticulate::import("pandas")
         co <- reticulate::import("celloracle")
