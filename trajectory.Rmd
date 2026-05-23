@@ -130,6 +130,9 @@ sce <- sce[, 1:500]
 
 ```{r velocity-hvgs}
 library(sclet)
+if (!"counts" %in% SummarizedExperiment::assayNames(sce)) {
+    SummarizedExperiment::assay(sce, "counts") <- SummarizedExperiment::assay(sce, "spliced")
+}
 sce <- NormalizeData(sce)
 sce <- FindVariableFeatures(sce, method="scran")
 hvgs <- VariableFeatures(sce, method="scran")
