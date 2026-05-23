@@ -52,7 +52,12 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             reduction <- "PCA"
         }
         if (!reduction %in% SingleCellExperiment::reducedDimNames(object)) {
-            stop(paste("Reduction", reduction, "not found. Please run PCA first."))
+            object <- RunPCA(
+                object,
+                subset_row = features,
+                layer = layer
+            )
+            reduction <- "PCA"
         }
         
         reduction_state <- sclet_get_state_record(object, "reduction", tolower(reduction))
