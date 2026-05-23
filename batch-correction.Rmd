@@ -69,15 +69,6 @@ Alternatively, you can use `Harmony` or `scVI` (Deep Learning via `basilisk`), w
 The Harmony example is executed during book rendering, which means it also serves as a regression test in CI. The `scVI` call is also executed when the Python-backed `basilisk` environment is available, giving the book a minimal end-to-end test of the deep generative integration path.
 
 ```{r run-harmony-scvi}
-# Reduction-based integration methods expect an existing latent space.
-if (!"PCA" %in% SingleCellExperiment::reducedDimNames(combined_pbmc)) {
-  combined_pbmc <- RunPCA(
-    combined_pbmc,
-    subset_row = VariableFeatures(combined_pbmc),
-    layer = "logcounts"
-  )
-}
-
 # Integration using Harmony
 rm_harmony_pbmc <- RunIntegration(combined_pbmc, method = "Harmony", batch = "batch")
 
