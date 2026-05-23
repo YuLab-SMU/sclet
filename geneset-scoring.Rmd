@@ -26,7 +26,7 @@ You can decisively choose the backend that best fits your needs. `UCell` is rank
 
 ```{r geneset-scoring-run}
 # Use UCell backend
-pbmc <- RunGeneSetScoring(pbmc, features = my_signatures, method = "UCell", name = "UCell_Score")
+pbmc <- RunGeneSetScoring(pbmc, gene_sets = my_signatures, method = "UCell", name = "UCell_Score")
 ```
 
 ## Reading and Visualizing Results
