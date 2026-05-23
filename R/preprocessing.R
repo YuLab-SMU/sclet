@@ -53,16 +53,16 @@ PercentageFeatureSet <- function(object, pattern = NULL, feature=NULL) {
 #' @importFrom methods as
 #' @export
 NormalizeData <- function(object, scale.factor = 10000) {
-    # No longer force conversion to dgCMatrix. scuttle::logNormCounts handles DelayedMatrix efficiently.
-    # if (is(assay(object, "counts"), "DelayedMatrix")) {
-    #    assay(object, "counts") <- as(assay(object, "counts"), "dgCMatrix")
-    # }
-    
     libsize <- MatrixGenerics::colSums(SummarizedExperiment::assay(object, "counts"))
     size_factors <- libsize / scale.factor
     prev_state <- sclet_get_state(object)
     counts_mat <- SummarizedExperiment::assay(object, "counts")
-    logcounts <- t(t(counts_mat) / size_factors)
+    logcounts <- DelayedArray::sweep(
+        DelayedArray::DelayedArray(counts_mat),
+        MARGIN = 2L,
+        STATS = size_factors,
+        FUN = "/"
+    )
     logcounts <- log1p(logcounts)
     SummarizedExperiment::assay(object, "logcounts") <- logcounts
     object <- sclet_restore_state(object, prev_state)

@@ -26,6 +26,7 @@ Imports:
     aplot,
     basilisk,
     bluster,
+    DelayedArray,
     dplyr,
     DropletUtils,
     fanyi,
