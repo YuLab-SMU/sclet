@@ -6,7 +6,8 @@
 \usage{
 RunGeneSetScoring(
   sce,
-  gene_sets,
+  gene_sets = NULL,
+  features = NULL,
   method = c("UCell", "AUCell", "GSVA"),
   assay_use = "counts",
   ncores = 1,
@@ -18,6 +19,8 @@ RunGeneSetScoring(
 \item{sce}{A SingleCellExperiment object.}
 
 \item{gene_sets}{A named list of character vectors containing gene symbols.}
+
+\item{features}{Deprecated alias of \code{gene_sets}, kept for backward compatibility.}
 
 \item{method}{Character. The scoring method to use. Options are "AUCell", "UCell", or "GSVA". Defaults to "UCell".}
 

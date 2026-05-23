@@ -6,6 +6,7 @@
 #'
 #' @param sce A SingleCellExperiment object.
 #' @param gene_sets A named list of character vectors containing gene symbols.
+#' @param features Deprecated alias of `gene_sets`, kept for backward compatibility.
 #' @param method Character. The scoring method to use. Options are "AUCell", "UCell", or "GSVA". Defaults to "UCell".
 #' @param assay_use Character. The assay to use for scoring. Defaults to "counts" (often preferred for AUCell/UCell) or "logcounts".
 #' @param ncores Integer. Number of cores for parallel processing. Defaults to 1.
@@ -17,10 +18,24 @@
 #' @importFrom S4Vectors metadata metadata<-
 #' @importFrom SummarizedExperiment assay colData colData<-
 #' @export
-RunGeneSetScoring <- function(sce, gene_sets, method = c("UCell", "AUCell", "GSVA"), 
+RunGeneSetScoring <- function(sce, gene_sets = NULL, features = NULL,
+                              method = c("UCell", "AUCell", "GSVA"), 
                               assay_use = "counts", ncores = 1, name = "Score", ...) {
     
     method <- match.arg(method)
+
+    if (is.null(gene_sets) && !is.null(features)) {
+        gene_sets <- features
+        warning("`features` is deprecated; please use `gene_sets` instead.", call. = FALSE)
+    }
+
+    if (!is.null(gene_sets) && !is.null(features)) {
+        stop("Please supply only one of `gene_sets` or `features`.")
+    }
+
+    if (is.null(gene_sets)) {
+        stop("`gene_sets` must be provided as a named list of character vectors.")
+    }
     
     if (!is.list(gene_sets) || is.null(names(gene_sets))) {
         stop("gene_sets must be a named list of character vectors.")
