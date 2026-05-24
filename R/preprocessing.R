@@ -57,7 +57,7 @@ NormalizeData <- function(object, scale.factor = 10000) {
     size_factors <- libsize / scale.factor
     prev_state <- sclet_get_state(object)
     counts_mat <- SummarizedExperiment::assay(object, "counts")
-    if (is.matrix(counts_mat) || methods::is(counts_mat, "Matrix")) {
+    if (inherits(counts_mat, "matrix") || methods::is(counts_mat, "Matrix")) {
         logcounts <- t(t(counts_mat) / size_factors)
     } else {
         logcounts <- DelayedArray::sweep(
