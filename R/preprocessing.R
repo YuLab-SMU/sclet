@@ -57,8 +57,10 @@ NormalizeData <- function(object, scale.factor = 10000) {
     size_factors <- libsize / scale.factor
     prev_state <- sclet_get_state(object)
     counts_mat <- SummarizedExperiment::assay(object, "counts")
-    if (inherits(counts_mat, "matrix") || methods::is(counts_mat, "Matrix")) {
+    if (is.matrix(counts_mat) && !isS4(counts_mat)) {
         logcounts <- t(t(counts_mat) / size_factors)
+    } else if (methods::is(counts_mat, "Matrix")) {
+        logcounts <- counts_mat %*% Matrix::Diagonal(x = 1 / size_factors)
     } else {
         logcounts <- DelayedArray::sweep(
             DelayedArray::DelayedArray(counts_mat),
