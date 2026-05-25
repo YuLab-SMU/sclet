@@ -45,6 +45,7 @@ PercentageFeatureSet <- function(object, pattern = NULL, feature=NULL) {
 #' 
 #' @title NormalizeData
 #' @param object a SingleCellExperiment object
+#' @param assay assay used as the normalization input. Defaults to `"counts"`.
 #' @param scale.factor scale factor
 #' @return a SingleCellExperiment object with 'logcounts' assay created/updated.
 #' @importFrom SummarizedExperiment 'assay<-'
@@ -52,11 +53,17 @@ PercentageFeatureSet <- function(object, pattern = NULL, feature=NULL) {
 #' @importFrom SummarizedExperiment assay
 #' @importFrom methods as
 #' @export
-NormalizeData <- function(object, scale.factor = 10000) {
-    libsize <- MatrixGenerics::colSums(SummarizedExperiment::assay(object, "counts"))
+NormalizeData <- function(object, scale.factor = 10000, assay = "counts") {
+    if (!assay %in% SummarizedExperiment::assayNames(object)) {
+        stop(
+            "Assay '", assay, "' not found in assays(object). ",
+            "Supply an existing assay via `assay =`, e.g. `NormalizeData(object, assay = \"spliced\")`."
+        )
+    }
+    libsize <- MatrixGenerics::colSums(SummarizedExperiment::assay(object, assay))
     size_factors <- libsize / scale.factor
     prev_state <- sclet_get_state(object)
-    counts_mat <- SummarizedExperiment::assay(object, "counts")
+    counts_mat <- SummarizedExperiment::assay(object, assay)
     if (is.matrix(counts_mat) && !isS4(counts_mat)) {
         logcounts <- t(t(counts_mat) / size_factors)
     } else if (methods::is(counts_mat, "Matrix")) {
@@ -73,7 +80,7 @@ NormalizeData <- function(object, scale.factor = 10000) {
     dimnames(logcounts) <- dimnames(object)
     SummarizedExperiment::assay(object, "logcounts") <- logcounts
     object <- sclet_restore_state(object, prev_state)
-    object <- sclet_set_layer(object, name = "counts", assay = "counts", role = "counts", active = FALSE)
+    object <- sclet_set_layer(object, name = assay, assay = assay, role = assay, active = FALSE)
     object <- sclet_set_layer(
         object,
         name = "logcounts",
@@ -88,7 +95,7 @@ NormalizeData <- function(object, scale.factor = 10000) {
         id = "normalize_logcounts",
         method = "scuttle::calculateCPM + log1p",
         inputs = list(
-            assay = "counts"
+            assay = assay
         ),
         artifacts = list(
             assay = "logcounts"
@@ -104,7 +111,7 @@ NormalizeData <- function(object, scale.factor = 10000) {
     object <- sclet_log_command(
         object,
         "NormalizeData",
-        params = list(scale.factor = scale.factor)
+        params = list(scale.factor = scale.factor, assay = assay)
     )
     
     return(object)

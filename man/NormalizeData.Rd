@@ -4,12 +4,14 @@
 \alias{NormalizeData}
 \title{NormalizeData}
 \usage{
-NormalizeData(object, scale.factor = 10000)
+NormalizeData(object, scale.factor = 10000, assay = "counts")
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
 \item{scale.factor}{scale factor}
+
+\item{assay}{assay used as the normalization input. Defaults to \code{"counts"}.}
 }
 \value{
 a SingleCellExperiment object with 'logcounts' assay created/updated.

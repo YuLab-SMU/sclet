@@ -14,6 +14,24 @@ test_that("FindVariableFeatures stores HVG state under metadata sclet", {
     expect_true(all(c("mean", "total", "tech", "bio", "p.value", "FDR") %in% state$features$hvg$rowData_cols))
 })
 
+test_that("NormalizeData supports explicit non-count assays", {
+    skip_if_not_installed("scuttle")
+
+    set.seed(11)
+    sce <- scuttle::mockSCE(ncells = 20, ngenes = 60)
+    spliced <- SummarizedExperiment::assay(sce, "counts")
+    SummarizedExperiment::assays(sce) <- S4Vectors::SimpleList(spliced = spliced)
+
+    sce <- NormalizeData(sce, assay = "spliced")
+
+    expect_true("logcounts" %in% SummarizedExperiment::assayNames(sce))
+    expect_equal(DefaultAssay(sce), "logcounts")
+
+    state <- S4Vectors::metadata(sce)$sclet
+    expect_equal(state$layers$spliced$assay, "spliced")
+    expect_equal(state$commands[[length(state$commands)]]$params$assay, "spliced")
+})
+
 test_that("FindNeighbors stores graph under metadata sclet and FindClusters can reuse it", {
     skip_if_not_installed("scuttle")
     skip_if_not_installed("scater")
