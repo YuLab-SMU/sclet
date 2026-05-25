@@ -4,14 +4,15 @@
 \alias{VelocityPlot}
 \title{Plot RNA Velocity}
 \usage{
-VelocityPlot(sce, reduction = "UMAP", group.by = ActiveIdent(sce), ...)
+VelocityPlot(sce, reduction = "UMAP", group.by = NULL, ...)
 }
 \arguments{
 \item{sce}{A SingleCellExperiment object with velocity calculated.}
 
 \item{reduction}{String specifying the reduction to plot on. Defaults to "UMAP".}
 
-\item{group.by}{String specifying the colData column for cell grouping.}
+\item{group.by}{String specifying the colData column for cell grouping. If NULL,
+uses \code{ActiveIdent(sce)}, including the special \code{"colLabels"} identity source.}
 
 \item{...}{Additional arguments passed to plotting function.}
 }
