@@ -7,13 +7,16 @@
 #' @param sce A SingleCellExperiment object.
 #' @param mode String specifying the mode for velocity estimation. Can be "deterministic", "stochastic", or "dynamical".
 #' @param use.dimred String specifying the dimensionality reduction to use. If NULL, defaults to `DefaultReduction(sce)`.
+#' @param subset.row Optional row subset passed to `velociraptor::scvelo()`.
+#' @param subset_row Legacy alias of `subset.row`, kept for compatibility.
 #' @param ... Additional arguments passed to `velociraptor::scvelo`.
 #' 
 #' @return A SingleCellExperiment object with velocity state updated.
 #' @importFrom S4Vectors metadata metadata<-
 #' @importFrom SummarizedExperiment colData colData<-
 #' @export
-RunVelocity <- function(sce, mode = c("deterministic", "stochastic", "dynamical"), use.dimred = NULL, ...) {
+RunVelocity <- function(sce, mode = c("deterministic", "stochastic", "dynamical"), use.dimred = NULL,
+                        subset.row = NULL, subset_row = NULL, ...) {
     if (!requireNamespace("velociraptor", quietly = TRUE)) {
         stop("Please install 'velociraptor' to run RNA Velocity.")
     }
@@ -31,11 +34,24 @@ RunVelocity <- function(sce, mode = c("deterministic", "stochastic", "dynamical"
     if (!all(c("spliced", "unspliced") %in% assayNames(sce))) {
         stop("Assays 'spliced' and 'unspliced' are required for RNA velocity.")
     }
+
+    if (!is.null(subset.row) && !is.null(subset_row)) {
+        stop("Please supply only one of 'subset.row' or 'subset_row'.")
+    }
+    if (is.null(subset.row) && !is.null(subset_row)) {
+        subset.row <- subset_row
+    }
     
     # Run scvelo via velociraptor
     # Note: velociraptor uses its own basilisk environment
     message("Running scVelo using velociraptor...")
-    vel_res <- velociraptor::scvelo(sce, mode = mode, use.dimred = use.dimred, ...)
+    vel_res <- velociraptor::scvelo(
+        sce,
+        mode = mode,
+        use.dimred = use.dimred,
+        subset.row = subset.row,
+        ...
+    )
     
     # vel_res is a SingleCellExperiment containing the velocity outputs
     # We want to extract the velocity results and attach them to the original sce
@@ -50,6 +66,7 @@ RunVelocity <- function(sce, mode = c("deterministic", "stochastic", "dynamical"
     metadata(sce)$sclet$analyses$velocity <- list(
         mode = mode,
         use.dimred = use.dimred,
+        subset.row = subset.row,
         timestamp = Sys.time()
     )
     
