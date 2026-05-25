@@ -18,12 +18,12 @@ These objects are imported from other packages. Follow the links
 below to see their documentation.
 
 \describe{
-  \item{aplot}{\code{\link[aplot]{plot_list}}}
+  \item{aplot}{\code{\link[aplot:plot_list]{plot_list()}}}
 
-  \item{scater}{\code{\link[scater]{plotColData}}}
+  \item{scater}{\code{\link[scater:plotColData]{plotColData()}}}
 
-  \item{scuttle}{\code{\link[scuttle]{logNormCounts}}}
+  \item{scuttle}{\code{\link[scuttle:logNormCounts]{logNormCounts()}}}
 
-  \item{SummarizedExperiment}{\code{\link[SummarizedExperiment:SummarizedExperiment-class]{assay}}, \code{\link[SummarizedExperiment:SummarizedExperiment-class]{colData}}, \code{\link[SummarizedExperiment:SummarizedExperiment-class]{colData<-}}, \code{\link[SummarizedExperiment:SummarizedExperiment-class]{rowData}}, \code{\link[SummarizedExperiment:SummarizedExperiment-class]{rowData<-}}}
+  \item{SummarizedExperiment}{\code{\link[SummarizedExperiment:assay]{assay()}}, \code{\link[SummarizedExperiment:colData]{colData()}}, \code{\link[SummarizedExperiment:colData<-]{colData<-()}}, \code{\link[SummarizedExperiment:rowData]{rowData()}}, \code{\link[SummarizedExperiment:rowData<-]{rowData<-()}}}
 }}
 

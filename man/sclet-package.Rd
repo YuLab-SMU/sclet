@@ -12,6 +12,11 @@ Provides a comprehensive, state-aware toolkit for single-cell and spatial transc
 \author{
 \strong{Maintainer}: Guangchuang Yu \email{guangchuangyu@gmail.com} (\href{https://orcid.org/0000-0002-6485-8781}{ORCID})
 
+Authors:
+\itemize{
+  \item Guangchuang Yu \email{guangchuangyu@gmail.com} (\href{https://orcid.org/0000-0002-6485-8781}{ORCID})
+}
+
 Other contributors:
 \itemize{
   \item Kaijia Huang \email{2947569391@qq.com} [contributor]

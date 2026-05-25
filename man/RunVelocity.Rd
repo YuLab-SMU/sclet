@@ -8,6 +8,8 @@ RunVelocity(
   sce,
   mode = c("deterministic", "stochastic", "dynamical"),
   use.dimred = NULL,
+  subset.row = NULL,
+  subset_row = NULL,
   ...
 )
 }
@@ -17,6 +19,10 @@ RunVelocity(
 \item{mode}{String specifying the mode for velocity estimation. Can be "deterministic", "stochastic", or "dynamical".}
 
 \item{use.dimred}{String specifying the dimensionality reduction to use. If NULL, defaults to \code{DefaultReduction(sce)}.}
+
+\item{subset.row}{Optional row subset passed to \code{velociraptor::scvelo()}.}
+
+\item{subset_row}{Legacy alias of \code{subset.row}, kept for compatibility.}
 
 \item{...}{Additional arguments passed to \code{velociraptor::scvelo}.}
 }
