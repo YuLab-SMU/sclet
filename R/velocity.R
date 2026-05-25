@@ -90,7 +90,8 @@ RunVelocity <- function(sce, mode = c("deterministic", "stochastic", "dynamical"
 #'
 #' @param sce A SingleCellExperiment object with velocity calculated.
 #' @param reduction String specifying the reduction to plot on. Defaults to "UMAP".
-#' @param group.by String specifying the colData column for cell grouping.
+#' @param group.by String specifying the colData column for cell grouping. If NULL,
+#'   uses `ActiveIdent(sce)`, including the special `"colLabels"` identity source.
 #' @param ... Additional arguments passed to plotting function.
 #' 
 #' @return A ggplot object.
@@ -98,7 +99,7 @@ RunVelocity <- function(sce, mode = c("deterministic", "stochastic", "dynamical"
 #' @importFrom S4Vectors metadata
 #' @importFrom SummarizedExperiment colData
 #' @export
-VelocityPlot <- function(sce, reduction = "UMAP", group.by = ActiveIdent(sce), ...) {
+VelocityPlot <- function(sce, reduction = "UMAP", group.by = NULL, ...) {
     if (!requireNamespace("velociraptor", quietly = TRUE)) {
         stop("Please install 'velociraptor' to plot RNA Velocity.")
     }
@@ -133,12 +134,38 @@ VelocityPlot <- function(sce, reduction = "UMAP", group.by = ActiveIdent(sce), .
     # Let's extract velocity vectors for the specific reduction
     vel_emb <- velociraptor::embedVelocity(emb, vel_res)
     grid_df <- velociraptor::gridVectors(emb, vel_emb)
+
+    if (is.null(group.by)) {
+        group.by <- ActiveIdent(sce)
+    }
+    if (is.null(group.by)) {
+        stop("No active identity found. Please provide 'group.by'.")
+    }
+
+    if (identical(group.by, "colLabels")) {
+        groups <- SingleCellExperiment::colLabels(sce)
+        if (is.null(groups)) {
+            stop("Active identity is 'colLabels' but `colLabels(sce)` is empty.")
+        }
+    } else {
+        meta <- as.data.frame(SummarizedExperiment::colData(sce))
+        if (!group.by %in% colnames(meta)) {
+            stop("Column '", group.by, "' not found in colData(sce).")
+        }
+        groups <- meta[[group.by]]
+    }
+    if (length(groups) != nrow(emb)) {
+        stop(
+            "Grouping vector derived from '", group.by, "' has length ", length(groups),
+            ", but reduction '", reduction, "' has ", nrow(emb), " cells."
+        )
+    }
     
     # Prepare base plot
     df <- data.frame(
         x = emb[, 1],
         y = emb[, 2],
-        group = colData(sce)[[group.by]]
+        group = groups
     )
     
     p <- ggplot2::ggplot() +
