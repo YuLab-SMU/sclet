@@ -70,6 +70,7 @@ NormalizeData <- function(object, scale.factor = 10000) {
         )
     }
     logcounts <- log1p(logcounts)
+    dimnames(logcounts) <- dimnames(object)
     SummarizedExperiment::assay(object, "logcounts") <- logcounts
     object <- sclet_restore_state(object, prev_state)
     object <- sclet_set_layer(object, name = "counts", assay = "counts", role = "counts", active = FALSE)
