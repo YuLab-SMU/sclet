@@ -133,7 +133,16 @@ VelocityPlot <- function(sce, reduction = "UMAP", group.by = NULL, ...) {
     # Actually velociraptor provides `embedVelocity`
     # Let's extract velocity vectors for the specific reduction
     vel_emb <- velociraptor::embedVelocity(emb, vel_res)
-    grid_df <- velociraptor::gridVectors(emb, vel_emb)
+    grid_df <- velociraptor::gridVectors(emb, vel_emb, as.data.frame = FALSE)
+    if (is.null(grid_df$start) || is.null(grid_df$end)) {
+        stop("`velociraptor::gridVectors()` did not return the expected `start`/`end` components.")
+    }
+    grid_df <- data.frame(
+        x = grid_df$start[, 1],
+        y = grid_df$start[, 2],
+        xend = grid_df$end[, 1],
+        yend = grid_df$end[, 2]
+    )
 
     if (is.null(group.by)) {
         group.by <- ActiveIdent(sce)
@@ -170,8 +179,8 @@ VelocityPlot <- function(sce, reduction = "UMAP", group.by = NULL, ...) {
     
     p <- ggplot2::ggplot() +
         ggplot2::geom_point(data = df, ggplot2::aes(x = .data$x, y = .data$y, color = .data$group), size = 0.5, alpha = 0.8) +
-        ggplot2::geom_segment(data = data.frame(grid_df), 
-                              ggplot2::aes(x = .data$start.1, y = .data$start.2, xend = .data$end.1, yend = .data$end.2),
+        ggplot2::geom_segment(data = grid_df, 
+                              ggplot2::aes(x = .data$x, y = .data$y, xend = .data$xend, yend = .data$yend),
                               arrow = ggplot2::arrow(length = ggplot2::unit(0.05, "inches")),
                               linewidth = 0.3, color = "black") +
         ggplot2::theme_classic() +
