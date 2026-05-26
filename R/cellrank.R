@@ -68,6 +68,7 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         sc <- reticulate::import("scanpy")
         scv <- reticulate::import("scvelo")
         sc$pp$neighbors(adata, use_rep = paste0("X_", tolower(reduction_name)))
+        scv$pp$moments(adata, n_pcs = NULL, n_neighbors = NULL)
         scv$tl$velocity_graph(adata)
         
         # CellRank pipeline
