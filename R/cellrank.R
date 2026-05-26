@@ -49,22 +49,24 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
     
     message("Running CellRank via basilisk...")
     
-    cr_res <- basilisk::basiliskRun(env = sclet_cellrank_env, fun = function(v, s, u, emb, cl, ...) {
+    cr_res <- basilisk::basiliskRun(
+        env = sclet_cellrank_env,
+        fun = function(v, s, u, emb, cluster_labels, reduction_name, ...) {
         ad <- reticulate::import("anndata")
         cr <- reticulate::import("cellrank")
         pd <- reticulate::import("pandas")
         
-        obs <- pd$DataFrame(list(clusters = cl), index = rownames(v))
+        obs <- pd$DataFrame(list(clusters = cluster_labels), index = rownames(v))
         adata <- ad$AnnData(X = s, obs = obs)
         adata$layers["spliced"] <- s
         adata$layers["unspliced"] <- u
         adata$layers["velocity"] <- v
-        adata$obsm[paste0("X_", tolower(reduction))] <- emb
+        adata$obsm[paste0("X_", tolower(reduction_name))] <- emb
         
         # We need a neighbor graph and velocity graph.
         # Since we just have the matrices, we can use scvelo to compute velocity graph first.
         scv <- reticulate::import("scvelo")
-        scv$pp$neighbors(adata, use_rep = paste0("X_", tolower(reduction)))
+        scv$pp$neighbors(adata, use_rep = paste0("X_", tolower(reduction_name)))
         scv$tl$velocity_graph(adata)
         
         # CellRank pipeline
@@ -84,7 +86,14 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
             terminal_states = as.character(term_states),
             absorption_probs = as.matrix(abs_probs$X)
         ))
-    }, v = v_mat, s = s_mat, u = u_mat, emb = emb, cl = clusters, ...)
+    },
+    v = v_mat,
+    s = s_mat,
+    u = u_mat,
+    emb = emb,
+    cluster_labels = clusters,
+    reduction_name = reduction,
+    ...)
     
     # Store results
     sce$cellrank_terminal_states <- cr_res$terminal_states

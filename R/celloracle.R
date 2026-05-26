@@ -42,20 +42,22 @@ RunInSilicoPerturbation <- function(sce, target_gene, perturbation_value = 0.0, 
     
     message("Running CellOracle via basilisk...")
     
-    co_res <- basilisk::basiliskRun(env = sclet_celloracle_env, fun = function(counts, cl, emb, tgt, pval, grn_f, ...) {
+    co_res <- basilisk::basiliskRun(
+        env = sclet_celloracle_env,
+        fun = function(counts, cluster_labels, emb, tgt, pval, grn_f, reduction_name, ...) {
         ad <- reticulate::import("anndata")
         pd <- reticulate::import("pandas")
         co <- reticulate::import("celloracle")
         sc <- reticulate::import("scanpy")
         
-        obs <- pd$DataFrame(list(clusters = cl), index = rownames(counts))
+        obs <- pd$DataFrame(list(clusters = cluster_labels), index = rownames(counts))
         adata <- ad$AnnData(X = counts, obs = obs)
-        adata$obsm[paste0("X_", tolower(reduction))] <- emb
+        adata$obsm[paste0("X_", tolower(reduction_name))] <- emb
         
         # Preprocessing inside Python
         sc$pp$normalize_total(adata, target_sum = 10000)
         sc$pp$log1p(adata)
-        sc$pp$neighbors(adata, use_rep = paste0("X_", tolower(reduction)))
+        sc$pp$neighbors(adata, use_rep = paste0("X_", tolower(reduction_name)))
         
         # Load base GRN
         base_grn <- pd$read_csv(grn_f, index_col = 0L)
@@ -81,7 +83,15 @@ RunInSilicoPerturbation <- function(sce, target_gene, perturbation_value = 0.0, 
         shift <- oracle$adata$obsm["delta_X"]
         
         return(as.matrix(shift))
-    }, counts = counts_mat, cl = clusters, emb = emb, tgt = target_gene, pval = perturbation_value, grn_f = base_grn_path, ...)
+    },
+    counts = counts_mat,
+    cluster_labels = clusters,
+    emb = emb,
+    tgt = target_gene,
+    pval = perturbation_value,
+    grn_f = base_grn_path,
+    reduction_name = reduction,
+    ...)
     
     # Store the shift vector in reducedDim, e.g., "celloracle_shift"
     rownames(co_res) <- colnames(sce)
