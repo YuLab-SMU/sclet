@@ -77,6 +77,8 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         
         # Estimator
         g <- cr$estimators$GPCCA(vk)
+        g$compute_eigendecomposition()
+        g$compute_schur(method = "krylov")
         g$compute_macrostates(cluster_key = "clusters")
         g$compute_terminal_states()
         g$compute_absorption_probabilities()
