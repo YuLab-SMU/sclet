@@ -36,7 +36,7 @@ sclet_cellrank_env <- basilisk::BasiliskEnvironment(
         "numpy=1.26.4",
         "pandas=2.2.2",
         "scvelo=0.3.2",
-        "cellrank=2.2.0"
+        "cellrank=2.0.7"
     )
 )
 
