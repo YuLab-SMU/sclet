@@ -63,10 +63,11 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         adata$layers["velocity"] <- v
         adata$obsm[paste0("X_", tolower(reduction_name))] <- emb
         
-        # We need a neighbor graph and velocity graph.
-        # Since we just have the matrices, we can use scvelo to compute velocity graph first.
+        # Compute the kNN graph with scanpy to avoid the deprecated/removed
+        # write_knn_indices path in scvelo's neighbors wrapper.
+        sc <- reticulate::import("scanpy")
         scv <- reticulate::import("scvelo")
-        scv$pp$neighbors(adata, use_rep = paste0("X_", tolower(reduction_name)))
+        sc$pp$neighbors(adata, use_rep = paste0("X_", tolower(reduction_name)))
         scv$tl$velocity_graph(adata)
         
         # CellRank pipeline
