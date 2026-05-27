@@ -36,7 +36,10 @@ RunInSilicoPerturbation <- function(sce, target_gene, perturbation_value = 0.0, 
     clusters <- as.character(SummarizedExperiment::colData(sce)[[cluster_key]])
     
     if (!reduction %in% SingleCellExperiment::reducedDimNames(sce)) {
-        stop(sprintf("Reduction %s not found.", reduction))
+        cli::cli_abort(
+            "Reduction {.val {reduction}} not found in {.cls SingleCellExperiment}.",
+            class = "sclet_missing_reduction"
+        )
     }
     emb <- SingleCellExperiment::reducedDim(sce, reduction)
     

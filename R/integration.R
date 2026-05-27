@@ -167,10 +167,10 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             
             scvi$model$SCVI$setup_anndata(adata, batch_key = "batch")
             model <- scvi$model$SCVI(adata)
-            model$train(...)
+            model$train()
             
             return(model$get_latent_representation())
-        }, counts = counts_mat, batches = batch_vec, ...)
+        }, counts = counts_mat, batches = batch_vec)
         
         rownames(latent) <- colnames(object)
         colnames(latent) <- paste0("scVI_", seq_len(ncol(latent)))

@@ -23,17 +23,38 @@
 RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths, 
                       assay_use = "counts", num_workers = 1L, seed = 123L) {
     if (!requireNamespace("basilisk", quietly = TRUE)) {
-        stop("Please install 'basilisk' to run pySCENIC.")
+        cli::cli_abort(
+            "Please install {.pkg basilisk} to run pySCENIC.",
+            class = "sclet_package_missing"
+        )
     }
     
     if (!assay_use %in% assayNames(sce)) {
-        stop(sprintf("Assay '%s' not found in the SingleCellExperiment object.", assay_use))
+        cli::cli_abort(
+            "Assay {.val {assay_use}} not found in the {.cls SingleCellExperiment} object.",
+            class = "sclet_missing_assay"
+        )
     }
     
-    if (!file.exists(tfs_path)) stop("TFs file not found: ", tfs_path)
-    if (!file.exists(motif_annotations_path)) stop("Motif annotations file not found: ", motif_annotations_path)
+    if (!file.exists(tfs_path)) {
+        cli::cli_abort(
+            "TFs file not found: {.val {tfs_path}}",
+            class = "sclet_file_not_found"
+        )
+    }
+    if (!file.exists(motif_annotations_path)) {
+        cli::cli_abort(
+            "Motif annotations file not found: {.val {motif_annotations_path}}",
+            class = "sclet_file_not_found"
+        )
+    }
     for (db in database_paths) {
-        if (!file.exists(db)) stop("Database file not found: ", db)
+        if (!file.exists(db)) {
+            cli::cli_abort(
+                "Database file not found: {.val {db}}",
+                class = "sclet_file_not_found"
+            )
+        }
     }
     
     message("Extracting expression matrix...")
@@ -109,6 +130,6 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
     
     metadata(sce)$sclet$active$scenic <- "scenic"
     
-    message("pySCENIC completed. AUC matrix stored in altExp(sce, 'SCENIC_AUC').")
+    cli::cli_alert_success("pySCENIC completed. AUC matrix stored in altExp(sce, 'SCENIC_AUC').")
     return(sce)
 }

@@ -17,9 +17,9 @@ sclet_scvi_env <- basilisk::BasiliskEnvironment(
     envname = "sclet_scvi_env",
     pkgname = "sclet",
     packages = c(
-        "python=3.12",
+        "python=3.10",
         "scanpy=1.10.1",
-        "anndata=0.11.4",
+        "anndata=0.10.7",
         "numpy=1.26.4",
         "pandas=2.2.2",
         "scvi-tools=1.4.3"
