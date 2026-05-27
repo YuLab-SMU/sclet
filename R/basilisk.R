@@ -22,7 +22,7 @@ sclet_scvi_env <- basilisk::BasiliskEnvironment(
         "anndata=0.10.7",
         "numpy=1.26.4",
         "pandas=2.2.2",
-        "scvi-tools=1.4.3"
+        "scvi-tools=1.4.2"
     )
 )
 
