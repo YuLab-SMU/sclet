@@ -13,7 +13,7 @@ RunCellRank(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), ...)
 
 \item{cluster_key}{String specifying the column in \code{colData} containing cluster labels.}
 
-\item{...}{Additional arguments.}
+\item{...}{Additional arguments (currently unused).}
 }
 \value{
 A SingleCellExperiment object with CellRank states and transition probabilities recorded.

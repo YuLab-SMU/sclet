@@ -12,6 +12,7 @@
 #' @param ... Additional arguments.
 #' 
 #' @return A SingleCellExperiment object with predicted cell state shifts recorded.
+#' @importFrom cli cli_abort
 #' @importFrom S4Vectors metadata metadata<-
 #' @importFrom SummarizedExperiment colData colData<- assay
 #' @export

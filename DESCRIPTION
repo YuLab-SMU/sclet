@@ -26,6 +26,7 @@ Imports:
     aplot,
     basilisk,
     bluster,
+    cli,
     DelayedArray,
     dplyr,
     DropletUtils,
@@ -87,9 +88,6 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Config/testthat/edition: 3
 Remotes:
-    YuLab-SMU/ggsc,
-    YuLab-SMU/yulab.utils,
-    YuLab-SMU/fanyi,
     jinworks/CellChat,
     immunogenomics/presto,
     GfellerLab/SuperCell
