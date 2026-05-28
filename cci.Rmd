@@ -55,8 +55,8 @@ plot_list(
 
 
 ```{r cci-2, fig.width=7.5, fig.height=8}
-pathways.show <- c("CXCL") 
-vertex.receiver = seq(1,4) 
+pathways.show <- c("PTN")
+vertex.receiver = seq(1,4)
 # CellChat::netVisual_aggregate(cci_obj, signaling = pathways.show,  vertex.receiver = vertex.receiver)
 CellChat::netVisual_aggregate(cci_obj, signaling = pathways.show, layout = "circle")
 ```
@@ -72,7 +72,7 @@ CellChat::netVisual_heatmap(cci_obj, signaling = pathways.show, color.heatmap = 
 ```
 
 ```{r cci-5, fig.width=6, fig.height=6}
-group.cellType <- c(rep("FIB", 4), rep("DC", 4), rep("TC", 4)) # grouping cell clusters into fibroblast, DC and TC cells
+group.cellType <- c(rep("Epithelial", 3), rep("Endocrine", 2)) # grouping cell clusters into Epithelial and Endocrine cells
 names(group.cellType) <- levels(cci_obj@idents)
 CellChat::netVisual_chord_cell(cci_obj, signaling = pathways.show, group = group.cellType, title.name = paste0(pathways.show, " signaling network"))
 ```
@@ -84,8 +84,8 @@ CellChat::netAnalysis_contribution(cci_obj, signaling = pathways.show)
 
 
 ```{r cci-7, fig.width=6, fig.height=6}
-pairLR.CXCL <- CellChat::extractEnrichedLR(cci_obj, signaling = pathways.show, geneLR.return = FALSE)
-LR.show <- pairLR.CXCL[1,] 
+pairLR.pathway <- CellChat::extractEnrichedLR(cci_obj, signaling = pathways.show, geneLR.return = FALSE)
+LR.show <- pairLR.pathway[1,]
 vertex.receiver = seq(1,4)
 # CellChat::netVisual_individual(cci_obj, signaling = pathways.show,  pairLR.use = LR.show, vertex.receiver = vertex.receiver)
 CellChat::netVisual_individual(cci_obj, signaling = pathways.show, pairLR.use = LR.show, layout = "circle")
@@ -97,7 +97,7 @@ CellChat::netVisual_individual(cci_obj, signaling = pathways.show, pairLR.use = 
 ```
 
 ```{r cci-9, fig.width=5, fig.height=6}
-CellChat::netVisual_bubble(cci_obj, sources.use = 4, targets.use = c(5:11), remove.isolate = FALSE)
+CellChat::netVisual_bubble(cci_obj, sources.use = 1:2, targets.use = c(3:5), remove.isolate = FALSE)
 ```
 
 
