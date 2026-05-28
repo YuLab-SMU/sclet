@@ -31,7 +31,7 @@ library(aplot)
 
 # use the bundled pancreas SCE demo object
 sce <- readRDS("data/pancreas_sub_sce.rds")
-res <- RunCellChat(sce, group = "CellType", layer = "logcounts", name = "cellchat_main", return = "both")
+res <- RunCellChat(sce, group = "CellType", layer = "logcounts", name = "cellchat_main", species = "mouse", return = "both")
 sce <- res$sce
 cci_obj <- res$cellchat
 ```
