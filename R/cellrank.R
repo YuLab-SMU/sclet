@@ -62,10 +62,9 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         cr <- reticulate::import("cellrank")
         pd <- reticulate::import("pandas")
 
-        obs <- pd$DataFrame(
-            list(clusters = pd$Categorical(cluster_labels)),
-            index = rownames(v)
-        )
+        obs <- pd$DataFrame(index = rownames(v))
+        obs["clusters"] <- pd$Series(cluster_labels, dtype = "category", index = rownames(v))
+
         adata <- ad$AnnData(X = s, obs = obs)
         adata$layers["spliced"] <- s
         adata$layers["unspliced"] <- u
