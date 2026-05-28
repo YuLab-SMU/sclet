@@ -14,11 +14,31 @@ sclet_state_template <- function() {
     )
 }
 
+sclet_modify_list <- function(x, val) {
+    if (!is.list(x) || !is.list(val)) {
+        return(val)
+    }
+    vnames <- names(val)
+    vnames <- vnames[nzchar(vnames)]
+    for (v in vnames) {
+        xv <- x[[v]]
+        vv <- val[[v]]
+        if (is.list(xv) && is.list(vv) && 
+            (is.null(class(xv)) || identical(class(xv), "list")) &&
+            (is.null(class(vv)) || identical(class(vv), "list"))) {
+            x[[v]] <- sclet_modify_list(xv, vv)
+        } else {
+            x[[v]] <- vv
+        }
+    }
+    x
+}
+
 sclet_merge_state <- function(base, override = NULL) {
     if (is.null(override)) {
         return(base)
     }
-    merged <- utils::modifyList(base, override)
+    merged <- sclet_modify_list(base, override)
     if (!is.null(override$commands)) {
         merged$commands <- override$commands
     }
@@ -115,7 +135,7 @@ sclet_merge_external_metadata <- function(...) {
         if (inherits(x, "SingleCellExperiment")) {
             x <- S4Vectors::metadata(x)
         }
-        merged <- utils::modifyList(merged, sclet_strip_internal_metadata(x))
+        merged <- sclet_modify_list(merged, sclet_strip_internal_metadata(x))
     }
     merged
 }
