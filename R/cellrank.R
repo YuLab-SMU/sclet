@@ -84,11 +84,11 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         g$compute_eigendecomposition()
         g$compute_schur(method = "krylov")
         g$compute_macrostates(cluster_key = "clusters")
-        g$compute_terminal_states()
-        g$compute_absorption_probabilities()
+        g$predict_terminal_states()
+        g$compute_fate_probabilities()
 
         term_states <- g$terminal_states
-        abs_probs <- g$absorption_probabilities
+        abs_probs <- g$fate_probabilities
 
         abs_mat <- tryCatch(
             as.matrix(abs_probs$X),
