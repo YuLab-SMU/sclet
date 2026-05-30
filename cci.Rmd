@@ -2,46 +2,128 @@
 
 Once cell identities have been assigned, one common next question is how these populations may interact with one another. Ligand-receptor analysis is a natural way to move from isolated cell types toward a more explicit view of the tissue microenvironment.
 
-This chapter introduces the `sclet` interface to `CellChat`, with an emphasis on keeping communication analysis aligned with the same layer-aware and state-aware conventions used elsewhere in the package.
+This chapter introduces the `sclet` unified interface for Cell-Cell Communication (CCI), with an emphasis on keeping communication analysis aligned with the same layer-aware and state-aware conventions used elsewhere in the package.
 
 ## Input
 
-The recommended entry point is `RunCellChat()`. It requires a `SingleCellExperiment` object that includes cell clustering information. For details, refer to the [Clustering](#FindClusters) session.
+The recommended entry point is `RunCCI()`. It requires a `SingleCellExperiment` object that includes cell clustering information. By default, it delegates to `CellChat` as the computational backend.
 
 The `group` parameter should reference a variable within the `SingleCellExperiment` object that holds the clustering data.
 
-`RunCellChat()` now follows the same layer contract as the rest of `sclet`. In most RNA workflows, `layer = "logcounts"` is the safest explicit choice. If you omit it, the function resolves from `DefaultLayer(sce)` and avoids scaled layers when necessary.
+`RunCCI()` follows the same layer contract as the rest of `sclet`. In most RNA workflows, `layer = "logcounts"` is the safest explicit choice. If you omit it, the function resolves from `DefaultLayer(sce)` and avoids scaled layers when necessary.
 
 Users can add their own clustering using the following commands:
 
-```
+```r
 colData(sce)$group_name <- group
 # OR
 sce[["group_name"]] <- group
 ```
 
+## Running CCI
 
-## CellChat
+Wrapper function for unified CCI analysis. Behind the scenes, it extracts standardized ligand-receptor interactions into the state tree. By default, `keep_object = FALSE` to prevent the `SingleCellExperiment` object from bloating with massive third-party objects. 
 
-Wrapper function for CellChat^[<https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/CellChat-vignette.html#c-starting-from-a-singlecellexperiment-object>].
+Here we set `keep_object = TRUE` purely because we want to demonstrate the legacy CellChat visualization in the final section of this chapter.
 
 ```{r}
 library(sclet)
-library(aplot)
 
 # use the bundled pancreas SCE demo object
 sce <- readRDS("data/pancreas_sub_sce.rds")
-res <- RunCellChat(sce, group = "CellType", layer = "logcounts", name = "cellchat_main", species = "mouse", return = "both")
-sce <- res$sce
-cci_obj <- res$cellchat
+sce <- RunCCI(sce, method = "CellChat", group = "CellType", layer = "logcounts", name = "cellchat_main", species = "mouse", keep_object = TRUE)
 ```
 
-After running `RunCellChat()`, the updated SCE keeps a structured communication record. This is useful when you want downstream code to check `has_cellchat(sce)` or inspect metadata through `get_cellchat(sce)`.
+After running `RunCCI()`, the updated SCE keeps a structured communication record. This is useful when you want downstream code to check `has_cci(sce)` or inspect the standardized interactions data frame through `get_cci(sce)`.
 
-If you keep multiple communication runs in the same object, give them different `name` values and inspect a specific record with `get_cellchat(sce, id = "your_id")`.
+```{r}
+# Extract the standardized interactions data.frame
+cci_df <- get_cci(sce)
+head(cci_df)
+```
 
-## visulization
+If you keep multiple communication runs in the same object, give them different `name` values and inspect a specific record with `get_cci(sce, id = "your_id")`.
+
+## Using Alternative Backends (CellPhoneDB & NicheNet)
+
+`sclet` acts as a unified adapter. You can easily switch to other popular CCI backends without changing your downstream data extraction or visualization code.
+
+### CellPhoneDB
+
+CellPhoneDB is an established method that relies on a curated database of ligands and receptors. Through `sclet`, it runs directly via Python integration (`basilisk`):
+
+```{r, eval=FALSE}
+# Run CellPhoneDB analysis
+sce <- RunCCI(
+    sce, 
+    method = "CellPhoneDB", 
+    group = "CellType", 
+    species = "mouse", # will attempt ortholog mapping internally
+    name = "cellphonedb_main",
+    threads = 2
+)
+
+# Extract standard results
+cpdb_df <- get_cci(sce, id = "cellphonedb_main")
+head(cpdb_df)
+```
+
+### NicheNet
+
+While CellChat and CellPhoneDB focus on ligand-receptor pairs, NicheNet takes it a step further by predicting which ligands from sender cells regulate specific gene sets (e.g., DEGs) in receiver cells.
+
+NicheNet requires pre-downloaded prior models (ligand-target matrix, etc.).
+
+```{r, eval=FALSE}
+# Load NicheNet prior models (you must download these first)
+ligand_target_matrix <- readRDS("ligand_target_matrix.rds")
+lr_network <- readRDS("lr_network.rds")
+weighted_networks <- readRDS("weighted_networks.rds")
+
+# Run NicheNet to find ligands from Endocrine cells affecting Epithelial cells
+sce <- RunCCI(
+    sce,
+    method = "NicheNet",
+    group = "CellType",
+    receiver = "Epithelial",
+    sender = "Endocrine",
+    # If genes_oi is NULL, sclet automatically finds DEGs for the receiver cluster
+    ligand_target_matrix = ligand_target_matrix,
+    lr_network = lr_network,
+    weighted_networks = weighted_networks,
+    name = "nichenet_main",
+    top_n_ligands = 20
+)
+
+nichenet_df <- get_cci(sce, id = "nichenet_main")
+head(nichenet_df)
+```
+
+## Visualization
+
+Instead of relying heavily on third-party specific visualization functions, `sclet` provides native `ggplot2` and `circlize` based visualization functions that directly consume the standardized CCI data layer. This decouples your analysis from specific backend plotting idiosyncrasies.
+
+```{r cci-bubble, fig.width=6, fig.height=6}
+# Native Bubble plot for specific cell pairs
+sc_cci_bubble(sce, sources = c("Epithelial", "Endocrine"), targets = c("Epithelial", "Endocrine"))
+```
+
+```{r cci-chord, fig.width=6, fig.height=6}
+# Native Chord diagram for specific pathways
+sc_cci_chord(sce, signaling = c("PTN"))
+```
+
+### Legacy CellChat Visualization
+
+If you still need the full power of CellChat's specific visualizations, you can retrieve the original `CellChat` object and use it directly.
+
+```{r cci-legacy-setup}
+# Retrieve the original CellChat object if you need legacy plots
+cci_obj <- get_cellchat(sce, element = "object")
+```
+
 ```{r cci-1, fig.width=15, fig.height=8}
+library(aplot)
 groupSize <- as.numeric(table(cci_obj@idents))
 plot_list(
     ~CellChat::netVisual_circle(cci_obj@net$count, 
@@ -53,14 +135,10 @@ plot_list(
 )
 ```
 
-
 ```{r cci-2, fig.width=7.5, fig.height=8}
 pathways.show <- c("PTN")
-vertex.receiver = seq(1,4)
-# CellChat::netVisual_aggregate(cci_obj, signaling = pathways.show,  vertex.receiver = vertex.receiver)
 CellChat::netVisual_aggregate(cci_obj, signaling = pathways.show, layout = "circle")
 ```
-
 
 ```{r cci-3, fig.width=7.5, fig.height=8}
 CellChat::netVisual_aggregate(cci_obj, signaling = pathways.show, layout = "chord")
