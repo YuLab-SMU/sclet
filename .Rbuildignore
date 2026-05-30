@@ -12,3 +12,4 @@
 ^test_nichenet\\.R$
 .github
 README.Rmd
+^\.trae$
