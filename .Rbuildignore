@@ -7,5 +7,8 @@
 ^dev-notes($|/)
 ^\\.github$
 ^runMilo_v2$
+^\\.trae$
+^test_cpdb\\.R$
+^test_nichenet\\.R$
 .github
 README.Rmd

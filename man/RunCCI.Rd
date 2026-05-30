@@ -4,7 +4,12 @@
 \alias{RunCCI}
 \title{RunCCI}
 \usage{
-RunCCI(object, method = c("CellChat", "CellPhoneDB"), keep_object = FALSE, ...)
+RunCCI(
+  object,
+  method = c("CellChat", "CellPhoneDB", "NicheNet"),
+  keep_object = FALSE,
+  ...
+)
 }
 \arguments{
 \item{object}{A SingleCellExperiment object.}

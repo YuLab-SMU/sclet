@@ -61,6 +61,7 @@ Suggests:
     BiocParallel,
     CellChat,
     celldex,
+    circlize,
     clusterProfiler,
     ComplexHeatmap,
     DESeq2,
@@ -71,6 +72,7 @@ Suggests:
     iSEE,
     mgcv,
     miloR,
+    nichenetr,
     org.Hs.eg.db,
     presto,
     reshape2,
@@ -92,6 +94,7 @@ Remotes:
     YuLab-SMU/yulab.utils,
     YuLab-SMU/fanyi,
     jinworks/CellChat,
+    saeyslab/nichenetr,
     immunogenomics/presto,
     GfellerLab/SuperCell
 Config/roxygen2/version: 8.0.0

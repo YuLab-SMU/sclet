@@ -484,6 +484,7 @@ else:
 #' @return A SingleCellExperiment object with updated CCI state.
 #' @importFrom SummarizedExperiment assay
 #' @importFrom SummarizedExperiment assayNames
+#' @importFrom utils head
 #' @export
 RunNicheNet <- function(sce, group = NULL,
                         receiver,
