@@ -158,6 +158,131 @@ has_cellchat <- function(object, id = NULL) {
     !is.null(get_cellchat(object, id = id))
 }
 
+#' Access CellPhoneDB analysis results
+#'
+#' @title get_cellphonedb
+#' @param object a SingleCellExperiment object
+#' @param element optional element name to extract from the selected CellPhoneDB record
+#' @param id optional communication record id. If NULL, use the active communication record.
+#' @return the full CellPhoneDB record, a selected element, or `NULL`
+#' @export
+get_cellphonedb <- function(object, element = NULL, id = NULL) {
+    if (is.null(id)) {
+        id <- sclet_get_active_state(object, "communication")
+    }
+    result <- NULL
+    if (!is.null(id)) {
+        candidate <- sclet_get_state_record(object, "communication", id = id)
+        if (!is.null(candidate) && (identical(candidate$method, "CellPhoneDB") ||
+            identical(candidate$artifacts$analysis_key, "cellphonedb"))) {
+            result <- candidate
+        }
+    }
+    result <- sclet_normalize_analysis_record(
+        type = "communication",
+        id = if (is.null(id)) "cellphonedb" else id,
+        record = result,
+        analysis = sclet_get_analysis(object, "cellphonedb"),
+        default_method = "CellPhoneDB"
+    )
+    extract_analysis_element(result, element)
+}
+
+#' Check whether CellPhoneDB results are available
+#'
+#' @title has_cellphonedb
+#' @param object a SingleCellExperiment object
+#' @param id optional communication record id
+#' @return logical
+#' @export
+has_cellphonedb <- function(object, id = NULL) {
+    !is.null(get_cellphonedb(object, id = id))
+}
+
+#' Access NicheNet analysis results
+#'
+#' @title get_nichenet
+#' @param object a SingleCellExperiment object
+#' @param element optional element name to extract from the selected NicheNet record
+#' @param id optional communication record id. If NULL, use the active communication record.
+#' @return the full NicheNet record, a selected element, or `NULL`
+#' @export
+get_nichenet <- function(object, element = NULL, id = NULL) {
+    if (is.null(id)) {
+        id <- sclet_get_active_state(object, "communication")
+    }
+    result <- NULL
+    if (!is.null(id)) {
+        candidate <- sclet_get_state_record(object, "communication", id = id)
+        if (!is.null(candidate) && (identical(candidate$method, "NicheNet") ||
+            identical(candidate$artifacts$analysis_key, "nichenet"))) {
+            result <- candidate
+        }
+    }
+    result <- sclet_normalize_analysis_record(
+        type = "communication",
+        id = if (is.null(id)) "nichenet" else id,
+        record = result,
+        analysis = sclet_get_analysis(object, "nichenet"),
+        default_method = "NicheNet"
+    )
+    extract_analysis_element(result, element)
+}
+
+#' Check whether NicheNet results are available
+#'
+#' @title has_nichenet
+#' @param object a SingleCellExperiment object
+#' @param id optional communication record id
+#' @return logical
+#' @export
+has_nichenet <- function(object, id = NULL) {
+    !is.null(get_nichenet(object, id = id))
+}
+
+#' Access standard Cell-Cell Communication (CCI) interactions
+#'
+#' @title get_cci
+#' @param object a SingleCellExperiment object
+#' @param id optional communication record id. If NULL, use the active communication record.
+#' @return a data.frame containing standardized CCI interactions, or `NULL`
+#' @export
+get_cci <- function(object, id = NULL) {
+    if (is.null(id)) {
+        id <- sclet_get_active_state(object, "communication")
+    }
+    if (is.null(id)) return(NULL)
+    
+    record <- sclet_get_state_record(object, "communication", id = id)
+    if (is.null(record)) return(NULL)
+    
+    if (identical(record$method, "CellChat") || identical(record$artifacts$analysis_key, "cellchat")) {
+        return(get_cellchat(object, element = "interactions", id = id))
+    }
+    
+    if (identical(record$method, "CellPhoneDB") || identical(record$artifacts$analysis_key, "cellphonedb")) {
+        return(get_cellphonedb(object, element = "interactions", id = id))
+    }
+
+    if (identical(record$method, "NicheNet") || identical(record$artifacts$analysis_key, "nichenet")) {
+        return(get_nichenet(object, element = "interactions", id = id))
+    }
+    
+    # Placeholder for other methods
+    return(NULL)
+}
+
+#' Check whether standardized CCI results are available
+#'
+#' @title has_cci
+#' @param object a SingleCellExperiment object
+#' @param id optional communication record id
+#' @return logical
+#' @export
+has_cci <- function(object, id = NULL) {
+    !is.null(get_cci(object, id = id))
+}
+
 #' Access annotation state records
 #'
 #' @title get_annotation

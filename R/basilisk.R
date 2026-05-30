@@ -66,3 +66,16 @@ sclet_celloracle_env <- basilisk::BasiliskEnvironment(
         "celloracle=0.20.0"
     )
 )
+
+sclet_cellphonedb_env <- basilisk::BasiliskEnvironment(
+    envname = "sclet_cellphonedb_env",
+    pkgname = "sclet",
+    packages = c(
+        "python=3.10",
+        "anndata=0.10.7",
+        "pandas=2.2.2"
+    ),
+    pip = c(
+        "cellphonedb==5.0.0"
+    )
+)

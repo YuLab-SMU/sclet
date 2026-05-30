@@ -15,7 +15,8 @@ RunCellChat(
   trim = 0.1,
   min.cells = 10,
   name = "cellchat",
-  return = c("cellchat", "sce", "both")
+  return = c("cellchat", "sce", "both"),
+  keep_object = FALSE
 )
 }
 \arguments{
@@ -45,6 +46,8 @@ selected \code{layer}.}
 \item{name}{communication record id. Defaults to \code{"cellchat"}.}
 
 \item{return}{one of \code{"cellchat"}, \code{"sce"} or \code{"both"}}
+
+\item{keep_object}{Logical, whether to store the complete CellChat object in the SCE metadata. Defaults to FALSE.}
 }
 \value{
 by default a CellChat object; if \code{return = "sce"}, returns the
