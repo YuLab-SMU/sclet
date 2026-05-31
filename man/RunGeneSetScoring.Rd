@@ -12,6 +12,7 @@ RunGeneSetScoring(
   assay_use = "counts",
   ncores = 1,
   name = "Score",
+  as_altExp = FALSE,
   ...
 )
 }
@@ -29,6 +30,8 @@ RunGeneSetScoring(
 \item{ncores}{Integer. Number of cores for parallel processing. Defaults to 1.}
 
 \item{name}{Character. Name of the scoring run, used as prefix for colData columns. Defaults to "Score".}
+
+\item{as_altExp}{Logical. If TRUE, stores scores as an alternative experiment (altExp) instead of colData. Useful for differential pathway testing. Defaults to FALSE.}
 
 \item{...}{Additional arguments passed to the underlying scoring function.}
 }

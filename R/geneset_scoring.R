@@ -11,6 +11,7 @@
 #' @param assay_use Character. The assay to use for scoring. Defaults to "counts" (often preferred for AUCell/UCell) or "logcounts".
 #' @param ncores Integer. Number of cores for parallel processing. Defaults to 1.
 #' @param name Character. Name of the scoring run, used as prefix for colData columns. Defaults to "Score".
+#' @param as_altExp Logical. If TRUE, stores scores as an alternative experiment (altExp) instead of colData. Useful for differential pathway testing. Defaults to FALSE.
 #' @param ... Additional arguments passed to the underlying scoring function.
 #' 
 #' @return A SingleCellExperiment object with gene set scores added to `colData(sce)` and state registered.
@@ -20,7 +21,8 @@
 #' @export
 RunGeneSetScoring <- function(sce, gene_sets = NULL, features = NULL,
                               method = c("UCell", "AUCell", "GSVA"), 
-                              assay_use = "counts", ncores = 1, name = "Score", ...) {
+                              assay_use = "counts", ncores = 1, name = "Score", 
+                              as_altExp = FALSE, ...) {
     
     method <- match.arg(method)
 
@@ -81,12 +83,26 @@ RunGeneSetScoring <- function(sce, gene_sets = NULL, features = NULL,
         scores <- t(as.matrix(gsva_res))
     }
     
-    # Prefix colnames with name
-    colnames(scores) <- paste0(name, "_", colnames(scores))
-    
-    # Add to colData
-    for (cn in colnames(scores)) {
-        colData(sce)[[cn]] <- scores[, cn]
+    # Format scores
+    if (!as_altExp) {
+        # Prefix colnames with name
+        colnames(scores) <- paste0(name, "_", colnames(scores))
+        
+        # Add to colData
+        for (cn in colnames(scores)) {
+            colData(sce)[[cn]] <- scores[, cn]
+        }
+        msg <- sprintf("Gene set scoring completed using %s. Added %d columns to colData.", method, ncol(scores))
+    } else {
+        # Create altExp
+        if (!requireNamespace("SingleCellExperiment", quietly = TRUE)) {
+            stop("SingleCellExperiment is required for altExp.")
+        }
+        alt_sce <- SingleCellExperiment::SingleCellExperiment(
+            assays = list(scores = t(scores))
+        )
+        SingleCellExperiment::altExp(sce, name) <- alt_sce
+        msg <- sprintf("Gene set scoring completed using %s. Added altExp '%s' with %d features.", method, name, ncol(scores))
     }
     
     # Register state
@@ -94,12 +110,13 @@ RunGeneSetScoring <- function(sce, gene_sets = NULL, features = NULL,
         method = method,
         assay_use = assay_use,
         gene_sets = names(gene_sets),
-        score_columns = colnames(scores),
+        score_columns = if(!as_altExp) colnames(scores) else name,
+        as_altExp = as_altExp,
         timestamp = Sys.time()
     )
     
     metadata(sce)$sclet$active$geneset_scoring <- "geneset_scoring"
     
-    message(sprintf("Gene set scoring completed using %s. Added %d columns to colData.", method, ncol(scores)))
+    message(msg)
     return(sce)
 }
