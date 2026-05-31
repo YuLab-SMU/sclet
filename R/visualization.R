@@ -476,26 +476,42 @@ ProjectionPlot <- function(query, ref, reduction = "UMAP", group.by = NULL, ...)
     return(p)
 }
 
+#' @name DimPlot
+#' @aliases plot_dim_scatter
 #' @export
 plot_dim_scatter <- DimPlot
 
+#' @name CellDimPlot
+#' @aliases plot_cell_dim
 #' @export
 plot_cell_dim <- CellDimPlot
 
+#' @name FeatureDimPlot
+#' @aliases plot_feature_dim
 #' @export
 plot_feature_dim <- FeatureDimPlot
 
+#' @name GroupHeatmap
+#' @aliases plot_group_heatmap
 #' @export
 plot_group_heatmap <- GroupHeatmap
 
+#' @name CellStatPlot
+#' @aliases plot_cell_stat
 #' @export
 plot_cell_stat <- CellStatPlot
 
+#' @name DEtestPlot
+#' @aliases plot_detest
 #' @export
 plot_detest <- DEtestPlot
 
+#' @name EnrichmentPlot
+#' @aliases plot_enrichment
 #' @export
 plot_enrichment <- EnrichmentPlot
 
+#' @name ProjectionPlot
+#' @aliases plot_projection
 #' @export
 plot_projection <- ProjectionPlot

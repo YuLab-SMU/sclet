@@ -2,9 +2,12 @@
 % Please edit documentation in R/visualization.R
 \name{DEtestPlot}
 \alias{DEtestPlot}
+\alias{plot_detest}
 \title{DEtestPlot}
 \usage{
 DEtestPlot(object, id = NULL, p_val_cutoff = 0.05, logfc_cutoff = 0.25, ...)
+
+plot_detest(object, id = NULL, p_val_cutoff = 0.05, logfc_cutoff = 0.25, ...)
 }
 \arguments{
 \item{object}{A SingleCellExperiment object}

@@ -2,9 +2,18 @@
 % Please edit documentation in R/visualization.R
 \name{CellStatPlot}
 \alias{CellStatPlot}
+\alias{plot_cell_stat}
 \title{CellStatPlot}
 \usage{
 CellStatPlot(object, group.by = NULL, split.by = NULL, position = "fill", ...)
+
+plot_cell_stat(
+  object,
+  group.by = NULL,
+  split.by = NULL,
+  position = "fill",
+  ...
+)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}

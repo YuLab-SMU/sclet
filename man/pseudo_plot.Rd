@@ -2,9 +2,18 @@
 % Please edit documentation in R/sling_plot.R
 \name{pseudo_plot}
 \alias{pseudo_plot}
+\alias{plot_pseudotime}
 \title{Visualize pseudotime data on reduction plots}
 \usage{
 pseudo_plot(
+  sce,
+  reduction = NULL,
+  pseudotime.data = "slingPseudotime",
+  lineage = NULL,
+  ...
+)
+
+plot_pseudotime(
   sce,
   reduction = NULL,
   pseudotime.data = "slingPseudotime",

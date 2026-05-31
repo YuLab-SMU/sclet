@@ -2,9 +2,12 @@
 % Please edit documentation in R/visualization.R
 \name{ProjectionPlot}
 \alias{ProjectionPlot}
+\alias{plot_projection}
 \title{ProjectionPlot}
 \usage{
 ProjectionPlot(query, ref, reduction = "UMAP", group.by = NULL, ...)
+
+plot_projection(query, ref, reduction = "UMAP", group.by = NULL, ...)
 }
 \arguments{
 \item{query}{A SingleCellExperiment object representing the query dataset}

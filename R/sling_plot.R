@@ -432,11 +432,17 @@ compute_gradient <- function(row, n=10) {
   return(gradient_score)
 }
 
+#' @name lineage_plot
+#' @aliases plot_lineage
 #' @export
 plot_lineage <- lineage_plot
 
+#' @name pseudo_plot
+#' @aliases plot_pseudotime
 #' @export
 plot_pseudotime <- pseudo_plot
 
+#' @name genecurve_plot
+#' @aliases plot_genecurve
 #' @export
 plot_genecurve <- genecurve_plot

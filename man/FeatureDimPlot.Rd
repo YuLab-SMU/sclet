@@ -2,9 +2,12 @@
 % Please edit documentation in R/visualization.R
 \name{FeatureDimPlot}
 \alias{FeatureDimPlot}
+\alias{plot_feature_dim}
 \title{FeatureDimPlot}
 \usage{
 FeatureDimPlot(object, features, layer = NULL, reduction = NULL, ...)
+
+plot_feature_dim(object, features, layer = NULL, reduction = NULL, ...)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}

@@ -2,9 +2,12 @@
 % Please edit documentation in R/visualization.R
 \name{DimPlot}
 \alias{DimPlot}
+\alias{plot_dim_scatter}
 \title{DimPlot}
 \usage{
 DimPlot(object, reduction = NULL, ...)
+
+plot_dim_scatter(object, reduction = NULL, ...)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}

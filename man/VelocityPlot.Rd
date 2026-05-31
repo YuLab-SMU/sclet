@@ -2,9 +2,12 @@
 % Please edit documentation in R/velocity.R
 \name{VelocityPlot}
 \alias{VelocityPlot}
+\alias{plot_velocity}
 \title{Plot RNA Velocity}
 \usage{
 VelocityPlot(sce, reduction = "UMAP", group.by = NULL, ...)
+
+plot_velocity(sce, reduction = "UMAP", group.by = NULL, ...)
 }
 \arguments{
 \item{sce}{A SingleCellExperiment object with velocity calculated.}

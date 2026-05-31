@@ -2,9 +2,12 @@
 % Please edit documentation in R/visualization.R
 \name{EnrichmentPlot}
 \alias{EnrichmentPlot}
+\alias{plot_enrichment}
 \title{EnrichmentPlot}
 \usage{
 EnrichmentPlot(object, id = NULL, showCategory = 10, ...)
+
+plot_enrichment(object, id = NULL, showCategory = 10, ...)
 }
 \arguments{
 \item{object}{A SingleCellExperiment object}

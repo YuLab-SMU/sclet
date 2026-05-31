@@ -2,9 +2,12 @@
 % Please edit documentation in R/visualization.R
 \name{GroupHeatmap}
 \alias{GroupHeatmap}
+\alias{plot_group_heatmap}
 \title{GroupHeatmap}
 \usage{
 GroupHeatmap(object, features, group.by = NULL, layer = NULL, ...)
+
+plot_group_heatmap(object, features, group.by = NULL, layer = NULL, ...)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}

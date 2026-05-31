@@ -2,9 +2,12 @@
 % Please edit documentation in R/visualization.R
 \name{CellDimPlot}
 \alias{CellDimPlot}
+\alias{plot_cell_dim}
 \title{CellDimPlot}
 \usage{
 CellDimPlot(object, group.by = NULL, reduction = NULL, ...)
+
+plot_cell_dim(object, group.by = NULL, reduction = NULL, ...)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}

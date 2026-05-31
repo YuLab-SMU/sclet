@@ -2,9 +2,25 @@
 % Please edit documentation in R/sling_plot.R
 \name{genecurve_plot}
 \alias{genecurve_plot}
+\alias{plot_genecurve}
 \title{Generate gene expression curves across pseudotime}
 \usage{
 genecurve_plot(
+  sce,
+  assay_name = "logcounts",
+  features,
+  lineaegs = NULL,
+  pseudotime.data = "slingPseudotime",
+  method = c("smooth", "gam"),
+  point = FALSE,
+  line.size = 0.8,
+  alpha = 0.5,
+  size = 1,
+  ncol = NULL,
+  se = TRUE
+)
+
+plot_genecurve(
   sce,
   assay_name = "logcounts",
   features,

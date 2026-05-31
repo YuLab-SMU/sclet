@@ -2,9 +2,24 @@
 % Please edit documentation in R/sling_plot.R
 \name{lineage_plot}
 \alias{lineage_plot}
+\alias{plot_lineage}
 \title{Visualize Single-Cell Trajectories on the basis of ggsc package}
 \usage{
 lineage_plot(
+  sce,
+  dims = c(1, 2),
+  group,
+  reduction = "UMAP",
+  lineages = NULL,
+  cells = NULL,
+  slot = "data",
+  mapping = NULL,
+  geom = sc_geom_point,
+  linewidth = 0.9,
+  ...
+)
+
+plot_lineage(
   sce,
   dims = c(1, 2),
   group,
