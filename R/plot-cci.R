@@ -91,5 +91,14 @@ sc_cci_chord <- function(object, signaling = NULL, id = NULL, pval_thresh = 0.05
     # Aggregate probabilities between cell groups
     agg_df <- stats::aggregate(probability ~ source_group + target_group, data = df, sum)
     
-    circlize::chordDiagram(agg_df, ...)
+    # Set default arguments for circlize::chordDiagram if not provided
+    args <- list(...)
+    if (!"annotationTrack" %in% names(args)) {
+        args$annotationTrack <- c("grid", "name") # Remove default 'axis' to hide tiny scientific notation numbers
+    }
+    if (!"preAllocateTracks" %in% names(args)) {
+        args$preAllocateTracks <- list(track.height = max(strwidth(unlist(dimnames(agg_df)))))
+    }
+    
+    do.call(circlize::chordDiagram, c(list(x = agg_df), args))
 }
