@@ -1,4 +1,61 @@
-#' Plot Cell-Cell Communication Bubble Chart
+#' Plot Cell-Cell Communication Network
+#'
+#' @title sc_cci_network
+#' @param object A SingleCellExperiment object.
+#' @param signaling A character vector of pathways or interactions to include.
+#' @param id The communication record id to use.
+#' @param pval_thresh The p-value threshold for filtering interactions.
+#' @param layout The layout algorithm to use for the network (default: "circle").
+#' @param edge_width_scale A scaling factor for edge width.
+#' @return A ggplot object
+#' @export
+sc_cci_network <- function(object, signaling = NULL, id = NULL, pval_thresh = 0.05, layout = "circle", edge_width_scale = 1) {
+    if (!requireNamespace("igraph", quietly = TRUE)) {
+        stop("Package 'igraph' is needed for this function to work. Please install it.")
+    }
+    if (!requireNamespace("ggraph", quietly = TRUE)) {
+        stop("Package 'ggraph' is needed for this function to work. Please install it.")
+    }
+
+    df <- get_cci(object, id = id)
+    if (is.null(df)) {
+        stop("No CCI data found in the object.")
+    }
+    
+    if (!is.null(pval_thresh)) {
+        df <- df[df$p_value <= pval_thresh, , drop = FALSE]
+    }
+    
+    if (!is.null(signaling)) {
+        df <- df[df$pathway %in% signaling | paste(df$ligand, df$receptor, sep=" - ") %in% signaling, , drop = FALSE]
+    }
+    
+    if (nrow(df) == 0) {
+        stop("No interactions left after filtering.")
+    }
+
+    # Aggregate probabilities between cell groups
+    agg_df <- stats::aggregate(probability ~ source_group + target_group, data = df, sum)
+    
+    # Create igraph object
+    g <- igraph::graph_from_data_frame(agg_df, directed = TRUE)
+
+    # Plot with ggraph
+    p <- ggraph::ggraph(g, layout = layout) +
+        ggraph::geom_edge_link(
+            ggplot2::aes(width = .data$probability, alpha = .data$probability),
+            arrow = ggplot2::arrow(length = ggplot2::unit(4, 'mm')),
+            end_cap = ggraph::circle(5, 'mm'),
+            color = "grey50"
+        ) +
+        ggraph::geom_node_point(size = 8, color = "lightblue") +
+        ggraph::geom_node_text(ggplot2::aes(label = .data$name), repel = TRUE, size = 5) +
+        ggraph::scale_edge_width(range = c(0.5, 3) * edge_width_scale) +
+        ggplot2::theme_void() +
+        ggplot2::theme(legend.position = "none")
+
+    return(p)
+}
 #'
 #' @title sc_cci_bubble
 #' @param object A SingleCellExperiment object.

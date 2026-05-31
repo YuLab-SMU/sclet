@@ -33,6 +33,7 @@ Imports:
     fanyi,
     ggplot2,
     ggrepel,
+    ggraph,
     ggsc,
     HDF5Array,
     igraph,

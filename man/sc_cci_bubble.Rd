@@ -27,5 +27,5 @@ sc_cci_bubble(
 A ggplot object
 }
 \description{
-Plot Cell-Cell Communication Bubble Chart
+sc_cci_bubble
 }
