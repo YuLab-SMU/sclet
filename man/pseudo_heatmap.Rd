@@ -2,9 +2,22 @@
 % Please edit documentation in R/pseudo_heatmap.R
 \name{pseudo_heatmap}
 \alias{pseudo_heatmap}
+\alias{plot_pseudo_heatmap}
 \title{Plot gene expression heatmap along pseudotime trajectory}
 \usage{
 pseudo_heatmap(
+  sce,
+  features,
+  assay_name = "logcounts",
+  pseudotime.data = "slingPseudotime",
+  lineage = NULL,
+  scale = TRUE,
+  sort = TRUE,
+  cluster_columns = FALSE,
+  cluster_rows = FALSE
+)
+
+plot_pseudo_heatmap(
   sce,
   features,
   assay_name = "logcounts",

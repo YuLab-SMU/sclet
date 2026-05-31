@@ -77,6 +77,8 @@ Suggests:
     miloR,
     nichenetr,
     org.Hs.eg.db,
+    org.Mm.eg.db,
+    org.Rn.eg.db,
     presto,
     reshape2,
     Seurat,

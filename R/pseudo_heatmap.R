@@ -166,3 +166,8 @@ pseudo_heatmap <- function(
   
   return(p)
 }
+
+#' @name pseudo_heatmap
+#' @aliases plot_pseudo_heatmap
+#' @export
+plot_pseudo_heatmap <- pseudo_heatmap
