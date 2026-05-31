@@ -105,7 +105,7 @@ Instead of relying heavily on third-party specific visualization functions, `scl
 
 ```{r cci-bubble, fig.width=6, fig.height=6}
 # Native Bubble plot for specific cell pairs
-sc_cci_bubble(sce, sources = c("Epithelial", "Endocrine"), targets = c("Epithelial", "Endocrine"))
+sc_cci_bubble(sce, sources = c("Ductal", "Endocrine"), targets = c("Ductal", "Endocrine"))
 ```
 
 ```{r cci-chord, fig.width=6, fig.height=6}
