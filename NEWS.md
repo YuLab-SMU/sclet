@@ -1,7 +1,8 @@
 # sclet 0.99.6
 
-+ **Pathway Scoring & Marker Detection**: Integrated `sc2p` core logic natively. Enhanced `RunGeneSetScoring()` with `as_altExp = TRUE` to store pathway scores as an alternative experiment. Added `FindMarkerPathways()` to detect cell-type specific pathways robustly using `FindAllMarkers`.
++ **Pathway Scoring & Marker Detection**: Enhanced `RunGeneSetScoring()` with `as_altExp = TRUE` to store pathway scores as an alternative experiment. Added `FindMarkerPathways()` to detect cell-type specific pathways robustly using `FindAllMarkers`.
 + **KEGG Integration**: Added `RunKEGG()` as a one-stop wrapper to download KEGG pathways via `clusterProfiler`, score cells, and perform differential marker pathway analysis seamlessly.
++ **Cell-Cell Communication**: Introduced `RunCCI()` as a unified interface for cell-cell communication analysis, seamlessly supporting `CellChat`, `CellPhoneDB`, and `NicheNet` backends. This eliminates the need for manual data formatting and environment setup (using `basilisk` for Python backends), storing results in a standardized format within the analysis state.
 + **Cell-Cell Communication Visualization**: Added two native CCI visualization methods: `plot_cci_sigmoid` (S-curve connection plot) and `plot_cci_arrow` (bidirectional arrow plot with dynamic expression mapping). These native functions eliminate the need for heavy third-party visualization dependencies.
 + **Unified Plotting Names**: Established a `plot_<module>_<type>` naming convention for visualizations (e.g., `plot_cci_bubble`, `plot_velocity`, `plot_lineage`), while retaining classic aliases like `DimPlot` for Seurat users.
 
