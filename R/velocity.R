@@ -188,3 +188,6 @@ VelocityPlot <- function(sce, reduction = "UMAP", group.by = NULL, ...) {
     
     return(p)
 }
+
+#' @export
+plot_velocity <- VelocityPlot

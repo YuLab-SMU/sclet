@@ -295,6 +295,10 @@ RunCellPhoneDB <- function(sce, group = NULL,
     on.exit(basilisk::basiliskStop(proc))
     
     res_list <- basilisk::basiliskRun(proc, function(mat, gene_names, cell_meta, threads, iterations, pvalue) {
+        if (!requireNamespace("reticulate", quietly = TRUE)) {
+            stop("Package 'reticulate' is needed for this function to work. Please install it.")
+        }
+        
         # Using tempdir for CPDB outputs
         out_dir <- tempfile(pattern = "cpdb_out")
         dir.create(out_dir)

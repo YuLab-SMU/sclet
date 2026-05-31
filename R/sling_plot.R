@@ -431,3 +431,12 @@ compute_gradient <- function(row, n=10) {
   
   return(gradient_score)
 }
+
+#' @export
+plot_lineage <- lineage_plot
+
+#' @export
+plot_pseudotime <- pseudo_plot
+
+#' @export
+plot_genecurve <- genecurve_plot
