@@ -105,22 +105,22 @@ Instead of relying heavily on third-party specific visualization functions, `scl
 
 ```{r cci-bubble, fig.width=6, fig.height=6}
 # Native Bubble plot for specific cell pairs
-sc_cci_bubble(sce, sources = c("Ductal", "Endocrine"), targets = c("Ductal", "Endocrine"))
+plot_cci_bubble(sce, sources = c("Ductal", "Endocrine"), targets = c("Ductal", "Endocrine"))
 ```
 
 ```{r cci-chord, fig.width=6, fig.height=6}
 # Native Chord diagram for specific pathways
-sc_cci_chord(sce, signaling = c("PTN"))
+plot_cci_chord(sce, signaling = c("PTN"))
 ```
 
 ```{r cci-sigmoid, fig.width=8, fig.height=6}
 # Native Sigmoid plot for interactions
-sc_cci_sigmoid(sce, top_n = 15)
+plot_cci_sigmoid(sce, top_n = 15)
 ```
 
 ```{r cci-arrow, fig.width=8, fig.height=6}
 # Native Arrow plot between specific cell types
-sc_cci_arrow(sce, cell_a = "Ductal", cell_b = "Endocrine", group = "CellType", top_n = 10)
+plot_cci_arrow(sce, cell_a = "Ductal", cell_b = "Endocrine", group = "CellType", top_n = 10)
 ```
 
 ### Legacy CellChat Visualization
