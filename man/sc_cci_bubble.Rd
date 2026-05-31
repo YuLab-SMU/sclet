@@ -9,7 +9,9 @@ sc_cci_bubble(
   sources = NULL,
   targets = NULL,
   id = NULL,
-  pval_thresh = 0.05
+  pval_thresh = 0.05,
+  type = c("interaction", "summary", "facet"),
+  top_n = NULL
 )
 }
 \arguments{
@@ -22,10 +24,14 @@ sc_cci_bubble(
 \item{id}{The communication record id to use.}
 
 \item{pval_thresh}{The p-value threshold for filtering interactions.}
+
+\item{type}{The type of bubble chart to plot: \code{"interaction"} (default), \code{"summary"}, or \code{"facet"}.}
+
+\item{top_n}{Integer. If provided, limits the plot to the top N interactions (by probability) per cell pair.}
 }
 \value{
 A ggplot object
 }
 \description{
-sc_cci_bubble
+Plot Cell-Cell Communication Bubble Chart
 }
