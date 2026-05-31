@@ -1,6 +1,6 @@
 #' Plot Cell-Cell Communication Network
 #'
-#' @title sc_cci_network
+#' @title plot_cci_network
 #' @param object A SingleCellExperiment object.
 #' @param signaling A character vector of pathways or interactions to include.
 #' @param id The communication record id to use.
@@ -9,7 +9,7 @@
 #' @param edge_width_scale A scaling factor for edge width.
 #' @return A ggplot object
 #' @export
-sc_cci_network <- function(object, signaling = NULL, id = NULL, pval_thresh = 0.05, layout = "circle", edge_width_scale = 1) {
+plot_cci_network <- function(object, signaling = NULL, id = NULL, pval_thresh = 0.05, layout = "circle", edge_width_scale = 1) {
     if (!requireNamespace("igraph", quietly = TRUE)) {
         stop("Package 'igraph' is needed for this function to work. Please install it.")
     }
@@ -58,7 +58,7 @@ sc_cci_network <- function(object, signaling = NULL, id = NULL, pval_thresh = 0.
 }
 #' Plot Cell-Cell Communication Bubble Chart
 #'
-#' @title sc_cci_bubble
+#' @title plot_cci_bubble
 #' @param object A SingleCellExperiment object.
 #' @param sources A character vector of source groups to include. If `NULL`, all are included.
 #' @param targets A character vector of target groups to include. If `NULL`, all are included.
@@ -70,7 +70,7 @@ sc_cci_network <- function(object, signaling = NULL, id = NULL, pval_thresh = 0.
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_viridis_c scale_size_continuous theme_minimal theme_bw theme element_text element_line element_rect labs facet_grid
 #' @importFrom rlang .data
 #' @export
-sc_cci_bubble <- function(object, sources = NULL, targets = NULL, id = NULL, pval_thresh = 0.05, type = c("interaction", "summary", "facet"), top_n = NULL) {
+plot_cci_bubble <- function(object, sources = NULL, targets = NULL, id = NULL, pval_thresh = 0.05, type = c("interaction", "summary", "facet"), top_n = NULL) {
     type <- match.arg(type)
     if (!requireNamespace("ggplot2", quietly = TRUE)) {
         stop("Package 'ggplot2' is needed for this function to work. Please install it.")
@@ -166,7 +166,7 @@ sc_cci_bubble <- function(object, sources = NULL, targets = NULL, id = NULL, pva
 
 #' Plot Cell-Cell Communication Chord Diagram
 #'
-#' @title sc_cci_chord
+#' @title plot_cci_chord
 #' @param object A SingleCellExperiment object.
 #' @param signaling A character vector of pathways or interactions to include.
 #' @param id The communication record id to use.
@@ -174,7 +174,7 @@ sc_cci_bubble <- function(object, sources = NULL, targets = NULL, id = NULL, pva
 #' @param ... Additional arguments passed to `circlize::chordDiagram`.
 #' @return NULL (Plots the diagram)
 #' @export
-sc_cci_chord <- function(object, signaling = NULL, id = NULL, pval_thresh = 0.05, ...) {
+plot_cci_chord <- function(object, signaling = NULL, id = NULL, pval_thresh = 0.05, ...) {
     if (!requireNamespace("circlize", quietly = TRUE)) {
         stop("Package 'circlize' is needed for this function to work. Please install it.")
     }
@@ -213,14 +213,14 @@ sc_cci_chord <- function(object, signaling = NULL, id = NULL, pval_thresh = 0.05
 
 #' Plot Cell-Cell Communication Sigmoid Diagram
 #'
-#' @title sc_cci_sigmoid
+#' @title plot_cci_sigmoid
 #' @param object A SingleCellExperiment object.
 #' @param id The communication record id to use.
 #' @param pval_thresh The p-value threshold for filtering interactions.
 #' @param top_n Integer. If provided, limits the plot to the top N interactions (by probability).
 #' @return A ggplot object
 #' @export
-sc_cci_sigmoid <- function(object, id = NULL, pval_thresh = 0.05, top_n = NULL) {
+plot_cci_sigmoid <- function(object, id = NULL, pval_thresh = 0.05, top_n = NULL) {
     if (!requireNamespace("ggbump", quietly = TRUE)) {
         stop("Package 'ggbump' is needed for this function to work. Please install it.")
     }
@@ -294,7 +294,7 @@ sc_cci_sigmoid <- function(object, id = NULL, pval_thresh = 0.05, top_n = NULL) 
 
 #' Plot Cell-Cell Communication Arrow Diagram
 #'
-#' @title sc_cci_arrow
+#' @title plot_cci_arrow
 #' @param object A SingleCellExperiment object.
 #' @param cell_a The first cell type (left side).
 #' @param cell_b The second cell type (right side).
@@ -305,7 +305,7 @@ sc_cci_sigmoid <- function(object, id = NULL, pval_thresh = 0.05, top_n = NULL) 
 #' @param layer The assay layer to use for expression calculation (default: "logcounts").
 #' @return A ggplot object
 #' @export
-sc_cci_arrow <- function(object, cell_a, cell_b, group, id = NULL, pval_thresh = 0.05, top_n = NULL, layer = "logcounts") {
+plot_cci_arrow <- function(object, cell_a, cell_b, group, id = NULL, pval_thresh = 0.05, top_n = NULL, layer = "logcounts") {
     if (!layer %in% SummarizedExperiment::assayNames(object)) {
         stop(paste("Layer", layer, "not found in the object assays."))
     }
