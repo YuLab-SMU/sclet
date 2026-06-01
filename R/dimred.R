@@ -363,3 +363,53 @@ RunUMAP <- function(object, dims = NULL, reduction = NULL, layer = NULL) {
     )
     object
 }
+
+#' Run Diffusion Map for complex trajectory inference
+#'
+#' @title RunDiffusionMap
+#' @param sce a SingleCellExperiment object
+#' @param n_components number of diffusion components to compute. Defaults to 50.
+#' @param reduction the name of the dimensional reduction to use as input (e.g. 'PCA'). Defaults to NULL (uses the active reduction).
+#' @param ... additional arguments passed to \code{destiny::DiffusionMap}
+#' @return an updated SingleCellExperiment object with a 'DM' reduction
+#' @export
+#' @importFrom SingleCellExperiment reducedDim<- reducedDim
+#' @importFrom SingleCellExperiment reducedDimNames
+RunDiffusionMap <- function(sce, n_components = 50, reduction = NULL, ...) {
+    if (!requireNamespace("destiny", quietly = TRUE)) {
+        stop("Please install 'destiny' via BiocManager::install('destiny')")
+    }
+    
+    if (is.null(reduction)) {
+        reduction <- sclet_get_active_reduction(sce)
+    }
+    if (is.null(reduction) || !reduction %in% SingleCellExperiment::reducedDimNames(sce)) {
+        stop("No valid reduction found for DiffusionMap. Please run RunPCA first or specify a valid 'reduction'.")
+    }
+    
+    rd <- SingleCellExperiment::reducedDim(sce, reduction)
+    
+    # Run destiny::DiffusionMap
+    # destiny uses the data matrix to compute distances. Since we provide PCA, 
+    # we can use the PCA matrix as the 'data' for DiffusionMap
+    dm <- destiny::DiffusionMap(rd, n_pcs = NA, ...)
+    
+    # Extract the eigenvectors
+    dm_coords <- dm@eigenvectors[, seq_len(min(n_components, ncol(dm@eigenvectors))), drop = FALSE]
+    rownames(dm_coords) <- rownames(rd)
+    colnames(dm_coords) <- paste0("DC_", seq_len(ncol(dm_coords)))
+    
+    # Store in SCE
+    SingleCellExperiment::reducedDim(sce, "DM") <- dm_coords
+    
+    # Log and update state
+    sce <- sclet_log_command(
+        sce,
+        "RunDiffusionMap",
+        params = list(n_components = n_components, reduction = reduction, ...)
+    )
+    
+    sce <- sclet_set_active_reduction(sce, "DM")
+    
+    return(sce)
+}

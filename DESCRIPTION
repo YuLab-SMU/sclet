@@ -68,6 +68,7 @@ Suggests:
     clusterProfiler,
     ComplexHeatmap,
     DESeq2,
+    destiny,
     enrichplot,
     ggbump,
     graphics,
