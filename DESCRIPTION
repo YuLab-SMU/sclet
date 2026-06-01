@@ -1,6 +1,6 @@
 Package: sclet
 Title: A State-Aware Single-Cell and Spatial Transcriptomics Toolkit for SingleCellExperiment
-Version: 0.99.6
+Version: 1.0.0
 Authors@R: c(
     person(given = "Guangchuang", family = "Yu", email = "guangchuangyu@gmail.com", role  = c("aut", "cre"), comment = c(ORCID = "0000-0002-6485-8781")),
     person(given = "Kaijia", family = "Huang", email = "2947569391@qq.com", role  = "ctb"),
@@ -60,6 +60,7 @@ Suggests:
     batchelor,
     BiocNeighbors,
     BiocParallel,
+    celda,
     CellChat,
     celldex,
     circlize,
@@ -81,6 +82,7 @@ Suggests:
     org.Rn.eg.db,
     presto,
     reshape2,
+    scDblFinder,
     Seurat,
     SingleR,
     slingshot,
@@ -98,9 +100,54 @@ Remotes:
     YuLab-SMU/ggsc,
     YuLab-SMU/yulab.utils,
     YuLab-SMU/fanyi,
-    davidsjoberg/ggbump,
+    davidsjoberg/ggbump,`
     jinworks/CellChat,
     saeyslab/nichenetr,
     immunogenomics/presto,
     GfellerLab/SuperCell
 Config/roxygen2/version: 8.0.0
+Collate: 
+    'Enrichment.R'
+    'SuperCell.R'
+    'analysis-accessors.R'
+    'annotation.R'
+    'basilisk.R'
+    'batch.R'
+    'cci.R'
+    'celloracle.R'
+    'cellrank.R'
+    'clustering.R'
+    'copilot.R'
+    'state.R'
+    'data_cleaning.R'
+    'dimred.R'
+    'gene-summary-table.R'
+    'geneset_scoring.R'
+    'integration.R'
+    'interactive.R'
+    'interop.R'
+    'io.R'
+    'layers.R'
+    'markers.R'
+    'pathways.R'
+    'pipeline_summary.R'
+    'plot-cci.R'
+    'preprocessing.R'
+    'pseudo_heatmap.R'
+    'pseudobulk.R'
+    'reexport.R'
+    'refit_milo.R'
+    'runMilo.R'
+    'runSlingshot.R'
+    'scenic.R'
+    'sclet-package.R'
+    'sling_plot.R'
+    'spatial.R'
+    'status.R'
+    'subset.R'
+    'trajectory.R'
+    'utils-cci.R'
+    'velocity.R'
+    'visualization.R'
+    'workflow.R'
+    'zzz.R'
