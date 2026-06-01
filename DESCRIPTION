@@ -85,6 +85,7 @@ Suggests:
     presto,
     reshape2,
     scDblFinder,
+    scPAS,
     Seurat,
     SingleR,
     slingshot,
@@ -107,7 +108,8 @@ Remotes:
     saeyslab/nichenetr,
     immunogenomics/presto,
     GfellerLab/SuperCell,
-    KlugerLab/ALRA
+    KlugerLab/ALRA,
+    aiminXie/scPAS
 Config/roxygen2/version: 8.0.0
 Collate: 
     'Enrichment.R'
@@ -134,6 +136,7 @@ Collate:
     'layers.R'
     'markers.R'
     'pathways.R'
+    'phenotype.R'
     'pipeline_summary.R'
     'plot-cci.R'
     'preprocessing.R'
