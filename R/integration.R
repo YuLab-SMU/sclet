@@ -151,20 +151,27 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
         if (!"counts" %in% SummarizedExperiment::assayNames(object)) {
             stop("Assay 'counts' is required for scVI.")
         }
-        
-        counts_mat <- t(as.matrix(SummarizedExperiment::assay(object, "counts")[features, ]))
+
+        counts_mat <- t(as(SummarizedExperiment::assay(object, "counts")[features, ], "dgCMatrix"))
         batch_vec <- as.character(SummarizedExperiment::colData(object)[[batch]])
-        
+
         message("Running scVI via basilisk...")
-        
+
         latent <- basilisk::basiliskRun(env = sclet_scvi_env, fun = function(counts, batches, ...) {
             scvi <- reticulate::import("scvi")
             ad <- reticulate::import("anndata")
             pd <- reticulate::import("pandas")
-            
+            sp <- reticulate::import("scipy.sparse")
+
             obs <- pd$DataFrame(list(batch = batches), index = rownames(counts))
-            adata <- ad$AnnData(X = counts, obs = obs)
+            # counts is converted to a scipy sparse matrix automatically by reticulate
+            # Ensure it is csr format which scvi prefers
+            if (sp$issparse(counts)) {
+                counts <- counts$tocsr()
+            }
             
+            adata <- ad$AnnData(X = counts, obs = obs)
+
             scvi$model$SCVI$setup_anndata(adata, batch_key = "batch")
             model <- scvi$model$SCVI(adata)
             model$train()
