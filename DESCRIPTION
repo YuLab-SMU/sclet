@@ -56,6 +56,7 @@ Imports:
     yulab.utils
 Suggests:
     aisdk,
+    ALRA,
     AUCell,
     batchelor,
     BiocNeighbors,
@@ -100,11 +101,12 @@ Remotes:
     YuLab-SMU/ggsc,
     YuLab-SMU/yulab.utils,
     YuLab-SMU/fanyi,
-    davidsjoberg/ggbump,`
+    davidsjoberg/ggbump,
     jinworks/CellChat,
     saeyslab/nichenetr,
     immunogenomics/presto,
-    GfellerLab/SuperCell
+    GfellerLab/SuperCell,
+    KlugerLab/ALRA
 Config/roxygen2/version: 8.0.0
 Collate: 
     'Enrichment.R'
@@ -123,6 +125,7 @@ Collate:
     'dimred.R'
     'gene-summary-table.R'
     'geneset_scoring.R'
+    'imputation.R'
     'integration.R'
     'interactive.R'
     'interop.R'

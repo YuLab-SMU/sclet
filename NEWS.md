@@ -1,6 +1,7 @@
 # sclet 1.0.0
 
 + **Data Cleaning**: Introduced `RunDoubletFinder()` to detect doublets using `scDblFinder`, and `RunDecontX()` to remove ambient RNA contamination using `celda::decontX`. Both functions natively support the `SingleCellExperiment` object and integrate seamlessly with the `analysis-state` architecture, storing clean matrices safely as new assays (e.g., `decontXcounts`) without overwriting raw data.
++ **Imputation**: Added `RunImputation()` to perform zero-preserving imputation using the `ALRA` method. The function handles sparse matrices and integrates with the analysis-state machine by storing the imputed results in a separate assay (`alra_imputed`).
 
 # sclet 0.99.6
 
