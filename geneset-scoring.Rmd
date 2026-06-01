@@ -32,7 +32,7 @@ pbmc <- RunGeneSetScoring(pbmc, gene_sets = my_signatures, method = "UCell", nam
 ## Reading and Visualizing Results
 
 Where do the scores go after calculation?
-1. They are added as columns in the cellular metadata (`colData`).
+1. By default, they are added as columns in the cellular metadata (`colData`).
 2. The action is recorded in the `geneset_scoring` state machine.
 
 Because the scores are now standard metadata, we can seamlessly reuse the `sclet` visualization ecosystem (like `FeatureDimPlot`):
@@ -45,5 +45,31 @@ FeatureDimPlot(pbmc, features = "UCell_Score_T_cell")
 get_geneset_scoring(pbmc)
 ```
 
+## Advanced Pathway Discovery (altExp and RunKEGG)
+
+When dealing with hundreds of pathways (like the entire KEGG database), dumping all scores into `colData` is messy. Instead, `sclet` allows storing these massive score matrices as an alternative experiment (`altExp`). This keeps your metadata clean while retaining perfect alignment with your cells.
+
+Furthermore, `sclet` provides `RunKEGG()` as a one-stop wrapper. It automatically downloads pathways via `clusterProfiler`, scores the cells using `UCell`, stores the matrix in an `altExp`, and even identifies cell-type specific marker pathways using robust Wilcoxon rank-sum tests via `FindMarkerPathways()`.
+
+```{r kegg-scoring, eval=FALSE}
+# Run the complete KEGG workflow
+# Note: Requires org.Hs.eg.db for human data
+res <- RunKEGG(pbmc, species = "hsa", method = "UCell", group.by = "seurat_annotations")
+
+# The updated SCE object with the KEGG altExp
+pbmc <- res$sce
+
+# The marker pathways data.frame
+kegg_markers <- res$markers
+head(kegg_markers)
+```
+
+You can also manually run differential testing on any pathway scores stored in an `altExp`:
+
+```{r marker-pathways, eval=FALSE}
+# If you ran RunGeneSetScoring with as_altExp = TRUE and name = "MyScores"
+markers <- FindMarkerPathways(pbmc, altExp_name = "MyScores", group.by = "seurat_annotations")
+```
+
 **Bottom Line:**
-Regardless of whether the underlying engine is `UCell` or `AUCell`, you can immediately plot the results with `FeatureDimPlot`. Life is too short to wrangle metadata formats.
+Regardless of whether the underlying engine is `UCell` or `AUCell`, you can immediately plot the results with `FeatureDimPlot` or seamlessly run differential analysis. Life is too short to wrangle metadata formats.
