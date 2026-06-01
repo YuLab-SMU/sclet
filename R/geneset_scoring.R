@@ -65,7 +65,7 @@ RunGeneSetScoring <- function(sce, gene_sets = NULL, features = NULL,
         message("Running AUCell scoring...")
         cells_rankings <- AUCell::AUCell_buildRankings(expr_mat, nCores = ncores, plotStats = FALSE, verbose = FALSE)
         cells_AUC <- AUCell::AUCell_calcAUC(gene_sets, cells_rankings, nCores = ncores, ...)
-        scores <- t(as.matrix(AUCell::getAUC(cells_AUC)))
+        scores <- t(AUCell::getAUC(cells_AUC))
         
     } else if (method == "GSVA") {
         if (!requireNamespace("GSVA", quietly = TRUE)) {
@@ -80,7 +80,7 @@ RunGeneSetScoring <- function(sce, gene_sets = NULL, features = NULL,
         } else {
             gsva_res <- GSVA::gsva(expr_mat, gene_sets, parallel.sz = ncores, ...)
         }
-        scores <- t(as.matrix(gsva_res))
+        scores <- t(gsva_res)
     }
     
     # Format scores

@@ -68,15 +68,20 @@ FindMarkers_pseudobulk <- function(object, design, contrast, ...) {
         stop("Package 'DESeq2' is needed for pseudobulk DE. Please install it.")
     }
     
-    # Ensure it's a count matrix (integers)
-    counts_mat <- assay(object, "counts")
-    if (!is.matrix(counts_mat)) counts_mat <- as.matrix(counts_mat)
-    mode(counts_mat) <- "integer"
-    
-    # Create DESeqDataSet
-    dds <- DESeq2::DESeqDataSetFromMatrix(countData = counts_mat,
-                                          colData = colData(object),
-                                          design = design)
+    dds <- tryCatch(
+        DESeq2::DESeqDataSet(object, design = design),
+        error = function(e) NULL
+    )
+    if (is.null(dds)) {
+        counts_mat <- assay(object, "counts")
+        if (!is.matrix(counts_mat)) counts_mat <- as.matrix(counts_mat)
+        mode(counts_mat) <- "integer"
+        dds <- DESeq2::DESeqDataSetFromMatrix(
+            countData = counts_mat,
+            colData = colData(object),
+            design = design
+        )
+    }
     
     # Run DESeq
     dds <- DESeq2::DESeq(dds, ...)

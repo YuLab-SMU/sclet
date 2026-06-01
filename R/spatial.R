@@ -26,17 +26,13 @@ RunSpatialDeconvolution <- function(sce_spatial, sce_ref, ref_group_key, ref_bat
         stop("Assay 'counts' is required in reference data.")
     }
     
-    sp_mat <- t(as.matrix(SummarizedExperiment::assay(sce_spatial, "counts")))
-    ref_mat <- t(as.matrix(SummarizedExperiment::assay(sce_ref, "counts")))
-    
-    # Common genes
-    common_genes <- intersect(colnames(sp_mat), colnames(ref_mat))
+    # Intersect genes before any transpose/coercion to avoid materializing full dense matrices.
+    common_genes <- intersect(rownames(sce_spatial), rownames(sce_ref))
     if (length(common_genes) == 0) {
         stop("No common genes found between spatial and reference data.")
     }
-    
-    sp_mat <- sp_mat[, common_genes]
-    ref_mat <- ref_mat[, common_genes]
+    sp_mat <- sclet_extract_cell_feature_matrix(sce_spatial, "counts", common_genes)
+    ref_mat <- sclet_extract_cell_feature_matrix(sce_ref, "counts", common_genes)
     
     ref_groups <- as.character(SummarizedExperiment::colData(sce_ref)[[ref_group_key]])
     
@@ -52,6 +48,14 @@ RunSpatialDeconvolution <- function(sce_spatial, sce_ref, ref_group_key, ref_bat
         ad <- reticulate::import("anndata")
         pd <- reticulate::import("pandas")
         scvi <- reticulate::import("scvi")
+        sp_sparse <- reticulate::import("scipy.sparse")
+
+        if (sp_sparse$issparse(ref)) {
+            ref <- ref$tocsr()
+        }
+        if (sp_sparse$issparse(sp)) {
+            sp <- sp$tocsr()
+        }
         
         # Reference AnnData
         obs_ref <- pd$DataFrame(list(labels = grp), index = rownames(ref))

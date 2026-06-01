@@ -135,6 +135,7 @@ Collate:
     'io.R'
     'layers.R'
     'markers.R'
+    'matrix-utils.R'
     'pathways.R'
     'phenotype.R'
     'pipeline_summary.R'

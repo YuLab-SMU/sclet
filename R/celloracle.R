@@ -33,7 +33,7 @@ RunInSilicoPerturbation <- function(sce, target_gene, perturbation_value = 0.0, 
         stop("Assay 'counts' is required.")
     }
     
-    counts_mat <- t(as.matrix(SummarizedExperiment::assay(sce, "counts")))
+    counts_mat <- sclet_extract_cell_feature_matrix(sce, "counts")
     clusters <- as.character(SummarizedExperiment::colData(sce)[[cluster_key]])
     
     if (!reduction %in% SingleCellExperiment::reducedDimNames(sce)) {
@@ -53,6 +53,11 @@ RunInSilicoPerturbation <- function(sce, target_gene, perturbation_value = 0.0, 
         pd <- reticulate::import("pandas")
         co <- reticulate::import("celloracle")
         sc <- reticulate::import("scanpy")
+        sp <- reticulate::import("scipy.sparse")
+
+        if (sp$issparse(counts)) {
+            counts <- counts$tocsr()
+        }
         
         obs <- pd$DataFrame(list(clusters = cluster_labels), index = rownames(counts))
         adata <- ad$AnnData(X = counts, obs = obs)

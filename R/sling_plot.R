@@ -229,8 +229,7 @@ genecurve_plot <- function(
   fate_names <- colnames(pseudo) 
   
   ## extract gene expression data
-  gdf <- t(assay(sce, assay_name))
-  gdf <- as.data.frame(gdf[, features])
+  gdf <- as.data.frame(t(assay(sce, assay_name)[features, , drop = FALSE]))
   colnames(gdf) <- features
   df <- cbind(pseudo, gdf)
   

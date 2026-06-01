@@ -47,9 +47,9 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         )
     }
 
-    v_mat <- t(as.matrix(SummarizedExperiment::assay(vel_res, "velocity")))
-    s_mat <- t(as.matrix(SummarizedExperiment::assay(vel_res, "spliced")))
-    u_mat <- t(as.matrix(SummarizedExperiment::assay(vel_res, "unspliced")))
+    v_mat <- sclet_extract_cell_feature_matrix(vel_res, "velocity")
+    s_mat <- sclet_extract_cell_feature_matrix(vel_res, "spliced")
+    u_mat <- sclet_extract_cell_feature_matrix(vel_res, "unspliced")
 
     clusters <- as.character(SummarizedExperiment::colData(sce)[[cluster_key]])
 
@@ -61,6 +61,17 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         ad <- reticulate::import("anndata")
         cr <- reticulate::import("cellrank")
         pd <- reticulate::import("pandas")
+        sp <- reticulate::import("scipy.sparse")
+
+        if (sp$issparse(v)) {
+            v <- v$tocsr()
+        }
+        if (sp$issparse(s)) {
+            s <- s$tocsr()
+        }
+        if (sp$issparse(u)) {
+            u <- u$tocsr()
+        }
 
         obs <- pd$DataFrame(index = rownames(v))
         obs["clusters"] <- pd$Series(cluster_labels, dtype = "category", index = rownames(v))

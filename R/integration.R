@@ -152,7 +152,11 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             stop("Assay 'counts' is required for scVI.")
         }
 
-        counts_mat <- t(as(SummarizedExperiment::assay(object, "counts")[features, ], "dgCMatrix"))
+        counts_mat <- sclet_extract_cell_feature_matrix(
+            object = object,
+            assay_name = "counts",
+            features = features
+        )
         batch_vec <- as.character(SummarizedExperiment::colData(object)[[batch]])
 
         message("Running scVI via basilisk...")

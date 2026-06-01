@@ -304,14 +304,31 @@ RunCellPhoneDB <- function(sce, group = NULL,
         dir.create(out_dir)
         out_dir <- normalizePath(out_dir, winslash = "/", mustWork = FALSE)
         
+        write_counts_csv <- function(x, genes, file) {
+            con <- file(file, open = "wt")
+            on.exit(close(con), add = TRUE)
+
+            writeLines(
+                paste(c("", colnames(x)), collapse = ","),
+                con = con
+            )
+
+            for (i in seq_len(nrow(x))) {
+                values <- as.vector(x[i, , drop = TRUE])
+                writeLines(
+                    paste(c(genes[i], values), collapse = ","),
+                    con = con
+                )
+            }
+        }
+
         # Write inputs
         counts_file <- file.path(out_dir, "counts.csv")
         meta_file <- file.path(out_dir, "meta.csv")
-        
-        # Convert sparse to dense if needed, or save directly
-        counts_df <- as.matrix(mat)
-        rownames(counts_df) <- gene_names
-        utils::write.csv(counts_df, counts_file, quote = FALSE)
+
+        # CellPhoneDB consumes a dense CSV file, but we can stream rows to disk
+        # instead of materializing the full expression matrix in memory first.
+        write_counts_csv(mat, gene_names, counts_file)
         utils::write.csv(cell_meta, meta_file, row.names = FALSE, quote = FALSE)
         
         # Python execution

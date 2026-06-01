@@ -166,16 +166,23 @@ RunKNNPredict <- function(object, ref, labels = NULL, features = NULL, layer = N
         stop("No overlapping features found between object and reference.")
     }
     
-    # Extract data matrices
-    # For a simple KNN, we need a dense or sparse matrix. We'll transpose for BiocNeighbors
-    query_mat <- t(as.matrix(SummarizedExperiment::assay(object, source$assay)[features, , drop = FALSE]))
+    # Keep matrices sparse to avoid materializing large dense cell-by-gene blocks.
+    query_mat <- sclet_extract_cell_feature_matrix(
+        object = object,
+        assay_name = source$assay,
+        features = features
+    )
     
     # Find matching assay in ref, prefer logcounts or the same name
     ref_assay <- "logcounts"
     if (!ref_assay %in% SummarizedExperiment::assayNames(ref)) {
         ref_assay <- SummarizedExperiment::assayNames(ref)[1]
     }
-    ref_mat <- t(as.matrix(SummarizedExperiment::assay(ref, ref_assay)[features, , drop = FALSE]))
+    ref_mat <- sclet_extract_cell_feature_matrix(
+        object = ref,
+        assay_name = ref_assay,
+        features = features
+    )
     
     # Run KNN
     # By default queryKNN returns indices.

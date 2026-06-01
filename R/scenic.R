@@ -58,8 +58,8 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
     }
     
     message("Extracting expression matrix...")
-    # pySCENIC expects cells as rows and genes as columns
-    expr_mat <- t(as.matrix(assay(sce, assay_use)))
+    # pySCENIC supports sparse inputs, so keep the matrix sparse across the R/Python boundary.
+    expr_mat <- sclet_extract_cell_feature_matrix(sce, assay_use)
     gene_names <- colnames(expr_mat)
     cell_names <- rownames(expr_mat)
     
@@ -68,12 +68,18 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
     auc_matrix <- basilisk::basiliskRun(env = sclet_scenic_env, fun = function(expr, genes, cells, tfs_f, motif_f, dbs, n_workers, s) {
         # Import Python modules
         pd <- reticulate::import("pandas")
+        sp <- reticulate::import("scipy.sparse")
         grnboost2 <- reticulate::import("arboreto.algo")$grnboost2
         pyscenic_prune <- reticulate::import("pyscenic.prune")
         pyscenic_aucell <- reticulate::import("pyscenic.aucell")
         
         # 1. Prepare DataFrame
-        ex_df <- pd$DataFrame(expr, index = cells, columns = genes)
+        if (sp$issparse(expr)) {
+            expr <- expr$tocsr()
+            ex_df <- pd$DataFrame$sparse$from_spmatrix(expr, index = cells, columns = genes)
+        } else {
+            ex_df <- pd$DataFrame(expr, index = cells, columns = genes)
+        }
         
         # Load TFs
         tfs <- readLines(tfs_f)

@@ -4,6 +4,7 @@
 + **Imputation**: Added `RunImputation()` to perform zero-preserving imputation using the `ALRA` method. The function handles sparse matrices and integrates with the analysis-state machine by storing the imputed results in a separate assay (`alra_imputed`).
 + **Diffusion Map**: Added `RunDiffusionMap()` as a robust dimensional reduction alternative for complex trajectory inference. It uses the `destiny` package to calculate diffusion components, storing them in `reducedDim(sce, "DM")`.
 + **Integration**: Refined `RunIntegration(method = "scVI")` to avoid dense matrix materialization, converting sparse matrix inputs directly to `scipy.sparse.csr_matrix` via `reticulate` for improved performance and reduced memory usage on large datasets.
++ **Memory Safety**: Audited other large-matrix workflows and now keep sparse representations as long as possible in `RunSpatialDeconvolution()`, `RunSCENIC()`, `RunCellRank()`, `RunInSilicoPerturbation()`, `RunKNNPredict()`, while also avoiding full-assay transpose in `pseudo_heatmap()` and `genecurve_plot()` unless only the requested features are needed.
 + **Phenotype Association**: Added `RunPhenotypeAssociation()` to directly link single-cell transcriptomics with bulk clinical data (e.g., survival analysis) using the `scPAS` package. Supports Cox regression, binomial, and gaussian models, tracking the association results and parameters directly in the `analysis-state`.
 
 # sclet 0.99.6
