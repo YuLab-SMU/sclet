@@ -17,7 +17,7 @@ At the moment, the practical backend stack is intentionally simple:
 
 1. `SingleR` as the main reference annotation / mapping entry
 2. `KNN` as a lightweight baseline mapping backend
-3. `Symphony` as a future projection-oriented backend that is reserved but not yet implemented
+3. `Symphony` as a harmonized atlas projection backend now fully integrated
 
 In this chapter, both the low-level `SingleR()` workflow and the `sclet` analysis examples are executed during book rendering when the required Bioconductor dependencies are available. This keeps the chapter useful as documentation while also exercising the annotation layer in CI.
 
@@ -114,6 +114,46 @@ plot_reference_label_confidence(
 )
 ```
 
+
+### Symphony Atlas Mapping
+
+Symphony builds a harmonized reference atlas that integrates multiple batches, then projects query cells into the same space for label prediction via k-NN. This is especially useful when the reference includes substantial batch structure that should be modeled during integration.
+
+```{r symphony-mapping, eval=FALSE}
+library(sclet)
+# object: your query SingleCellExperiment
+# ref: a reference SingleCellExperiment with cell type labels in colData
+
+object <- RunReferenceMapping(
+    object = object,
+    ref = ref,
+    labels = "cell_type",
+    method = "Symphony",
+    vars = c("donor"),      # batch variables to integrate over
+    k = 5,
+    name = "symphony_demo"
+)
+
+# Inspect predictions
+table(object$symphony_predicted)
+head(object$symphony_confidence)
+
+# Check mapping state
+get_mapping(object, id = "symphony_demo")
+```
+
+Symphony mapping also works through `RunReferenceWorkflow()`:
+
+```{r symphony-workflow, eval=FALSE}
+object <- RunReferenceWorkflow(
+    object,
+    ref = ref,
+    labels = "cell_type",
+    method = "Symphony",
+    vars = "donor",
+    name = "sym_ref"
+)
+```
 
 ### Run SingleR
 
