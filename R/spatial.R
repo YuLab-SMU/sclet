@@ -191,6 +191,131 @@ RunSpatialColocalization <- function(sce, name = "colocalization", ...) {
     sce
 }
 
+#' Plot spatial deconvolution cell type proportions
+#'
+#' Summarizes the mean estimated cell type proportion across all spatial spots
+#' as a ranked bar chart.
+#'
+#' @param object A SingleCellExperiment object with spatial deconvolution results.
+#' @param n Integer. Number of top cell types to display. Defaults to 20.
+#' @param fill_color Character. Bar fill color. Defaults to `"darkgreen"`.
+#'
+#' @return A ggplot object.
+#' @export
+plot_spatial_deconvolution <- function(object, n = 20, fill_color = "darkgreen") {
+    if (!requireNamespace("ggplot2", quietly = TRUE)) {
+        stop("Package 'ggplot2' is needed for this function to work. Please install it.")
+    }
+
+    deconv <- get_spatial(object)
+    if (is.null(deconv)) {
+        stop(
+            "No spatial deconvolution results found. ",
+            "Run RunSpatialDeconvolution() or RunSpatialWorkflow() first."
+        )
+    }
+    columns <- deconv$artifacts$columns
+    if (is.null(columns)) {
+        columns <- deconv$columns
+    }
+    if (is.null(columns) || length(columns) == 0) {
+        stop("No deconvolution columns recorded in spatial state.")
+    }
+    cd <- as.data.frame(SummarizedExperiment::colData(object))
+    present <- intersect(columns, colnames(cd))
+    if (length(present) == 0) {
+        stop("None of the recorded deconvolution columns are present in colData.")
+    }
+
+    means <- colMeans(cd[, present, drop = FALSE], na.rm = TRUE)
+    labels <- gsub("^c2l_", "", present)
+    df <- data.frame(cell_type = labels, proportion = means, stringsAsFactors = FALSE)
+    df <- df[order(df$proportion, decreasing = TRUE), , drop = FALSE]
+    df <- utils::head(df, n)
+    df$cell_type <- factor(df$cell_type, levels = rev(df$cell_type))
+
+    ggplot2::ggplot(df, ggplot2::aes(x = .data$cell_type, y = .data$proportion)) +
+        ggplot2::geom_col(fill = fill_color, width = 0.7) +
+        ggplot2::coord_flip() +
+        ggplot2::labs(
+            x = "Cell Type",
+            y = "Mean Proportion",
+            title = "Spatial Deconvolution — Cell Type Composition"
+        ) +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(
+            plot.title = ggplot2::element_text(face = "bold", size = 13)
+        )
+}
+
+#' Plot spatial cell type composition heatmap
+#'
+#' Displays cell type proportions across spatial spots as a heatmap.
+#'
+#' @param object A SingleCellExperiment object with spatial deconvolution results.
+#' @param n Integer. Number of top cell types to display. Defaults to 15.
+#' @param scale_rows Logical. If TRUE, z-score scales each cell type across spots.
+#' @param low,high Colors for the fill gradient.
+#'
+#' @return A ggplot object.
+#' @export
+plot_spatial_composition <- function(object, n = 15, scale_rows = TRUE,
+                                     low = "#2166AC", high = "#B2182B") {
+    if (!requireNamespace("ggplot2", quietly = TRUE)) {
+        stop("Package 'ggplot2' is needed for this function to work. Please install it.")
+    }
+
+    deconv <- get_spatial(object)
+    if (is.null(deconv)) {
+        stop(
+            "No spatial deconvolution results found. ",
+            "Run RunSpatialDeconvolution() or RunSpatialWorkflow() first."
+        )
+    }
+    columns <- deconv$artifacts$columns
+    if (is.null(columns)) {
+        columns <- deconv$columns
+    }
+    if (is.null(columns) || length(columns) == 0) {
+        stop("No deconvolution columns recorded in spatial state.")
+    }
+    cd <- as.data.frame(SummarizedExperiment::colData(object))
+    present <- intersect(columns, colnames(cd))
+    if (length(present) == 0) {
+        stop("None of the recorded deconvolution columns are present in colData.")
+    }
+
+    means <- colMeans(cd[, present, drop = FALSE], na.rm = TRUE)
+    top_idx <- order(means, decreasing = TRUE)[seq_len(min(n, length(means)))]
+    keep_cols <- present[top_idx]
+    labels <- gsub("^c2l_", "", keep_cols)
+
+    mat <- as.matrix(cd[, keep_cols, drop = FALSE])
+    if (scale_rows) {
+        mat <- t(scale(t(mat)))
+    }
+
+    df <- as.data.frame(as.table(mat), stringsAsFactors = FALSE)
+    colnames(df) <- c("spot", "cell_type", "proportion")
+    df$cell_type <- factor(rep(labels, each = nrow(mat)), levels = labels)
+
+    ggplot2::ggplot(df, ggplot2::aes(x = .data$spot, y = .data$cell_type, fill = .data$proportion)) +
+        ggplot2::geom_tile() +
+        ggplot2::scale_fill_gradient2(low = low, mid = "white", high = high) +
+        ggplot2::labs(
+            x = "Spot",
+            y = "Cell Type",
+            fill = if (scale_rows) "Scaled\nproportion" else "Proportion",
+            title = "Spatial Composition Heatmap"
+        ) +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(
+            axis.text.x = ggplot2::element_blank(),
+            axis.ticks.x = ggplot2::element_blank(),
+            plot.title = ggplot2::element_text(face = "bold", size = 13)
+        )
+}
+
 #' Run spatial niche analysis
 #'
 #' Reserve interface for spatial niche detection workflows.
