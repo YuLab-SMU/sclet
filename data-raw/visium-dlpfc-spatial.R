@@ -19,6 +19,9 @@ spe <- spe[, keep_spots]
 keep_genes <- sample(seq_len(nrow(spe)), 500)
 spe <- spe[keep_genes, ]
 
+# Drop spots with zero total counts after random gene subsetting
+spe <- spe[, Matrix::colSums(SingleCellExperiment::counts(spe)) > 0]
+
 spe <- logNormCounts(spe)
 
 dir.create("../data", showWarnings = FALSE)
