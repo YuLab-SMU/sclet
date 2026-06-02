@@ -69,6 +69,7 @@ sclet_default_command_outputs <- function(command) {
         BatchRemover = list(analysis = "batch", layer = "corrected", state = "integration"),
         RunPerturbationPriority = list(analysis = "augur", state = "priority"),
         RunRareCellDetection = list(analysis = "rare_cells", state = "rare_cells"),
+        RunSpatialDeconvolution = list(analysis = "spatial_deconv", state = "spatial"),
         list()
     )
 }

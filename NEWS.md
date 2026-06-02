@@ -1,6 +1,7 @@
 # sclet 1.0.0
 
 + **State Priority & Perturbation Sensitivity Mainline**: Introduced `RunPerturbationPriority()` wrapping the Augur framework for ranking cell types by perturbation responsiveness, `RunRareCellDetection()` as a reserved interface for rare-cell identification, and `RunStatePriorityWorkflow()` as the semantic shell over the state-priority analysis mainline. Added `get_perturbation_priority()` / `has_perturbation_priority()` and `get_rare_cells()` / `has_rare_cells()` accessors.
++ **Spatial Context & Niche Mainline**: Modernized `RunSpatialDeconvolution()` with `name` parameter, typed state record, and command logging. Introduced `RunSpatialColocalization()` and `RunSpatialNiche()` as reserved interfaces for colocalization and niche detection, and `RunSpatialWorkflow()` as the semantic shell over the spatial-context mainline. Updated `get_spatial()` to support id-based retrieval across deconvolution, colocalization, and niche records. Added `get_colocalization()` / `has_colocalization()` and `get_spatial_niche()` / `has_spatial_niche()` accessors.
 
 
 # sclet 0.99.7

@@ -817,9 +817,18 @@ get_spatial <- function(object, element = NULL, id = NULL) {
         id <- sclet_get_active_state(object, "spatial")
     }
     result <- NULL
-    if (!is.null(id) && id == "spatial_deconv") {
-        result <- sclet_get_analysis(object, "spatial_deconv")
-    } else if (is.null(id)) {
+    if (!is.null(id)) {
+        candidate <- sclet_get_state_record(object, "spatial", id = id)
+        if (!is.null(candidate)) {
+            result <- candidate
+        } else if (id == "spatial_deconv") {
+            result <- sclet_get_analysis(object, "spatial_deconv")
+        } else if (id == "colocalization") {
+            result <- sclet_get_analysis(object, "colocalization")
+        } else if (id == "spatial_niche") {
+            result <- sclet_get_analysis(object, "spatial_niche")
+        }
+    } else {
         result <- sclet_get_analysis(object, "spatial_deconv")
     }
     extract_analysis_element(result, element)
@@ -833,6 +842,50 @@ get_spatial <- function(object, element = NULL, id = NULL) {
 #' @export
 has_spatial <- function(object) {
     !is.null(get_spatial(object))
+}
+
+#' Access spatial colocalization results
+#'
+#' @title get_colocalization
+#' @param object a SingleCellExperiment object
+#' @param element optional element name
+#' @return the colocalization record, a selected element, or `NULL`
+#' @export
+get_colocalization <- function(object, element = NULL) {
+    result <- sclet_get_analysis(object, "colocalization")
+    extract_analysis_element(result, element)
+}
+
+#' Check whether colocalization results are available
+#'
+#' @title has_colocalization
+#' @param object a SingleCellExperiment object
+#' @return logical
+#' @export
+has_colocalization <- function(object) {
+    !is.null(get_colocalization(object))
+}
+
+#' Access spatial niche results
+#'
+#' @title get_spatial_niche
+#' @param object a SingleCellExperiment object
+#' @param element optional element name
+#' @return the niche record, a selected element, or `NULL`
+#' @export
+get_spatial_niche <- function(object, element = NULL) {
+    result <- sclet_get_analysis(object, "spatial_niche")
+    extract_analysis_element(result, element)
+}
+
+#' Check whether spatial niche results are available
+#'
+#' @title has_spatial_niche
+#' @param object a SingleCellExperiment object
+#' @return logical
+#' @export
+has_spatial_niche <- function(object) {
+    !is.null(get_spatial_niche(object))
 }
 
 #' Access CellOracle Perturbation analysis results
