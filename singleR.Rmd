@@ -21,6 +21,10 @@ At the moment, the practical backend stack is intentionally simple:
 
 In this chapter, both the low-level `SingleR()` workflow and the `sclet` analysis examples are executed during book rendering when the required Bioconductor dependencies are available. This keeps the chapter useful as documentation while also exercising the annotation layer in CI.
 
+## Reference mapping mainline workflow
+
+If your real question is "what does this query dataset correspond to in a reference atlas?", `RunReferenceWorkflow()` is now the semantic entry point for that mainline. It wraps the reference-mapping step as one reusable analysis unit instead of forcing you to think first about whether the backend is `SingleR` or `KNN`.
+
 ### Lightweight Reference Mapping (KNN)
 
 If you have a reference `SingleCellExperiment` with cell type annotations, you can use it to map labels to your query dataset quickly:
@@ -85,6 +89,28 @@ plot_reference_label_transfer_heatmap(
 plot_reference_label_confidence(
     pbmc2,
     id = "hpca_main"
+)
+```
+
+```{r run-reference-workflow, eval = eval_chunks && requireNamespace("SingleR", quietly = TRUE) && requireNamespace("celldex", quietly = TRUE)}
+pbmc_ref <- RunReferenceWorkflow(
+    pbmc,
+    ref = hpca,
+    labels = hpca$label.main,
+    method = "SingleR",
+    layer = "logcounts",
+    name = "reference_main"
+)
+
+plot_reference_label_transfer_heatmap(
+    pbmc_ref,
+    group.by = "colLabels",
+    id = "reference_main_mapping"
+)
+
+plot_reference_label_confidence(
+    pbmc_ref,
+    id = "reference_main_mapping"
 )
 ```
 

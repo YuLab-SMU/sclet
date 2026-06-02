@@ -4,8 +4,35 @@ Static clustering tells us which cell states are present, but many biological sy
 
 This chapter therefore shifts from classification to dynamics. We begin with trajectory inference based on transcriptional similarity, then move to RNA velocity and related methods that add directional information to the analysis. Together, these approaches help answer not only *what* a cell is, but also *where it may be going next*.
 
+## Trajectory mainline workflow
 
-## Slingshot: cell lineage and pseudotime inference {#slingshot}
+If you do not want to stitch together `RunDiffusionMap()`, `RunSlingshot()`, `RunVelocity()`, and `RunCellFate()` by hand every time, `sclet` now provides `RunTrajectoryWorkflow()` as the semantic entry point for this entire analysis mainline.
+
+The point of this wrapper is not to hide the underlying methods. The point is to make the recommended analysis path easier to follow, easier to document, and easier to rerun later.
+
+```{r trajectory-mainline, eval = eval_chunks}
+panc_main <- readRDS("data/pancreas_sub_sce.rds")
+panc_main <- RunTrajectoryWorkflow(
+  panc_main,
+  group = "SubCellType",
+  reduction = "UMAP",
+  run_diffusion_map = TRUE,
+  run_slingshot = TRUE,
+  run_velocity = "never",
+  run_fate = "never",
+  name = "pancreas_main"
+)
+```
+
+```{r trajectory-mainline-overview, fig.width=11, fig.height=8, eval = eval_chunks}
+plot_trajectory_overview(
+  panc_main,
+  id = "pancreas_main",
+  panels = c("lineage")
+)
+```
+
+
 
 
 ```{r}
@@ -224,4 +251,27 @@ driver_lineage <- if (!is.null(cr$artifacts$fate_probability_names)) {
 }
 
 plot_fate_driver_trends(sce, lineage = driver_lineage, top_n = 4)
+```
+
+## Workflow shell for velocity and fate
+
+When spliced/unspliced assays are available, the same trajectory mainline can extend from lineage inference to velocity and fate mapping:
+
+```{r trajectory-mainline-dynamic, eval=FALSE}
+sce <- RunTrajectoryWorkflow(
+  sce,
+  group = "cluster",
+  reduction = "PCA",
+  run_diffusion_map = FALSE,
+  run_slingshot = FALSE,
+  run_velocity = "auto",
+  run_fate = "auto",
+  name = "germline_main"
+)
+
+plot_trajectory_overview(
+  sce,
+  id = "germline_main",
+  panels = c("velocity", "terminal_states", "fate_probability")
+)
 ```

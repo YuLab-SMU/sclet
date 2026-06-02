@@ -29,6 +29,20 @@ You can decisively choose the backend that best fits your needs. `UCell` is rank
 pbmc <- RunGeneSetScoring(pbmc, gene_sets = my_signatures, method = "UCell", name = "UCellScore")
 ```
 
+## Program mainline workflow
+
+If you want to organize pathway scoring and regulon activity as one coherent interpretation mainline, use `RunProgramWorkflow()` as the semantic entry point. It keeps the analysis story centered on "which programs are active" instead of "which backend did I call".
+
+```{r geneset-workflow}
+pbmc_program <- pbmc
+pbmc_program <- RunProgramWorkflow(
+  pbmc_program,
+  gene_sets = my_signatures,
+  scoring_method = "UCell",
+  name = "program_main"
+)
+```
+
 ## Reading and Visualizing Results
 
 Where do the scores go after calculation?
@@ -51,6 +65,23 @@ plot_program_heatmap(
   source = "geneset_scoring",
   group.by = "colLabels",
   id = "UCellScore"
+)
+```
+
+```{r geneset-workflow-plot, fig.width=12, fig.height=5}
+plot_program_activity(
+  pbmc_program,
+  program = "T_cell",
+  source = "geneset_scoring",
+  id = "program_main_scores"
+)
+
+plot_program_heatmap(
+  pbmc_program,
+  programs = c("T_cell", "B_cell", "Myeloid"),
+  source = "geneset_scoring",
+  group.by = "colLabels",
+  id = "program_main_scores"
 )
 ```
 
