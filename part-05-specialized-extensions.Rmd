@@ -1,5 +1,0 @@
-# (PART) Specialized Extensions {-}
-
-Not every workflow needs every module. After the advanced ecosystem chapters, it is useful to gather the more specialized extensions in one place, so readers can jump directly to the functionality that matches their own data type or downstream question.
-
-This part therefore collects focused modules for metacells, cell-cell communication, differential abundance, phenotype association, interactive exploration, and SVP-related procedures. Each chapter is more targeted, but together they show the practical breadth of the package.

@@ -1,8 +1,8 @@
-# Cell Type Annotation
+# Cell Identity and Reference Mapping {#reference-mapping}
 
-After clustering, the natural next question is simple: what do these clusters actually represent? In practice, annotation usually combines two strategies. We first inspect clusters manually using known markers, and then we use a reference-based method to make the process faster, more systematic, and easier to reproduce.
+This mainline answers the most common post-clustering question: what are these cells, and how confidently can we connect them to a known reference atlas?
 
-This chapter introduces both perspectives. It keeps the biological intuition of manual annotation, while emphasizing the state-aware analysis interface that makes annotation results reusable in later steps.
+`sclet` keeps manual annotation, lightweight label transfer, and reference-driven mapping in the same narrative. The goal is to let users think in terms of one annotation workflow rather than a choice between disconnected backend names.
 
 ## Manual annotation
 

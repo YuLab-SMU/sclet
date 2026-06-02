@@ -1,0 +1,208 @@
+# Program, Regulon, and Mechanistic Interpretation {#program-regulon}
+
+This mainline answers a simple downstream question: once cells have been grouped, annotated, or placed along a trajectory, which pathways, programs, and transcription factors actually explain the state difference? In `sclet`, this is where signature scoring, pathway-level summarization, and regulon inference start to connect into one interpretation chain.
+
+The high-level direction is to let users move from quick activity scoring to richer mechanism-oriented models without changing the object contract. `RunProgramWorkflow()` is the intended mainline entry; the chapters below document the atomic building blocks that already make up that workflow.
+
+## Gene set scoring and pathway activity
+
+Often, relying on the expression of a single gene (like a traditional marker) introduces too much noise and dropout artifacts. If you want to know whether a cell population is undergoing "Hypoxia" or has an active "Cell Cycle", scoring the entire pathway or gene set is the most robust approach.
+
+However, the algorithm landscape is fragmented: `AUCell`, `UCell`, `GSVA`... Each backend has a different output format. If you want to plot the results downstream, standardizing these formats can be a nightmare.
+
+This is exactly the kind of problem `sclet` is designed to simplify. We provide the `RunGeneSetScoring()` interface, which unifies these backends and injects the scores directly into the state-aware workflow and `colData`, so the results remain easy to inspect and easy to reuse later.
+
+## Multi-Backend Scoring in One Click
+
+Let's define a few gene sets of interest and run the scoring on our PBMC dataset.
+
+```{r geneset-scoring-setup}
+library(sclet)
+pbmc <- readRDS("data/pbmc-3k-sce.rds")
+
+# Define signatures
+my_signatures <- list(
+  T_cell = c("CD3D", "CD3E", "CD8A", "CD4"),
+  B_cell = c("CD79A", "MS4A1"),
+  Myeloid = c("LYZ", "CD14", "FCGR3A")
+)
+```
+
+You can decisively choose the backend that best fits your needs. `UCell` is rank-based, extremely fast, and highly suitable for single-cell data.
+
+```{r geneset-scoring-run}
+# Use UCell backend
+pbmc <- RunGeneSetScoring(pbmc, gene_sets = my_signatures, method = "UCell", name = "UCellScore")
+```
+
+## Program mainline workflow
+
+If you want to organize pathway scoring and regulon activity as one coherent interpretation mainline, use `RunProgramWorkflow()` as the semantic entry point. It keeps the analysis story centered on "which programs are active" instead of "which backend did I call".
+
+```{r geneset-workflow}
+pbmc_program <- pbmc
+pbmc_program <- RunProgramWorkflow(
+  pbmc_program,
+  gene_sets = my_signatures,
+  scoring_method = "UCell",
+  name = "program_main"
+)
+```
+
+## Reading and Visualizing Results
+
+Where do the scores go after calculation?
+1. By default, they are added as columns in the cellular metadata (`colData`).
+2. The action is recorded in the `geneset_scoring` state machine.
+
+Because the scores are now registered as a state-aware analysis result, we can inspect their provenance and directly plot a single program through a unified activity consumer:
+
+```{r geneset-plot, fig.width=12, fig.height=5}
+# Inspect the scoring state provenance
+get_geneset_scoring(pbmc, id = "UCellScore")
+
+# Visualize the T_cell score distribution on the UMAP space
+plot_program_activity(pbmc, program = "T_cell", source = "geneset_scoring", id = "UCellScore")
+
+# Summarize multiple programs across groups
+plot_program_heatmap(
+  pbmc,
+  programs = c("T_cell", "B_cell", "Myeloid"),
+  source = "geneset_scoring",
+  group.by = "colLabels",
+  id = "UCellScore"
+)
+```
+
+```{r geneset-workflow-plot, fig.width=12, fig.height=5}
+plot_program_activity(
+  pbmc_program,
+  program = "T_cell",
+  source = "geneset_scoring",
+  id = "program_main_scores"
+)
+
+plot_program_heatmap(
+  pbmc_program,
+  programs = c("T_cell", "B_cell", "Myeloid"),
+  source = "geneset_scoring",
+  group.by = "colLabels",
+  id = "program_main_scores"
+)
+```
+
+## Advanced Pathway Discovery (altExp and RunKEGG)
+
+When dealing with hundreds of pathways (like the entire KEGG database), dumping all scores into `colData` is messy. Instead, `sclet` allows storing these massive score matrices as an alternative experiment (`altExp`). This keeps your metadata clean while retaining perfect alignment with your cells.
+
+Furthermore, `sclet` provides `RunKEGG()` as a one-stop wrapper. It automatically downloads pathways via `clusterProfiler`, scores the cells using `UCell`, stores the matrix in an `altExp`, and even identifies cell-type specific marker pathways using robust Wilcoxon rank-sum tests via `FindMarkerPathways()`.
+
+```{r kegg-scoring, eval=FALSE}
+# Run the complete KEGG workflow
+# Note: Requires org.Hs.eg.db for human data
+res <- RunKEGG(pbmc, species = "hsa", method = "UCell", group.by = "seurat_annotations")
+
+# The updated SCE object with the KEGG altExp
+pbmc <- res$sce
+
+# The marker pathways data.frame
+kegg_markers <- res$markers
+head(kegg_markers)
+```
+
+You can also manually run differential testing on any pathway scores stored in an `altExp`:
+
+```{r marker-pathways, eval=FALSE}
+# If you ran RunGeneSetScoring with as_altExp = TRUE and name = "MyScores"
+markers <- FindMarkerPathways(pbmc, altExp_name = "MyScores", group.by = "seurat_annotations")
+```
+
+**Bottom Line:**
+Regardless of whether the underlying engine is `UCell` or `AUCell`, you can immediately plot the results with `FeatureDimPlot` or seamlessly run differential analysis. Life is too short to wrangle metadata formats.
+
+## SCENIC regulon inference
+
+How do Transcription Factors (TFs) regulate target genes? Traditional differential expression analysis only tells you "which genes changed," but SCENIC tells you "who is issuing the commands."
+
+If you have ever run the legacy R version of SCENIC, you undoubtedly remember its excruciatingly slow speed and the requirement to download tens of gigabytes of local databases. Today, the Python-based `pySCENIC` (powered by GRNBoost2) completely crushes the original R version in both speed and performance.
+
+Rather than forcing users to leave the `SingleCellExperiment` workflow and manually manage a separate Python environment, `sclet` brings this functionality back into the same state-aware framework. Leveraging the `basilisk` isolated environment, it provides a native `sclet` entry point to `pySCENIC`: `RunSCENIC()`.
+
+The examples in this chapter are shown but not executed during book rendering. A realistic `pySCENIC` workflow depends on external transcription-factor lists and cisTarget ranking databases, so it is more honest to present the code as a template that readers can adapt to their own resources. In practice, the limiting factor is not the Python environment itself, but the requirement to provide large database files that are version-matched to the species and genome build of your dataset.
+
+## Environment and Data Preparation
+
+You no longer need to manually configure complex Python environments or wrestle with `conda` conflicts. `sclet` securely prepares the sandbox in the background. You only need to provide three things:
+1. Your single-cell expression matrix (SCE object)
+2. A list of transcription factors (`.txt`)
+3. The Motif database file (in `Feather` format)
+
+For most human or mouse analyses, this also means checking that your TF list, motif annotation table, and cisTarget ranking database all come from the same release family before you start the run.
+
+```{r grn-setup, eval=FALSE}
+library(sclet)
+# Assuming 'sce' is your pre-processed object
+
+# Specify the paths to your downloaded databases
+tfs_path <- "path/to/hs_hgnc_tfs.txt"
+database_paths <- c(
+  "path/to/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather"
+)
+motif_annotations_path <- "path/to/motifs-v9-nr.hgnc-m0.001-o0.0.tbl"
+```
+
+## One-Click Inference and Scoring
+
+Next, call `RunSCENIC()`. All heavy lifting—GRNBoost2 inference, Motif pruning, and AUCell scoring—will be executed blazingly fast in the Python backend.
+
+```{r grn-run, eval=FALSE}
+sce <- RunSCENIC(
+  sce,
+  tfs_path = tfs_path,
+  motif_annotations_path = motif_annotations_path,
+  database_paths = database_paths,
+  assay_use = "counts",
+  num_workers = 8,
+  name = "scenic_main"
+) # Supports multi-threading
+```
+
+## Result Retrieval and State Awareness
+
+After the run, where does the massive AUCell scoring matrix (tens of thousands of cells by hundreds of regulons) go?
+
+To keep the main SCE object clean and performant, `sclet` mounts this large scoring matrix as an `altExp` (Alternative Experiment) and records it in the `scenic` state. This means you can retrieve either the active SCENIC run or a specific run by `id`, instead of manually digging through `metadata()`.
+
+```{r grn-result, eval=FALSE}
+# Check the currently active SCENIC state provenance
+get_scenic(sce)
+
+# Retrieve a specific SCENIC run by id
+get_scenic(sce, id = "scenic_main")
+
+# Extract the AUCell matrix for downstream analysis
+auc_sce <- SingleCellExperiment::altExp(sce, "SCENIC_AUC")
+auc_matrix <- SummarizedExperiment::assay(auc_sce, "AUC")
+
+# Inspect available regulons
+head(rownames(auc_matrix))
+```
+
+## Visualizing Regulon Activity
+
+Once the AUC matrix is stored, the next question is not "where is the result?", but "can I directly visualize a regulon on my embedding?" That is exactly what `plot_scenic_activity()` is for.
+
+```{r grn-plot, eval=FALSE}
+# Make sure you already have a reduction such as UMAP
+DefaultReduction(sce) <- "UMAP"
+
+# Plot a single regulon on the active embedding
+plot_scenic_activity(
+  sce,
+  regulon = "STAT1(+)",
+  id = "scenic_main"
+)
+```
+
+**Bottom Line:**
+You can now treat SCENIC as a proper state-aware module: run it with a named record, retrieve it via `get_scenic(id = ...)`, and visualize a regulon directly with `plot_scenic_activity()`. From there, you can further perform dimensionality reduction and clustering on the `auc_matrix` to see whether cells group together based on "regulatory network activity" rather than only "gene expression levels".

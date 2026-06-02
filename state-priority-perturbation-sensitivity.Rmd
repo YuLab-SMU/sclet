@@ -1,0 +1,93 @@
+# State Priority and Perturbation Sensitivity {#state-priority}
+
+After clustering, annotation, and trajectory analysis, one question still remains: which states actually respond to the perturbation? Not every cluster changes meaningfully between conditions, and some rare populations may drive the phenotype while being numerically small. This mainline is about ranking states by their responsiveness and detecting rare populations that deserve follow-up before everything else.
+
+`sclet` now provides the three entry points that were promised in the mainline roadmap: `RunPerturbationPriority()`, `RunRareCellDetection()`, and `RunStatePriorityWorkflow()`.
+
+The core engine for perturbation priority is the Augur framework. Augur trains a machine-learning model for each cell type to predict experimental condition (e.g., treatment vs control) from molecular measurements. The cross-validated AUC of each cell-type-specific classifier becomes the priority score: a higher AUC means cells of that type are more distinguishable between conditions, and therefore more responsive.
+
+## Perturbation Priority Workflow
+
+### One-Step Dispatch
+
+The simplest entry point is `RunStatePriorityWorkflow()`. It delegates to Augur behind the scenes and records the workflow as a structured analysis mainline record.
+
+```{r state-priority-workflow, eval=FALSE}
+library(sclet)
+sce <- readRDS("data/pbmc-3k-sce.rds")
+
+# The object must have condition labels and cluster labels in colData.
+sce$condition <- ifelse(seq_len(ncol(sce)) %% 2 == 0, "treated", "control")
+
+sce <- RunStatePriorityWorkflow(
+    sce,
+    condition_col = "condition",
+    group_col = "colLabels",
+    run_perturbation_priority = TRUE
+)
+```
+
+### Direct Augur Call
+
+If you prefer to work directly with the Augur backend without the workflow shell, use `RunPerturbationPriority()`.
+
+The real Augur run is not executed during book rendering because it requires the `Augur` package and involves a non-trivial cross-validation loop. The code below shows the intended usage pattern.
+
+```{r augur-direct, eval=FALSE}
+library(sclet)
+sce <- readRDS("data/pbmc-3k-sce.rds")
+sce$condition <- ifelse(seq_len(ncol(sce)) %% 2 == 0, "treated", "control")
+
+sce <- RunPerturbationPriority(
+    sce,
+    condition_col = "condition",
+    group_col = "colLabels",
+    name = "my_augur_run"
+)
+
+# Inspect the AUC ranking
+priority <- get_perturbation_priority(sce)
+print(priority$AUC)
+```
+
+### Inspecting Results
+
+After the analysis, `sclet` stores the Augur output through two accessor layers. `get_perturbation_priority()` returns the complete priority record; `has_perturbation_priority()` checks whether the result is available.
+
+```{r augur-accessors, eval=FALSE}
+# Check whether priority results exist
+has_perturbation_priority(sce)
+
+# Retrieve the AUC table
+auc_table <- get_perturbation_priority(sce, element = "AUC")
+head(auc_table)
+```
+
+## Rare Cell Detection
+
+`RunRareCellDetection()` is currently a reserved interface. It records the analysis intent as a typed state so that downstream accessors and visualization can already be designed around it, even while the final backend selection is being made.
+
+```{r rare-cell-reserved, eval=FALSE}
+sce <- RunRareCellDetection(sce, name = "rareq_demo")
+
+has_rare_cells(sce)
+
+get_rare_cells(sce)
+```
+
+## What Fits Nearby
+
+This is not a standalone mainline; it sits naturally between the three most closely related chapters.
+
+- **Before this chapter**: cluster or annotate cells through the core workflow and reference mapping mainlines so that `group_col` points to a meaningful cell-type variable.
+- **Alongside this chapter**: the Milo appendix chapter remains the standard route for neighbourhood-level abundance shifts, which can be thought of as a statistical companion to the ML-based priority ranking.
+- **After this chapter**: spatial context and communication analysis can be used to validate whether the top-ranked states are also the ones that are spatially reorganized or highly communicative in the relevant condition.
+
+## Current Recommendation
+
+For now the most practical route through this mainline is:
+
+1. Build a stable clustering and annotation baseline with the core workflow.
+2. Use `RunMilo()` when the immediate question is abundance shift across conditions.
+3. Use `RunPerturbationPriority()` (or `RunStatePriorityWorkflow()`) when the question is which cell types are most molecularly responsive, regardless of abundance.
+4. Keep `RunRareCellDetection()` on the roadmap; when a backend is integrated, the object contract is already ready.

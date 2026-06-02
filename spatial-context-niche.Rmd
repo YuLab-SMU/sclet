@@ -1,12 +1,8 @@
-# Spatial & In-Silico Perturbation {#spatial}
+# Spatial Context and Niche Analysis {#spatial-context}
 
-Single-cell RNA sequencing (scRNA-seq) dissociates tissues. We learn "what cells are present," but we lose the crucial information of "where they are." Conversely, Spatial Transcriptomics (ST) preserves location, but mainstream technologies like 10x Visium lack single-cell resolution—a single spot might contain a mixture of 5 to 10 different cells.
+This mainline extends the analysis map from dissociated single cells back into tissue context. The user question is no longer only which states exist, but where they sit, which compositions change across space, and how niche structure constrains interpretation.
 
-How do we bridge this gap? Furthermore, how can we predict the trajectory shift of a cell state if we knockout a critical gene?
-
-This chapter addresses both questions by moving from conventional single-cell interpretation toward spatial context and perturbation-aware modeling. `sclet` embraces top-tier deep generative models based on PyTorch, while still presenting them through a consistent interface that fits naturally into the broader workflow.
-
-The code examples in this chapter are intentionally shown without execution during book rendering. Spatial deconvolution and in-silico perturbation typically require substantial model setup, external inputs, and longer runtimes than a documentation build should assume. Here the hard part is not merely "Python support", but the need for matched reference objects, spatial count matrices, and in the perturbation case an exported GRN scaffold that is specific to the biological system under study.
+The workflow layer here is still evolving, but the mainline is already clear enough to document explicitly. For now, this chapter brings together spatial deconvolution and perturbation-aware spatial modeling as the first coherent documentation home for that direction.
 
 ## High-Resolution Spatial Deconvolution: Cell2location
 

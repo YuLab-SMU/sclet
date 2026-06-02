@@ -1,8 +1,8 @@
-# Trajectory Inference and RNA Velocity {#trajectory}
+# Cell Fate and Dynamic Processes {#cell-fate}
 
-Static clustering tells us which cell states are present, but many biological systems are dynamic. Development, activation, differentiation, and response to perturbation all involve cells moving through transitional states rather than staying in discrete categories.
+This mainline shifts the analysis story from static identity to directional biology. Once cells have been placed in a baseline manifold, the next question is often whether they lie along a continuum, where terminal states sit, and which transitions are supported by the data.
 
-This chapter therefore shifts from classification to dynamics. We begin with trajectory inference based on transcriptional similarity, then move to RNA velocity and related methods that add directional information to the analysis. Together, these approaches help answer not only *what* a cell is, but also *where it may be going next*.
+`sclet` gathers diffusion-based embeddings, lineage inference, velocity, and fate-oriented methods under the same workflow umbrella. The point is not just to expose more algorithms, but to make the dynamics route readable and reusable as one coherent chapter of analysis.
 
 ## Trajectory mainline workflow
 

@@ -1,8 +1,8 @@
-# Basic Preprocessing and Clustering
+# Core Single-Cell Workflow {#core-workflow}
 
-This chapter is the fastest way to get a feel for the package. If you are new to `sclet`, think of it as the equivalent of the classic PBMC tutorial: read the data, perform quality control, normalize, identify highly variable genes, reduce dimensions, cluster cells, and inspect marker genes.
+This chapter is the baseline mainline for the entire package. The goal is not to teach one isolated PBMC vignette, but to show the standard route that most downstream `sclet` analyses assume: QC, normalization, variable features, dimensional reduction, clustering, and identity management.
 
-The difference is that everything happens directly on top of `SingleCellExperiment`, with `sclet` providing a coherent high-level analysis interface. The goal here is not only to reproduce a standard workflow, but also to show how little boilerplate is needed once the state-aware design is in place.
+Every later mainline in the book builds on top of this one. If you are unsure where to start, start here and treat the resulting object as the shared launch point for mapping, dynamics, program analysis, communication, and spatial follow-up.
 
 ```{r pbmc-data, include=FALSE}
 knitr::opts_chunk$set(warning = FALSE,

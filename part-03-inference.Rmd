@@ -1,5 +1,3 @@
-# (PART) Statistical Inference & Biological Interpretation {-}
+# (PART) Appendices and Specialized Extensions {-}
 
-Once a dataset has been processed and annotated, the next question is obvious: what biology can we trustably extract from it? This part focuses on that transition from processed object to biological interpretation.
-
-The chapters here cover differential expression, pseudobulk strategies, enrichment analysis, and gene set scoring. Together, they show how `sclet` supports not only convenient workflows, but also more careful and interpretable downstream inference.
+The chapters in this part remain important, but they are no longer the default navigation spine. Use them when you need cross-cutting plotting helpers, focused extensions, or forward-looking functionality that sits beside the mainline map.

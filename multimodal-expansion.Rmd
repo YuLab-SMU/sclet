@@ -1,0 +1,19 @@
+# Multimodal Expansion {#multimodal-expansion}
+
+This chapter is a reserved mainline for future ADT, ATAC, and multiome workflows. The goal is not to promise a large backend surface too early, but to make the book structure honest about where multimodal support will sit once the object semantics are ready.
+
+## Why reserve this chapter now
+
+The rest of the book already assumes a strong state-aware contract around assays, layers, reductions, and analysis records. Multimodal support should extend that contract rather than bypass it. By reserving this chapter in the table of contents now, we keep the documentation aligned with the package roadmap instead of treating multimodal work as an afterthought.
+
+## Planned interface direction
+
+The current design notes point to three priorities:
+
+- helper semantics for `altExp("ADT")` and `altExp("ATAC")`
+- a consistent state meaning for multimodal analysis records
+- a future `RunMultimodalWorkflow()` entry that can orchestrate modality-specific steps without breaking the SCE-first design
+
+## Current guidance
+
+Until the dedicated multimodal layer is implemented, users should treat `sclet`'s single-cell mainlines as the stable baseline and keep modality-specific experiments explicit in their own scripts. Once the object helpers are in place, this chapter will become the landing page for multimodal examples and workflow wrappers.

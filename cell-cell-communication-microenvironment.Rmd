@@ -1,8 +1,8 @@
-# Cell-Cell Communication
+# Cell-Cell Communication and Microenvironment Interaction {#communication}
 
-Once cell identities have been assigned, one common next question is how these populations may interact with one another. Ligand-receptor analysis is a natural way to move from isolated cell types toward a more explicit view of the tissue microenvironment.
+This mainline moves from isolated cell states to tissue-level interaction logic. Once cell identities are established, many biological questions become relational: which populations signal to each other, which pathways dominate the exchange, and how does the microenvironment organize those interactions?
 
-This chapter introduces the `sclet` unified interface for Cell-Cell Communication (CCI), with an emphasis on keeping communication analysis aligned with the same layer-aware and state-aware conventions used elsewhere in the package.
+`sclet` treats communication analysis as a standardized downstream layer rather than a backend-specific side quest. This chapter shows how `RunCCI()` and related adapters fit into the broader state-aware workflow.
 
 ## Input
 

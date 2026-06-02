@@ -1,5 +1,3 @@
-# (PART) Foundations & Core Concepts {-}
+# (PART) Foundations and Navigation {-}
 
-We begin with the core ideas behind `sclet`. Before diving into clustering, annotation, or any high-level analysis, it is important to understand how the package represents state, records provenance, and summarizes what has already been done.
-
-These chapters explain the design choices that make later chapters feel much more coherent. In other words, this part is not just conceptual background; it is the reason the rest of the workflow can stay compact, reproducible, and readable.
+These short opening chapters explain how `sclet` thinks about state, provenance, and workflow summaries. They are not a detached theory section; they are the contract that makes the later mainline chapters easier to follow, easier to debug, and easier to extend.

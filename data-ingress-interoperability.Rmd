@@ -1,8 +1,8 @@
-# Interoperability
+# Data Ingress and Object Interoperability {#data-ingress}
 
-By this point in the book, one message should already be clear: `sclet` treats `SingleCellExperiment` as the central object, but it does not assume that users live in one ecosystem forever. Real projects often move between Seurat, Bioconductor, and Python-based workflows.
+This is the entry mainline of the package. Before users think about integration, annotation, or trajectory, they first need to bring data into `sclet` cleanly and keep it portable across ecosystems.
 
-This chapter explains how `sclet` handles that reality. The goal is not just file conversion for its own sake, but a workflow in which data can move across ecosystems without losing clarity about what the object represents and how it should be used next.
+`sclet` is intentionally centered on `SingleCellExperiment`, but real projects rarely stay inside a single framework forever. This chapter therefore treats file import, object conversion, and recommended object semantics as one coherent starting route rather than a scattered set of utility helpers.
 
 ## Seurat and SCE Conversion
 

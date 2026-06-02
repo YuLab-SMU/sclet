@@ -58,23 +58,41 @@ That design principle is what makes `sclet` different. Throughout this book, you
 
 The goal of this book is therefore twofold. First, it serves as a practical guide for users who want to analyze single-cell and spatial transcriptomics data within a `SingleCellExperiment`-native workflow without writing endless glue code. Second, it explains the package architecture clearly enough that advanced users and contributors can understand how the pieces fit together.
 
+## Mainline Map
+
+This book now treats `sclet` as a map of analysis mainlines rather than a bag of disconnected modules.
+
+- **Data ingress and object interoperability**: start by reading data, moving between `SCE`, `Seurat`, and `AnnData`, and establishing one clean object of record.
+- **Core single-cell workflow**: run QC, normalization, HVG selection, dimensional reduction, clustering, and identity management.
+- **Integration and batch correction**: align multiple samples into a reusable corrected view for downstream analysis.
+- **Cell identity and reference mapping**: answer "what are these cells?" through annotation, mapping, and confidence inspection.
+- **Cell fate and dynamic processes**: answer "where are these cells going?" with trajectory, velocity, and fate-oriented tools.
+- **Program, regulon, and mechanistic interpretation**: explain states through pathway activity, regulon scoring, and mechanism-oriented summaries.
+- **Differential analysis and functional interpretation**: connect marker discovery, pseudobulk testing, and enrichment into one interpretation chain.
+- **Cell-cell communication and microenvironment interaction**: move from isolated cell states to interaction programs and ligand-receptor logic.
+- **State priority and perturbation sensitivity**: reserve the user-facing route for prioritizing sensitive or rare states as the workflow layer matures.
+- **Spatial context and niche analysis**: connect deconvolution, niche interpretation, and perturbation-aware spatial reasoning.
+- **Multimodal expansion**: reserve the documentation path for future ADT, ATAC, and multiome support.
+
 ## How This Book Is Organized
 
-The book is organized into six parts.
+The table of contents now follows the same logic.
 
-**Part I: Foundations & Core Concepts** introduces the design language of `sclet`, especially the analysis-state contract, provenance tracking, and pipeline logging. If you want to understand how the package thinks about state rather than only how to call functions, start here.
+First come the **foundations** chapters, which explain the state contract and provenance-aware automation. These are short, but they make the rest of the package much easier to understand.
 
-**Part II: Core Workflow** walks through the standard single-cell workflow from preprocessing to annotation. These chapters emphasize examples that are close to what users actually run day to day.
+Next come the **mainline chapters**, ordered to match the typical analysis story: data ingress -> core workflow -> integration -> reference mapping -> dynamics -> program/regulon -> differential interpretation -> communication -> state priority -> spatial -> multimodal.
 
-**Part III: Statistical Inference & Biological Interpretation** focuses on how to turn processed data into biological conclusions. This includes differential expression, pseudobulk analysis, functional enrichment, and gene set scoring.
+Finally, the **appendix and specialized extension chapters** collect cross-cutting plotting helpers, metacells, Milo, phenotype association, interactive exploration, SVP-related material, and AI-assisted analysis. These chapters still matter, but they no longer define the default reading path.
 
-**Part IV: Advanced Ecosystem & Python Interoperability** moves beyond conventional R-only workflows. Here we cover the modules that connect `sclet` to the broader Python ecosystem, including RNA velocity, gene regulatory network analysis, and spatial extensions.
+## Reading Paths
 
-**Part V: Specialized Extensions** collects modules for important but more targeted use cases, including metacells, cell-cell communication, differential abundance, interactive exploration, and SVP-related workflows.
+You do not need to read every chapter linearly. A few good entry routes are:
 
-**Part VI: AI, Interoperability & Outlook** closes the book by discussing interoperability more broadly and showing how AI-assisted analysis can build on top of the state-aware design.
-
-You do not need to read every chapter linearly. If you are a new user, reading Parts I to III in order will give you the smoothest path. If you already know the basics, you can jump directly to the advanced or specialized modules that are most relevant to your work.
+- **New users**: read the foundations, then follow the first four mainlines in order.
+- **Annotation-first users**: jump from the core workflow to integration and reference mapping.
+- **Dynamics-focused users**: start with the core workflow, then read the trajectory, program/regulon, and spatial chapters together.
+- **Mechanism-first users**: combine the program/regulon chapter with the differential interpretation and communication chapters.
+- **Contributors**: read the foundations first, then inspect the mainline chapter that best matches the feature you want to extend.
 
 ## Example Conventions
 
@@ -85,4 +103,3 @@ First, many chapters contain **directly runnable examples** based on bundled dat
 Second, some chapters contain **demonstration-only examples** that are shown but not executed during book rendering. This is intentional rather than accidental. In practice, these cases usually fall into one of four categories: they require external reference files or databases, interactive sessions, AI-specific configuration, or heavier Python-backed workflows that are still less stable than the R / Bioconductor-native parts of the book.
 
 When an example is not executed during the book build, the surrounding text explains why. The code is still written as real usage code, so readers can copy, adapt, and run it in their own environment when they are ready.
-

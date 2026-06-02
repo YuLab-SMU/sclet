@@ -1,8 +1,8 @@
-# Batch Correction
+# Integration and Batch Correction {#integration}
 
-As soon as a project contains multiple samples, donors, or experimental runs, batch effects become impossible to ignore. If they are not handled properly, cells separate by technical origin instead of biology, and every downstream result becomes harder to trust.
+This mainline answers the multi-sample question: how do we move several batches, donors, or studies into one comparable analysis space without losing track of the corrected view?
 
-This chapter shows how `sclet` handles multi-sample workflows in a way that remains explicit and inspectable. We start from preprocessing multiple datasets, then move into integration and corrected views that can be reused consistently by downstream steps.
+In `sclet`, integration is not treated as an isolated algorithm demo. It is a reusable infrastructure step that downstream mainlines can inherit. This chapter therefore focuses on how `RunIntegration()` records corrected layers or reductions and how those results remain available to later analysis steps.
 
 ## Load datasets
 
