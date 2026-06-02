@@ -40,7 +40,8 @@ sce <- RunSCENIC(
   motif_annotations_path = motif_annotations_path,
   database_paths = database_paths,
   assay_use = "counts",
-  num_workers = 8
+  num_workers = 8,
+  name = "scenic_main"
 ) # Supports multi-threading
 ```
 
@@ -48,15 +49,38 @@ sce <- RunSCENIC(
 
 After the run, where does the massive AUCell scoring matrix (tens of thousands of cells by hundreds of regulons) go?
 
-To keep the main SCE object clean and performant, `sclet` mounts this large scoring matrix as an `altExp` (Alternative Experiment) and records it in the `scenic` state.
+To keep the main SCE object clean and performant, `sclet` mounts this large scoring matrix as an `altExp` (Alternative Experiment) and records it in the `scenic` state. This means you can retrieve either the active SCENIC run or a specific run by `id`, instead of manually digging through `metadata()`.
 
 ```{r grn-result, eval=FALSE}
-# Check the SCENIC state provenance
+# Check the currently active SCENIC state provenance
 get_scenic(sce)
 
+# Retrieve a specific SCENIC run by id
+get_scenic(sce, id = "scenic_main")
+
 # Extract the AUCell matrix for downstream analysis
-auc_matrix <- SingleCellExperiment::altExp(sce, "SCENIC_AUC")
+auc_sce <- SingleCellExperiment::altExp(sce, "SCENIC_AUC")
+auc_matrix <- SummarizedExperiment::assay(auc_sce, "AUC")
+
+# Inspect available regulons
+head(rownames(auc_matrix))
+```
+
+## Visualizing Regulon Activity
+
+Once the AUC matrix is stored, the next question is not "where is the result?", but "can I directly visualize a regulon on my embedding?" That is exactly what `plot_scenic_activity()` is for.
+
+```{r grn-plot, eval=FALSE}
+# Make sure you already have a reduction such as UMAP
+DefaultReduction(sce) <- "UMAP"
+
+# Plot a single regulon on the active embedding
+plot_scenic_activity(
+  sce,
+  regulon = "STAT1(+)",
+  id = "scenic_main"
+)
 ```
 
 **Bottom Line:**
-You can now directly perform dimensionality reduction and clustering on this `auc_matrix` to see if your cells group together based on "regulatory network activity" rather than just "gene expression levels".
+You can now treat SCENIC as a proper state-aware module: run it with a named record, retrieve it via `get_scenic(id = ...)`, and visualize a regulon directly with `plot_scenic_activity()`. From there, you can further perform dimensionality reduction and clustering on the `auc_matrix` to see whether cells group together based on "regulatory network activity" rather than only "gene expression levels".

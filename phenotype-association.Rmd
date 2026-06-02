@@ -1,0 +1,51 @@
+# Phenotype Association
+
+Single-cell data often becomes most interesting when it can be connected back to cohort-level outcomes: survival, response, progression, or any other phenotype that is measured in bulk but not directly annotated for each cell. This is exactly the bridge that `RunPhenotypeAssociation()` is meant to provide.
+
+The current `sclet` implementation wraps `scPAS`, transfers the result back to the `SingleCellExperiment` object, and records the provenance in the analysis-state. In practice, this makes the single-cell object the place where cell-level association scores, model parameters, and downstream visualization all meet again.
+
+## A practical pattern
+
+The important thing is not the toy syntax, but the data alignment:
+
+- the single-cell object and the bulk matrix must share a comparable gene universe,
+- the phenotype vector or table must match the bulk samples,
+- and the phenotype family (`gaussian`, `binomial`, `cox`) must reflect the actual study design.
+
+To keep the example grounded, the template below uses **package-backed real data** instead of a fabricated pseudo-bulk matrix: `TENxPBMCData` provides the single-cell object and `airway` provides a bulk RNA-seq cohort with a real treatment phenotype. The biology is still only a mechanics demo rather than a matched study design, but at least the data source is a proper R package instead of something we invented on the spot.
+
+```{r phenotype-association, eval=FALSE}
+library(sclet)
+library(TENxPBMCData)
+library(airway)
+
+# Use a package-backed single-cell dataset.
+# We intentionally keep Ensembl-style rownames here because the airway bulk
+# dataset also uses Ensembl identifiers.
+sce_pheno <- TENxPBMCData::TENxPBMCData("pbmc3k")
+sce_pheno <- sce_pheno[, seq_len(min(500, ncol(sce_pheno)))]
+
+# Use a package-backed bulk cohort with a real binary phenotype.
+data("airway", package = "airway")
+bulk_matrix <- SummarizedExperiment::assay(airway)
+phenotype_data <- as.character(SummarizedExperiment::colData(airway)$dex)
+
+# Align the gene universe explicitly before fitting.
+common_genes <- intersect(rownames(sce_pheno), rownames(bulk_matrix))
+sce_pheno <- sce_pheno[common_genes, ]
+bulk_matrix <- bulk_matrix[common_genes, , drop = FALSE]
+
+sce_pheno <- RunPhenotypeAssociation(
+  sce_pheno,
+  bulk_matrix = bulk_matrix,
+  phenotype_data = phenotype_data,
+  family = "binomial"
+)
+
+head(as.data.frame(SummarizedExperiment::colData(sce_pheno)))
+S4Vectors::metadata(sce_pheno)$phenotype_assoc
+```
+
+## What gets recorded
+
+Once the model runs successfully, `RunPhenotypeAssociation()` writes the cell-level outputs back into `colData(sce)` and stores the recovered `scPAS` model metadata in `metadata(sce)$phenotype_assoc`. This means the result behaves like any other tracked module in `sclet`: you can inspect what happened, keep it with the object, and pass it downstream without inventing a second sidecar file format.

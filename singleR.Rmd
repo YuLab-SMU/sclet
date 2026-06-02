@@ -11,9 +11,13 @@ Please refer to the [Cell cluster annotation](#manual-annotation) session.
 
 ## Automatic annotation
     
-The low-level `SingleR::SingleR()` call is still useful for understanding the underlying method. In daily `sclet` workflows, however, the recommended entry point is `RunSingleR()`, because it records the annotation result and its provenance back into the unified state layer.
+The low-level `SingleR::SingleR()` call is still useful for understanding the underlying method. In daily `sclet` workflows, however, the recommended entry point is `RunSingleR()` or the semantic wrapper `RunReferenceMapping(method = "SingleR")`, because these paths record the annotation result and its provenance back into the unified state layer.
 
-Alternatively, `sclet` also provides a lightweight reference mapping implementation via `RunKNNPredict()` (or `RunReferenceMapping()`), which transfers labels from a reference dataset to your query dataset based on KNN.
+At the moment, the practical backend stack is intentionally simple:
+
+1. `SingleR` as the main reference annotation / mapping entry
+2. `KNN` as a lightweight baseline mapping backend
+3. `Symphony` as a future projection-oriented backend that is reserved but not yet implemented
 
 In this chapter, both the low-level `SingleR()` workflow and the `sclet` analysis examples are executed during book rendering when the required Bioconductor dependencies are available. This keeps the chapter useful as documentation while also exercising the annotation layer in CI.
 
@@ -29,10 +33,11 @@ query_sce <- pbmc[, -ref_idx]
 
 ref_sce$label <- as.character(SingleCellExperiment::colLabels(ref_sce))
 
-query_sce <- RunKNNPredict(
+query_sce <- RunReferenceMapping(
     object = query_sce,
     ref = ref_sce,
     labels = "label",
+    method = "KNN",
     layer = "logcounts",
     k = 5,
     name = "knn_demo"
@@ -51,16 +56,36 @@ ProjectionPlot(query_sce, ref_sce)
 library(sclet)
 hpca <- celldex::HumanPrimaryCellAtlasData()
 
-pbmc2 <- RunSingleR(pbmc, ref = hpca, labels = hpca$label.main)
-
-# explicitly choose the layer used for annotation
-pbmc2 <- RunSingleR(pbmc, ref = hpca, labels = hpca$label.main, layer = "logcounts")
+pbmc2 <- RunReferenceMapping(
+    pbmc,
+    ref = hpca,
+    labels = hpca$label.main,
+    method = "SingleR",
+    layer = "logcounts",
+    name = "hpca_main"
+)
 
 # inspect the recorded annotation state
-get_annotation(pbmc2)
+get_annotation(pbmc2, id = "hpca_main")
 
 # inspect the recorded reference-mapping state
-get_mapping(pbmc2)
+get_mapping(pbmc2, id = "hpca_main")
+
+# check the stored label columns
+head(colnames(SummarizedExperiment::colData(pbmc2)))
+
+# summarize transferred labels across query groups
+plot_reference_label_transfer_heatmap(
+    pbmc2,
+    group.by = "colLabels",
+    id = "hpca_main"
+)
+
+# inspect confidence / score distributions across transferred labels
+plot_reference_label_confidence(
+    pbmc2,
+    id = "hpca_main"
+)
 ```
 
 
@@ -87,7 +112,7 @@ res2 <- SingleR::SingleR(
 head(res2)
 ```
 
-When you use the low-level `SingleR()` call directly, you are responsible for deciding which matrix to pass. In contrast, `RunSingleR()` follows the current `sclet` layer contract and resolves that choice from `DefaultLayer(pbmc)` unless you override it.
+When you use the low-level `SingleR()` call directly, you are responsible for deciding which matrix to pass. In contrast, `RunReferenceMapping(method = "SingleR")` follows the current `sclet` layer contract and resolves that choice from `DefaultLayer(pbmc)` unless you override it. If you provide `name = "hpca_main"`, both the annotation record and the mapping record are stored under that id, and the predicted labels are written to run-specific columns such as `hpca_main_labels`.
 
 If the current layer comes from a corrected integration workflow, both the annotation state and the mapping state record that provenance. In practice, this means `get_annotation(pbmc)$inputs$integration` and `get_mapping(pbmc)$inputs$integration` can tell you whether the label transfer was performed on top of a corrected representation rather than the raw normalized layer.
 

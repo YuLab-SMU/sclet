@@ -26,7 +26,7 @@ You can decisively choose the backend that best fits your needs. `UCell` is rank
 
 ```{r geneset-scoring-run}
 # Use UCell backend
-pbmc <- RunGeneSetScoring(pbmc, gene_sets = my_signatures, method = "UCell", name = "UCell_Score")
+pbmc <- RunGeneSetScoring(pbmc, gene_sets = my_signatures, method = "UCell", name = "UCellScore")
 ```
 
 ## Reading and Visualizing Results
@@ -35,14 +35,23 @@ Where do the scores go after calculation?
 1. By default, they are added as columns in the cellular metadata (`colData`).
 2. The action is recorded in the `geneset_scoring` state machine.
 
-Because the scores are now standard metadata, we can seamlessly reuse the `sclet` visualization ecosystem (like `FeatureDimPlot`):
+Because the scores are now registered as a state-aware analysis result, we can inspect their provenance and directly plot a single program through a unified activity consumer:
 
 ```{r geneset-plot, fig.width=12, fig.height=5}
-# Visualize the T_cell score distribution on the UMAP space
-FeatureDimPlot(pbmc, features = "UCell_Score_T_cell")
-
 # Inspect the scoring state provenance
-get_geneset_scoring(pbmc)
+get_geneset_scoring(pbmc, id = "UCellScore")
+
+# Visualize the T_cell score distribution on the UMAP space
+plot_program_activity(pbmc, program = "T_cell", source = "geneset_scoring", id = "UCellScore")
+
+# Summarize multiple programs across groups
+plot_program_heatmap(
+  pbmc,
+  programs = c("T_cell", "B_cell", "Myeloid"),
+  source = "geneset_scoring",
+  group.by = "colLabels",
+  id = "UCellScore"
+)
 ```
 
 ## Advanced Pathway Discovery (altExp and RunKEGG)

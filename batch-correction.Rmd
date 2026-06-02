@@ -83,6 +83,12 @@ rm_scvi_pbmc <- RunIntegration(combined_pbmc, method = "scVI", batch = "batch")
 DefaultReduction(rm_scvi_pbmc) # Returns "scVI"
 ```
 
+Recent `sclet` versions also tightened the memory behavior of this path. Instead of forcing the count matrix through `as.matrix()` and materializing a dense block before crossing into Python, the `scVI` backend now keeps sparse inputs sparse and converts them directly to `scipy.sparse.csr_matrix` via `reticulate`. For toy PBMC data this is just cleaner; for large atlas-scale data it is the difference between "runs" and "explodes".
+
+```{r run-scvi-state, eval=eval_chunks && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
+get_integration(rm_scvi_pbmc)
+```
+
 ## Clustering
 
 ```{r clustering-batch}

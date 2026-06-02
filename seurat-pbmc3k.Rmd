@@ -65,16 +65,49 @@ plot_list(p1, p2)
 ```
 
 
+## Ambient RNA and doublet cleanup
+
+Quality control thresholds remove obvious outliers, but they do not solve two common single-cell annoyances: ambient RNA contamination and doublets. `sclet` now exposes both through `SingleCellExperiment`-native wrappers, so the outputs stay in `colData` or new assays instead of being scattered across ad hoc objects.
+
+```{r pbmc-cleaning-advanced, eval = eval_chunks && requireNamespace("scDblFinder", quietly = TRUE) && requireNamespace("celda", quietly = TRUE)}
+pbmc_clean <- pbmc[, seq_len(min(400, ncol(pbmc)))]
+
+pbmc_clean <- RunDoubletFinder(pbmc_clean)
+table(pbmc_clean$scDblFinder.class)
+
+pbmc_clean <- RunDecontX(pbmc_clean)
+assayNames(pbmc_clean)
+head(pbmc_clean$decontX_contamination)
+```
+
+`RunDoubletFinder()` writes doublet calls back to `colData`, while `RunDecontX()` keeps the decontaminated matrix isolated in `assay(pbmc_clean, "decontXcounts")`. That separation matters, because it lets you compare raw and cleaned views instead of quietly overwriting the original counts.
+
+
 
 ## Variable features
 
 ```{r variablefeatureplot-pbmc, fig.width=10, fig.height=7.5}
-pbmc <- NormalizeData(pbmc)
 pbmc <- FindVariableFeatures(pbmc, method = "scran")
 top10 <- head(VariableFeatures(pbmc, method = "scran"), 10)
 top10
 VariableFeaturePlot(pbmc, label = top10, method = "scran")
 ```
+
+## Zero-preserving imputation
+
+If you want a denoised expression view for visualization or downstream ranking, `RunImputation()` adds a zero-preserving ALRA layer without contaminating the original `counts` or `logcounts`. In other words, this is an extra view of the data, not a silent replacement of the baseline matrix.
+
+```{r pbmc-imputation, eval = eval_chunks && requireNamespace("ALRA", quietly = TRUE)}
+pbmc_impute <- pbmc[, seq_len(min(400, ncol(pbmc)))]
+pbmc_impute <- NormalizeData(pbmc_impute)
+pbmc_impute <- RunImputation(pbmc_impute, assay = "logcounts")
+
+assayNames(pbmc_impute)
+Layers(pbmc_impute)
+DefaultLayer(pbmc_impute)
+```
+
+The imputed output is stored as `alra_imputed`, so downstream code can opt into it explicitly instead of being forced into a globally smoothed workflow.
 
 ## Dimensional reduction
 
