@@ -7,6 +7,7 @@
 + **Unified GRN Entry Point**: Added `RunGRN()` as a semantic frontend for gene regulatory network analysis. Currently dispatches to `RunSCENIC()`, keeping "GRN analysis" as the user-facing concept and leaving room for future backends (decoupleR, FigR, etc.) through the same interface.
 + **Spatial Visualization Layer**: Added `plot_spatial_deconvolution()` (ranked bar chart of mean cell type proportions from cell2location) and `plot_spatial_composition()` (heatmap of cell type proportions across spatial spots). Both consume the typed spatial state records produced by `RunSpatialDeconvolution()`.
 + **Velocity Latent Time Visualization**: Added `plot_velocity_latent_time()` to color cells on an embedding by velocity pseudotime (latent time), showing the predicted temporal ordering inferred by scVelo's dynamical mode.
++ **Symphony Reference Mapping**: Added `RunSymphonyMapping()` as a full Symphony backend for `RunReferenceMapping(method = "Symphony")`. The workflow builds a harmonized reference atlas from the reference SCE with `symphony::buildReference()`, maps query cells with `symphony::mapQuery()`, and predicts labels with `symphony::knnPredict()`. Supports batch variable integration (`vars` parameter) and confidence scoring. Predicted labels are stored in `colData$symphony_predicted` and confidence scores in `colData$symphony_confidence`, fully integrated with the analysis-state contract.
 
 
 # sclet 0.99.7

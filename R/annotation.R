@@ -147,19 +147,21 @@ RunSingleR <- function(object, ref = NULL, labels = NULL, assay.type = NULL,
 #' @param object A SingleCellExperiment object
 #' @param ref Reference dataset
 #' @param labels Labels in the reference dataset
-#' @param method Backend to use. One of `"SingleR"` or `"KNN"`.
-#' @param assay.type Assay to use for `SingleR`. Ignored for `method = "KNN"`.
+#' @param method Backend to use. One of `"SingleR"`, `"KNN"`, or `"Symphony"`.
+#' @param assay.type Assay to use for `SingleR`. Ignored for other methods.
 #' @param layer Layer to use for mapping.
-#' @param features Features to use for `method = "KNN"`. Ignored for `method = "SingleR"`.
-#' @param k Number of neighbors for `method = "KNN"`. Ignored for `method = "SingleR"`.
+#' @param features Features to use for `method = "KNN"`. Ignored for other methods.
+#' @param k Number of neighbors for `method = "KNN"` or kNN prediction in Symphony.
+#' @param vars Character vector of batch variables for Symphony reference building.
 #' @param name Mapping record id.
 #' @param ... Additional arguments passed to the selected backend.
 #' @return A SingleCellExperiment object with mapping results added and recorded.
 #' @export
 RunReferenceMapping <- function(object, ref, labels = NULL,
-                                method = c("SingleR", "KNN"),
+                                method = c("SingleR", "KNN", "Symphony"),
                                 assay.type = NULL, layer = NULL,
-                                features = NULL, k = 5, name = "mapping", ...) {
+                                features = NULL, k = 5, vars = NULL,
+                                name = "mapping", ...) {
     method <- match.arg(method)
 
     if (identical(method, "SingleR")) {
@@ -168,6 +170,19 @@ RunReferenceMapping <- function(object, ref, labels = NULL,
             ref = ref,
             labels = labels,
             assay.type = assay.type,
+            layer = layer,
+            name = name,
+            ...
+        ))
+    }
+
+    if (identical(method, "Symphony")) {
+        return(RunSymphonyMapping(
+            object = object,
+            ref = ref,
+            labels = labels,
+            vars = vars,
+            k = k,
             layer = layer,
             name = name,
             ...
@@ -329,6 +344,183 @@ RunKNNPredict <- function(object, ref, labels = NULL, features = NULL, layer = N
     
     message(sprintf("KNN mapping added to colData column: '%s'", col_name))
     return(object)
+}
+
+#' Run Symphony reference mapping
+#'
+#' Symphony builds a harmonized reference atlas and then maps query cells
+#' into the same space, predicting cell type labels via k-NN.
+#'
+#' @param object A SingleCellExperiment query object.
+#' @param ref A SingleCellExperiment reference object with cell type labels.
+#' @param labels Character. Column in `colData(ref)` with reference labels, or a
+#'   character vector of labels.
+#' @param vars Character vector of batch variables for Symphony reference building.
+#' @param k Integer. Number of neighbors for kNN prediction. Defaults to 5.
+#' @param layer Character. Expression layer to use. Defaults to "logcounts".
+#' @param name Character. Mapping record id. Defaults to `"symphony_map"`.
+#' @param ... Additional arguments passed to `symphony::buildReference()`.
+#'
+#' @return Updated SingleCellExperiment with Symphony mapping in colData.
+#' @export
+RunSymphonyMapping <- function(object, ref, labels = NULL, vars = NULL,
+                               k = 5, layer = NULL, name = "symphony_map", ...) {
+    if (!requireNamespace("symphony", quietly = TRUE)) {
+        stop(
+            "Package 'symphony' is needed for this function to work. ",
+            "Please install it with: install.packages('symphony')",
+            call. = FALSE
+        )
+    }
+    if (!is(object, "SingleCellExperiment")) {
+        stop("`object` must be a SingleCellExperiment object.")
+    }
+    if (!is(ref, "SingleCellExperiment")) {
+        stop("`ref` must be a SingleCellExperiment object.")
+    }
+
+    if (is.null(labels)) {
+        if ("label.main" %in% colnames(SummarizedExperiment::colData(ref))) {
+            label_col <- "label.main"
+        } else if ("label" %in% colnames(SummarizedExperiment::colData(ref))) {
+            label_col <- "label"
+        } else {
+            stop("Please specify `labels` for the reference dataset.")
+        }
+    } else if (length(labels) == 1 && is.character(labels) &&
+               labels %in% colnames(SummarizedExperiment::colData(ref))) {
+        label_col <- labels
+    } else {
+        label_col <- "symphony_label_temp"
+        ref[[label_col]] <- as.character(labels)
+    }
+    ref_labels <- as.character(SummarizedExperiment::colData(ref)[[label_col]])
+
+    common_genes <- intersect(rownames(object), rownames(ref))
+    if (length(common_genes) == 0) {
+        stop("No common genes between query and reference objects.")
+    }
+    object <- object[common_genes, , drop = FALSE]
+    ref <- ref[common_genes, , drop = FALSE]
+
+    src <- if (is.null(layer)) {
+        sclet_resolve_expression_source(
+            object, prefer_nonscaled = TRUE,
+            fallback_layers = c("logcounts"), context = "Symphony mapping"
+        )
+    } else {
+        sclet_resolve_expression_source(
+            object, layer = layer, context = "Symphony mapping"
+        )
+    }
+    ref_src <- if (!is.null(layer) && layer %in% Layers(ref)) {
+        sclet_resolve_expression_source(
+            ref, layer = layer, context = "Symphony reference"
+        )
+    } else {
+        sclet_resolve_expression_source(
+            ref, prefer_nonscaled = TRUE,
+            fallback_layers = c("logcounts"), context = "Symphony reference"
+        )
+    }
+
+    ref_exp <- as.matrix(SummarizedExperiment::assay(ref, ref_src$assay))
+    ref_meta <- as.data.frame(SummarizedExperiment::colData(ref))
+
+    cli::cli_alert_info("Building Symphony reference with {.val {ncol(ref_exp)}} cells")
+    sym_ref <- symphony::buildReference(
+        exp_ref = ref_exp,
+        metadata_ref = ref_meta,
+        vars = vars,
+        verbose = FALSE,
+        ...
+    )
+
+    query_exp <- as.matrix(SummarizedExperiment::assay(object, src$assay))
+    query_meta <- as.data.frame(SummarizedExperiment::colData(object))
+
+    cli::cli_alert_info("Mapping {.val {ncol(query_exp)}} query cells onto reference")
+    sym_query <- symphony::mapQuery(
+        exp_query = query_exp,
+        metadata_query = query_meta,
+        ref_obj = sym_ref,
+        vars = vars,
+        verbose = FALSE,
+        do_normalize = FALSE
+    )
+
+    cli::cli_alert_info("Predicting labels via k-NN (k = {.val {k}})")
+    sym_query <- symphony::knnPredict(
+        sym_query,
+        sym_ref,
+        train_labels = ref_labels,
+        k = k,
+        save_as = "symphony_predicted",
+        confidence = TRUE
+    )
+
+    predicted_labels <- sym_query$meta_data$symphony_predicted
+    pred_confidence <- sym_query$meta_data$symphony_predicted_confidence
+    if (is.null(pred_confidence)) {
+        pred_confidence <- rep(NA_real_, length(predicted_labels))
+    }
+
+    object$symphony_predicted <- as.character(predicted_labels)
+    object$symphony_confidence <- as.numeric(pred_confidence)
+
+    object <- sclet_set_analysis(
+        object,
+        "mapping",
+        list(
+            id = name,
+            method = "Symphony",
+            label_col = "symphony_predicted",
+            confidence_col = "symphony_confidence",
+            k = k,
+            vars = vars,
+            n_common_genes = length(common_genes),
+            timestamp = Sys.time()
+        )
+    )
+    object <- sclet_set_analysis_state(
+        object = object,
+        type = "mapping",
+        id = name,
+        method = "Symphony",
+        inputs = list(
+            layer = src$layer,
+            assay = src$assay,
+            vars = vars,
+            k = k
+        ),
+        artifacts = list(
+            analysis_key = "mapping",
+            label_col = "symphony_predicted",
+            confidence_col = "symphony_confidence"
+        ),
+        summary = list(
+            n_query_cells = ncol(object),
+            n_ref_cells = ncol(ref),
+            n_common_genes = length(common_genes)
+        )
+    )
+    object <- sclet_log_command(
+        object,
+        "RunReferenceMapping",
+        params = list(
+            method = "Symphony",
+            vars = vars,
+            k = k,
+            layer = src$layer,
+            name = name
+        ),
+        outputs = list(
+            analysis = "mapping",
+            state = "mapping"
+        )
+    )
+
+    object
 }
 
 #' Plot query groups versus transferred reference labels
