@@ -20,16 +20,31 @@ html_preview: false
 
 The package introduces an explicit **Analysis-State Contract (Provenance DAG)**. In practice, this means the object records active layers, reductions, graphs, identities, and higher-level analysis outputs as part of a coherent workflow state. Upstream assumptions such as batch-corrected layers, dimensional reductions, and derived analysis results are therefore inspectable and reusable instead of being scattered across ad hoc slots or implicit conventions.
 
-In addition to core steps (preprocessing, dimensionality reduction, clustering, annotation, and visualization), `sclet` provides a broad workflow surface for both single-cell and spatial transcriptomics, with selected Python tools managed through the `basilisk` sandbox:
+## Analysis Mainlines
 
-- **Core Analysis**: State-aware preprocessing, dimensionality reduction, clustering, annotation, and provenance-aware workflow management.
-- **Integration**: Multi-backend support (`fastMNN`, `Harmony`, `scVI`).
-- **Python Interoperability**: Safe and isolated execution of `scVelo` (RNA Velocity), `pySCENIC` (Gene Regulatory Networks), `cellrank` (Advanced Fate Mapping), `cell2location` (Spatial Deconvolution), and `celloracle` (In-Silico Perturbation).
-- **Downstream Extensions**: Gene set scoring (`UCell`, `AUCell`, `GSVA`), pseudobulk DE, enrichment analysis, cell-cell communication, and Milo differential abundance.
-- **AI Copilot**: An intelligent diagnostic agent (`sclet_copilot`) powered by the `aisdk` framework that reads the object's provenance to perform rigorous cross-chain error control.
+The package is now documented around user-facing analysis mainlines rather than a loose list of algorithms.
 
-For user-facing analysis verbs, `sclet` uses the `Run*` naming style throughout, such as `RunIntegration()`, `RunSCENIC()`, and `RunVelocity()`. This is now the public analysis API of the package.
+- **Data ingress and interoperability**: bring data in through `Read10X()` / `ReadH5AD()`, then move between `SCE`, `Seurat`, and `AnnData` without losing the object story.
+- **Core single-cell workflow**: run QC, normalization, HVG selection, dimensional reduction, clustering, and identity management in a coherent baseline workflow.
+- **Integration and batch correction**: align multi-sample data through `RunIntegration()` and keep corrected views available to downstream steps.
+- **Cell identity and reference mapping**: annotate cells through `RunReferenceMapping()`, `RunSingleR()`, and related accessors and confidence plots.
+- **Cell fate and dynamic processes**: connect `RunDiffusionMap()`, `RunSlingshot()`, `RunVelocity()`, and `RunCellFate()` into one dynamics-oriented route.
+- **Program, regulon, and mechanistic interpretation**: move from signature scoring to SCENIC-style regulon activity through one interpretation mainline.
+- **Differential analysis and functional interpretation**: go from `RunDEtest()` to `RunEnrichment()` without leaving the structured state contract.
+- **Cell-cell communication and microenvironment interaction**: analyze ligand-receptor signaling through `RunCCI()` and backend-specific adapters.
+- **State priority and perturbation sensitivity**: reserve a home for forthcoming Augur / RareQ-style wrappers and related prioritization logic.
+- **Spatial context and niche analysis**: connect spatial deconvolution and perturbation-aware modeling to the rest of the workflow.
+- **Multimodal expansion**: reserve the documentation path for future ADT / ATAC / multiome support.
 
+## Documentation Route
+
+The online book is now ordered around the same mainlines.
+
+1. Start with the state-aware foundations if you want to understand how `sclet` tracks layers, provenance, and reusable outputs.
+2. Follow the mainline chapters in package order: data ingress -> core workflow -> integration -> mapping -> dynamics -> program/regulon -> differential interpretation -> communication -> state priority -> spatial -> multimodal.
+3. Use the appendix chapters for visualization, metacells, Milo, phenotype association, interactive exploration, SVP, and AI-assisted analysis.
+
+For user-facing analysis verbs, `sclet` standardizes on the `Run*` naming style throughout, such as `RunIntegration()`, `RunSCENIC()`, and `RunVelocity()`. The more recent `Run<Mainline>Workflow()` shells are designed to make that API easier to navigate at the workflow level.
 
 ## :writing_hand: Authors
 
@@ -55,4 +70,3 @@ remotes::install_github("YuLab-SMU/sclet")
 For more details, please refer to the online documents:
 
 + [vignette](https://yulab-smu.top/sclet)
-
