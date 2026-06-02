@@ -431,3 +431,88 @@ sclet_resolve_program_activity <- function(object, program, source, id = NULL, a
 
     stop(sprintf("Unsupported program activity source '%s'.", source))
 }
+
+#' Dotplot of program activity across groups
+#'
+#' Summarizes program activity per group with dot size reflecting the fraction of
+#' cells expressing detectable activity and dot color reflecting mean activity.
+#'
+#' @param object A SingleCellExperiment object.
+#' @param programs Character vector of program names.
+#' @param source One of `"auto"`, `"geneset_scoring"`, or `"scenic"`.
+#' @param group.by Grouping variable. If `NULL`, uses `ActiveIdent(object)`.
+#' @param id Optional analysis record id.
+#' @param low,high Colors for the fill gradient. Defaults to blue-red.
+#'
+#' @return A ggplot object.
+#' @export
+plot_program_dotplot <- function(object, programs, source = c("auto", "geneset_scoring", "scenic"),
+                                 group.by = NULL, id = NULL,
+                                 low = "#2166AC", high = "#B2182B") {
+    if (!requireNamespace("ggplot2", quietly = TRUE)) {
+        stop("Package 'ggplot2' is needed for this function to work. Please install it.")
+    }
+    if (length(programs) == 0) {
+        stop("`programs` must contain at least one entry.")
+    }
+
+    source <- match.arg(source)
+    if (is.null(group.by)) {
+        group.by <- ActiveIdent(object)
+    }
+    if (is.null(group.by)) {
+        stop("No active identity found. Please provide `group.by`.")
+    }
+    if (identical(group.by, "colLabels")) {
+        group_values <- SingleCellExperiment::colLabels(object)
+        if (is.null(group_values)) {
+            stop("group.by is 'colLabels' but `colLabels(object)` is empty.")
+        }
+    } else if (group.by %in% colnames(SummarizedExperiment::colData(object))) {
+        group_values <- SummarizedExperiment::colData(object)[[group.by]]
+    } else {
+        stop(sprintf("Grouping column '%s' not found in colData(object).", group.by))
+    }
+    group_values <- as.character(group_values)
+
+    dot_data <- lapply(programs, function(prog) {
+        activity <- tryCatch(
+            get_program(object, program = prog, source = source, id = id),
+            error = function(e) NULL
+        )
+        if (is.null(activity)) return(NULL)
+        groups <- unique(group_values)
+        do.call(rbind, lapply(groups, function(g) {
+            idx <- which(group_values == g)
+            act <- activity[idx]
+            data.frame(
+                program = prog,
+                group = g,
+                mean_activity = mean(act, na.rm = TRUE),
+                pct_expressed = sum(act > 0, na.rm = TRUE) / length(act) * 100,
+                stringsAsFactors = FALSE
+            )
+        }))
+    })
+    dot_data <- do.call(rbind, dot_data)
+    if (is.null(dot_data) || nrow(dot_data) == 0) {
+        stop("No program activity data could be resolved.")
+    }
+    dot_data$program <- factor(dot_data$program, levels = programs)
+    dot_data$group <- factor(dot_data$group)
+
+    ggplot2::ggplot(dot_data, ggplot2::aes(
+        x = .data$program, y = .data$group,
+        size = .data$pct_expressed, fill = .data$mean_activity
+    )) +
+        ggplot2::geom_point(shape = 21, color = "grey70") +
+        ggplot2::scale_size_continuous(name = "Percent\nexpressed", range = c(1, 6)) +
+        ggplot2::scale_fill_gradient2(low = low, mid = "white", high = high, name = "Mean\nactivity") +
+        ggplot2::labs(x = NULL, y = NULL, title = "Program Activity Dotplot") +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(
+            axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = 9),
+            plot.title = ggplot2::element_text(face = "bold", size = 13),
+            panel.grid.major = ggplot2::element_line(linewidth = 0.3)
+        )
+}

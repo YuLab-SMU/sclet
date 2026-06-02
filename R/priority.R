@@ -128,6 +128,53 @@ RunPerturbationPriority <- function(sce, condition_col, group_col = NULL,
     sce
 }
 
+#' Plot perturbation priority ranking from Augur results
+#'
+#' @param object A SingleCellExperiment object with Augur priority results.
+#' @param n Integer. Number of top cell types to display. Defaults to 20.
+#' @param fill_color Character. Bar fill color. Defaults to `"steelblue"`.
+#'
+#' @return A ggplot object ranking cell types by perturbation AUC.
+#' @export
+plot_perturbation_ranking <- function(object, n = 20, fill_color = "steelblue") {
+    if (!requireNamespace("ggplot2", quietly = TRUE)) {
+        stop("Package 'ggplot2' is needed for this function to work. Please install it.")
+    }
+
+    priority <- get_perturbation_priority(object)
+    if (is.null(priority)) {
+        stop(
+            "No perturbation priority results found. ",
+            "Run RunPerturbationPriority() or RunStatePriorityWorkflow() first."
+        )
+    }
+    auc_table <- priority$AUC
+    if (is.null(auc_table)) {
+        stop("No AUC table found in perturbation priority results.")
+    }
+
+    cell_type_col <- if ("cell_type" %in% colnames(auc_table)) "cell_type" else colnames(auc_table)[1]
+    auc_col <- if ("auc" %in% colnames(auc_table)) "auc" else colnames(auc_table)[2]
+
+    df <- as.data.frame(auc_table)
+    df <- df[order(df[[auc_col]], decreasing = TRUE), , drop = FALSE]
+    df <- utils::head(df, n)
+    df[[cell_type_col]] <- factor(df[[cell_type_col]], levels = rev(df[[cell_type_col]]))
+
+    ggplot2::ggplot(df, ggplot2::aes(x = .data[[cell_type_col]], y = .data[[auc_col]])) +
+        ggplot2::geom_col(fill = fill_color, width = 0.7) +
+        ggplot2::coord_flip() +
+        ggplot2::labs(
+            x = "Cell Type",
+            y = "Perturbation AUC",
+            title = "Perturbation Priority Ranking"
+        ) +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(
+            plot.title = ggplot2::element_text(face = "bold", size = 13)
+        )
+}
+
 #' Run rare cell detection
 #'
 #' Reserve interface for rare-cell identification workflows. Currently a

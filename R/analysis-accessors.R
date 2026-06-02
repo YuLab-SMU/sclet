@@ -962,3 +962,43 @@ get_rare_cells <- function(object, element = NULL) {
 has_rare_cells <- function(object) {
     !is.null(get_rare_cells(object))
 }
+
+#' Access unified program activity data
+#'
+#' Resolves a program (signature, pathway, or regulon) from the gene set scoring
+#' or SCENIC state records and returns the per-cell activity vector.
+#'
+#' @title get_program
+#' @param object A SingleCellExperiment object.
+#' @param program Character. Program name to resolve.
+#' @param source One of `"auto"`, `"geneset_scoring"`, or `"scenic"`.
+#' @param id Optional analysis record id.
+#' @param assay Optional assay name when reading from an altExp.
+#' @return A named numeric vector of program activity values.
+#' @export
+get_program <- function(object, program, source = c("auto", "geneset_scoring", "scenic"),
+                        id = NULL, assay = NULL) {
+    source <- match.arg(source)
+    resolved <- sclet_resolve_program_activity(
+        object, program = program, source = source, id = id, assay = assay
+    )
+    resolved$activity
+}
+
+#' Check whether a program result is available
+#'
+#' @title has_program
+#' @param object A SingleCellExperiment object.
+#' @param program Character. Program name to check.
+#' @param source One of `"auto"`, `"geneset_scoring"`, or `"scenic"`.
+#' @param id Optional analysis record id.
+#' @return logical.
+#' @export
+has_program <- function(object, program, source = c("auto", "geneset_scoring", "scenic"),
+                        id = NULL) {
+    activity <- tryCatch(
+        get_program(object, program = program, source = source, id = id),
+        error = function(e) NULL
+    )
+    !is.null(activity) && length(activity) > 0
+}
