@@ -4,7 +4,13 @@
 \alias{RunCellRank}
 \title{Run CellRank for Advanced Trajectory Inference}
 \usage{
-RunCellRank(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), ...)
+RunCellRank(
+  sce,
+  reduction = "PCA",
+  cluster_key = ActiveIdent(sce),
+  name = "cellrank",
+  ...
+)
 }
 \arguments{
 \item{sce}{A SingleCellExperiment object with velocity computed (via \code{RunVelocity}).}
@@ -12,6 +18,8 @@ RunCellRank(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), ...)
 \item{reduction}{String specifying the reduction to use for kNN graph. Defaults to "PCA".}
 
 \item{cluster_key}{String specifying the column in \code{colData} containing cluster labels.}
+
+\item{name}{trajectory record id. Defaults to \code{"cellrank"}.}
 
 \item{...}{Additional arguments (currently unused).}
 }

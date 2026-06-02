@@ -11,7 +11,8 @@ RunSCENIC(
   database_paths,
   assay_use = "counts",
   num_workers = 1L,
-  seed = 123L
+  seed = 123L,
+  name = "scenic"
 )
 }
 \arguments{
@@ -28,10 +29,12 @@ RunSCENIC(
 \item{num_workers}{Integer. Number of workers for parallel processing. Defaults to 1.}
 
 \item{seed}{Integer. Random seed for reproducibility. Defaults to 123.}
+
+\item{name}{Character. Record id for this SCENIC run. Defaults to "scenic".}
 }
 \value{
 A SingleCellExperiment object with the SCENIC AUC matrix stored in \code{altExp(sce, "SCENIC_AUC")}
-and the state registered under \code{metadata(sce)$sclet$analyses$scenic}.
+and the state registered in the analysis-state contract.
 }
 \description{
 This function runs the pySCENIC pipeline (GRN inference, motif enrichment, and AUCell scoring)

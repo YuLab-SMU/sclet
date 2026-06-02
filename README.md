@@ -1,41 +1,93 @@
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# `sclet`: A State-Aware Single-Cell Analysis Toolkit for SingleCellExperiment
+# `sclet`: A State-Aware Single-Cell & Spatial Toolkit for SingleCellExperiment
 
-[![License: Artistic-2.0](https://img.shields.io/badge/license-Artistic--2.0-blue.svg)](https://cran.r-project.org/web/licenses/Artistic-2.0)
-[![](https://img.shields.io/badge/devel%20version-0.99.5-blue.svg)](https://github.com/YuLab-SMU/sclet)
+[![License:
+Artistic-2.0](https://img.shields.io/badge/license-Artistic--2.0-blue.svg)](https://cran.r-project.org/web/licenses/Artistic-2.0)
+[![](https://img.shields.io/badge/devel%20version-1.0.0-blue.svg)](https://github.com/YuLab-SMU/sclet)
 [![](https://img.shields.io/github/languages/code-size/YuLab-SMU/sclet.svg)](https://github.com/YuLab-SMU/sclet)
 [![](https://img.shields.io/github/last-commit/YuLab-SMU/sclet.svg)](https://github.com/YuLab-SMU/sclet/commits/devel)
 
-`sclet` is a state-aware analysis toolkit built around `SingleCellExperiment`, the core Bioconductor container for single-cell data. Rather than treating `SingleCellExperiment` as a low-level backend hidden behind another framework, `sclet` takes it as the primary abstraction for modern single-cell and spatial transcriptomics workflows.
+`sclet` is a state-aware single-cell and spatial transcriptomics
+analysis toolkit built around `SingleCellExperiment`. It does not treat
+`SCE` as a low-level backend hidden behind another abstraction. Instead,
+it takes `SCE` as the primary analysis object and builds a unified
+`Run*`-style API around it, with `Run<Mainline>Workflow()` shells that
+tie independent modules into coherent, inspectable journeys.
 
-The package introduces an explicit **Analysis-State Contract (Provenance DAG)**. In practice, this means the object records active layers, reductions, graphs, identities, and higher-level analysis outputs as part of a coherent workflow state. Upstream assumptions such as batch-corrected layers, dimensional reductions, and derived analysis results are therefore inspectable and reusable instead of being scattered across ad hoc slots or implicit conventions.
+The package introduces an explicit **Analysis-State Contract**. In
+practice, the object records what assay was used, which reduction was
+active, what clustering was chosen, and what downstream results were
+derived — as structured, queryable metadata rather than scattered ad hoc
+slots. This provenance backbone makes workflows reproducible by default
+and ready for downstream AI-assisted reasoning.
+
+Key integration pattern: Python backends (scVI, scVelo, CellRank,
+SCENIC, cell2location, CellOracle) are all isolated via `basilisk` and
+exposed as plain R functions. No manual conda configuration. The
+function signature is always `Run*(sce, ...)`; the return value is
+always an `SCE` with the analysis state updated.
 
 ## Analysis Mainlines
 
-The package is now documented around user-facing analysis mainlines rather than a loose list of algorithms.
+The package is organized around 11 user-facing mainlines, each answering
+a concrete question in a single-cell or spatial project.
 
-- **Data ingress and interoperability**: bring data in through `Read10X()` / `ReadH5AD()`, then move between `SCE`, `Seurat`, and `AnnData` without losing the object story.
-- **Core single-cell workflow**: run QC, normalization, HVG selection, dimensional reduction, clustering, and identity management in a coherent baseline workflow.
-- **Integration and batch correction**: align multi-sample data through `RunIntegration()` and keep corrected views available to downstream steps.
-- **Cell identity and reference mapping**: annotate cells through `RunReferenceMapping()`, `RunSingleR()`, and related accessors and confidence plots.
-- **Cell fate and dynamic processes**: connect `RunDiffusionMap()`, `RunSlingshot()`, `RunVelocity()`, and `RunCellFate()` into one dynamics-oriented route.
-- **Program, regulon, and mechanistic interpretation**: move from signature scoring to SCENIC-style regulon activity through one interpretation mainline.
-- **Differential analysis and functional interpretation**: go from `RunDEtest()` to `RunEnrichment()` without leaving the structured state contract.
-- **Cell-cell communication and microenvironment interaction**: analyze ligand-receptor signaling through `RunCCI()` and backend-specific adapters.
-- **State priority and perturbation sensitivity**: reserve a home for forthcoming Augur / RareQ-style wrappers and related prioritization logic.
-- **Spatial context and niche analysis**: connect spatial deconvolution and perturbation-aware modeling to the rest of the workflow.
-- **Multimodal expansion**: reserve the documentation path for future ADT / ATAC / multiome support.
+1.  **Data ingress & interoperability** — `Read10X()`, `ReadH5AD()`,
+    `ConvertToAnnData()`. Move between `SCE`, `Seurat`, and `AnnData`
+    without losing the object story.
+2.  **Core single-cell workflow** — `RunQC()`, `RunNormalization()`,
+    `RunHVG()`, `RunPCA()`, `RunTSNE()`, `RunUMAP()`, `RunClustering()`.
+    QC through clustering in one coherent pipeline.
+3.  **Integration & batch correction** —
+    `RunIntegration(method = c("Harmony", "scVI"))`. Align multi-sample
+    data into a reusable corrected view.
+4.  **Cell identity & reference mapping** — `RunReferenceMapping()`,
+    `RunSingleR()`, `RunKNNPredict()`, `RunSymphony()`. Annotate cells
+    through multiple backends with confidence inspection.
+5.  **Cell fate & dynamic processes** — `RunDiffusionMap()`,
+    `RunSlingshot()`, `RunVelocity()`, `RunCellRank()`. Trajectory, RNA
+    velocity, and fate probability in one dynamics route.
+6.  **Program, regulon & mechanistic interpretation** — `RunAUCell()`,
+    `RunGSVA()`, `RunUCell()`, `RunSCENIC()`. From gene-set scoring to
+    full regulon activity networks.
+7.  **Differential analysis & functional interpretation** —
+    `RunDEtest()`, `RunPseudobulkDE()`, `RunEnrichment()`. Marker
+    discovery, pseudobulk testing, and enrichment in one chain.
+8.  **Cell-cell communication & microenvironment** —
+    `RunCCI(method = c("CellChat", "CellPhoneDB", "NicheNet"))`.
+    Ligand-receptor signaling with multiple backend adapters.
+9.  **State priority & perturbation sensitivity** — `RunAugur()`,
+    `RunRareCellDetection(method = "density")`. Prioritize
+    perturbation-sensitive or rare cell states with SCE-native
+    algorithms.
+10. **Spatial context & niche analysis** — `RunSpatialDeconvolution()`,
+    `RunSpatialColocalization()`, `RunSpatialNiche()`. Spatial
+    deconvolution (cell2location), colocalization (SVP GLOBALBV), and
+    niche detection (SVP LISA).
+11. **Multimodal expansion** — reserved documentation path for future
+    ADT / ATAC / multiome support.
 
-## Documentation Route
+## Documentation
 
-The online book is now ordered around the same mainlines.
+The [online book](https://yulab-smu.top/sclet) follows the same
+11-mainline structure, organized into three parts:
 
-1. Start with the state-aware foundations if you want to understand how `sclet` tracks layers, provenance, and reusable outputs.
-2. Follow the mainline chapters in package order: data ingress -> core workflow -> integration -> mapping -> dynamics -> program/regulon -> differential interpretation -> communication -> state priority -> spatial -> multimodal.
-3. Use the appendix chapters for visualization, metacells, Milo, phenotype association, interactive exploration, SVP, and AI-assisted analysis.
+- **Part I — How sclet Thinks** (2 chapters): the state contract and
+  provenance-aware automation.
+- **Part II — From Data to Discovery** (11 chapters): one chapter per
+  analysis mainline, ordered to match a real project journey.
+- **Part III — Specialized Techniques** (8 chapters): visualization,
+  metacells (SuperCell), differential abundance (Milo), phenotype
+  association (scPAS), interactive exploration (iSEE), spatial variance
+  (SVP), and AI-assisted analysis.
 
-For user-facing analysis verbs, `sclet` standardizes on the `Run*` naming style throughout, such as `RunIntegration()`, `RunSCENIC()`, and `RunVelocity()`. The more recent `Run<Mainline>Workflow()` shells are designed to make that API easier to navigate at the workflow level.
+All mainline code chunks in the book are **CI-verified**: they run
+inside GitHub Actions on every push to the `docs` or `devel` branch. The
+book acts as both a tutorial and a lightweight regression test suite for
+the package. Pre-prepared demo data (PBMC, Hermann spermatogenesis,
+DLPFC Visium, SCENIC references) is generated from Bioconductor data
+packages and cached during the CI build.
 
 ## :writing_hand: Authors
 
@@ -49,7 +101,7 @@ School of Basic Medical Sciences, Southern Medical University
 
 Get the development version from github:
 
-```r
+``` r
 ## install.packages("remotes")
 remotes::install_github("YuLab-SMU/sclet")
 ```

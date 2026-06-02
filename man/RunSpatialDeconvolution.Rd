@@ -10,6 +10,7 @@ RunSpatialDeconvolution(
   ref_group_key,
   ref_batch_key = NULL,
   max_epochs = 250L,
+  name = "spatial_deconv",
   ...
 )
 }
@@ -23,6 +24,8 @@ RunSpatialDeconvolution(
 \item{ref_batch_key}{Optional string specifying the batch column in \code{sce_ref}.}
 
 \item{max_epochs}{Integer. Number of training epochs. Defaults to 250.}
+
+\item{name}{Character. Spatial analysis record id. Defaults to \code{"spatial_deconv"}.}
 
 \item{...}{Additional arguments.}
 }

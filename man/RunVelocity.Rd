@@ -10,6 +10,7 @@ RunVelocity(
   use.dimred = NULL,
   subset.row = NULL,
   subset_row = NULL,
+  name = "velocity",
   ...
 )
 }
@@ -23,6 +24,8 @@ RunVelocity(
 \item{subset.row}{Optional row subset passed to \code{velociraptor::scvelo()}.}
 
 \item{subset_row}{Legacy alias of \code{subset.row}, kept for compatibility.}
+
+\item{name}{velocity record id. Defaults to \code{"velocity"}.}
 
 \item{...}{Additional arguments passed to \code{velociraptor::scvelo}.}
 }

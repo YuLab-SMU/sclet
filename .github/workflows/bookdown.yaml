@@ -80,9 +80,11 @@ jobs:
           Rscript -e 'BiocManager::install("SpatialExperiment", ask = FALSE, update = FALSE, force = TRUE)'
           Rscript -e 'stopifnot(requireNamespace("SpatialExperiment", quietly = TRUE))'
           Rscript -e 'BiocManager::install(c("SVP", "AUCell", "GSVA", "UCell", "basilisk", "zellkonverter"), ask = FALSE, update = FALSE)'
-          Rscript -e 'BiocManager::install(c("scater","scran","scrapper","scuttle","TENxPBMCData","scRNAseq","MouseThymusAgeing","SingleR","celldex","DropletUtils","SingleCellExperiment","SummarizedExperiment","velociraptor","enrichplot","org.Mm.eg.db","org.Hs.eg.db","org.Rn.eg.db","batchelor","iSEE","slingshot","miloR","ComplexHeatmap","harmony","scDblFinder","celda","destiny"), ask = FALSE, update = FALSE)'
-          Rscript -e 'stopifnot(requireNamespace("scrapper", quietly = TRUE), requireNamespace("TENxPBMCData", quietly = TRUE), requireNamespace("SingleCellExperiment", quietly = TRUE))'
-          Rscript -e 'remotes::install_github(c("immunogenomics/presto", "GfellerLab/SuperCell", "jinworks/CellChat", "YuLab-SMU/aisdk", "YuLab-SMU/ggsc", "YuLab-SMU/yulab.utils", "YuLab-SMU/fanyi", "KlugerLab/ALRA", "aiminXie/scPAS"), upgrade = "never")'
+          Rscript -e 'BiocManager::install(c("scater","scran","scrapper","scuttle","TENxPBMCData","scRNAseq","MouseThymusAgeing","SingleR","celldex","DropletUtils","SingleCellExperiment","SummarizedExperiment","velociraptor","enrichplot","org.Mm.eg.db","org.Hs.eg.db","org.Rn.eg.db","batchelor","iSEE","slingshot","miloR","ComplexHeatmap","harmony","scDblFinder","celda","destiny","STexampleData","BiocNeighbors","DESeq2"), ask = FALSE, update = FALSE)'
+          Rscript -e 'stopifnot(requireNamespace("scrapper", quietly = TRUE), requireNamespace("TENxPBMCData", quietly = TRUE), requireNamespace("SingleCellExperiment", quietly = TRUE), requireNamespace("BiocNeighbors", quietly = TRUE), requireNamespace("DESeq2", quietly = TRUE))'
+          Rscript -e 'install.packages("symphony", repos = "https://cloud.r-project.org")'
+          Rscript -e 'stopifnot(requireNamespace("symphony", quietly = TRUE))'
+          Rscript -e 'remotes::install_github(c("immunogenomics/presto", "GfellerLab/SuperCell", "jinworks/CellChat", "YuLab-SMU/aisdk", "YuLab-SMU/ggsc", "YuLab-SMU/yulab.utils", "YuLab-SMU/fanyi", "KlugerLab/ALRA", "aiminXie/scPAS", "neurorestore/Augur"), upgrade = "never")'
           Rscript -e 'stopifnot(requireNamespace("CellChat", quietly = TRUE))'
           Rscript -e 'remotes::install_deps("sclet-src", dependencies = c("Depends","Imports","LinkingTo"), upgrade = "never")'
           R CMD INSTALL sclet-src
@@ -107,47 +109,60 @@ jobs:
             exit 1
           fi
 
-      - name: Generate PBMC demo data
+      - name: Generate demo data
+        shell: bash
         run: |
-          Rscript -e '
-            ws <- Sys.getenv("GITHUB_WORKSPACE")
-            bookdir <- Sys.getenv("BOOKDIR")
-            candidates <- c(
-              file.path(ws, bookdir, "data-raw", "pbmc-3k-sce.R"),
-              file.path(ws, "docs-src", "bookdown", "data-raw", "pbmc-3k-sce.R"),
-              file.path(ws, "sclet-src", "bookdown", "data-raw", "pbmc-3k-sce.R")
-            )
-            script_file <- candidates[file.exists(candidates)][1]
-            if (is.na(script_file)) {
-              stop(
-                "Could not find pbmc-3k-sce.R in expected locations: ",
-                paste(candidates, collapse = ", ")
-              )
-            }
-            script_dir <- dirname(normalizePath(script_file, mustWork = TRUE))
-            generated_file <- normalizePath(
-              file.path(dirname(script_dir), "data", "pbmc-3k-sce.rds"),
-              winslash = "/",
-              mustWork = FALSE
-            )
-            target_dir <- file.path(ws, bookdir, "data")
-            target_file <- normalizePath(
-              file.path(target_dir, "pbmc-3k-sce.rds"),
-              winslash = "/",
-              mustWork = FALSE
-            )
-            message("PBMC script: ", script_file)
-            message("PBMC generated file: ", generated_file)
-            message("PBMC target file: ", target_file)
-            dir.create(target_dir, recursive = TRUE, showWarnings = FALSE)
-            setwd(script_dir)
-            source(basename(script_file))
-            stopifnot(file.exists(generated_file))
-            if (!identical(generated_file, target_file)) {
-              file.copy(generated_file, target_file, overwrite = TRUE)
-            }
-            stopifnot(file.exists(target_file))
-          '
+          set -euo pipefail
+          ws="$GITHUB_WORKSPACE"
+          bookdir="$BOOKDIR"
+          target_dir="$ws/$bookdir/data"
+          mkdir -p "$target_dir"
+
+          # Find and run data-raw scripts
+          candidates=(
+            "$ws/$bookdir/data-raw"
+            "$ws/docs-src/bookdown/data-raw"
+            "$ws/sclet-src/bookdown/data-raw"
+          )
+          script_dir=""
+          for d in "${candidates[@]}"; do
+            if [ -d "$d" ] && [ -f "$d/pbmc-3k-sce.R" ]; then
+              script_dir="$d"
+              break
+            fi
+          done
+          if [ -z "$script_dir" ]; then
+            echo "Could not find data-raw directory" >&2
+            exit 1
+          fi
+          echo "Using data-raw: $script_dir"
+          echo "Target data dir: $target_dir"
+
+          # Run each data-raw script
+          for script in \
+            pbmc-3k-sce.R \
+            hermann-sperm-velo.R \
+            visium-dlpfc-spatial.R \
+            scenic-refs.R \
+            cell2location-paired.R
+          do
+            echo "=== Running $script ==="
+            Rscript -e "
+              setwd('$script_dir')
+              source('$script')
+            "
+          done
+
+          # Verify output files
+          for f in pbmc-3k-sce.rds hermann-sperm-velo.rds visium-dlpfc-sub.rds allTFs_hg38.txt motifs-v9-nr.hgnc.tbl dlpfpc-spatial.rds dlpfpc-ref.rds; do
+            if [ ! -f "$target_dir/$f" ]; then
+              echo "ERROR: Missing expected output: $target_dir/$f" >&2
+              ls -la "$target_dir" || true
+              exit 1
+            fi
+            echo "  OK: $target_dir/$f"
+          done
+          echo "All demo data generated."
 
       - name: Build site
         run: |

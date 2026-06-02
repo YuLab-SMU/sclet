@@ -177,101 +177,106 @@ plot_perturbation_ranking <- function(object, n = 20, fill_color = "steelblue") 
 
 #' Run rare cell detection
 #'
-#' Identifies rare and major cell populations using the RareQ algorithm.
-#' RareQ operates on the kNN graph, quantifying local topological structure
-#' via a neighborhood connectivity metric (Q). High-Q cells represent locally
-#' dense micro-clusters suggestive of rare states.
+#' Identifies rare and major cell populations using local density analysis
+#' on the kNN graph. The algorithm computes a mutual connectivity metric
+#' (Q-value) from each cell's k-nearest neighbors, identifies locally dense
+#' micro-clusters as seeds, propagates labels outward, and flags small
+#' clusters as rare populations.
 #'
-#' @param sce A SingleCellExperiment object with PCA reduction.
-#' @param method Character. Rare cell detection backend. Currently only
-#'   `"RareQ"` is supported.
-#' @param reduction Character. Reduction containing PCA. Defaults to "PCA".
-#' @param dims Integer vector. PCA dimensions to use. Defaults to 1:50.
-#' @param k_param Integer. k parameter for kNN graph construction. Defaults to 20.
-#' @param k Integer. Neighborhood size for Q value computation in RareQ.
-#'   Smaller values enhance sensitivity to extremely rare populations.
-#'   Defaults to 6.
-#' @param Q_cut Numeric. Minimum average Q for a cluster to be retained as a
-#'   rare group. Range 0.5-1.0. Defaults to 0.6.
-#' @param ratio Numeric. Threshold for merging clusters. Defaults to 0.2.
-#' @param max_iter Integer. Maximum iterations for label propagation. Defaults to 100.
+#' @param sce A SingleCellExperiment object with a reduction (e.g. PCA).
+#' @param method Character. Currently only `"density"` is supported.
+#' @param reduction Character. Reduction to use. Defaults to "PCA".
+#' @param dims Integer vector. Dimensions to use. Defaults to 1:20.
+#' @param k Integer. Number of nearest neighbors for the kNN graph. Defaults to 20.
+#' @param q_threshold Numeric. Mutual connectivity threshold above which a cell
+#'   is considered a high-density seed. Range 0-1. Defaults to 0.25.
+#' @param rare_threshold Integer. Clusters with ≤ this many cells are flagged
+#'   as rare. Defaults to 10.
 #' @param name Analysis record id. Defaults to `"rareq"`.
-#' @param ... Additional arguments passed to `RareQ::FindRare()`.
 #'
 #' @return Updated SingleCellExperiment with `rare_cluster` in colData.
 #' @export
-RunRareCellDetection <- function(sce, method = c("RareQ"),
-    reduction = "PCA", dims = 1:50, k_param = 20, k = 6,
-    Q_cut = 0.6, ratio = 0.2, max_iter = 100, name = "rareq", ...) {
+RunRareCellDetection <- function(sce, method = c("density"),
+    reduction = "PCA", dims = 1:20, k = 20,
+    q_threshold = 0.25, rare_threshold = 10, name = "rareq") {
     method <- match.arg(method)
     stopifnot(is(sce, "SingleCellExperiment"))
     stopifnot(is.character(name) && nzchar(name))
 
-    if (identical(method, "RareQ")) {
-        if (!requireNamespace("RareQ", quietly = TRUE)) {
+    if (identical(method, "density")) {
+        if (!requireNamespace("BiocNeighbors", quietly = TRUE)) {
             stop(
-                "Package 'RareQ' is needed for rare cell detection. ",
-                "Please install it from GitHub. ",
-                'See: https://xiaolab-xjtu.github.io/RareQ/',
+                "Package 'BiocNeighbors' is needed for density-based ",
+                "rare cell detection. Please install it.",
                 call. = FALSE
             )
         }
-        if (!requireNamespace("Seurat", quietly = TRUE)) {
-            stop(
-                "Package 'Seurat' is needed for SCE-to-Seurat conversion ",
-                "during RareQ analysis. Please install it.",
-                call. = FALSE
-            )
-        }
-
         if (!reduction %in% SingleCellExperiment::reducedDimNames(sce)) {
             stop(sprintf(
                 "Reduction '%s' not found in reducedDimNames(sce). ",
                 reduction
-            ), "Please run RunPCA() first with at least 50 PCs.")
+            ), "Please run RunPCA() first.")
         }
 
-        pca_mat <- SingleCellExperiment::reducedDim(sce, reduction)
-        max_dim <- min(max(dims), ncol(pca_mat))
-        dims <- seq_len(max_dim)
+        emb <- SingleCellExperiment::reducedDim(sce, reduction)
+        max_dim <- min(max(dims), ncol(emb))
+        dims_use <- seq_len(max_dim)
+        emb_sub <- emb[, dims_use, drop = FALSE]
 
-        seurat_obj <- SeuratObject::CreateSeuratObject(
-            counts = SummarizedExperiment::assay(sce, "counts"),
-            meta.data = as.data.frame(SummarizedExperiment::colData(sce))
+        cli::cli_alert_info(
+            "Building kNN graph (k={.val {k}}) on {.val {max_dim}} dims"
         )
-        colnames(pca_mat) <- paste0("PC_", seq_len(ncol(pca_mat)))
-        seurat_obj[["pca"]] <- SeuratObject::CreateDimReducObject(
-            embeddings = pca_mat,
-            key = "PC_",
-            assay = "RNA"
-        )
+        knn <- BiocNeighbors::findKNN(emb_sub, k = k, BNPARAM = BiocNeighbors::KmknnParam())
 
-        seurat_obj <- Seurat::FindNeighbors(
-            seurat_obj,
-            k.param = k_param,
-            compute.SNN = FALSE,
-            prune.SNN = 0,
-            reduction = "pca",
-            dims = dims,
-            force.recalc = TRUE,
-            return.neighbor = TRUE
-        )
+        n_cells <- nrow(emb_sub)
+        mutual_counts <- integer(n_cells)
+        for (i in seq_len(n_cells)) {
+            for (j in knn$index[i, ]) {
+                if (j > 0 && i %in% knn$index[j, ]) {
+                    mutual_counts[i] <- mutual_counts[i] + 1L
+                }
+            }
+        }
+        q_values <- mutual_counts / k
 
-        cli::cli_alert_info("Running RareQ::FindRare() with k={.val {k}}, Q_cut={.val {Q_cut}}")
-        cluster <- RareQ::FindRare(
-            seurat_obj,
-            k = k,
-            Q_cut = Q_cut,
-            ratio = ratio,
-            max_iter = max_iter,
-            ...
+        seeds <- which(q_values >= q_threshold)
+        n_seeds <- length(seeds)
+
+        cli::cli_alert_info(
+            "Found {.val {n_seeds}} high-density seeds (Q >= {.val {q_threshold}})"
         )
 
-        sce$rare_cluster <- as.character(cluster)
+        if (n_seeds == 0) {
+            warning(
+                "No high-density seeds found with Q >= ", q_threshold,
+                ". All cells assigned to cluster 1."
+            )
+            cluster <- rep("1", n_cells)
+        } else {
+            cluster <- rep(NA_character_, n_cells)
+            cluster[seeds] <- as.character(seeds)
+
+            for (iter in seq_len(5)) {
+                for (i in seq_len(n_cells)) {
+                    if (!is.na(cluster[i])) next
+                    nb_labels <- cluster[knn$index[i, ]]
+                    nb_labels <- nb_labels[!is.na(nb_labels)]
+                    if (length(nb_labels) > 0) {
+                        tbl <- sort(table(nb_labels), decreasing = TRUE)
+                        cluster[i] <- names(tbl)[1]
+                    }
+                }
+            }
+            cluster[is.na(cluster)] <- "1"
+
+            cluster <- as.integer(as.factor(cluster))
+            cluster <- as.character(cluster)
+        }
+
+        sce$rare_cluster <- cluster
 
         cluster_counts <- sort(table(cluster))
         n_clusters <- length(cluster_counts)
-        rare_threshold <- 5
         rare_clusters <- names(cluster_counts[cluster_counts <= rare_threshold])
 
         sce <- sclet_set_analysis(
@@ -279,12 +284,12 @@ RunRareCellDetection <- function(sce, method = c("RareQ"),
             "rare_cells",
             list(
                 id = name,
-                method = "RareQ",
+                method = "density",
                 label_col = "rare_cluster",
                 n_clusters = n_clusters,
                 n_rare_clusters = length(rare_clusters),
                 rare_clusters = rare_clusters,
-                params = list(k = k, Q_cut = Q_cut, ratio = ratio),
+                params = list(k = k, q_threshold = q_threshold),
                 timestamp = Sys.time()
             )
         )
@@ -292,14 +297,12 @@ RunRareCellDetection <- function(sce, method = c("RareQ"),
             object = sce,
             type = "rare_cells",
             id = name,
-            method = "RareQ",
+            method = "density",
             inputs = list(
                 reduction = reduction,
                 dims = dims,
-                k_param = k_param,
                 k = k,
-                Q_cut = Q_cut,
-                ratio = ratio
+                q_threshold = q_threshold
             ),
             artifacts = list(
                 analysis_key = "rare_cells",
@@ -308,20 +311,19 @@ RunRareCellDetection <- function(sce, method = c("RareQ"),
             summary = list(
                 n_clusters = n_clusters,
                 n_rare_clusters = length(rare_clusters),
-                n_cells = ncol(sce)
+                n_cells = ncol(sce),
+                n_seeds = n_seeds
             )
         )
         sce <- sclet_log_command(
             sce,
             "RunRareCellDetection",
             params = list(
-                method = "RareQ",
+                method = "density",
                 reduction = reduction,
-                dims = paste0(range(dims), collapse = ":"),
-                k_param = k_param,
+                dims = paste0(range(dims_use), collapse = ":"),
                 k = k,
-                Q_cut = Q_cut,
-                ratio = ratio,
+                q_threshold = q_threshold,
                 name = name
             ),
             outputs = list(
@@ -332,40 +334,6 @@ RunRareCellDetection <- function(sce, method = c("RareQ"),
 
         return(sce)
     }
-
-    stopifnot(is(sce, "SingleCellExperiment"))
-    stopifnot(is.character(name) && nzchar(name))
-
-    message(
-        "RunRareCellDetection() is currently a reserved interface. ",
-        "Rare cell detection backends will be added in a future release."
-    )
-
-    placeholder <- list(
-        id = name,
-        method = if (is.null(method)) "reserved" else method,
-        status = "reserved",
-        timestamp = Sys.time()
-    )
-
-    sce <- sclet_set_analysis(sce, "rare_cells", placeholder)
-    sce <- sclet_set_analysis_state(
-        object = sce,
-        type = "rare_cells",
-        id = name,
-        method = if (is.null(method)) "reserved" else method,
-        inputs = list(),
-        artifacts = list(analysis_key = "rare_cells"),
-        summary = list(status = "reserved")
-    )
-    sce <- sclet_log_command(
-        sce,
-        "RunRareCellDetection",
-        params = list(name = name),
-        outputs = list(analysis = "rare_cells", state = "rare_cells")
-    )
-
-    sce
 }
 
 #' Run a state priority and perturbation sensitivity workflow

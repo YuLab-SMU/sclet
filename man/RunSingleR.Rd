@@ -10,6 +10,7 @@ RunSingleR(
   labels = NULL,
   assay.type = NULL,
   layer = NULL,
+  name = "singler",
   ...
 )
 }
@@ -23,6 +24,8 @@ RunSingleR(
 \item{assay.type}{Assay to use for annotation. If NULL, resolved from \code{layer}.}
 
 \item{layer}{Layer to use for annotation. If NULL, use \code{DefaultLayer(object)}.}
+
+\item{name}{Annotation/mapping record id. Defaults to \code{"singler"}.}
 
 \item{...}{Additional arguments passed to SingleR::SingleR}
 }
