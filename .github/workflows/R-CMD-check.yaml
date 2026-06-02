@@ -43,6 +43,7 @@ jobs:
         run: |
           install.packages('remotes')
           remotes::install_github("saeyslab/nichenetr")
+          remotes::install_github("neurorestore/Augur")
         shell: Rscript {0}
 
       - uses: r-lib/actions/check-r-package@v2
