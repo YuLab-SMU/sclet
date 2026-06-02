@@ -865,3 +865,47 @@ get_perturbation <- function(object, element = NULL, id = NULL) {
 has_perturbation <- function(object) {
     !is.null(get_perturbation(object))
 }
+
+#' Access perturbation priority analysis results (Augur)
+#'
+#' @title get_perturbation_priority
+#' @param object a SingleCellExperiment object
+#' @param element optional element name to extract (e.g. `"AUC"`, `"result"`)
+#' @return the full priority record, a selected element, or `NULL`
+#' @export
+get_perturbation_priority <- function(object, element = NULL) {
+    result <- sclet_get_analysis(object, "augur")
+    extract_analysis_element(result, element)
+}
+
+#' Check whether perturbation priority results are available
+#'
+#' @title has_perturbation_priority
+#' @param object a SingleCellExperiment object
+#' @return logical
+#' @export
+has_perturbation_priority <- function(object) {
+    !is.null(get_perturbation_priority(object))
+}
+
+#' Access rare cell detection results
+#'
+#' @title get_rare_cells
+#' @param object a SingleCellExperiment object
+#' @param element optional element name to extract
+#' @return the full rare cell record, a selected element, or `NULL`
+#' @export
+get_rare_cells <- function(object, element = NULL) {
+    result <- sclet_get_analysis(object, "rare_cells")
+    extract_analysis_element(result, element)
+}
+
+#' Check whether rare cell detection results are available
+#'
+#' @title has_rare_cells
+#' @param object a SingleCellExperiment object
+#' @return logical
+#' @export
+has_rare_cells <- function(object) {
+    !is.null(get_rare_cells(object))
+}

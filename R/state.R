@@ -67,6 +67,8 @@ sclet_default_command_outputs <- function(command) {
         runMilo = list(analysis = "milo"),
         RunCellChat = list(analysis = "cellchat"),
         BatchRemover = list(analysis = "batch", layer = "corrected", state = "integration"),
+        RunPerturbationPriority = list(analysis = "augur", state = "priority"),
+        RunRareCellDetection = list(analysis = "rare_cells", state = "rare_cells"),
         list()
     )
 }
@@ -699,7 +701,9 @@ sclet_state_types <- function() {
         "scenic",
         "geneset_scoring",
         "spatial",
-        "perturbation"
+        "perturbation",
+        "priority",
+        "rare_cells"
     )
 }
 

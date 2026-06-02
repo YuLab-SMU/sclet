@@ -1,5 +1,9 @@
 # sclet 1.0.0
 
+
+
+# sclet 0.99.7
+
 + **Data Cleaning**: Introduced `RunDoubletFinder()` to detect doublets using `scDblFinder`, and `RunDecontX()` to remove ambient RNA contamination using `celda::decontX`. Both functions natively support the `SingleCellExperiment` object and integrate seamlessly with the `analysis-state` architecture, storing clean matrices safely as new assays (e.g., `decontXcounts`) without overwriting raw data.
 + **Imputation**: Added `RunImputation()` to perform zero-preserving imputation using the `ALRA` method. The function handles sparse matrices and integrates with the analysis-state machine by storing the imputed results in a separate assay (`alra_imputed`).
 + **Diffusion Map**: Added `RunDiffusionMap()` as a robust dimensional reduction alternative for complex trajectory inference. It uses the `destiny` package to calculate diffusion components, storing them in `reducedDim(sce, "DM")`.
@@ -12,6 +16,7 @@
 + **Reference Mapping Layer**: Added `RunReferenceMapping()` as a unified entry point for reference-based annotation, dispatching to `SingleR` or lightweight `KNN` label transfer with a consistent state contract and accessor layer. Added `plot_reference_label_transfer_heatmap()` and `plot_reference_label_confidence()` for downstream inspection of label transfer quality across query groups.
 + **Program & Regulon Activity Visualization**: Added `plot_program_activity()` and `plot_program_heatmap()` to unify the visualization layer across `RunGeneSetScoring()` and `RunSCENIC()` outputs. Both consumers resolve program-level activity from the typed state records, making the source (geneset scoring vs. regulon) transparent to the plotting call. Added `plot_scenic_activity()` for regulon-level embedding visualization, and `plot_trajectory_overview()` as the first native overview plot for the trajectory mainline.
 + **State Contract Refinements**: `RunGeneSetScoring()` now writes a typed `geneset_scoring` state record; `RunSCENIC()`, `RunVelocity()`, `RunSingleR()`, and `RunCellRank()` all accept a `name` parameter and register results through the unified analysis-state layer instead of ad hoc metadata slots. `get_geneset_scoring()` now reads both new typed records and legacy formats transparently.
++ **State Priority & Perturbation Sensitivity Mainline**: Introduced `RunPerturbationPriority()` wrapping the Augur framework for ranking cell types by perturbation responsiveness, `RunRareCellDetection()` as a reserved interface for rare-cell identification, and `RunStatePriorityWorkflow()` as the semantic shell over the state-priority analysis mainline. Added `get_perturbation_priority()` / `has_perturbation_priority()` and `get_rare_cells()` / `has_rare_cells()` accessors.
 
 # sclet 0.99.6
 
