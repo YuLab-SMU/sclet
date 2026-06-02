@@ -69,6 +69,7 @@ jobs:
       - name: Install dependencies
         run: |
           Rscript -e 'install.packages(c("remotes","BiocManager"))'
+          Rscript -e 'install.packages("fs")'
           Rscript -e 'install.packages(c("bookdown","rmarkdown","knitr"))'
           Rscript -e 'stopifnot(requireNamespace("bookdown", quietly = TRUE), requireNamespace("rmarkdown", quietly = TRUE), requireNamespace("knitr", quietly = TRUE))'
           Rscript -e 'install.packages(c("shadowtext","conflicted","aplot","ggplot2","pkgbuild","patchwork","gdtools","NMF","circlize","reticulate"))'
