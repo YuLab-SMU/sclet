@@ -704,7 +704,8 @@ sclet_state_types <- function() {
         "spatial",
         "perturbation",
         "priority",
-        "rare_cells"
+        "rare_cells",
+        "multimodal"
     )
 }
 
