@@ -144,7 +144,7 @@ get_mapping(object, id = "symphony_demo")
 
 Symphony mapping also works through `RunReferenceWorkflow()`:
 
-```{r symphony-workflow, eval=FALSE}
+```{r symphony-workflow, eval = eval_chunks && requireNamespace("symphony", quietly = TRUE)}
 object <- RunReferenceWorkflow(
     object,
     ref = ref,

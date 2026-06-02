@@ -2,6 +2,12 @@
 
 This chapter is the reserved mainline for ADT, ATAC, and multiome workflows. The object contract is now in place so that modality-specific analysis backends can be plugged in later without breaking the navigation model.
 
+```{r multimodal-setup, include=FALSE}
+# NOTE: Chunks use eval=FALSE because the PBMC demo lacks ADT/ATAC altExps.
+# has_multimodal_adt/atac can run in CI (returns FALSE on the demo object).
+# RunMultimodalWorkflow returns early with a message when no altExps are found.
+```
+
 ## What Is Already Available
 
 `sclet` now provides lightweight modality helpers and a workflow shell:

@@ -2,6 +2,12 @@
 
 Single-cell data often becomes most interesting when it can be connected back to cohort-level outcomes: survival, response, progression, or any other phenotype that is measured in bulk but not directly annotated for each cell. This is exactly the bridge that `RunPhenotypeAssociation()` is meant to provide.
 
+```{r phenotype-setup, include=FALSE}
+# NOTE: Chunks use eval=FALSE because RunPhenotypeAssociation requires:
+# - scPAS package + bulk cohort data with matched phenotypes
+# - The PBMC demo dataset lacks clinical/bulk phenotype annotations
+```
+
 The current `sclet` implementation wraps `scPAS`, transfers the result back to the `SingleCellExperiment` object, and records the provenance in the analysis-state. In practice, this makes the single-cell object the place where cell-level association scores, model parameters, and downstream visualization all meet again.
 
 ## A practical pattern

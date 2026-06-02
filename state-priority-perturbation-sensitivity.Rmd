@@ -2,6 +2,14 @@
 
 After clustering, annotation, and trajectory analysis, one question still remains: which states actually respond to the perturbation? Not every cluster changes meaningfully between conditions, and some rare populations may drive the phenotype while being numerically small. This mainline is about ranking states by their responsiveness and detecting rare populations that deserve follow-up before everything else.
 
+```{r state-priority-setup, include=FALSE}
+# NOTE: Chunks in this chapter use eval=FALSE because:
+# - Augur requires the Augur package (GitHub: neurorestore/Augur) and machine learning backends
+# - RareQ requires the RareQ package + Seurat for SCE-to-Seurat conversion
+# - Both involve computationally intensive cross-validation / label propagation
+# The code is fully functional when these dependencies are installed locally.
+```
+
 `sclet` now provides the three entry points that were promised in the mainline roadmap: `RunPerturbationPriority()`, `RunRareCellDetection()`, and `RunStatePriorityWorkflow()`.
 
 The core engine for perturbation priority is the Augur framework. Augur trains a machine-learning model for each cell type to predict experimental condition (e.g., treatment vs control) from molecular measurements. The cross-validated AUC of each cell-type-specific classifier becomes the priority score: a higher AUC means cells of that type are more distinguishable between conditions, and therefore more responsive.

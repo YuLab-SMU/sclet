@@ -2,6 +2,15 @@
 
 This mainline extends the analysis map from dissociated single cells back into tissue context. The user question is no longer only which states exist, but where they sit, which compositions change across space, and how niche structure constrains interpretation.
 
+```{r spatial-setup, include=FALSE}
+# NOTE: Chunks in this chapter use eval=FALSE because:
+# - RunSpatialDeconvolution requires cell2location (Python, basilisk, ~2GB env)
+# - RunSpatialColocalization/RunSpatialNiche require SVP + spatial coordinate data
+# - RunInSilicoPerturbation requires CellOracle (Python, basilisk)
+# - A minimal SpatialExperiment would also be needed for spatial analysis
+# The code is fully functional when these dependencies are installed locally.
+```
+
 `sclet` now provides `RunSpatialWorkflow()` as the semantic shell, with `RunSpatialDeconvolution()` as the primary backend and `RunSpatialColocalization()` and `RunSpatialNiche()` reserved for future integration. All spatial functions now follow the same state contract as other `sclet` modules: each runs records a `name` identifier, writes into the typed state record layer, and logs the command for downstream provenance tracking.
 
 ## Spatial Mainline Workflow

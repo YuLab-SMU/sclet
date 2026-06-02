@@ -85,11 +85,11 @@ These visualization functions are designed to minimize boilerplate code while re
 
 Beyond the general-purpose plotting functions, `sclet` provides specialized visualization functions for each analysis module. These consume the typed state records directly, so you never need to manually extract matrices or metadata columns.
 
+**Note:** The examples below show the intended API surface. They use `eval=FALSE` because the PBMC demo object used in this chapter has not been processed through trajectory, velocity, spatial, or CCI analysis pipelines. The functions themselves are fully implemented and ready to use once the corresponding module has been run.
+
 ### Trajectory and Fate
 
-After running trajectory or velocity analysis, inspect the results with the module-native plotting functions.
-
-```{r viz-fate, eval=FALSE}
+```{r viz-fate, eval=FALSE}    # requires RunVelocity() / RunCellRank() output
 # Trajectory overview panel
 plot_trajectory_overview(sce, panels = c("velocity", "terminal_states", "fate_probability"))
 

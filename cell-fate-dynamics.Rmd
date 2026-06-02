@@ -4,6 +4,13 @@ This mainline shifts the analysis story from static identity to directional biol
 
 `sclet` gathers diffusion-based embeddings, lineage inference, velocity, and fate-oriented methods under the same workflow umbrella. The point is not just to expose more algorithms, but to make the dynamics route readable and reusable as one coherent chapter of analysis.
 
+```{r fate-setup, include=FALSE}
+# NOTE: Velocity, CellRank, and fate chunks use eval=FALSE because they need:
+# - scVelo/CellRank via Python basilisk (~2GB env)
+# - spliced/unspliced assays not present in the PBMC demo data
+# RunDiffusionMap, RunSlingshot, and diffusion-map chunks run in CI.
+```
+
 ## Trajectory mainline workflow
 
 If you do not want to stitch together `RunDiffusionMap()`, `RunSlingshot()`, `RunVelocity()`, and `RunCellFate()` by hand every time, `sclet` now provides `RunTrajectoryWorkflow()` as the semantic entry point for this entire analysis mainline.
@@ -280,7 +287,7 @@ plot_trajectory_overview(
 
 When scVelo is run in dynamical mode, it infers a latent time for each cell — a pseudotime ordering derived from the RNA velocity field itself, not from a separate trajectory method. `plot_velocity_latent_time()` colors cells on an embedding by this inferred temporal progression.
 
-```{r velocity-latent, eval=FALSE}
+```{r velocity-latent, eval=FALSE}    # requires scVelo dynamical mode latent time
 plot_velocity_latent_time(
     sce,
     reduction = "UMAP",

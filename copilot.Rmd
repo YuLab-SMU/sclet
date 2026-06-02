@@ -2,6 +2,12 @@
 
 You ran the pipeline and generated the plots, but are you absolutely certain your results are "correct"?
 
+```{r copilot-setup, include=FALSE}
+# NOTE: Chunks use eval=FALSE because sclet_copilot/AuditAnalysisChain require:
+# - aisdk package + configured AI API credentials
+# - Not suitable for CI/CD environments without API keys
+```
+
 The most terrifying aspect of single-cell analysis isn't encountering an error; it's the **silent propagation of systemic biases**. If quality control thresholds for mitochondrial genes are too relaxed upstream, or if a batch correction algorithm (like `fastMNN` or `scVI`) over-aligns cell populations that possess genuine biological differences, these "false positive" signals will cascade down through dimensionality reduction and clustering, eventually landing squarely in your `FindMarkers` results. 
 
 When you draft a manuscript based on these markers, you have already fallen into the trap of **Transcriptomic Overload**.
