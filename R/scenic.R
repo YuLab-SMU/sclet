@@ -240,3 +240,39 @@ plot_scenic_activity <- function(object, regulon, reduction = NULL, id = NULL,
         ) +
         ggplot2::theme_classic()
 }
+
+#' Run Gene Regulatory Network analysis
+#'
+#' Unified semantic entry point for gene regulatory network inference. Currently
+#' delegates to `RunSCENIC()` as the primary backend, keeping "GRN analysis" as
+#' the user-facing concept rather than "pySCENIC" as the implementation detail.
+#' Future backends (e.g. SCENIC+, decoupleR, FigR) can be routed through the
+#' same interface.
+#'
+#' @param sce A SingleCellExperiment object.
+#' @param tfs_path Character. Path to the transcription factors list file.
+#' @param motif_annotations_path Character. Path to the motif annotations file.
+#' @param database_paths Character vector. Paths to cisTarget ranking databases.
+#' @param assay_use Character. Assay for inference. Defaults to "counts".
+#' @param method Character. GRN backend. Currently only `"SCENIC"` is supported.
+#' @param name Character. Record id. Defaults to `"grn"`.
+#' @param ... Additional arguments passed to the backend.
+#'
+#' @return Updated SingleCellExperiment with GRN results.
+#' @export
+RunGRN <- function(sce, tfs_path, motif_annotations_path, database_paths,
+                   assay_use = "counts", method = c("SCENIC"), name = "grn", ...) {
+    method <- match.arg(method)
+    if (identical(method, "SCENIC")) {
+        sce <- RunSCENIC(
+            sce,
+            tfs_path = tfs_path,
+            motif_annotations_path = motif_annotations_path,
+            database_paths = database_paths,
+            assay_use = assay_use,
+            name = name,
+            ...
+        )
+    }
+    sce
+}
