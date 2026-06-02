@@ -5,10 +5,10 @@ This mainline moves from isolated cell states to tissue-level interaction logic.
 `sclet` treats communication analysis as a standardized downstream layer rather than a backend-specific side quest. This chapter shows how `RunCCI()` and related adapters fit into the broader state-aware workflow.
 
 ```{r cci-setup, include=FALSE}
-# NOTE: RunCCI backend chunks use eval=FALSE because:
-# - CellChat, CellPhoneDB (Python basilisk), NicheNet each require their own packages
-# - Python-based backends need basilisk environments
-# The general RunCCI dispatcher and state contract code runs in CI.
+# NOTE: CellChat chunks now run in CI (CellChat already in bookdown.yaml deps).
+# CellPhoneDB and NicheNet chunks use eval=FALSE because:
+# - CellPhoneDB needs Python basilisk environment
+# - NicheNet needs pre-downloaded prior model databases
 ```
 
 ## Input

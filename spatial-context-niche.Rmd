@@ -3,12 +3,12 @@
 This mainline extends the analysis map from dissociated single cells back into tissue context. The user question is no longer only which states exist, but where they sit, which compositions change across space, and how niche structure constrains interpretation.
 
 ```{r spatial-setup, include=FALSE}
-# NOTE: Chunks in this chapter use eval=FALSE because:
-# - RunSpatialDeconvolution requires cell2location (Python, basilisk, ~2GB env)
-# - RunSpatialColocalization/RunSpatialNiche require SVP + spatial coordinate data
-# - RunInSilicoPerturbation requires CellOracle (Python, basilisk)
-# - A minimal SpatialExperiment would also be needed for spatial analysis
-# The code is fully functional when these dependencies are installed locally.
+# NOTE: cell2location and CellOracle chunks use eval=FALSE because they need:
+# - Paired spatial + reference scRNA-seq datasets with matched tissue
+# - Python basilisk environments (cell2location + CellOracle; ~2GB each)
+# SVP colocalization/niche chunks run in CI with the prepared DLPFC subset.
+# To run cell2location locally: source("data-raw/cell2location-paired.R")
+# To run CellOracle locally: needs a GRN prior from SCENIC + reduction
 ```
 
 `sclet` now provides `RunSpatialWorkflow()` as the semantic shell, with `RunSpatialDeconvolution()` as the primary backend and `RunSpatialColocalization()` and `RunSpatialNiche()` reserved for future integration. All spatial functions now follow the same state contract as other `sclet` modules: each runs records a `name` identifier, writes into the typed state record layer, and logs the command for downstream provenance tracking.
@@ -62,60 +62,47 @@ The function invokes the GPU (if available) via the `basilisk` environment to tr
 
 ## Spatial Colocalization with SVP
 
-`RunSpatialColocalization()` now uses the SVP package as its quantitative backend. SVP performs global bivariate spatial autocorrelation analysis via `runGLOBALBV()`, computing pairwise spatial correlations between feature columns and identifying which cell types or states tend to co-occur in the same spatial regions.
+`RunSpatialColocalization()` uses the SVP package's global bivariate spatial autocorrelation (`runGLOBALBV()`) to test whether pairs of features tend to co-occur in the same spatial regions. The function auto-detects feature columns from prior deconvolution results when available.
 
-When deconvolution results are already present in the object, the function auto-selects the cell type proportion columns. If you have other spatial feature columns (e.g., pathway scores), pass them explicitly through the `features` parameter.
+For the demo below, we use a small Visium DLPFC subset and create feature columns from a few highly variable genes. The real workflow would use deconvolution-derived cell type proportions.
 
-SVP colocalization is not executed during book rendering because it requires the `SVP` package and spatial coordinates. The code below shows the intended usage pattern.
-
-```{r spatial-coloc-svp, eval=FALSE}
+```{r spatial-coloc-svp, eval = eval_chunks && requireNamespace("SVP", quietly = TRUE) && requireNamespace("STexampleData", quietly = TRUE)}
 library(sclet)
-# sce: spatial object with deconvolution results or feature columns
+library(SpatialExperiment)
 
-# Option 1: auto-detect features from deconvolution
-sce <- RunSpatialColocalization(sce, method = "SVP", name = "coloc_svp")
+spe <- readRDS("data/visium-dlpfc-sub.rds")
 
-# Option 2: specify feature columns explicitly
-sce <- RunSpatialColocalization(
-    sce,
-    features = c("c2l_Bcell", "c2l_Tcell", "c2l_Myeloid"),
+expr <- as.matrix(SummarizedExperiment::assay(spe, "logcounts"))
+top_features <- rownames(spe)[order(apply(expr, 1, var), decreasing = TRUE)[1:5]]
+for (f in top_features) {
+    colData(spe)[[f]] <- expr[f, ]
+}
+
+spe <- RunSpatialColocalization(
+    spe,
+    features = top_features,
     method = "SVP",
-    name = "coloc_custom"
+    name = "coloc_dlpfc"
 )
 
-# Inspect the correlation matrix
-get_colocalization(sce, element = "matrix")
-
-# Check available colocalization records
-has_colocalization(sce)
+has_colocalization(spe)
 ```
 
 ## Spatial Niche Detection with SVP LISA
 
-`RunSpatialNiche()` now uses SVP's Local Indicators of Spatial Association (LISA) to detect spatial niches. `runLISA()` categorizes each spot as High-High (hotspot — the feature is high and so are its neighbors), Low-Low, High-Low, Low-High, or not significant. The High-High spots are the spatial niches where a given cell type or state is concentrated above random expectation.
+`RunSpatialNiche()` uses SVP's Local Indicators of Spatial Association (LISA). Each spot is categorized as High-High (hotspot — the feature is high locally), Low-Low, or not significant. Below we run LISA on a single highly variable gene to demonstrate the interface.
 
-Like `RunSpatialColocalization()`, features are auto-detected from prior deconvolution results when available.
+```{r spatial-niche-svp, eval = eval_chunks && requireNamespace("SVP", quietly = TRUE) && requireNamespace("STexampleData", quietly = TRUE)}
+feature <- top_features[1]
 
-```{r spatial-niche-svp, eval=FALSE}
-library(sclet)
-# sce: spatial object with deconvolution results or feature columns
-
-# Auto-detect features from deconvolution
-sce <- RunSpatialNiche(sce, method = "SVP", name = "niche_svp")
-
-# Specify features explicitly
-sce <- RunSpatialNiche(
-    sce,
-    features = c("c2l_Bcell", "c2l_Tcell"),
+spe <- RunSpatialNiche(
+    spe,
+    features = feature,
     method = "SVP",
-    name = "niche_custom"
+    name = "niche_dlpfc"
 )
 
-# LISA categories are stored in colData with 'lisa_' prefix
-head(SingleCellExperiment::colData(sce)[, grep("^lisa_", colnames(colData(sce)))])
-
-# Inspect niche state
-get_spatial_niche(sce)
+has_spatial_niche(spe)
 ```
 
 ## Inspecting Spatial Results Across Layers

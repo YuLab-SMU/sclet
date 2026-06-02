@@ -5,10 +5,10 @@ Your clustering is done. Your trajectory is drawn. You have a list of marker gen
 This mainline answers that downstream question. In `sclet`, signature scoring, pathway-level summarization, regulon inference, and program access are not scattered tools—they form one interpretation chain that moves from raw gene lists to mechanistically meaningful summaries.
 
 ```{r program-setup, include=FALSE}
-# NOTE: RunKEGG/RunSCENIC/RunGRN chunks use eval=FALSE because they need:
-# - pySCENIC (Python basilisk) + TFs/motif/database files
-# - KEGG database download via clusterProfiler
-# RunGeneSetScoring and general plot_* chunks run in CI with the PBMC object.
+# NOTE: RunKEGG/RunSCENIC/RunGRN chunks use eval=FALSE because:
+# - pySCENIC needs Python basilisk + large cisTarget feather DB (~297 MB)
+# - Small ref files (TFs list + motif annotations) are in data-raw/scenic-refs.R
+# RunGeneSetScoring and plot_* chunks using the PBMC object run in CI.
 ```
 
 The high-level direction is to let users move from quick activity scoring to richer mechanism-oriented models without changing the object contract. `RunProgramWorkflow()` is the intended mainline entry; the chapters below document the atomic building blocks that already make up that workflow.

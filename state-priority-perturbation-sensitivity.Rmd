@@ -3,11 +3,8 @@
 After clustering, annotation, and trajectory analysis, one question still remains: which states actually respond to the perturbation? Not every cluster changes meaningfully between conditions, and some rare populations may drive the phenotype while being numerically small. This mainline is about ranking states by their responsiveness and detecting rare populations that deserve follow-up before everything else.
 
 ```{r state-priority-setup, include=FALSE}
-# NOTE: Chunks in this chapter use eval=FALSE because:
-# - Augur requires the Augur package (GitHub: neurorestore/Augur) and machine learning backends
-# - RareQ requires the RareQ package + Seurat for SCE-to-Seurat conversion
-# - Both involve computationally intensive cross-validation / label propagation
-# The code is fully functional when these dependencies are installed locally.
+# NOTE: Augur chunks are conditional on the Augur package.
+# Rare cell detection ('density' method) runs in CI using BiocNeighbors.
 ```
 
 `sclet` now provides the three entry points that were promised in the mainline roadmap: `RunPerturbationPriority()`, `RunRareCellDetection()`, and `RunStatePriorityWorkflow()`.
@@ -62,7 +59,7 @@ print(priority$AUC)
 
 After the analysis, `sclet` stores the Augur output through two accessor layers. `get_perturbation_priority()` returns the complete priority record; `has_perturbation_priority()` checks whether the result is available.
 
-```{r augur-accessors, eval=FALSE}
+```{r augur-accessors, eval = eval_chunks && requireNamespace("Augur", quietly = TRUE)}
 # Check whether priority results exist
 has_perturbation_priority(sce)
 
@@ -73,33 +70,34 @@ head(auc_table)
 
 ## Rare Cell Detection
 
-`RunRareCellDetection()` now uses the RareQ algorithm as its primary backend. RareQ operates on the kNN graph, quantifying local topological structure via a neighborhood connectivity metric (Q). High-Q cells represent locally dense micro-clusters suggestive of rare states. The function outputs a `rare_cluster` column in colData with both major and rare cluster labels.
+`RunRareCellDetection(method = "density")` identifies rare and major cell populations using a mutual-connectivity metric computed directly on the kNN graph. No external packages beyond `BiocNeighbors` (already a sclet dependency) are needed. The algorithm works in three steps on any reduction (typically PCA):
 
-RareQ detection is not executed during book rendering because it requires the `RareQ` and `Seurat` packages. The code below shows the intended usage pattern. PCA with at least 50 dimensions is recommended to retain rare-cell structure.
+1. **Build kNN graph** and compute each cell's mutual connectivity (Q = fraction of neighbors that mutually connect back).
+2. **Identify high-Q seeds** — cells above `q_threshold` are local density maxima.
+3. **Label propagation** — unlabeled cells adopt the label of their most frequent labeled neighbor over 5 iterations. Clusters ≤ `rare_threshold` cells are flagged as rare.
 
-```{r rare-cell-rareq, eval=FALSE}
+```{r rare-cell-density, eval = eval_chunks && requireNamespace("BiocNeighbors", quietly = TRUE)}
 library(sclet)
 sce <- readRDS("data/pbmc-3k-sce.rds")
 
-# RareQ needs PCA with enough dimensions to capture rare states
-sce <- RunPCA(sce, ncomponents = 50)
-
+# Ensure PCA is in the object (already there from core workflow)
 sce <- RunRareCellDetection(
     sce,
-    method = "RareQ",
+    method = "density",
     reduction = "PCA",
-    dims = 1:50,
-    k_param = 20,     # kNN graph size
-    k = 6,            # Q neighborhood size (smaller = more sensitive)
-    Q_cut = 0.6,      # minimum Q to retain rare cluster
-    name = "rareq_demo"
+    dims = 1:10,
+    k = 20,
+    q_threshold = 0.25,
+    rare_threshold = 10,
+    name = "density_demo"
 )
 
-# Inspect rare cluster labels
 table(sce$rare_cluster)
 
-# Check detection metadata
-get_rare_cells(sce)
+# Inspect rare clusters
+rare_info <- get_rare_cells(sce)
+rare_info$rare_clusters
+rare_info$n_clusters
 ```
 
 ## What Fits Nearby

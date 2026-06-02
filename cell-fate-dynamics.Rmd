@@ -5,9 +5,10 @@ This mainline shifts the analysis story from static identity to directional biol
 `sclet` gathers diffusion-based embeddings, lineage inference, velocity, and fate-oriented methods under the same workflow umbrella. The point is not just to expose more algorithms, but to make the dynamics route readable and reusable as one coherent chapter of analysis.
 
 ```{r fate-setup, include=FALSE}
-# NOTE: Velocity, CellRank, and fate chunks use eval=FALSE because they need:
-# - scVelo/CellRank via Python basilisk (~2GB env)
-# - spliced/unspliced assays not present in the PBMC demo data
+# NOTE: Velocity chunks now run in CI using scRNAseq::HermannSpermatogenesisData().
+# CellRank and downstream fate chunks use eval=FALSE because they:
+# - require CellRank via Python basilisk (~1GB env)  
+# - depend on velocity output (computationally heavy for CI)
 # RunDiffusionMap, RunSlingshot, and diffusion-map chunks run in CI.
 ```
 
@@ -189,12 +190,20 @@ sce
 sce <- sce[, 1:500]
 ```
 
-```{r velocity-hvgs}
+```{r velocity-hvgs, eval = eval_chunks && requireNamespace("scRNAseq", quietly = TRUE)}
 library(sclet)
-sce <- NormalizeData(sce, assay = "spliced")
-sce <- FindVariableFeatures(sce, method="scran")
-hvgs <- VariableFeatures(sce, method="scran")
-sce <- RunPCA(sce, subset_row = hvgs, layer = "logcounts")
+library(scuttle)
+library(scran)
+
+sce <- scRNAseq::HermannSpermatogenesisData()
+sce <- sce[, 1:300]
+
+sce <- logNormCounts(sce, assay.type = "spliced")
+dec <- modelGeneVar(sce)
+top_genes <- getTopHVGs(dec, n = 2000)
+sce <- sce[top_genes, ]
+
+sce <- RunPCA(sce, subset_row = top_genes, layer = "logcounts")
 sce <- FindNeighbors(sce, dims = 1:20)
 sce <- FindClusters(sce)
 sce$cluster <- as.character(SingleCellExperiment::colLabels(sce))
@@ -203,13 +212,10 @@ sce <- RunUMAP(sce, dims = 1:20)
 
 ### Run velocity analysis
 
-`sclet` wraps the RNA velocity inference via `RunVelocity()`. Under the hood, it delegates the heavy lifting to `scVelo` (managed safely via the `basilisk`/`velociraptor` Python sandbox) and smoothly registers the outputs to the `velocity` analysis state. This eliminates the need for manual environment switching.
+`sclet` wraps the RNA velocity inference via `RunVelocity()`. Under the hood, it delegates the heavy lifting to `scVelo` (managed safely via the `basilisk`/`velociraptor` Python sandbox) and smoothly registers the outputs to the `velocity` analysis state.
 
 ```{r velocity, eval=eval_chunks && requireNamespace("velociraptor", quietly = TRUE)}
-# Run Velocity (Requires 'spliced' and 'unspliced' assays to be present)
-sce <- RunVelocity(sce, subset_row = hvgs, assay.X = "spliced", use.dimred = "PCA")
-
-# Check the provenance state to confirm successful execution
+sce <- RunVelocity(sce, subset_row = top_genes, assay.X = "spliced", use.dimred = "PCA")
 get_velocity(sce)
 ```
 
