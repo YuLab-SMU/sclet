@@ -65,6 +65,7 @@ Suggests:
     aisdk,
     ALRA,
     AUCell,
+    Augur,
     batchelor,
     BiocNeighbors,
     BiocParallel,
