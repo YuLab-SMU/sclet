@@ -411,17 +411,111 @@ plot_spatial_composition <- function(object, n = 15, scale_rows = TRUE,
 
 #' Run spatial niche analysis
 #'
-#' Reserve interface for spatial niche detection workflows.
-#' Records the analysis intent so that niche-level state and visualization
-#' conventions can be designed before backend integration.
+#' Run spatial niche detection
 #'
-#' @param sce A SingleCellExperiment object with spatial data.
+#' Detects local spatial hotspots (niches) for specified features using
+#' SVP's Local Indicators of Spatial Association (LISA). For each feature,
+#' `runLISA()` categorizes every spot as High-High (hotspot), Low-Low,
+#' High-Low, Low-High, or not significant, identifying regions where a
+#' cell state is spatially enriched above random expectation.
+#'
+#' @param sce A SingleCellExperiment or SpatialExperiment object.
+#' @param features Character vector. Column names in `colData(sce)` to run
+#'   LISA analysis on. If `NULL`, uses columns from the most recent
+#'   `RunSpatialDeconvolution()` result.
+#' @param method Character. Backend. Currently only `"SVP"` is supported.
 #' @param name Analysis record id. Defaults to `"spatial_niche"`.
-#' @param ... Reserved for future parameters.
+#' @param ... Additional arguments passed to `SVP::runLISA()`.
 #'
-#' @return Updated `SingleCellExperiment` with a reserved niche record.
+#' @return Updated SingleCellExperiment with LISA hotspot categories in
+#'   `colData` (columns prefixed with `lisa_`) and a niche state record.
 #' @export
-RunSpatialNiche <- function(sce, name = "spatial_niche", ...) {
+RunSpatialNiche <- function(sce, features = NULL,
+    method = c("SVP"), name = "spatial_niche", ...) {
+    method <- match.arg(method)
+    stopifnot(is(sce, "SingleCellExperiment"))
+    stopifnot(is.character(name) && nzchar(name))
+
+    if (identical(method, "SVP")) {
+        if (!requireNamespace("SVP", quietly = TRUE)) {
+            stop(
+                "Package 'SVP' is needed for spatial niche detection. ",
+                "Please install it with: BiocManager::install('SVP')",
+                call. = FALSE
+            )
+        }
+
+        if (is.null(features)) {
+            deconv <- get_spatial(sce)
+            if (!is.null(deconv)) {
+                cols <- deconv$artifacts$columns
+                if (is.null(cols)) cols <- deconv$columns
+                features <- intersect(cols, colnames(SummarizedExperiment::colData(sce)))
+            }
+            if (is.null(features) || length(features) == 0) {
+                stop(
+                    "`features` must be provided, or spatial deconvolution ",
+                    "results must be available with feature columns."
+                )
+            }
+        }
+        missing <- setdiff(features, colnames(SummarizedExperiment::colData(sce)))
+        if (length(missing) > 0) {
+            stop(sprintf(
+                "Feature column(s) not found in colData: %s",
+                paste(missing, collapse = ", ")
+            ))
+        }
+
+        lisa_features <- list()
+        for (feat in features) {
+            cli::cli_alert_info("Running SVP LISA niche detection for {.val {feat}}")
+            sce <- SVP::runLISA(sce, feature = feat, ...)
+            lisa_features[[feat]] <- feat
+        }
+
+        sce <- sclet_set_analysis(sce, "spatial_niche", list(
+            id = name,
+            method = "SVP_LISA",
+            features = features,
+            n_features = length(features),
+            timestamp = Sys.time()
+        ))
+        sce <- sclet_set_analysis_state(
+            object = sce,
+            type = "spatial",
+            id = name,
+            method = "SVP_LISA",
+            inputs = list(
+                features = features,
+                n_features = length(features)
+            ),
+            artifacts = list(
+                analysis_key = "spatial_niche",
+                features = features,
+                n_features = length(features)
+            ),
+            summary = list(
+                n_features = length(features)
+            )
+        )
+        sce <- sclet_log_command(
+            sce,
+            "RunSpatialNiche",
+            params = list(
+                method = "SVP",
+                features = features,
+                name = name
+            ),
+            outputs = list(
+                analysis = "spatial_niche",
+                state = "spatial"
+            )
+        )
+
+        return(sce)
+    }
+
     stopifnot(is(sce, "SingleCellExperiment"))
     stopifnot(is.character(name) && nzchar(name))
 
