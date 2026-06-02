@@ -251,3 +251,76 @@ VelocityPlot <- function(sce, reduction = NULL, group.by = NULL, id = NULL, ...)
 #' @aliases plot_velocity
 #' @export
 plot_velocity <- VelocityPlot
+
+#' Plot velocity latent time on an embedding
+#'
+#' Colors cells on a dimensional reduction by velocity pseudotime (latent time),
+#' showing the predicted temporal ordering inferred by scVelo.
+#'
+#' @param object A SingleCellExperiment object with velocity results.
+#' @param reduction Character. Dimensional reduction to use. If `NULL`, uses
+#'   `DefaultReduction(object)`.
+#' @param id Optional velocity record id.
+#' @param point_size Numeric. Point size. Defaults to 0.6.
+#' @param low,high Colors for the pseudotime gradient.
+#'
+#' @return A ggplot object.
+#' @export
+plot_velocity_latent_time <- function(object, reduction = NULL, id = NULL,
+                                      point_size = 0.6, low = "grey90", high = "firebrick") {
+    if (!requireNamespace("ggplot2", quietly = TRUE)) {
+        stop("Package 'ggplot2' is needed for this function to work. Please install it.")
+    }
+
+    vel <- get_velocity(object, id = id)
+    if (is.null(vel)) {
+        stop("No velocity results found. Please run RunVelocity() first.")
+    }
+
+    if (is.null(reduction)) {
+        reduction <- vel$artifacts$reduction
+    }
+    if (is.null(reduction)) {
+        reduction <- vel$reduction
+    }
+    if (is.null(reduction)) {
+        reduction <- DefaultReduction(object)
+    }
+    if (is.null(reduction) || !reduction %in% SingleCellExperiment::reducedDimNames(object)) {
+        stop("A valid dimensional reduction is required.")
+    }
+
+    pseudotime_col <- "velocity_pseudotime"
+    if (!pseudotime_col %in% colnames(SummarizedExperiment::colData(object))) {
+        velocity_coldata <- vel$artifacts$velocity_coldata
+        if (is.null(velocity_coldata)) {
+            velocity_coldata <- vel$velocity_coldata
+        }
+        if (!is.null(velocity_coldata) && "velocity_pseudotime" %in% velocity_coldata) {
+            pseudotime_col <- "velocity_pseudotime"
+        } else {
+            stop("No velocity pseudotime found in colData. Was scVelo run in dynamical mode?")
+        }
+    }
+
+    emb <- SingleCellExperiment::reducedDim(object, reduction)
+    df <- data.frame(
+        dim1 = emb[, 1],
+        dim2 = emb[, 2],
+        pseudotime = as.numeric(SummarizedExperiment::colData(object)[[pseudotime_col]])
+    )
+
+    ggplot2::ggplot(df, ggplot2::aes(x = .data$dim1, y = .data$dim2, color = .data$pseudotime)) +
+        ggplot2::geom_point(size = point_size) +
+        ggplot2::scale_color_gradient(low = low, high = high) +
+        ggplot2::labs(
+            x = paste0(reduction, " 1"),
+            y = paste0(reduction, " 2"),
+            color = "Latent\ntime",
+            title = "Velocity Latent Time"
+        ) +
+        ggplot2::theme_classic() +
+        ggplot2::theme(
+            plot.title = ggplot2::element_text(face = "bold", size = 13)
+        )
+}

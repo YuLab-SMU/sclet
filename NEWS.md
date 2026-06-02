@@ -6,6 +6,7 @@
 + **Visualization Layer Additions**: Added `plot_perturbation_ranking()` to visualize Augur perturbation priority AUCs as a ranked bar chart. Added `plot_program_dotplot()` for program activity summarized across groups (dot size = percent expressed, color = mean activity). Added `get_program()` / `has_program()` as a unified program-level accessor that transparently resolves signatures, pathways, and regulons from gene set scoring and SCENIC sources.
 + **Unified GRN Entry Point**: Added `RunGRN()` as a semantic frontend for gene regulatory network analysis. Currently dispatches to `RunSCENIC()`, keeping "GRN analysis" as the user-facing concept and leaving room for future backends (decoupleR, FigR, etc.) through the same interface.
 + **Spatial Visualization Layer**: Added `plot_spatial_deconvolution()` (ranked bar chart of mean cell type proportions from cell2location) and `plot_spatial_composition()` (heatmap of cell type proportions across spatial spots). Both consume the typed spatial state records produced by `RunSpatialDeconvolution()`.
++ **Velocity Latent Time Visualization**: Added `plot_velocity_latent_time()` to color cells on an embedding by velocity pseudotime (latent time), showing the predicted temporal ordering inferred by scVelo's dynamical mode.
 
 
 # sclet 0.99.7
