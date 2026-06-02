@@ -65,13 +65,32 @@ head(auc_table)
 
 ## Rare Cell Detection
 
-`RunRareCellDetection()` is currently a reserved interface. It records the analysis intent as a typed state so that downstream accessors and visualization can already be designed around it, even while the final backend selection is being made.
+`RunRareCellDetection()` now uses the RareQ algorithm as its primary backend. RareQ operates on the kNN graph, quantifying local topological structure via a neighborhood connectivity metric (Q). High-Q cells represent locally dense micro-clusters suggestive of rare states. The function outputs a `rare_cluster` column in colData with both major and rare cluster labels.
 
-```{r rare-cell-reserved, eval=FALSE}
-sce <- RunRareCellDetection(sce, name = "rareq_demo")
+RareQ detection is not executed during book rendering because it requires the `RareQ` and `Seurat` packages. The code below shows the intended usage pattern. PCA with at least 50 dimensions is recommended to retain rare-cell structure.
 
-has_rare_cells(sce)
+```{r rare-cell-rareq, eval=FALSE}
+library(sclet)
+sce <- readRDS("data/pbmc-3k-sce.rds")
 
+# RareQ needs PCA with enough dimensions to capture rare states
+sce <- RunPCA(sce, ncomponents = 50)
+
+sce <- RunRareCellDetection(
+    sce,
+    method = "RareQ",
+    reduction = "PCA",
+    dims = 1:50,
+    k_param = 20,     # kNN graph size
+    k = 6,            # Q neighborhood size (smaller = more sensitive)
+    Q_cut = 0.6,      # minimum Q to retain rare cluster
+    name = "rareq_demo"
+)
+
+# Inspect rare cluster labels
+table(sce$rare_cluster)
+
+# Check detection metadata
 get_rare_cells(sce)
 ```
 

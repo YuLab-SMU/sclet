@@ -80,3 +80,81 @@ CellStatPlot(pbmc, stat.by = "ident", group.by = "batch", position = "fill") +
 ```
 
 These visualization functions are designed to minimize boilerplate code while remaining fully compatible with `ggplot2` grammar (`+ theme()`, `+ scale_color_manual()`, etc.).
+
+## Module-Specific Visualization
+
+Beyond the general-purpose plotting functions, `sclet` provides specialized visualization functions for each analysis module. These consume the typed state records directly, so you never need to manually extract matrices or metadata columns.
+
+### Trajectory and Fate
+
+After running trajectory or velocity analysis, inspect the results with the module-native plotting functions.
+
+```{r viz-fate, eval=FALSE}
+# Trajectory overview panel
+plot_trajectory_overview(sce, panels = c("velocity", "terminal_states", "fate_probability"))
+
+# Fate probability on embedding
+plot_fate_probability(sce, fate = 1, reduction = "UMAP")
+
+# Terminal state assignments
+plot_fate_terminal_states(sce, reduction = "UMAP")
+
+# Lineage driver trends
+plot_fate_driver_trends(sce, lineage = "Lineage1", top_n = 4)
+
+# Velocity latent time
+plot_velocity_latent_time(sce, reduction = "UMAP")
+```
+
+### Program and Regulon Activity
+
+Gene set scores and regulons share a unified visualization layer. The `source` parameter lets you switch between "geneset_scoring" and "scenic" without changing the plot call.
+
+```{r viz-program, eval=FALSE}
+# Single program on embedding
+plot_program_activity(sce, program = "T_cell", source = "geneset_scoring")
+
+# Multi-program heatmap across groups
+plot_program_heatmap(sce, programs = c("T_cell", "B_cell", "Myeloid"))
+
+# Program dotplot (size = percent expressed, color = mean activity)
+plot_program_dotplot(sce, programs = c("T_cell", "B_cell", "Myeloid"), group.by = "colLabels")
+
+# SCENIC regulon on embedding
+plot_scenic_activity(sce, regulon = "STAT1(+)")
+```
+
+### Perturbation Priority
+
+```{r viz-perturbation, eval=FALSE}
+# Ranked bar chart of perturbation AUC per cell type
+plot_perturbation_ranking(sce)
+```
+
+### Spatial Analysis
+
+```{r viz-spatial, eval=FALSE}
+# Deconvolution composition bar chart
+plot_spatial_deconvolution(sce)
+
+# Cell type × spot proportion heatmap
+plot_spatial_composition(sce, n = 10)
+```
+
+### Cell-Cell Communication
+
+```{r viz-cci, eval=FALSE}
+plot_cci_bubble(sce, type = "interaction")
+plot_cci_sigmoid(sce)
+plot_cci_network(sce)
+```
+
+### Reference Mapping
+
+```{r viz-mapping, eval=FALSE}
+# Label transfer summary heatmap
+plot_reference_label_transfer_heatmap(sce, group.by = "colLabels")
+
+# Per-label confidence distribution
+plot_reference_label_confidence(sce)
+```

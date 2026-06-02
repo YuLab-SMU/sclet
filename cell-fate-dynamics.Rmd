@@ -275,3 +275,15 @@ plot_trajectory_overview(
   panels = c("velocity", "terminal_states", "fate_probability")
 )
 ```
+
+## Velocity Latent Time
+
+When scVelo is run in dynamical mode, it infers a latent time for each cell — a pseudotime ordering derived from the RNA velocity field itself, not from a separate trajectory method. `plot_velocity_latent_time()` colors cells on an embedding by this inferred temporal progression.
+
+```{r velocity-latent, eval=FALSE}
+plot_velocity_latent_time(
+    sce,
+    reduction = "UMAP",
+    id = "germline_main_velocity"
+)
+```

@@ -1,3 +1,3 @@
-# (PART) Appendices and Specialized Extensions {-}
+# (PART) Specialized Techniques and Reference {-}
 
-The chapters in this part remain important, but they are no longer the default navigation spine. Use them when you need cross-cutting plotting helpers, focused extensions, or forward-looking functionality that sits beside the mainline map.
+The chapters in this part cover visualization best practices, specialized modules (supercells, Milo, phenotype association, interactive exploration, SVP), and AI-assisted analysis. They are not prerequisites for the mainlines, but they are where you go when a specific technique is needed.

@@ -1,6 +1,8 @@
 # Program, Regulon, and Mechanistic Interpretation {#program-regulon}
 
-This mainline answers a simple downstream question: once cells have been grouped, annotated, or placed along a trajectory, which pathways, programs, and transcription factors actually explain the state difference? In `sclet`, this is where signature scoring, pathway-level summarization, and regulon inference start to connect into one interpretation chain.
+Your clustering is done. Your trajectory is drawn. You have a list of marker genes. But the most important question remains unanswered: **why** are those states different? Which pathways drive the identity of each cluster? Which transcription factors control the developmental transitions? And can you summarize dozens of marker genes into a handful of interpretable "programs" that a biologist can reason about?
+
+This mainline answers that downstream question. In `sclet`, signature scoring, pathway-level summarization, regulon inference, and program access are not scattered tools—they form one interpretation chain that moves from raw gene lists to mechanistically meaningful summaries.
 
 The high-level direction is to let users move from quick activity scoring to richer mechanism-oriented models without changing the object contract. `RunProgramWorkflow()` is the intended mainline entry; the chapters below document the atomic building blocks that already make up that workflow.
 
@@ -206,3 +208,48 @@ plot_scenic_activity(
 
 **Bottom Line:**
 You can now treat SCENIC as a proper state-aware module: run it with a named record, retrieve it via `get_scenic(id = ...)`, and visualize a regulon directly with `plot_scenic_activity()`. From there, you can further perform dimensionality reduction and clustering on the `auc_matrix` to see whether cells group together based on "regulatory network activity" rather than only "gene expression levels".
+
+## Unified GRN Entry: `RunGRN()`
+
+If your question is simply "what gene regulatory networks are active in my cells?", the implementation detail of which backend you used should not matter. `RunGRN()` wraps `RunSCENIC()` as the default backend while leaving room for future methods (decoupleR, FigR, SCENIC+) through the same interface.
+
+```{r grn-unified, eval=FALSE}
+# Same parameters as RunSCENIC, different semantic framing
+sce <- RunGRN(
+    sce,
+    tfs_path = "allTFs.txt",
+    motif_annotations_path = "motifs.tbl",
+    database_paths = c("hg38_10kbp.feather"),
+    name = "grn_main"
+)
+```
+
+## Unified Program Access: `get_program()` / `has_program()`
+
+Once you have signature scores and regulon activities in your object, you should not need to remember which source they came from. `get_program()` transparently resolves a program name from either gene set scoring or SCENIC, returning a per-cell activity vector. `has_program()` is the corresponding boolean guard.
+
+```{r program-accessor, eval=FALSE}
+# Check if a program exists
+has_program(sce, "T_cell")
+
+# Get activity vector
+t_activity <- get_program(sce, "T_cell", source = "auto")
+head(t_activity)
+
+# Same interface works for regulons
+has_program(sce, "STAT1(+)", source = "scenic")
+stat1 <- get_program(sce, "STAT1(+)", source = "scenic")
+```
+
+## Program Activity Dotplot: `plot_program_dotplot()`
+
+When you want a single overview of multiple programs across cell groups, `plot_program_dotplot()` summarizes each program per group with dot size reflecting the fraction of expressing cells and color reflecting mean activity. This is the program-level equivalent of Seurat's DotPlot, consuming the same typed state records as `get_program()`.
+
+```{r program-dotplot, eval=FALSE}
+plot_program_dotplot(
+    sce,
+    programs = c("T_cell", "B_cell", "Myeloid", "STAT1(+)"),
+    source = "auto",
+    group.by = "colLabels"
+)
+```

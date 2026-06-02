@@ -1,3 +1,3 @@
-# (PART) Analysis Mainlines {-}
+# (PART) From Data to Discovery: Analysis Mainlines {-}
 
-This part is now the center of the book. The chapters are ordered by analysis mainline rather than by backend or algorithm family, so readers can move through `sclet` according to the biological question they are trying to answer.
+This part is the core of the book. Each chapter answers one concrete question you will face in a real single-cell project — from reading the data through clustering, integration, annotation, trajectory inference, mechanism, differential testing, communication, and spatial context. The chapters form a natural analysis journey, but each one also works as a standalone reference when you need to answer a specific question.

@@ -1,3 +1,3 @@
-# (PART) Foundations and Navigation {-}
+# (PART) How sclet Thinks: State, Provenance, and Navigation {-}
 
-These short opening chapters explain how `sclet` thinks about state, provenance, and workflow summaries. They are not a detached theory section; they are the contract that makes the later mainline chapters easier to follow, easier to debug, and easier to extend.
+Before you run any analysis, it helps to understand one thing: `sclet` keeps track of what you've done so the object remembers what you'd otherwise forget. These short chapters explain the contract that makes the rest of the book easier to follow.
