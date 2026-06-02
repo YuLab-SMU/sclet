@@ -9,6 +9,7 @@
 #' @param use.dimred String specifying the dimensionality reduction to use. If NULL, defaults to `DefaultReduction(sce)`.
 #' @param subset.row Optional row subset passed to `velociraptor::scvelo()`.
 #' @param subset_row Legacy alias of `subset.row`, kept for compatibility.
+#' @param name velocity record id. Defaults to `"velocity"`.
 #' @param ... Additional arguments passed to `velociraptor::scvelo`.
 #' 
 #' @return A SingleCellExperiment object with velocity state updated.
@@ -16,7 +17,7 @@
 #' @importFrom SummarizedExperiment colData colData<-
 #' @export
 RunVelocity <- function(sce, mode = c("deterministic", "stochastic", "dynamical"), use.dimred = NULL,
-                        subset.row = NULL, subset_row = NULL, ...) {
+                        subset.row = NULL, subset_row = NULL, name = "velocity", ...) {
     if (!requireNamespace("velociraptor", quietly = TRUE)) {
         stop("Please install 'velociraptor' to run RNA Velocity.")
     }
@@ -42,6 +43,8 @@ RunVelocity <- function(sce, mode = c("deterministic", "stochastic", "dynamical"
         subset.row <- subset_row
     }
     
+    prev_state <- sclet_get_state(sce)
+
     # Run scvelo via velociraptor
     # Note: velociraptor uses its own basilisk environment
     message("Running scVelo using velociraptor...")
@@ -52,35 +55,81 @@ RunVelocity <- function(sce, mode = c("deterministic", "stochastic", "dynamical"
         subset.row = subset.row,
         ...
     )
+    sce <- sclet_restore_state(sce, prev_state)
     
     # vel_res is a SingleCellExperiment containing the velocity outputs
     # We want to extract the velocity results and attach them to the original sce
     # velociraptor typically adds 'velocity' and 'velocity_pseudotime' etc.
     
-    # Store velocity reduction
-    if ("velocity_umap" %in% reducedDimNames(vel_res)) {
-        reducedDim(sce, "velocity_umap") <- reducedDim(vel_res, "velocity_umap")
+    velocity_reductions <- grep("^velocity_", SingleCellExperiment::reducedDimNames(vel_res), value = TRUE)
+    for (rd_name in velocity_reductions) {
+        SingleCellExperiment::reducedDim(sce, rd_name) <- SingleCellExperiment::reducedDim(vel_res, rd_name)
     }
-    
-    # Register state
-    metadata(sce)$sclet$analyses$velocity <- list(
+
+    velocity_coldata <- intersect(
+        c("velocity_pseudotime", "velocity_confidence", "root_cells", "end_points"),
+        colnames(SummarizedExperiment::colData(vel_res))
+    )
+    for (field in velocity_coldata) {
+        SummarizedExperiment::colData(sce)[[field]] <- SummarizedExperiment::colData(vel_res)[[field]]
+    }
+
+    velocity_analysis <- list(
+        id = name,
         mode = mode,
         use.dimred = use.dimred,
         subset.row = subset.row,
+        results = vel_res,
+        reductions = velocity_reductions,
+        coldata_fields = velocity_coldata,
         timestamp = Sys.time()
     )
-    
-    # Mark as active trajectory/velocity
-    metadata(sce)$sclet$active$velocity <- "velocity"
-    
-    # Move velocity pseudotime if available
-    if ("velocity_pseudotime" %in% colnames(colData(vel_res))) {
-        sce$velocity_pseudotime <- vel_res$velocity_pseudotime
-    }
-    
-    # We also keep the full vel_res in analyses for advanced access
-    metadata(sce)$sclet$analyses$velocity$results <- vel_res
-    
+    sce <- sclet_set_analysis(sce, "velocity", velocity_analysis)
+    sce <- sclet_set_state_record(
+        object = sce,
+        type = "velocity",
+        id = name,
+        active = TRUE,
+        value = list(
+            method = "velociraptor::scvelo",
+            inputs = list(
+                assays = c("spliced", "unspliced"),
+                reduction = use.dimred
+            ),
+            artifacts = list(
+                analysis_key = name,
+                colData = velocity_coldata,
+                reductions = velocity_reductions
+            ),
+            params = list(
+                mode = mode,
+                subset.row = subset.row
+            ),
+            summary = list(
+                n_features = if (is.null(subset.row)) nrow(sce) else length(subset.row),
+                n_cells = ncol(sce)
+            ),
+            results = vel_res,
+            reductions = velocity_reductions,
+            coldata_fields = velocity_coldata,
+            created_at = Sys.time()
+        )
+    )
+    sce <- sclet_log_command(
+        sce,
+        "RunVelocity",
+        params = list(
+            mode = mode,
+            use.dimred = use.dimred,
+            subset.row = subset.row,
+            name = name
+        ),
+        outputs = list(
+            analysis = "velocity",
+            velocity = name
+        )
+    )
+
     return(sce)
 }
 
@@ -89,9 +138,12 @@ RunVelocity <- function(sce, mode = c("deterministic", "stochastic", "dynamical"
 #' Plots RNA velocity stream or arrows on a reduced dimension plot.
 #'
 #' @param sce A SingleCellExperiment object with velocity calculated.
-#' @param reduction String specifying the reduction to plot on. Defaults to "UMAP".
+#' @param reduction String specifying the reduction to plot on. If `NULL`,
+#'   prefers the reduction recorded in the velocity analysis and otherwise
+#'   falls back to the active reduction.
 #' @param group.by String specifying the colData column for cell grouping. If NULL,
 #'   uses `ActiveIdent(sce)`, including the special `"colLabels"` identity source.
+#' @param id Optional velocity record id.
 #' @param ... Additional arguments passed to plotting function.
 #' 
 #' @return A ggplot object.
@@ -99,12 +151,12 @@ RunVelocity <- function(sce, mode = c("deterministic", "stochastic", "dynamical"
 #' @importFrom S4Vectors metadata
 #' @importFrom SummarizedExperiment colData
 #' @export
-VelocityPlot <- function(sce, reduction = "UMAP", group.by = NULL, ...) {
+VelocityPlot <- function(sce, reduction = NULL, group.by = NULL, id = NULL, ...) {
     if (!requireNamespace("velociraptor", quietly = TRUE)) {
         stop("Please install 'velociraptor' to plot RNA Velocity.")
     }
     
-    vel_state <- S4Vectors::metadata(sce)$sclet$analyses$velocity
+    vel_state <- get_velocity(sce, id = id)
     if (is.null(vel_state) || is.null(vel_state$results)) {
         stop("No velocity results found. Please run RunVelocity() first.")
     }
@@ -123,7 +175,13 @@ VelocityPlot <- function(sce, reduction = "UMAP", group.by = NULL, ...) {
     }
     
     # Basic implementation using velociraptor::gridVectors
-    if (!reduction %in% reducedDimNames(sce)) {
+    if (is.null(reduction)) {
+        reduction <- vel_state$inputs$reduction
+    }
+    if (is.null(reduction)) {
+        reduction <- DefaultReduction(sce)
+    }
+    if (is.null(reduction) || !reduction %in% reducedDimNames(sce)) {
         stop(sprintf("Reduction %s not found in sce.", reduction))
     }
     

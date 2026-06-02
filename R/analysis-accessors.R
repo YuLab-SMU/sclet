@@ -640,6 +640,7 @@ get_analysis_context <- function(object, element = NULL) {
 #' @return the full velocity analysis record, a selected element, or `NULL`
 #' @export
 get_velocity <- function(object, element = NULL, id = NULL) {
+    requested_id <- id
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "velocity")
     }
@@ -647,9 +648,17 @@ get_velocity <- function(object, element = NULL, id = NULL) {
     if (!is.null(id)) {
         result <- sclet_get_state_record(object, "velocity", id = id)
     }
-    if (is.null(result)) {
-        result <- sclet_get_analysis(object, "velocity")
+    analysis <- NULL
+    if (is.null(result) || isTRUE(is.null(requested_id) || identical(id, sclet_get_active_state(object, "velocity")))) {
+        analysis <- sclet_get_analysis(object, "velocity")
     }
+    result <- sclet_normalize_analysis_record(
+        type = "velocity",
+        id = if (is.null(id)) "velocity" else id,
+        record = result,
+        analysis = analysis,
+        default_method = "velociraptor::scvelo"
+    )
     extract_analysis_element(result, element)
 }
 
@@ -673,6 +682,7 @@ has_velocity <- function(object, id = NULL) {
 #' @return the full scenic analysis record, a selected element, or `NULL`
 #' @export
 get_scenic <- function(object, element = NULL, id = NULL) {
+    requested_id <- id
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "scenic")
     }
@@ -680,9 +690,17 @@ get_scenic <- function(object, element = NULL, id = NULL) {
     if (!is.null(id)) {
         result <- sclet_get_state_record(object, "scenic", id = id)
     }
-    if (is.null(result)) {
-        result <- sclet_get_analysis(object, "scenic")
+    analysis <- NULL
+    if (is.null(result) || isTRUE(is.null(requested_id) || identical(id, sclet_get_active_state(object, "scenic")))) {
+        analysis <- sclet_get_analysis(object, "scenic")
     }
+    result <- sclet_normalize_analysis_record(
+        type = "scenic",
+        id = if (is.null(id)) "scenic" else id,
+        record = result,
+        analysis = analysis,
+        default_method = "pySCENIC"
+    )
     extract_analysis_element(result, element)
 }
 
@@ -706,6 +724,7 @@ has_scenic <- function(object, id = NULL) {
 #' @return the full geneset_scoring analysis record, a selected element, or `NULL`
 #' @export
 get_geneset_scoring <- function(object, element = NULL, id = NULL) {
+    requested_id <- id
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "geneset_scoring")
     }
@@ -713,9 +732,17 @@ get_geneset_scoring <- function(object, element = NULL, id = NULL) {
     if (!is.null(id)) {
         result <- sclet_get_state_record(object, "geneset_scoring", id = id)
     }
-    if (is.null(result)) {
-        result <- sclet_get_analysis(object, "geneset_scoring")
+    analysis <- NULL
+    if (is.null(result) || isTRUE(is.null(requested_id) || identical(id, sclet_get_active_state(object, "geneset_scoring")))) {
+        analysis <- sclet_get_analysis(object, "geneset_scoring")
     }
+    result <- sclet_normalize_analysis_record(
+        type = "geneset_scoring",
+        id = if (is.null(id)) "geneset_scoring" else id,
+        record = result,
+        analysis = analysis,
+        default_method = if (!is.null(result$method)) result$method else NULL
+    )
     extract_analysis_element(result, element)
 }
 
@@ -739,15 +766,31 @@ has_geneset_scoring <- function(object, id = NULL) {
 #' @return the full cellrank analysis record, a selected element, or `NULL`
 #' @export
 get_cellrank <- function(object, element = NULL, id = NULL) {
+    requested_id <- id
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "trajectory")
     }
     result <- NULL
-    if (!is.null(id) && id == "cellrank") {
-        result <- sclet_get_analysis(object, "cellrank")
-    } else if (is.null(id)) {
-        result <- sclet_get_analysis(object, "cellrank")
+    if (!is.null(id)) {
+        candidate <- sclet_get_state_record(object, "trajectory", id = id)
+        if (!is.null(candidate) && (
+            identical(candidate$method, "CellRank") ||
+            identical(candidate$artifacts$analysis_key, "cellrank")
+        )) {
+            result <- candidate
+        }
     }
+    analysis <- NULL
+    if (is.null(result) || isTRUE(is.null(requested_id) || identical(id, sclet_get_active_state(object, "trajectory")))) {
+        analysis <- sclet_get_analysis(object, "cellrank")
+    }
+    result <- sclet_normalize_analysis_record(
+        type = "trajectory",
+        id = if (is.null(id)) "cellrank" else id,
+        record = result,
+        analysis = analysis,
+        default_method = "CellRank"
+    )
     extract_analysis_element(result, element)
 }
 

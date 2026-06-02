@@ -8,10 +8,12 @@
 #' @param labels Labels in the reference dataset. If NULL, tries to use 'label.main'.
 #' @param assay.type Assay to use for annotation. If NULL, resolved from `layer`.
 #' @param layer Layer to use for annotation. If NULL, use `DefaultLayer(object)`.
+#' @param name Annotation/mapping record id. Defaults to `"singler"`.
 #' @param ... Additional arguments passed to SingleR::SingleR
 #' @return A SingleCellExperiment object with annotation added to colData
 #' @export
-RunSingleR <- function(object, ref = NULL, labels = NULL, assay.type = NULL, layer = NULL, ...) {
+RunSingleR <- function(object, ref = NULL, labels = NULL, assay.type = NULL,
+                       layer = NULL, name = "singler", ...) {
     if (!requireNamespace("SingleR", quietly = TRUE)) {
         stop("Package 'SingleR' is needed for this function to work. Please install it.")
     }
@@ -42,9 +44,18 @@ RunSingleR <- function(object, ref = NULL, labels = NULL, assay.type = NULL, lay
     
     pred <- SingleR::SingleR(test = object, ref = ref, labels = labels, assay.type.test = source$assay, ...)
     
+    labels_col <- if (identical(name, "singler")) "SingleR_labels" else paste0(name, "_labels")
+    pruned_labels_col <- if (identical(name, "singler")) "SingleR_pruned.labels" else paste0(name, "_pruned.labels")
+    score_col <- paste0(name, "_score")
+
     # Add predictions to colData
-    SummarizedExperiment::colData(object)$SingleR_labels <- pred$labels
-    SummarizedExperiment::colData(object)$SingleR_pruned.labels <- pred$pruned.labels
+    SummarizedExperiment::colData(object)[[labels_col]] <- pred$labels
+    SummarizedExperiment::colData(object)[[pruned_labels_col]] <- pred$pruned.labels
+    if ("delta.next" %in% colnames(pred)) {
+        SummarizedExperiment::colData(object)[[score_col]] <- pred$delta.next
+    } else {
+        score_col <- NULL
+    }
     
     # Check for integration dependency
     integration_id <- NULL
@@ -64,32 +75,42 @@ RunSingleR <- function(object, ref = NULL, labels = NULL, assay.type = NULL, lay
     }
     
     state_artifacts <- list(
-        labels_col = "SingleR_labels",
-        pruned_labels_col = "SingleR_pruned.labels"
+        labels_col = labels_col,
+        pruned_labels_col = pruned_labels_col,
+        score_col = score_col
+    )
+    state_summary <- list(
+        n_labels = length(unique(stats::na.omit(pred$labels))),
+        n_pruned_labels = length(unique(stats::na.omit(pred$pruned.labels))),
+        mean_score = if (!is.null(score_col)) mean(SummarizedExperiment::colData(object)[[score_col]], na.rm = TRUE) else NULL
     )
     
     object <- sclet_set_analysis_state(
         object = object,
         type = "annotation",
-        id = "singler",
+        id = name,
         method = "SingleR",
         inputs = state_inputs,
         artifacts = state_artifacts,
+        summary = state_summary,
         active = TRUE
     )
     
     # Also register as mapping for cross-compatibility
     mapping_artifacts <- list(
-        labels_col = "SingleR_labels",
+        labels_col = labels_col,
+        pruned_labels_col = pruned_labels_col,
+        score_col = score_col,
         mapping_type = "reference_mapping"
     )
     object <- sclet_set_analysis_state(
         object = object,
         type = "mapping",
-        id = "singler",
+        id = name,
         method = "SingleR",
         inputs = utils::modifyList(state_inputs, list(mode = "label_transfer")),
         artifacts = mapping_artifacts,
+        summary = state_summary,
         active = TRUE
     )
     
@@ -98,17 +119,71 @@ RunSingleR <- function(object, ref = NULL, labels = NULL, assay.type = NULL, lay
         "RunSingleR",
         params = list(
             layer = source$layer,
-            assay.type = source$assay
+            assay.type = source$assay,
+            name = name
         ),
         outputs = list(
-            annotation = "singler",
-            mapping = "singler"
+            annotation = name,
+            mapping = name
         )
     )
     
-    message("Annotation added to colData columns: 'SingleR_labels' and 'SingleR_pruned.labels'")
+    message(sprintf(
+        "Annotation added to colData columns: '%s' and '%s'",
+        labels_col,
+        pruned_labels_col
+    ))
     
     return(object)
+}
+
+#' Run reference mapping through a unified semantic entry point
+#'
+#' This wrapper keeps "reference mapping" as the stable user-facing concept,
+#' while routing to a concrete backend such as `SingleR` or the lightweight
+#' KNN mapper.
+#'
+#' @title RunReferenceMapping
+#' @param object A SingleCellExperiment object
+#' @param ref Reference dataset
+#' @param labels Labels in the reference dataset
+#' @param method Backend to use. One of `"SingleR"` or `"KNN"`.
+#' @param assay.type Assay to use for `SingleR`. Ignored for `method = "KNN"`.
+#' @param layer Layer to use for mapping.
+#' @param features Features to use for `method = "KNN"`. Ignored for `method = "SingleR"`.
+#' @param k Number of neighbors for `method = "KNN"`. Ignored for `method = "SingleR"`.
+#' @param name Mapping record id.
+#' @param ... Additional arguments passed to the selected backend.
+#' @return A SingleCellExperiment object with mapping results added and recorded.
+#' @export
+RunReferenceMapping <- function(object, ref, labels = NULL,
+                                method = c("SingleR", "KNN"),
+                                assay.type = NULL, layer = NULL,
+                                features = NULL, k = 5, name = "mapping", ...) {
+    method <- match.arg(method)
+
+    if (identical(method, "SingleR")) {
+        return(RunSingleR(
+            object = object,
+            ref = ref,
+            labels = labels,
+            assay.type = assay.type,
+            layer = layer,
+            name = name,
+            ...
+        ))
+    }
+
+    RunKNNPredict(
+        object = object,
+        ref = ref,
+        labels = labels,
+        features = features,
+        layer = layer,
+        k = k,
+        name = name,
+        ...
+    )
 }
 
 #' Run KNN-based reference mapping for label transfer
@@ -254,4 +329,232 @@ RunKNNPredict <- function(object, ref, labels = NULL, features = NULL, layer = N
     
     message(sprintf("KNN mapping added to colData column: '%s'", col_name))
     return(object)
+}
+
+#' Plot query groups versus transferred reference labels
+#'
+#' This visualization summarizes label transfer results as a heatmap whose rows
+#' are query groups (for example clusters) and whose columns are predicted
+#' reference labels.
+#'
+#' @title plot_reference_label_transfer_heatmap
+#' @param object A SingleCellExperiment object.
+#' @param group.by Query grouping variable. If `NULL`, uses `ActiveIdent(object)`.
+#'   The special value `"colLabels"` uses `SingleCellExperiment::colLabels(object)`.
+#' @param id Optional mapping record id. If `NULL`, uses the active mapping record.
+#' @param labels_col Optional predicted-label column in `colData(object)`. If
+#'   `NULL`, resolves it from the selected mapping record.
+#' @param normalize One of `"row"`, `"column"`, or `"none"`.
+#' @param show_text Logical. If `TRUE`, draws values on the tiles.
+#' @param digits Integer. Number of digits to show when normalized values are plotted.
+#' @param low,high Colors for the fill gradient.
+#' @return A ggplot object.
+#' @export
+plot_reference_label_transfer_heatmap <- function(
+    object,
+    group.by = NULL,
+    id = NULL,
+    labels_col = NULL,
+    normalize = c("row", "column", "none"),
+    show_text = TRUE,
+    digits = 2,
+    low = "white",
+    high = "#B2182B"
+) {
+    if (!requireNamespace("ggplot2", quietly = TRUE)) {
+        stop("Package 'ggplot2' is needed for this function to work. Please install it.")
+    }
+
+    normalize <- match.arg(normalize)
+    mapping_record <- get_mapping(object, id = id)
+    if (is.null(mapping_record)) {
+        stop("No mapping results found. Please run RunReferenceMapping() first.")
+    }
+
+    if (is.null(labels_col)) {
+        labels_col <- mapping_record$artifacts$labels_col
+    }
+    if (is.null(labels_col) || !labels_col %in% colnames(SummarizedExperiment::colData(object))) {
+        stop("Could not resolve a valid transferred-label column from the mapping record.")
+    }
+
+    if (is.null(group.by)) {
+        group.by <- ActiveIdent(object)
+    }
+    if (is.null(group.by)) {
+        stop("No active identity found. Please provide `group.by`.")
+    }
+
+    if (identical(group.by, "colLabels")) {
+        query_group <- SingleCellExperiment::colLabels(object)
+        if (is.null(query_group)) {
+            stop("group.by is 'colLabels' but `colLabels(object)` is empty.")
+        }
+    } else if (group.by %in% colnames(SummarizedExperiment::colData(object))) {
+        query_group <- SummarizedExperiment::colData(object)[[group.by]]
+    } else {
+        stop(sprintf("Grouping column '%s' not found in colData(object).", group.by))
+    }
+
+    reference_label <- SummarizedExperiment::colData(object)[[labels_col]]
+    keep <- !is.na(query_group) & !is.na(reference_label)
+    if (!any(keep)) {
+        stop("No non-missing query groups and transferred labels available to plot.")
+    }
+
+    df <- data.frame(
+        query_group = as.character(query_group[keep]),
+        reference_label = as.character(reference_label[keep]),
+        stringsAsFactors = FALSE
+    )
+
+    heatmap_df <- as.data.frame(
+        table(
+            query_group = df$query_group,
+            reference_label = df$reference_label
+        ),
+        stringsAsFactors = FALSE
+    )
+
+    heatmap_df$query_group <- factor(heatmap_df$query_group, levels = unique(df$query_group))
+    heatmap_df$reference_label <- factor(heatmap_df$reference_label, levels = unique(df$reference_label))
+
+    if (identical(normalize, "row")) {
+        totals <- ave(heatmap_df$Freq, heatmap_df$query_group, FUN = sum)
+        heatmap_df$value <- ifelse(totals > 0, heatmap_df$Freq / totals, NA_real_)
+        heatmap_df$label <- formatC(heatmap_df$value, digits = digits, format = "f")
+        fill_name <- "Row proportion"
+    } else if (identical(normalize, "column")) {
+        totals <- ave(heatmap_df$Freq, heatmap_df$reference_label, FUN = sum)
+        heatmap_df$value <- ifelse(totals > 0, heatmap_df$Freq / totals, NA_real_)
+        heatmap_df$label <- formatC(heatmap_df$value, digits = digits, format = "f")
+        fill_name <- "Column proportion"
+    } else {
+        heatmap_df$value <- heatmap_df$Freq
+        heatmap_df$label <- as.character(heatmap_df$Freq)
+        fill_name <- "Count"
+    }
+
+    p <- ggplot2::ggplot(
+        heatmap_df,
+        ggplot2::aes(x = .data$reference_label, y = .data$query_group, fill = .data$value)
+    ) +
+        ggplot2::geom_tile(color = "white", linewidth = 0.3) +
+        ggplot2::scale_fill_gradient(low = low, high = high, name = fill_name) +
+        ggplot2::labs(
+            x = "Predicted reference label",
+            y = if (identical(group.by, "colLabels")) "Query group (colLabels)" else group.by
+        ) +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(
+            axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
+            panel.grid = ggplot2::element_blank()
+        )
+
+    if (isTRUE(show_text)) {
+        p <- p + ggplot2::geom_text(ggplot2::aes(label = .data$label), size = 3)
+    }
+
+    p
+}
+
+#' Plot mapping confidence by transferred label
+#'
+#' This plot summarizes the confidence or score associated with transferred
+#' reference labels. For `KNN` backends this usually corresponds to the
+#' majority-neighbor proportion; for `SingleR` it uses the stored delta-based
+#' score when available.
+#'
+#' @title plot_reference_label_confidence
+#' @param object A SingleCellExperiment object.
+#' @param id Optional mapping record id. If `NULL`, uses the active mapping record.
+#' @param labels_col Optional transferred-label column in `colData(object)`. If
+#'   `NULL`, resolves it from the selected mapping record.
+#' @param score_col Optional confidence-score column in `colData(object)`. If
+#'   `NULL`, resolves it from the selected mapping record.
+#' @param type One of `"violin"` or `"boxplot"`.
+#' @param sort_by_score Logical. If `TRUE`, orders labels by median score.
+#' @param point_size Numeric. Point size for jittered observations.
+#' @param jitter_width Numeric. Jitter width for overlaid points.
+#' @return A ggplot object.
+#' @export
+plot_reference_label_confidence <- function(
+    object,
+    id = NULL,
+    labels_col = NULL,
+    score_col = NULL,
+    type = c("violin", "boxplot"),
+    sort_by_score = TRUE,
+    point_size = 0.5,
+    jitter_width = 0.15
+) {
+    if (!requireNamespace("ggplot2", quietly = TRUE)) {
+        stop("Package 'ggplot2' is needed for this function to work. Please install it.")
+    }
+
+    type <- match.arg(type)
+    mapping_record <- get_mapping(object, id = id)
+    if (is.null(mapping_record)) {
+        stop("No mapping results found. Please run RunReferenceMapping() first.")
+    }
+
+    if (is.null(labels_col)) {
+        labels_col <- mapping_record$artifacts$labels_col
+    }
+    if (is.null(score_col)) {
+        score_col <- mapping_record$artifacts$score_col
+    }
+    if (is.null(labels_col) || !labels_col %in% colnames(SummarizedExperiment::colData(object))) {
+        stop("Could not resolve a valid transferred-label column from the mapping record.")
+    }
+    if (is.null(score_col) || !score_col %in% colnames(SummarizedExperiment::colData(object))) {
+        stop("Could not resolve a valid confidence-score column from the mapping record.")
+    }
+
+    df <- data.frame(
+        reference_label = SummarizedExperiment::colData(object)[[labels_col]],
+        score = SummarizedExperiment::colData(object)[[score_col]],
+        stringsAsFactors = FALSE
+    )
+    df <- df[!is.na(df$reference_label) & !is.na(df$score), , drop = FALSE]
+    if (nrow(df) == 0) {
+        stop("No non-missing transferred labels and confidence scores available to plot.")
+    }
+
+    if (isTRUE(sort_by_score)) {
+        med <- stats::aggregate(score ~ reference_label, data = df, FUN = stats::median)
+        med <- med[order(med$score, decreasing = TRUE), , drop = FALSE]
+        df$reference_label <- factor(df$reference_label, levels = med$reference_label)
+    } else {
+        df$reference_label <- factor(df$reference_label, levels = unique(df$reference_label))
+    }
+
+    p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$reference_label, y = .data$score))
+    if (identical(type, "violin")) {
+        p <- p + ggplot2::geom_violin(
+            ggplot2::aes(fill = .data$reference_label),
+            color = NA,
+            alpha = 0.7,
+            scale = "width"
+        )
+    } else {
+        p <- p + ggplot2::geom_boxplot(
+            ggplot2::aes(fill = .data$reference_label),
+            outlier.shape = NA,
+            alpha = 0.7
+        )
+    }
+
+    p +
+        ggplot2::geom_jitter(width = jitter_width, size = point_size, alpha = 0.35) +
+        ggplot2::labs(
+            x = "Predicted reference label",
+            y = "Confidence / score"
+        ) +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(
+            axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
+            legend.position = "none",
+            panel.grid.minor = ggplot2::element_blank()
+        )
 }
