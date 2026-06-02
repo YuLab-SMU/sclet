@@ -177,19 +177,162 @@ plot_perturbation_ranking <- function(object, n = 20, fill_color = "steelblue") 
 
 #' Run rare cell detection
 #'
-#' Reserve interface for rare-cell identification workflows. Currently a
-#' placeholder that records the analysis intent so the book documentation
-#' and API surface can be built around this mainline before the backend is
-#' finalized.
+#' Identifies rare and major cell populations using the RareQ algorithm.
+#' RareQ operates on the kNN graph, quantifying local topological structure
+#' via a neighborhood connectivity metric (Q). High-Q cells represent locally
+#' dense micro-clusters suggestive of rare states.
 #'
-#' @param sce A SingleCellExperiment object.
-#' @param method Reserved for future backend selection.
+#' @param sce A SingleCellExperiment object with PCA reduction.
+#' @param method Character. Rare cell detection backend. Currently only
+#'   `"RareQ"` is supported.
+#' @param reduction Character. Reduction containing PCA. Defaults to "PCA".
+#' @param dims Integer vector. PCA dimensions to use. Defaults to 1:50.
+#' @param k_param Integer. k parameter for kNN graph construction. Defaults to 20.
+#' @param k Integer. Neighborhood size for Q value computation in RareQ.
+#'   Smaller values enhance sensitivity to extremely rare populations.
+#'   Defaults to 6.
+#' @param Q_cut Numeric. Minimum average Q for a cluster to be retained as a
+#'   rare group. Range 0.5-1.0. Defaults to 0.6.
+#' @param ratio Numeric. Threshold for merging clusters. Defaults to 0.2.
+#' @param max_iter Integer. Maximum iterations for label propagation. Defaults to 100.
 #' @param name Analysis record id. Defaults to `"rareq"`.
-#' @param ... Reserved for future parameters.
+#' @param ... Additional arguments passed to `RareQ::FindRare()`.
 #'
-#' @return Updated `SingleCellExperiment` with a placeholder priority record.
+#' @return Updated SingleCellExperiment with `rare_cluster` in colData.
 #' @export
-RunRareCellDetection <- function(sce, method = NULL, name = "rareq", ...) {
+RunRareCellDetection <- function(sce, method = c("RareQ"),
+    reduction = "PCA", dims = 1:50, k_param = 20, k = 6,
+    Q_cut = 0.6, ratio = 0.2, max_iter = 100, name = "rareq", ...) {
+    method <- match.arg(method)
+    stopifnot(is(sce, "SingleCellExperiment"))
+    stopifnot(is.character(name) && nzchar(name))
+
+    if (identical(method, "RareQ")) {
+        if (!requireNamespace("RareQ", quietly = TRUE)) {
+            stop(
+                "Package 'RareQ' is needed for rare cell detection. ",
+                "Please install it from GitHub. ",
+                'See: https://xiaolab-xjtu.github.io/RareQ/',
+                call. = FALSE
+            )
+        }
+        if (!requireNamespace("Seurat", quietly = TRUE)) {
+            stop(
+                "Package 'Seurat' is needed for SCE-to-Seurat conversion ",
+                "during RareQ analysis. Please install it.",
+                call. = FALSE
+            )
+        }
+
+        if (!reduction %in% SingleCellExperiment::reducedDimNames(sce)) {
+            stop(sprintf(
+                "Reduction '%s' not found in reducedDimNames(sce). ",
+                reduction
+            ), "Please run RunPCA() first with at least 50 PCs.")
+        }
+
+        pca_mat <- SingleCellExperiment::reducedDim(sce, reduction)
+        max_dim <- min(max(dims), ncol(pca_mat))
+        dims <- seq_len(max_dim)
+
+        seurat_obj <- SeuratObject::CreateSeuratObject(
+            counts = SummarizedExperiment::assay(sce, "counts"),
+            meta.data = as.data.frame(SummarizedExperiment::colData(sce))
+        )
+        colnames(pca_mat) <- paste0("PC_", seq_len(ncol(pca_mat)))
+        seurat_obj[["pca"]] <- SeuratObject::CreateDimReducObject(
+            embeddings = pca_mat,
+            key = "PC_",
+            assay = "RNA"
+        )
+
+        seurat_obj <- Seurat::FindNeighbors(
+            seurat_obj,
+            k.param = k_param,
+            compute.SNN = FALSE,
+            prune.SNN = 0,
+            reduction = "pca",
+            dims = dims,
+            force.recalc = TRUE,
+            return.neighbor = TRUE
+        )
+
+        cli::cli_alert_info("Running RareQ::FindRare() with k={.val {k}}, Q_cut={.val {Q_cut}}")
+        cluster <- RareQ::FindRare(
+            seurat_obj,
+            k = k,
+            Q_cut = Q_cut,
+            ratio = ratio,
+            max_iter = max_iter,
+            ...
+        )
+
+        sce$rare_cluster <- as.character(cluster)
+
+        cluster_counts <- sort(table(cluster))
+        n_clusters <- length(cluster_counts)
+        rare_threshold <- 5
+        rare_clusters <- names(cluster_counts[cluster_counts <= rare_threshold])
+
+        sce <- sclet_set_analysis(
+            sce,
+            "rare_cells",
+            list(
+                id = name,
+                method = "RareQ",
+                label_col = "rare_cluster",
+                n_clusters = n_clusters,
+                n_rare_clusters = length(rare_clusters),
+                rare_clusters = rare_clusters,
+                params = list(k = k, Q_cut = Q_cut, ratio = ratio),
+                timestamp = Sys.time()
+            )
+        )
+        sce <- sclet_set_analysis_state(
+            object = sce,
+            type = "rare_cells",
+            id = name,
+            method = "RareQ",
+            inputs = list(
+                reduction = reduction,
+                dims = dims,
+                k_param = k_param,
+                k = k,
+                Q_cut = Q_cut,
+                ratio = ratio
+            ),
+            artifacts = list(
+                analysis_key = "rare_cells",
+                label_col = "rare_cluster"
+            ),
+            summary = list(
+                n_clusters = n_clusters,
+                n_rare_clusters = length(rare_clusters),
+                n_cells = ncol(sce)
+            )
+        )
+        sce <- sclet_log_command(
+            sce,
+            "RunRareCellDetection",
+            params = list(
+                method = "RareQ",
+                reduction = reduction,
+                dims = paste0(range(dims), collapse = ":"),
+                k_param = k_param,
+                k = k,
+                Q_cut = Q_cut,
+                ratio = ratio,
+                name = name
+            ),
+            outputs = list(
+                analysis = "rare_cells",
+                state = "rare_cells"
+            )
+        )
+
+        return(sce)
+    }
+
     stopifnot(is(sce, "SingleCellExperiment"))
     stopifnot(is.character(name) && nzchar(name))
 
