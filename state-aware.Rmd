@@ -45,6 +45,32 @@ names(ctx$records)
 **Bottom Line:**
 Stop wrestling with `reducedDims` and `colData` variable names. Go with the flow, let the `sclet` state machine remember the details, and focus on the actual biology.
 
+## Named State Records and Typed Accessors
+
+Since version 1.0.0, the state contract has been steadily tightened around two conventions that make downstream code more predictable.
+
+First, analysis functions that produce state records now accept a `name` parameter. `RunSCENIC()`, `RunVelocity()`, `RunSingleR()`, and `RunCellRank()` all let you tag a run with a stable id, and then retrieve it later through `get_*(object, id = "your_name")`. This matters when you keep multiple runs of the same type in one object — for example, two SCENIC runs with different database inputs, or a velocity run alongside a separate CellRank run.
+
+Second, the `get_*()` accessors are gradually being unified over typed state records rather than ad hoc metadata slots. `get_geneset_scoring()` now transparently reads both the newer typed `geneset_scoring` records and the older analysis-layer format. This means migration is backward-compatible: legacy objects still work, but new code writes into a schema that accessors, plotting functions, and the AI copilot all agree on.
+
+The practical rule for users is simple:
+
+- Use `has_*(object)` before calling `get_*(object)` when you want a boolean guard.
+- Pass `id = ...` when you keep multiple records of the same type.
+- Trust `Status(object)` for the high-level snapshot; drill into `get_analysis_context(object)` only when you need the structured payload.
+
+## Memory Safety and Sparse Data
+
+Single-cell count matrices are sparse by nature, and forcing them into dense representations is one of the fastest ways to blow up memory on large datasets. `sclet` has been audited to keep sparse representations as long as possible across the codebase.
+
+Concretely:
+
+- `RunIntegration(method = "scVI")` converts sparse R matrices directly to `scipy.sparse.csr_matrix` via `reticulate` instead of materializing a dense block first.
+- `RunSpatialDeconvolution()`, `RunSCENIC()`, `RunCellRank()`, `RunInSilicoPerturbation()`, and `RunKNNPredict()` all keep sparse inputs sparse through the Python bridge.
+- `pseudo_heatmap()` and `genecurve_plot()` avoid a full-assay transpose unless only the requested features are needed.
+
+None of this changes the user-facing API. But on datasets with hundreds of thousands of cells, it is the difference between a workflow that fits in memory and one that does not.
+
 ## Manual Overrides: Layers and Default APIs
 
 While the state machine handles 99% of routing automatically, there are times when you want manual control. For example, maybe you want to switch the default visualization from UMAP back to t-SNE, or you want to temporarily access the raw, uncorrected counts instead of the integrated layer.
