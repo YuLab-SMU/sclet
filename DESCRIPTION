@@ -96,7 +96,9 @@ Suggests:
     Seurat,
     SingleR,
     slingshot,
+    SVP,
     SuperCell,
+    symphony,
     testthat (>= 3.0.0),
     UCell,
     velociraptor,
@@ -116,6 +118,7 @@ Remotes:
     immunogenomics/presto,
     GfellerLab/SuperCell,
     KlugerLab/ALRA,
+    neurorestore/Augur,
     aiminXie/scPAS
 Config/roxygen2/version: 8.0.0
 Collate: 

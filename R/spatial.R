@@ -333,7 +333,7 @@ plot_spatial_deconvolution <- function(object, n = 20, fill_color = "darkgreen")
         ggplot2::labs(
             x = "Cell Type",
             y = "Mean Proportion",
-            title = "Spatial Deconvolution — Cell Type Composition"
+            title = "Spatial Deconvolution - Cell Type Composition"
         ) +
         ggplot2::theme_minimal() +
         ggplot2::theme(

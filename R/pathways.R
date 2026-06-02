@@ -70,7 +70,7 @@ RunKEGG <- function(sce, species = "hsa", method = "UCell", find_markers = TRUE,
     
     message(sprintf("Downloading KEGG pathways for species '%s'...", species))
     # We use internal function from clusterProfiler to get KEGG data, same as sc2p
-    kk <- clusterProfiler:::download_KEGG(species)
+    kk <- clusterProfiler::download_KEGG(species)
     gs <- kk$KEGGPATHID2EXTID
     
     # Map ENTREZ to SYMBOL since most scRNA-seq uses SYMBOL

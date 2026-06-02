@@ -407,7 +407,7 @@ plot_trajectory_overview <- function(
         )
     }
 
-    if ("terminal_states" %in% panels && !is.null(fate_id) && has_cellrank(object, id = fate_id)) {
+    if ("terminal_states" %in% panels && !is.null(fate_id) && has_cellrank(object)) {
         plot_list$`Terminal States` <- plot_fate_terminal_states(
             object,
             reduction = reduction,
@@ -415,7 +415,7 @@ plot_trajectory_overview <- function(
         )
     }
 
-    if ("fate_probability" %in% panels && !is.null(fate_id) && has_cellrank(object, id = fate_id)) {
+    if ("fate_probability" %in% panels && !is.null(fate_id) && has_cellrank(object)) {
         cellrank <- get_cellrank(object, id = fate_id)
         fate_name <- NULL
         if (!is.null(cellrank$artifacts$fate_probability_names)) {
