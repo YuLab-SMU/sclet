@@ -1,19 +1,58 @@
 # Multimodal Expansion {#multimodal-expansion}
 
-This chapter is a reserved mainline for future ADT, ATAC, and multiome workflows. The goal is not to promise a large backend surface too early, but to make the book structure honest about where multimodal support will sit once the object semantics are ready.
+This chapter is the reserved mainline for ADT, ATAC, and multiome workflows. The object contract is now in place so that modality-specific analysis backends can be plugged in later without breaking the navigation model.
 
-## Why reserve this chapter now
+## What Is Already Available
 
-The rest of the book already assumes a strong state-aware contract around assays, layers, reductions, and analysis records. Multimodal support should extend that contract rather than bypass it. By reserving this chapter in the table of contents now, we keep the documentation aligned with the package roadmap instead of treating multimodal work as an afterthought.
+`sclet` now provides lightweight modality helpers and a workflow shell:
 
-## Planned interface direction
+- `has_multimodal_adt(sce)` and `has_multimodal_atac(sce)` check whether `altExp(sce, "ADT")` or `altExp(sce, "ATAC")` is present.
+- `register_multimodal_adt(sce)` and `register_multimodal_atac(sce)` record the modality metadata in the typed state layer, including feature and cell dimensions.
+- `RunMultimodalWorkflow()` auto-detects available altExps and registers them as a coherent multimodal analysis mainline record.
 
-The current design notes point to three priorities:
+The intent is not to promise a large backend surface too early, but to make the book structure honest and to establish the contract that future modality analysis will extend.
 
-- helper semantics for `altExp("ADT")` and `altExp("ATAC")`
-- a consistent state meaning for multimodal analysis records
-- a future `RunMultimodalWorkflow()` entry that can orchestrate modality-specific steps without breaking the SCE-first design
+## Detecting and Registering Modalities
 
-## Current guidance
+The helpers are designed to be used before and after loading multimodal data into the object.
 
-Until the dedicated multimodal layer is implemented, users should treat `sclet`'s single-cell mainlines as the stable baseline and keep modality-specific experiments explicit in their own scripts. Once the object helpers are in place, this chapter will become the landing page for multimodal examples and workflow wrappers.
+```{r multimodal-register, eval=FALSE}
+library(sclet)
+
+# After loading data, check which modalities are present
+has_multimodal_adt(sce)   # TRUE if altExp(sce, "ADT") exists
+has_multimodal_atac(sce)  # TRUE if altExp(sce, "ATAC") exists
+
+# Register modalities in the state layer
+if (has_multimodal_adt(sce)) {
+    sce <- register_multimodal_adt(sce, name = "my_ADT")
+}
+
+if (has_multimodal_atac(sce)) {
+    sce <- register_multimodal_atac(sce, name = "my_ATAC")
+}
+```
+
+## One-Step Registration
+
+For convenience, `RunMultimodalWorkflow()` detects and registers all available modalities in one call. When no altExps are found, it returns the object unchanged with a message.
+
+```{r multimodal-workflow, eval=FALSE}
+sce <- RunMultimodalWorkflow(sce, name = "my_multimodal")
+```
+
+## Planned Interface Direction
+
+The current design notes point to three priorities for future work:
+
+- **altExp semantics**: `altExp("ADT")` and `altExp("ATAC")` are the canonical modality accessors, and the registration helpers are the bridge between the Bioconductor object model and `sclet`'s state contract.
+- **State meaning**: each modality gets its own `multimodal_*` record in the analysis layer and its own entry under the `multimodal` state type, so downstream code can inspect the modality landscape without guessing.
+- **Analysis backends**: once the object contract is stable, the next step is to wire modality-specific analysis functions (e.g., ADT-based clustering, ATAC peak calling) into the same `Run*` / `get_*` / `has_*` pattern used throughout `sclet`.
+
+## Current Guidance
+
+Until dedicated multimodal analysis backends are implemented:
+
+- Use `sclet`'s single-cell mainlines as the stable baseline for RNA analysis.
+- Attach ADT or ATAC data through `altExp(sce, "ADT") <- adt_sce` and register it with `register_multimodal_adt(sce)`.
+- Keep modality-specific analysis explicit in your own scripts for now; the object contract ensures that when backends arrive, the transition will be a matter of calling a `Run*` function on an already-registered modality.

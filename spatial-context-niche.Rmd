@@ -2,7 +2,29 @@
 
 This mainline extends the analysis map from dissociated single cells back into tissue context. The user question is no longer only which states exist, but where they sit, which compositions change across space, and how niche structure constrains interpretation.
 
-The workflow layer here is still evolving, but the mainline is already clear enough to document explicitly. For now, this chapter brings together spatial deconvolution and perturbation-aware spatial modeling as the first coherent documentation home for that direction.
+`sclet` now provides `RunSpatialWorkflow()` as the semantic shell, with `RunSpatialDeconvolution()` as the primary backend and `RunSpatialColocalization()` and `RunSpatialNiche()` reserved for future integration. All spatial functions now follow the same state contract as other `sclet` modules: each runs records a `name` identifier, writes into the typed state record layer, and logs the command for downstream provenance tracking.
+
+## Spatial Mainline Workflow
+
+The simplest entry point is the workflow shell. It dispatches deconvolution through cell2location and reserves colocalization and niche slots.
+
+```{r spatial-workflow, eval=FALSE}
+library(sclet)
+# sce_spatial: spatial SingleCellExperiment with 'counts' assay
+# sce_ref: reference scRNA-seq SCE with cell type labels
+
+sce_spatial <- RunSpatialWorkflow(
+    sce_spatial,
+    sce_ref = sce_ref,
+    ref_group_key = "cell_type",
+    run_deconvolution = TRUE,
+    name = "my_spatial_analysis"
+)
+
+# Check the active spatial state
+has_spatial(sce_spatial)
+get_spatial(sce_spatial)
+```
 
 ## High-Resolution Spatial Deconvolution: Cell2location
 
@@ -10,7 +32,7 @@ The workflow layer here is still evolving, but the mainline is already clear eno
 
 In `sclet`, this complex Bayesian inference is simplified into a single line of code:
 
-To run this locally, the minimum prerequisites are a spatial object with a `counts` assay, a reference `SCE` with the same gene space, and a biologically meaningful cell-type column in `colData(sce_ref)`.
+To run this locally, the minimum prerequisites are a spatial object with a `counts` assay, a reference `SCE` with the same gene space, and a biologically meaningful cell-type column in `colData(sce_ref)`. The `name` parameter lets you tag each run so that multiple deconvolution results can coexist in the same object.
 
 ```{r spatial-deconv, eval=FALSE}
 library(sclet)
@@ -21,12 +43,56 @@ sce_spatial <- RunSpatialDeconvolution(
   sce_spatial, 
   sce_ref, 
   ref_group_key = "cell_type",
-  max_epochs = 50
+  max_epochs = 50,
+  name = "my_deconv"
 )
 ```
 
 **Under the Hood:**
-The function invokes the GPU (if available) via the `basilisk` environment to train the model. Once complete, the predicted abundances for each cell type are directly appended to `colData(sce_spatial)`, and the `spatial` state is activated. You can immediately use spatial plotting functions to visualize the distribution of specific cell types across the tissue slice.
+The function invokes the GPU (if available) via the `basilisk` environment to train the model. Once complete, the predicted abundances for each cell type are directly appended to `colData(sce_spatial)`, and the `spatial` state is activated through `sclet_set_analysis_state()`. Each run is also logged via `sclet_log_command()`, so `CommandLog(sce_spatial)` will show the parameters and timestamp. You can immediately use spatial plotting functions to visualize the distribution of specific cell types across the tissue slice.
+
+## Spatial Colocalization (Reserved)
+
+`RunSpatialColocalization()` is a reserved interface for future colocalization backends. Calling it now records the analysis intent as a typed state record, which means downstream code can already use `has_colocalization()` and `get_colocalization()` as guard and accessor, even before a concrete backend is wired in.
+
+```{r spatial-coloc-reserved, eval=FALSE}
+sce <- RunSpatialColocalization(sce, name = "coloc_demo")
+
+has_colocalization(sce)
+
+get_colocalization(sce)
+```
+
+## Spatial Niche Detection (Reserved)
+
+`RunSpatialNiche()` follows the same pattern: reserved now, ready for a backend later. `has_spatial_niche()` and `get_spatial_niche()` are already exported and can be used in downstream scripts and plotting functions.
+
+```{r spatial-niche-reserved, eval=FALSE}
+sce <- RunSpatialNiche(sce, name = "niche_demo")
+
+has_spatial_niche(sce)
+
+get_spatial_niche(sce)
+```
+
+## Inspecting Spatial Results Across Layers
+
+Because all spatial functions now register through the unified state layer, a single accessor pattern works for deconvolution, colocalization, and niche results alike. When you keep multiple spatial records, use `id` to address a specific one.
+
+```{r spatial-accessors-pattern, eval=FALSE}
+# The default spatial record (active state)
+has_spatial(sce)
+get_spatial(sce, element = "columns")
+
+# A specific spatial record by id
+get_spatial(sce, id = "my_deconv")
+
+# Colocalization and niche records have their own accessors
+has_colocalization(sce)
+get_colocalization(sce, element = "status")
+
+has_spatial_niche(sce)
+```
 
 ## In-Silico Gene Perturbation: CellOracle
 
