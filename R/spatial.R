@@ -146,18 +146,111 @@ RunSpatialDeconvolution <- function(sce_spatial, sce_ref, ref_group_key,
 
 #' Run spatial colocalization analysis
 #'
-#' Reserve interface for spatial colocalization workflows.
-#' Records the analysis intent as a typed state so that downstream
-#' accessors and visualizations can be designed around this layer before
-#' a specific backend is finalized.
+#' Detects spatial co-distribution patterns between features using SVP's
+#' global bivariate spatial autocorrelation analysis. Given a set of
+#' spatially-resolved feature columns (e.g., cell type proportions from
+#' deconvolution), `runGLOBALBV()` computes the spatial correlation between
+#' every pair, identifying which features tend to co-occur in space.
 #'
-#' @param sce A SingleCellExperiment object with spatial data.
+#' @param sce A SingleCellExperiment or SpatialExperiment object.
+#' @param features Character vector. Column names in `colData(sce)` to test
+#'   for spatial colocalization. If `NULL`, uses the columns from the most
+#'   recent `RunSpatialDeconvolution()` result.
+#' @param method Character. Backend. Currently only `"SVP"` is supported.
 #' @param name Analysis record id. Defaults to `"colocalization"`.
-#' @param ... Reserved for future parameters.
+#' @param ... Additional arguments passed to `SVP::runGLOBALBV()`.
 #'
-#' @return Updated `SingleCellExperiment` with a reserved colocalization record.
+#' @return Updated SingleCellExperiment with colocalization results in
+#'   the analysis state and a pairwise correlation matrix in
+#'   `metadata(sce)$sclet$analyses$colocalization$matrix`.
 #' @export
-RunSpatialColocalization <- function(sce, name = "colocalization", ...) {
+RunSpatialColocalization <- function(sce, features = NULL,
+    method = c("SVP"), name = "colocalization", ...) {
+    method <- match.arg(method)
+    stopifnot(is(sce, "SingleCellExperiment"))
+    stopifnot(is.character(name) && nzchar(name))
+
+    if (identical(method, "SVP")) {
+        if (!requireNamespace("SVP", quietly = TRUE)) {
+            stop(
+                "Package 'SVP' is needed for spatial colocalization. ",
+                "Please install it with: BiocManager::install('SVP')",
+                call. = FALSE
+            )
+        }
+
+        if (is.null(features)) {
+            deconv <- get_spatial(sce)
+            if (!is.null(deconv)) {
+                cols <- deconv$artifacts$columns
+                if (is.null(cols)) cols <- deconv$columns
+                features <- intersect(cols, colnames(SummarizedExperiment::colData(sce)))
+            }
+            if (is.null(features) || length(features) < 2) {
+                stop(
+                    "`features` must be provided, or spatial deconvolution ",
+                    "results must be available with at least 2 feature columns."
+                )
+            }
+        }
+        if (!all(features %in% colnames(SummarizedExperiment::colData(sce)))) {
+            missing <- setdiff(features, colnames(SummarizedExperiment::colData(sce)))
+            stop(sprintf(
+                "Feature column(s) not found in colData: %s",
+                paste(missing, collapse = ", ")
+            ))
+        }
+
+        cli::cli_alert_info(
+            "Running SVP global bivariate analysis on {.val {length(features)}} features"
+        )
+        sce <- SVP::runGLOBALBV(sce, features = features, ...)
+
+        gbv_result <- S4Vectors::metadata(sce)$SVP$GLOBALBV
+        corr_matrix <- if (!is.null(gbv_result)) gbv_result$corr else NULL
+
+        sce <- sclet_set_analysis(sce, "colocalization", list(
+            id = name,
+            method = "SVP",
+            features = features,
+            n_features = length(features),
+            matrix = corr_matrix,
+            timestamp = Sys.time()
+        ))
+        sce <- sclet_set_analysis_state(
+            object = sce,
+            type = "spatial",
+            id = name,
+            method = "SVP_GLOBALBV",
+            inputs = list(
+                features = features,
+                n_features = length(features)
+            ),
+            artifacts = list(
+                analysis_key = "colocalization",
+                n_features = length(features)
+            ),
+            summary = list(
+                n_features = length(features)
+            )
+        )
+        sce <- sclet_log_command(
+            sce,
+            "RunSpatialColocalization",
+            params = list(
+                method = "SVP",
+                features = features,
+                name = name
+            ),
+            outputs = list(
+                analysis = "colocalization",
+                state = "spatial"
+            )
+        )
+
+        return(sce)
+    }
+
     stopifnot(is(sce, "SingleCellExperiment"))
     stopifnot(is.character(name) && nzchar(name))
 
