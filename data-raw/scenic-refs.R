@@ -11,12 +11,21 @@ tf_url <- "https://resources.aertslab.org/cistarget/tf_lists/allTFs_hg38.txt"
 motif_url <- "https://resources.aertslab.org/cistarget/motif2tf/motifs-v9-nr.hgnc-m0.001-o0.0.tbl"
 
 dir.create("../data", showWarnings = FALSE)
+old_timeout <- getOption("timeout")
+options(timeout = 300)
 
-message("Downloading TF list...")
-download.file(tf_url, "../data/allTFs_hg38.txt")
+download_safe <- function(url, dest) {
+    tryCatch({
+        message("Downloading ", basename(dest), "...")
+        download.file(url, dest)
+        message("  OK: ", dest)
+    }, error = function(e) {
+        message("  SKIP: ", conditionMessage(e))
+        message("  (SCENIC refs are optional; SCENIC chunks use eval=FALSE)")
+    })
+}
 
-message("Downloading motif annotations...")
-download.file(motif_url, "../data/motifs-v9-nr.hgnc.tbl")
+download_safe(tf_url, "../data/allTFs_hg38.txt")
+download_safe(motif_url, "../data/motifs-v9-nr.hgnc.tbl")
 
-message("Done. cisTarget feather DB (~297 MB) must be downloaded separately:")
-message("  https://resources.aertslab.org/cistarget/databases/homo_sapiens/hg38/refseq_r80/mc_v10_clust/gene_based/hg38_10kbp_up_10kbp_down_full_tx_v10_clust.genes_vs_motifs.rankings.feather")
+options(timeout = old_timeout)
