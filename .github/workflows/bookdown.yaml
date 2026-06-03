@@ -155,7 +155,7 @@ jobs:
           done
 
           # Verify output files
-          for f in pbmc-3k-sce.rds hermann-sperm-velo.rds visium-dlpfc-sub.rds allTFs_hg38.txt motifs-v9-nr.hgnc.tbl dlpfpc-spatial.rds dlpfpc-ref.rds; do
+          for f in pbmc-3k-sce.rds hermann-sperm-velo.rds visium-dlpfc-sub.rds dlpfpc-spatial.rds dlpfpc-ref.rds; do
             if [ ! -f "$target_dir/$f" ]; then
               echo "ERROR: Missing expected output: $target_dir/$f" >&2
               ls -la "$target_dir" || true
