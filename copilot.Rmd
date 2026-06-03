@@ -2,7 +2,7 @@
 
 You ran the pipeline and generated the plots, but are you absolutely certain your results are "correct"?
 
-```{r copilot-setup, include=FALSE}
+```{r copilot-note, include=FALSE}
 # NOTE: Chunks use eval=FALSE because sclet_copilot/AuditAnalysisChain require:
 # - aisdk package + configured AI API credentials
 # - Not suitable for CI/CD environments without API keys
