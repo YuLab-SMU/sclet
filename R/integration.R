@@ -169,21 +169,13 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
 
             obs <- pd$DataFrame(list(batch = batches), index = rownames(counts))
             if (methods::is(counts, "dgCMatrix")) {
-                builtins <- reticulate::import_builtins()
-                dims <- counts@Dim
-                triplet <- builtins$tuple(list(
-                    reticulate::r_to_py(counts@x),
-                    reticulate::r_to_py(counts@i),
-                    reticulate::r_to_py(counts@p)
-                ))
-                counts <- sp$csc_matrix(triplet, shape = builtins$tuple(as.integer(dims)))$tocsr()
+                counts <- as.matrix(counts)
+            }
+            counts <- reticulate::r_to_py(counts)
+            if (sp$issparse(counts)) {
+                counts <- counts$tocsr()
             } else {
-                counts <- reticulate::r_to_py(counts)
-                if (sp$issparse(counts)) {
-                    counts <- counts$tocsr()
-                } else {
-                    counts <- sp$csr_matrix(counts)
-                }
+                counts <- sp$csr_matrix(counts)
             }
             
             adata <- ad$AnnData(X = counts, obs = obs)
