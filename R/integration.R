@@ -168,8 +168,10 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             sp <- reticulate::import("scipy.sparse")
 
             obs <- pd$DataFrame(list(batch = batches), index = rownames(counts))
-            # counts is converted to a scipy sparse matrix automatically by reticulate
-            # Ensure it is csr format which scvi prefers
+            # Ensure counts is converted to a Python sparse matrix
+            if (!sp$issparse(counts)) {
+                counts <- reticulate::r_to_py(counts)
+            }
             if (sp$issparse(counts)) {
                 counts <- counts$tocsr()
             }
