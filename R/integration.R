@@ -166,15 +166,21 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             ad <- reticulate::import("anndata")
             pd <- reticulate::import("pandas")
             sp <- reticulate::import("scipy.sparse")
+            builtins <- reticulate::import_builtins()
 
             obs <- pd$DataFrame(list(batch = batches), index = rownames(counts))
-            if (methods::is(counts, "dgCMatrix")) {
+            n_cells <- length(batches)
+            if (inherits(counts, "Matrix")) {
                 counts <- as.matrix(counts)
             }
             counts <- reticulate::r_to_py(counts)
             if (sp$issparse(counts)) {
                 counts <- counts$tocsr()
             } else {
+                if (!is.null(counts$ndim) && as.integer(counts$ndim) == 1L) {
+                    n_genes <- as.integer(counts$size %/% n_cells)
+                    counts <- counts$reshape(builtins$tuple(list(as.integer(n_cells), n_genes)))
+                }
                 counts <- sp$csr_matrix(counts)
             }
             
