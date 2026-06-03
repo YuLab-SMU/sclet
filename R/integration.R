@@ -168,12 +168,11 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             sp <- reticulate::import("scipy.sparse")
 
             obs <- pd$DataFrame(list(batch = batches), index = rownames(counts))
-            # Ensure counts is converted to a Python sparse matrix
-            if (!sp$issparse(counts)) {
-                counts <- reticulate::r_to_py(counts)
-            }
+            counts <- reticulate::r_to_py(counts)
             if (sp$issparse(counts)) {
                 counts <- counts$tocsr()
+            } else {
+                counts <- sp$csr_matrix(counts)
             }
             
             adata <- ad$AnnData(X = counts, obs = obs)

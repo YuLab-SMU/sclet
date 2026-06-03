@@ -51,6 +51,8 @@ RunSpatialDeconvolution <- function(sce_spatial, sce_ref, ref_group_key,
         scvi <- reticulate::import("scvi")
         sp_sparse <- reticulate::import("scipy.sparse")
 
+        ref <- reticulate::r_to_py(ref)
+        sp <- reticulate::r_to_py(sp)
         if (sp_sparse$issparse(ref)) {
             ref <- ref$tocsr()
         }

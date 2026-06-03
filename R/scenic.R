@@ -76,6 +76,7 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
         pyscenic_aucell <- reticulate::import("pyscenic.aucell")
         
         # 1. Prepare DataFrame
+        expr <- reticulate::r_to_py(expr)
         if (sp$issparse(expr)) {
             expr <- expr$tocsr()
             ex_df <- pd$DataFrame$sparse$from_spmatrix(expr, index = cells, columns = genes)

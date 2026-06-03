@@ -73,6 +73,9 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         pd <- reticulate::import("pandas")
         sp <- reticulate::import("scipy.sparse")
 
+        v <- reticulate::r_to_py(v)
+        s <- reticulate::r_to_py(s)
+        u <- reticulate::r_to_py(u)
         if (sp$issparse(v)) {
             v <- v$tocsr()
         }

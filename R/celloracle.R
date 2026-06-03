@@ -55,6 +55,7 @@ RunInSilicoPerturbation <- function(sce, target_gene, perturbation_value = 0.0, 
         sc <- reticulate::import("scanpy")
         sp <- reticulate::import("scipy.sparse")
 
+        counts <- reticulate::r_to_py(counts)
         if (sp$issparse(counts)) {
             counts <- counts$tocsr()
         }
