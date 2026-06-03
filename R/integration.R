@@ -177,9 +177,11 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             if (sp$issparse(counts)) {
                 counts <- counts$tocsr()
             } else {
-                if (!is.null(counts$ndim) && as.integer(counts$ndim) == 1L) {
-                    n_genes <- as.integer(counts$size %/% n_cells)
-                    counts <- counts$reshape(builtins$tuple(list(as.integer(n_cells), n_genes)))
+                ndim <- reticulate::py_to_r(counts$ndim)
+                if (!is.null(ndim) && as.integer(ndim) == 1L) {
+                    size <- reticulate::py_to_r(counts$size)
+                    n_genes <- as.integer(size %/% n_cells)
+                    counts <- counts$reshape(builtins$tuple(list(as.integer(n_cells), as.integer(n_genes))))
                 }
                 counts <- sp$csr_matrix(counts)
             }
