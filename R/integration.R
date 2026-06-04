@@ -163,6 +163,8 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
         # Strip colData / rowData columns to avoid h5py type errors on write
         SummarizedExperiment::colData(sce_sub) <- SummarizedExperiment::colData(sce_sub)[, 0, drop = FALSE]
         SummarizedExperiment::rowData(sce_sub) <- SummarizedExperiment::rowData(sce_sub)[, 0, drop = FALSE]
+        # Also strip metadata (sclet state records may contain datetime objects)
+        S4Vectors::metadata(sce_sub) <- list()
 
         # Write to H5AD to bypass dgCMatrix -> scipy conversion issues
         tmp_h5ad <- tempfile(fileext = ".h5ad")
