@@ -278,12 +278,14 @@ RunReferenceWorkflow <- function(
     object,
     ref,
     labels = NULL,
-    method = c("SingleR", "KNN"),
+    method = c("SingleR", "KNN", "Symphony"),
     assay.type = NULL,
     layer = NULL,
     features = NULL,
     k = 5,
-    name = "reference_workflow"
+    vars = NULL,
+    name = "reference_workflow",
+    ...
 ) {
     method <- match.arg(method)
     mapping_id <- paste0(name, "_mapping")
@@ -297,7 +299,9 @@ RunReferenceWorkflow <- function(
         layer = layer,
         features = features,
         k = k,
-        name = mapping_id
+        vars = vars,
+        name = mapping_id,
+        ...
     )
 
     mapping_record <- get_mapping(object, id = mapping_id)
