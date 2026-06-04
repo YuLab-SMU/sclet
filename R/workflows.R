@@ -266,12 +266,14 @@ RunProgramWorkflow <- function(
 #' @param object A SingleCellExperiment object.
 #' @param ref Reference dataset.
 #' @param labels Labels in the reference dataset.
-#' @param method Mapping backend. One of `"SingleR"` or `"KNN"`.
+#' @param method Mapping backend. One of `"SingleR"`, `"KNN"`, or `"Symphony"`.
 #' @param assay.type Assay used for `SingleR`.
 #' @param layer Layer used for mapping.
 #' @param features Features used for `KNN`.
+#' @param vars Variables to harmonize (for Symphony).
 #' @param k Number of neighbors for `KNN`.
 #' @param name Workflow analysis id.
+#' @param ... Additional arguments passed to the underlying mapping function.
 #' @return Updated SingleCellExperiment object.
 #' @export
 RunReferenceWorkflow <- function(

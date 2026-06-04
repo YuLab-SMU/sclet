@@ -8,12 +8,14 @@ RunReferenceWorkflow(
   object,
   ref,
   labels = NULL,
-  method = c("SingleR", "KNN"),
+  method = c("SingleR", "KNN", "Symphony"),
   assay.type = NULL,
   layer = NULL,
   features = NULL,
   k = 5,
-  name = "reference_workflow"
+  vars = NULL,
+  name = "reference_workflow",
+  ...
 )
 }
 \arguments{
@@ -23,7 +25,7 @@ RunReferenceWorkflow(
 
 \item{labels}{Labels in the reference dataset.}
 
-\item{method}{Mapping backend. One of \code{"SingleR"} or \code{"KNN"}.}
+\item{method}{Mapping backend. One of \code{"SingleR"}, \code{"KNN"}, or \code{"Symphony"}.}
 
 \item{assay.type}{Assay used for \code{SingleR}.}
 
@@ -33,7 +35,11 @@ RunReferenceWorkflow(
 
 \item{k}{Number of neighbors for \code{KNN}.}
 
+\item{vars}{Variables to harmonize (for Symphony).}
+
 \item{name}{Workflow analysis id.}
+
+\item{...}{Additional arguments passed to the underlying mapping function.}
 }
 \value{
 Updated SingleCellExperiment object.
