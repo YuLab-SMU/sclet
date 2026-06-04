@@ -172,7 +172,7 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             ad <- reticulate::import("anndata")
             pd <- reticulate::import("pandas")
             sp <- reticulate::import("scipy.sparse")
-            np <- reticulate::import("numpy")
+            np <- reticulate::import("numpy", convert = FALSE)
 
             obs <- pd$DataFrame(list(batch = batches), index = cell_names)
             # Reconstruct 2D array from flat vector + dims
