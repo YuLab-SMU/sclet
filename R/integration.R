@@ -138,6 +138,9 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
         if (!requireNamespace("basilisk", quietly = TRUE)) {
             stop("Package 'basilisk' is required for scVI.")
         }
+        if (!requireNamespace("zellkonverter", quietly = TRUE)) {
+            stop("Package 'zellkonverter' is required for scVI.")
+        }
         
         # Determine features
         if (is.null(features)) {
@@ -152,41 +155,33 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             stop("Assay 'counts' is required for scVI.")
         }
 
-        counts_mat <- sclet_extract_cell_feature_matrix(
-            object = object,
-            assay_name = "counts",
-            features = features
-        )
         batch_vec <- as.character(SummarizedExperiment::colData(object)[[batch]])
+
+        # Subset to HVG genes and keep only counts assay
+        sce_sub <- object[features, ]
+        SummarizedExperiment::assays(sce_sub) <- SummarizedExperiment::assays(sce_sub)["counts"]
+
+        # Write to H5AD to bypass dgCMatrix -> scipy conversion issues
+        tmp_h5ad <- tempfile(fileext = ".h5ad")
+        on.exit(unlink(tmp_h5ad), add = TRUE)
+        message("Writing H5AD for scVI...")
+        zellkonverter::writeH5AD(sce_sub, tmp_h5ad)
 
         message("Running scVI via basilisk...")
 
-        # Pre-convert to flat vector + dims to avoid reticulate flattening
-        counts_dims <- dim(counts_mat)
-        counts_flat <- as.vector(as.matrix(counts_mat))
-        cell_names <- colnames(counts_mat)
-        gene_names <- rownames(counts_mat)
-
-        latent <- basilisk::basiliskRun(env = sclet_scvi_env, fun = function(counts_flat, batches, cell_names, dims, ...) {
+        latent <- basilisk::basiliskRun(env = sclet_scvi_env, fun = function(h5ad_path, batches, ...) {
             scvi <- reticulate::import("scvi")
             ad <- reticulate::import("anndata")
-            pd <- reticulate::import("pandas")
-            sp <- reticulate::import("scipy.sparse")
-            np <- reticulate::import("numpy", convert = FALSE)
 
-            obs <- pd$DataFrame(list(batch = batches), index = cell_names)
-            # Reconstruct 2D array from flat vector + dims
-            counts_arr <- np$array(counts_flat)$reshape(as.integer(dims[1]), as.integer(dims[2]))
-            counts <- sp$csr_matrix(counts_arr)
-            
-            adata <- ad$AnnData(X = counts, obs = obs)
+            adata <- ad$read_h5ad(h5ad_path)
+            adata$obs[["batch"]] <- batches
 
             scvi$model$SCVI$setup_anndata(adata, batch_key = "batch")
             model <- scvi$model$SCVI(adata)
             model$train()
             
             return(model$get_latent_representation())
-        }, counts_flat = counts_flat, batches = batch_vec, cell_names = cell_names, dims = counts_dims)
+        }, h5ad_path = tmp_h5ad, batches = batch_vec)
         
         rownames(latent) <- colnames(object)
         colnames(latent) <- paste0("scVI_", seq_len(ncol(latent)))
