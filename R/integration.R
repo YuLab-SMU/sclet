@@ -160,13 +160,9 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
         # Subset to HVG genes and keep only counts assay
         sce_sub <- object[features, ]
         SummarizedExperiment::assays(sce_sub) <- SummarizedExperiment::assays(sce_sub)["counts"]
-        # Strip colData / rowData to avoid h5py type errors on write
-        SummarizedExperiment::colData(sce_sub) <- S4Vectors::DataFrame(
-            row.names = colnames(sce_sub)
-        )
-        SummarizedExperiment::rowData(sce_sub) <- S4Vectors::DataFrame(
-            row.names = rownames(sce_sub)
-        )
+        # Strip colData / rowData columns to avoid h5py type errors on write
+        SummarizedExperiment::colData(sce_sub) <- SummarizedExperiment::colData(sce_sub)[, 0, drop = FALSE]
+        SummarizedExperiment::rowData(sce_sub) <- SummarizedExperiment::rowData(sce_sub)[, 0, drop = FALSE]
 
         # Write to H5AD to bypass dgCMatrix -> scipy conversion issues
         tmp_h5ad <- tempfile(fileext = ".h5ad")
