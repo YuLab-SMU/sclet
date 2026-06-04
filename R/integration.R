@@ -161,30 +161,23 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
 
         message("Running scVI via basilisk...")
 
-        latent <- basilisk::basiliskRun(env = sclet_scvi_env, fun = function(counts, batches, ...) {
+        # Pre-convert to flat vector + dims to avoid reticulate flattening
+        counts_dims <- dim(counts_mat)
+        counts_flat <- as.vector(as.matrix(counts_mat))
+        cell_names <- colnames(counts_mat)
+        gene_names <- rownames(counts_mat)
+
+        latent <- basilisk::basiliskRun(env = sclet_scvi_env, fun = function(counts_flat, batches, cell_names, dims, ...) {
             scvi <- reticulate::import("scvi")
             ad <- reticulate::import("anndata")
             pd <- reticulate::import("pandas")
             sp <- reticulate::import("scipy.sparse")
-            builtins <- reticulate::import_builtins()
+            np <- reticulate::import("numpy")
 
-            obs <- pd$DataFrame(list(batch = batches), index = rownames(counts))
-            n_cells <- length(batches)
-            if (inherits(counts, "Matrix")) {
-                counts <- as.matrix(counts)
-            }
-            counts <- reticulate::r_to_py(counts)
-            if (sp$issparse(counts)) {
-                counts <- counts$tocsr()
-            } else {
-                ndim <- reticulate::py_to_r(counts$ndim)
-                if (!is.null(ndim) && as.integer(ndim) == 1L) {
-                    size <- reticulate::py_to_r(counts$size)
-                    n_genes <- as.integer(size %/% n_cells)
-                    counts <- counts$reshape(builtins$tuple(list(as.integer(n_cells), as.integer(n_genes))))
-                }
-                counts <- sp$csr_matrix(counts)
-            }
+            obs <- pd$DataFrame(list(batch = batches), index = cell_names)
+            # Reconstruct 2D array from flat vector + dims
+            counts_arr <- np$array(counts_flat)$reshape(as.integer(dims[1]), as.integer(dims[2]))
+            counts <- sp$csr_matrix(counts_arr)
             
             adata <- ad$AnnData(X = counts, obs = obs)
 
@@ -193,7 +186,7 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             model$train()
             
             return(model$get_latent_representation())
-        }, counts = counts_mat, batches = batch_vec)
+        }, counts_flat = counts_flat, batches = batch_vec, cell_names = cell_names, dims = counts_dims)
         
         rownames(latent) <- colnames(object)
         colnames(latent) <- paste0("scVI_", seq_len(ncol(latent)))
