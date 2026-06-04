@@ -17,5 +17,5 @@ sclet_extract_cell_feature_matrix <- function(object, assay_name, features = NUL
         }
         mat <- mat[features, , drop = FALSE]
     }
-    sclet_as_dgCMatrix(t(mat))
+    sclet_as_dgCMatrix(Matrix::t(mat))
 }
