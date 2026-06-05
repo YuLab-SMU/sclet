@@ -73,23 +73,20 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         )
     }
 
-    # Write vel_res to H5AD to bypass dgCMatrix -> scipy conversion issues
-    SummarizedExperiment::assays(vel_res) <- SummarizedExperiment::assays(vel_res)[
-        c("spliced", "unspliced", "velocity")]
-    # Ensure assays are in h5ad-compatible formats (CSC for sparse, dense for others)
-    for (a in SummarizedExperiment::assayNames(vel_res)) {
-        x <- SummarizedExperiment::assay(vel_res, a)
-        if (methods::is(x, "sparseMatrix")) {
-            SummarizedExperiment::assay(vel_res, a) <- methods::as(x, "CsparseMatrix")
-        }
-    }
-    SummarizedExperiment::colData(vel_res) <- SummarizedExperiment::colData(vel_res)[, 0, drop = FALSE]
-    SummarizedExperiment::rowData(vel_res) <- SummarizedExperiment::rowData(vel_res)[, 0, drop = FALSE]
-    S4Vectors::metadata(vel_res) <- list()
-    tmp_h5ad <- tempfile(fileext = ".h5ad")
-    on.exit(unlink(tmp_h5ad), add = TRUE)
-    message("Writing H5AD for CellRank...")
-    zellkonverter::writeH5AD(vel_res, tmp_h5ad)
+    # Extract velocity matrices
+    v_mat <- sclet_extract_cell_feature_matrix(vel_res, "velocity")
+    s_mat <- sclet_extract_cell_feature_matrix(vel_res, "spliced")
+    u_mat <- sclet_extract_cell_feature_matrix(vel_res, "unspliced")
+
+    # Write sparse matrices to .mtx files to bypass all reticulate conversion issues
+    tmp_dir <- tempfile("cellrank_")
+    dir.create(tmp_dir)
+    on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+    Matrix::writeMM(v_mat, file.path(tmp_dir, "velocity.mtx"))
+    Matrix::writeMM(s_mat, file.path(tmp_dir, "spliced.mtx"))
+    Matrix::writeMM(u_mat, file.path(tmp_dir, "unspliced.mtx"))
+    cell_names <- colnames(v_mat)
+    gene_names <- rownames(v_mat)
 
     clusters <- as.character(SummarizedExperiment::colData(sce)[[cluster_key]])
 
@@ -98,14 +95,26 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
 
     cr_res <- basilisk::basiliskRun(
         env = sclet_cellrank_env,
-        fun = function(h5ad_path, cluster_labels, emb, reduction_name) {
+        fun = function(mtx_dir, cell_names, gene_names, cluster_labels, emb, reduction_name) {
         ad <- reticulate::import("anndata")
         cr <- reticulate::import("cellrank")
         pd <- reticulate::import("pandas")
+        sp <- reticulate::import("scipy.sparse")
+        scio <- reticulate::import("scipy.io")
 
-        adata <- ad$read_h5ad(h5ad_path)
-        adata$obs[["clusters"]] <- pd$Series(
-            cluster_labels, dtype = "category", index = adata$obs_names$tolist())
+        # Read matrices from MatrixMarket format (no reticulate conversion)
+        v <- scio$mmread(file.path(mtx_dir, "velocity.mtx"))$tocsr()
+        s <- scio$mmread(file.path(mtx_dir, "spliced.mtx"))$tocsr()
+        u <- scio$mmread(file.path(mtx_dir, "unspliced.mtx"))$tocsr()
+
+        obs <- pd$DataFrame(index = cell_names)
+        obs[["clusters"]] <- pd$Series(
+            cluster_labels, dtype = "category", index = cell_names)
+
+        adata <- ad$AnnData(X = s, obs = obs)
+        adata$layers[["spliced"]] <- s
+        adata$layers[["unspliced"]] <- u
+        adata$layers[["velocity"]] <- v
         adata$obsm[[paste0("X_", tolower(reduction_name))]] <- emb
 
         sc <- reticulate::import("scanpy")
@@ -164,7 +173,9 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
             lineage_drivers = lineage_drivers
         ))
     },
-    h5ad_path = tmp_h5ad,
+    mtx_dir = tmp_dir,
+    cell_names = colnames(vel_res),
+    gene_names = rownames(vel_res),
     cluster_labels = clusters,
     emb = emb,
     reduction_name = reduction)
