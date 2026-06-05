@@ -238,7 +238,7 @@ When standard trajectory tools (like Slingshot) struggle with complex, cyclic, o
 
 `RunCellFate()` is the user-facing entry point for fate mapping in `sclet`. At the moment it dispatches to `CellRank`, automatically senses the upstream velocity run, and records the resulting terminal states, named fate probabilities, and lineage drivers in the shared state contract.
 
-```{r cellrank-run, eval=FALSE}
+```{r cellrank-run, eval=eval_chunks && requireNamespace("velociraptor", quietly = TRUE) && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
 # Compute transition matrix, terminal states, and absorption probabilities
 sce <- RunCellFate(sce, reduction = "PCA", cluster_key = "cluster")
 
