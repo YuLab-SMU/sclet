@@ -20,6 +20,12 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
             class = "sclet_package_missing"
         )
     }
+    if (!requireNamespace("zellkonverter", quietly = TRUE)) {
+        cli::cli_abort(
+            "Package {.pkg zellkonverter} is required for CellRank.",
+            class = "sclet_package_missing"
+        )
+    }
 
     vel_state <- get_velocity(sce)
     if (is.null(vel_state) || is.null(vel_state$results)) {
@@ -67,9 +73,16 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         )
     }
 
-    v_mat <- sclet_extract_cell_feature_matrix(vel_res, "velocity")
-    s_mat <- sclet_extract_cell_feature_matrix(vel_res, "spliced")
-    u_mat <- sclet_extract_cell_feature_matrix(vel_res, "unspliced")
+    # Write vel_res to H5AD to bypass dgCMatrix -> scipy conversion issues
+    SummarizedExperiment::assays(vel_res) <- SummarizedExperiment::assays(vel_res)[
+        c("spliced", "unspliced", "velocity")]
+    SummarizedExperiment::colData(vel_res) <- SummarizedExperiment::colData(vel_res)[, 0, drop = FALSE]
+    SummarizedExperiment::rowData(vel_res) <- SummarizedExperiment::rowData(vel_res)[, 0, drop = FALSE]
+    S4Vectors::metadata(vel_res) <- list()
+    tmp_h5ad <- tempfile(fileext = ".h5ad")
+    on.exit(unlink(tmp_h5ad), add = TRUE)
+    message("Writing H5AD for CellRank...")
+    zellkonverter::writeH5AD(vel_res, tmp_h5ad)
 
     clusters <- as.character(SummarizedExperiment::colData(sce)[[cluster_key]])
 
@@ -78,33 +91,15 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
 
     cr_res <- basilisk::basiliskRun(
         env = sclet_cellrank_env,
-        fun = function(v, s, u, emb, cluster_labels, reduction_name) {
+        fun = function(h5ad_path, cluster_labels, emb, reduction_name) {
         ad <- reticulate::import("anndata")
         cr <- reticulate::import("cellrank")
         pd <- reticulate::import("pandas")
-        sp <- reticulate::import("scipy.sparse")
 
-        v <- reticulate::r_to_py(v)
-        s <- reticulate::r_to_py(s)
-        u <- reticulate::r_to_py(u)
-        if (sp$issparse(v)) {
-            v <- v$tocsr()
-        }
-        if (sp$issparse(s)) {
-            s <- s$tocsr()
-        }
-        if (sp$issparse(u)) {
-            u <- u$tocsr()
-        }
-
-        obs <- pd$DataFrame(index = rownames(v))
-        obs["clusters"] <- pd$Series(cluster_labels, dtype = "category", index = rownames(v))
-
-        adata <- ad$AnnData(X = s, obs = obs)
-        adata$layers["spliced"] <- s
-        adata$layers["unspliced"] <- u
-        adata$layers["velocity"] <- v
-        adata$obsm[paste0("X_", tolower(reduction_name))] <- emb
+        adata <- ad$read_h5ad(h5ad_path)
+        adata$obs[["clusters"]] <- pd$Series(
+            cluster_labels, dtype = "category", index = adata$obs_names$tolist())
+        adata$obsm[[paste0("X_", tolower(reduction_name))]] <- emb
 
         sc <- reticulate::import("scanpy")
         scv <- reticulate::import("scvelo")
@@ -162,11 +157,9 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
             lineage_drivers = lineage_drivers
         ))
     },
-    v = v_mat,
-    s = s_mat,
-    u = u_mat,
-    emb = emb,
+    h5ad_path = tmp_h5ad,
     cluster_labels = clusters,
+    emb = emb,
     reduction_name = reduction)
     sce <- sclet_restore_state(sce, prev_state)
     
