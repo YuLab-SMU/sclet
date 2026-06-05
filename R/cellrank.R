@@ -76,10 +76,12 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
     # Write vel_res to H5AD to bypass dgCMatrix -> scipy conversion issues
     SummarizedExperiment::assays(vel_res) <- SummarizedExperiment::assays(vel_res)[
         c("spliced", "unspliced", "velocity")]
-    # Convert to plain dense matrices for reliable H5AD serialization
+    # Ensure assays are in h5ad-compatible formats (CSC for sparse, dense for others)
     for (a in SummarizedExperiment::assayNames(vel_res)) {
-        SummarizedExperiment::assay(vel_res, a) <-
-            as.matrix(SummarizedExperiment::assay(vel_res, a))
+        x <- SummarizedExperiment::assay(vel_res, a)
+        if (methods::is(x, "sparseMatrix")) {
+            SummarizedExperiment::assay(vel_res, a) <- methods::as(x, "CsparseMatrix")
+        }
     }
     SummarizedExperiment::colData(vel_res) <- SummarizedExperiment::colData(vel_res)[, 0, drop = FALSE]
     SummarizedExperiment::rowData(vel_res) <- SummarizedExperiment::rowData(vel_res)[, 0, drop = FALSE]
