@@ -32,6 +32,22 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
 
     vel_res <- vel_state$results
 
+    # Align cells between sce and velocity results (velociraptor may subset)
+    common_cells <- intersect(colnames(sce), colnames(vel_res))
+    if (length(common_cells) == 0) {
+        cli::cli_abort(
+            "No common cells between the query object and the velocity results.",
+            class = "sclet_cell_mismatch"
+        )
+    }
+    if (length(common_cells) < ncol(sce)) {
+        cli::cli_alert_info(
+            "Aligning to {length(common_cells)} / {ncol(sce)} cells present in velocity results."
+        )
+        sce <- sce[, common_cells, drop = FALSE]
+        vel_res <- vel_res[, common_cells, drop = FALSE]
+    }
+
     if (!reduction %in% SingleCellExperiment::reducedDimNames(sce)) {
         cli::cli_abort(
             "Reduction {.val {reduction}} not found in {.cls SingleCellExperiment}.",
