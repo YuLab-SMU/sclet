@@ -249,14 +249,14 @@ get_cellrank(sce)
 The resulting terminal state assignments and directional fate probabilities are written directly into `colData(sce)`. In addition, `sclet` now provides fate-specific plotting helpers following the `plot_<module>_<type>` convention, so you do not need to manually reconstruct the plotting data frame after every run.
 
 ```{r cellrank-plot, fig.width=12, fig.height=5.5, eval=eval_chunks && requireNamespace("velociraptor", quietly = TRUE) && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
-p_prob <- plot_fate_probability(sce, fate = 1, reduction = "UMAP")
-p_term <- plot_fate_terminal_states(sce, reduction = "UMAP")
+p_prob <- plot_fate_probability(sce, fate = 1, reduction = "UMAP", id = "cellrank")
+p_term <- plot_fate_terminal_states(sce, reduction = "UMAP", id = "cellrank")
 
 plot_list(`Fate Probability` = p_prob, `Terminal States` = p_term)
 ```
 
 ```{r cellrank-driver-trends, fig.width=11, fig.height=7, eval=eval_chunks && requireNamespace("velociraptor", quietly = TRUE) && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
-cr <- get_cellrank(sce)
+cr <- get_cellrank(sce, id = "cellrank")
 driver_lineage <- if (!is.null(cr$artifacts$fate_probability_names)) {
   cr$artifacts$fate_probability_names[[1]]
 } else {
