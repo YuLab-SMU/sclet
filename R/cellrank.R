@@ -648,9 +648,8 @@ plot_fate_driver_trends <- function(
 }
 
 # Package-level basilisk callback for CellRank.
-# Defined at package scope so its closure environment does not capture
-# S4 objects (dgCMatrix, SCE) from RunCellRank's local scope.
-sclet_cellrank_basilisk_fun <- function(mtx_dir, cell_names, gene_names, cluster_labels, emb, reduction_name) {
+# Wrapped in local() to create a minimal closure environment (no S4 objects).
+sclet_cellrank_basilisk_fun <- local(function(mtx_dir, cell_names, gene_names, cluster_labels, emb, reduction_name) {
     ad <- reticulate::import("anndata")
     cr <- reticulate::import("cellrank")
     pd <- reticulate::import("pandas")
@@ -725,4 +724,4 @@ sclet_cellrank_basilisk_fun <- function(mtx_dir, cell_names, gene_names, cluster
         absorption_prob_names = abs_prob_names,
         lineage_drivers = lineage_drivers
     )
-}
+}, envir = new.env(parent = baseenv()))
