@@ -30,7 +30,7 @@ sclet_cellrank_env <- basilisk::BasiliskEnvironment(
     envname = "sclet_cellrank_env",
     pkgname = "sclet",
     packages = c(
-        "python=3.12",
+        "python=3.10",
         "scanpy=1.10.1",
         "anndata=0.10.7",
         "numpy=1.26.4",
