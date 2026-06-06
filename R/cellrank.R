@@ -64,7 +64,7 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         )
     }
 
-    emb <- SingleCellExperiment::reducedDim(sce, reduction)
+    emb <- as.matrix(SingleCellExperiment::reducedDim(sce, reduction))
 
     if (!"velocity" %in% SummarizedExperiment::assayNames(vel_res)) {
         cli::cli_abort(
