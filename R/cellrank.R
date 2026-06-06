@@ -174,8 +174,8 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         ))
     },
     mtx_dir = tmp_dir,
-    cell_names = colnames(vel_res),
-    gene_names = rownames(vel_res),
+    cell_names = cell_names,
+    gene_names = gene_names,
     cluster_labels = clusters,
     emb = emb,
     reduction_name = reduction)
