@@ -80,13 +80,12 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
     Matrix::writeMM(s_mat, file.path(tmp_dir, "spliced.mtx"))
     Matrix::writeMM(u_mat, file.path(tmp_dir, "unspliced.mtx"))
     # Write all auxiliary data to disk so basilisk fun receives only one string
+    clusters <- as.character(SummarizedExperiment::colData(sce)[[cluster_key]])
+    writeLines(clusters, file.path(tmp_dir, "clusters.txt"))
     writeLines(colnames(v_mat), file.path(tmp_dir, "cell_names.txt"))
     writeLines(rownames(v_mat), file.path(tmp_dir, "gene_names.txt"))
-    writeLines(clusters, file.path(tmp_dir, "clusters.txt"))
     writeLines(reduction, file.path(tmp_dir, "reduction.txt"))
     write.csv(emb, file.path(tmp_dir, "emb.csv"), row.names = FALSE)
-
-    clusters <- as.character(SummarizedExperiment::colData(sce)[[cluster_key]])
 
     cli::cli_alert_info("Running CellRank via basilisk...")
     prev_state <- sclet_get_state(sce)
