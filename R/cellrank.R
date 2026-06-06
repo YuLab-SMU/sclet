@@ -79,8 +79,12 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
     Matrix::writeMM(v_mat, file.path(tmp_dir, "velocity.mtx"))
     Matrix::writeMM(s_mat, file.path(tmp_dir, "spliced.mtx"))
     Matrix::writeMM(u_mat, file.path(tmp_dir, "unspliced.mtx"))
-    cell_names <- colnames(v_mat)
-    gene_names <- rownames(v_mat)
+    # Write all auxiliary data to disk so basilisk fun receives only one string
+    writeLines(colnames(v_mat), file.path(tmp_dir, "cell_names.txt"))
+    writeLines(rownames(v_mat), file.path(tmp_dir, "gene_names.txt"))
+    writeLines(clusters, file.path(tmp_dir, "clusters.txt"))
+    writeLines(reduction, file.path(tmp_dir, "reduction.txt"))
+    write.csv(emb, file.path(tmp_dir, "emb.csv"), row.names = FALSE)
 
     clusters <- as.character(SummarizedExperiment::colData(sce)[[cluster_key]])
 
@@ -90,12 +94,7 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
     cr_res <- basilisk::basiliskRun(
         env = sclet_cellrank_env,
         fun = sclet_cellrank_basilisk_fun,
-        mtx_dir = tmp_dir,
-        cell_names = cell_names,
-        gene_names = gene_names,
-        cluster_labels = clusters,
-        emb = emb,
-        reduction_name = reduction)
+        mtx_dir = tmp_dir)
     sce <- sclet_restore_state(sce, prev_state)
     
     # Store results
@@ -649,7 +648,7 @@ plot_fate_driver_trends <- function(
 
 # Package-level basilisk callback for CellRank.
 # Wrapped in local() to create a minimal closure environment (no S4 objects).
-sclet_cellrank_basilisk_fun <- local(function(mtx_dir, cell_names, gene_names, cluster_labels, emb, reduction_name) {
+sclet_cellrank_basilisk_fun <- local(function(mtx_dir) {
     ad <- reticulate::import("anndata")
     cr <- reticulate::import("cellrank")
     pd <- reticulate::import("pandas")
@@ -658,10 +657,14 @@ sclet_cellrank_basilisk_fun <- local(function(mtx_dir, cell_names, gene_names, c
     v <- scio$mmread(file.path(mtx_dir, "velocity.mtx"))$tocsr()
     s <- scio$mmread(file.path(mtx_dir, "spliced.mtx"))$tocsr()
     u <- scio$mmread(file.path(mtx_dir, "unspliced.mtx"))$tocsr()
+    cell_names <- readLines(file.path(mtx_dir, "cell_names.txt"))
+    clusters <- readLines(file.path(mtx_dir, "clusters.txt"))
+    emb <- as.matrix(read.csv(file.path(mtx_dir, "emb.csv")))
+    reduction_name <- readLines(file.path(mtx_dir, "reduction.txt"))
 
     obs <- pd$DataFrame(index = cell_names)
     obs[["clusters"]] <- pd$Series(
-        cluster_labels, dtype = "category", index = cell_names)
+        clusters, dtype = "category", index = cell_names)
 
     adata <- ad$AnnData(X = s, obs = obs)
     adata$layers[["spliced"]] <- s
