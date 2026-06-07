@@ -27,7 +27,7 @@ sclet_scvi_env <- basilisk::BasiliskEnvironment(
 )
 
 sclet_cellrank_env <- basilisk::BasiliskEnvironment(
-    envname = "sclet_cellrank_env",
+    envname = "sclet_cellrank_env_py310",
     pkgname = "sclet",
     packages = c(
         "python=3.10",
