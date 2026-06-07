@@ -93,8 +93,87 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
 
     cr_res <- basilisk::basiliskRun(
         env = sclet_cellrank_env,
-        fun = sclet_cellrank_basilisk_fun,
-        mtx_dir = tmp_dir)
+        fun = function(mtx_dir) {
+        ad <- reticulate::import("anndata")
+        cr <- reticulate::import("cellrank")
+        pd <- reticulate::import("pandas")
+        scio <- reticulate::import("scipy.io")
+
+        v <- scio$mmread(file.path(mtx_dir, "velocity.mtx"))$tocsr()
+        s <- scio$mmread(file.path(mtx_dir, "spliced.mtx"))$tocsr()
+        u <- scio$mmread(file.path(mtx_dir, "unspliced.mtx"))$tocsr()
+        cell_names <- readLines(file.path(mtx_dir, "cell_names.txt"))
+        clusters <- readLines(file.path(mtx_dir, "clusters.txt"))
+        emb <- as.matrix(utils::read.csv(file.path(mtx_dir, "emb.csv")))
+        reduction_name <- readLines(file.path(mtx_dir, "reduction.txt"))
+
+        obs <- pd$DataFrame(index = cell_names)
+        obs[["clusters"]] <- pd$Series(
+            clusters, dtype = "category", index = cell_names)
+
+        adata <- ad$AnnData(X = s, obs = obs)
+        adata$layers[["spliced"]] <- s
+        adata$layers[["unspliced"]] <- u
+        adata$layers[["velocity"]] <- v
+        adata$obsm[[paste0("X_", tolower(reduction_name))]] <- emb
+
+        sc <- reticulate::import("scanpy")
+        scv <- reticulate::import("scvelo")
+        sc$pp$neighbors(adata, use_rep = paste0("X_", tolower(reduction_name)))
+        scv$pp$moments(adata, n_pcs = NULL, n_neighbors = NULL)
+        scv$tl$velocity_graph(adata)
+
+        vk <- cr$kernels$VelocityKernel(adata)
+        vk$compute_transition_matrix()
+
+        g <- cr$estimators$GPCCA(vk)
+        g$compute_eigendecomposition()
+        g$compute_schur(method = "krylov")
+        g$compute_macrostates(cluster_key = "clusters")
+        g$predict_terminal_states()
+        g$compute_fate_probabilities()
+
+        term_states <- g$terminal_states
+        abs_probs <- g$fate_probabilities
+
+        abs_mat <- tryCatch(
+            as.matrix(abs_probs$X),
+            error = function(e) {
+                tryCatch(
+                    as.matrix(abs_probs),
+                    error = function(e2) {
+                        cli::cli_abort(
+                            c("Failed to extract absorption probabilities.",
+                              i = "CellRank returned: {.val {class(abs_probs)}}"),
+                            parent = e2
+                        )
+                    }
+                )
+            }
+        )
+
+        abs_prob_names <- colnames(abs_mat)
+        lineage_drivers <- NULL
+        tryCatch({
+            g$compute_lineage_drivers()
+            lineage_drivers <- as.data.frame(g$lineage_drivers)
+            if (!"gene" %in% colnames(lineage_drivers)) {
+                lineage_drivers$gene <- rownames(lineage_drivers)
+            }
+            lineage_drivers <- lineage_drivers[, c("gene", setdiff(colnames(lineage_drivers), "gene")), drop = FALSE]
+            rownames(lineage_drivers) <- NULL
+        }, error = function(e) {
+            NULL
+        })
+
+        list(
+            terminal_states = as.character(term_states),
+            absorption_probs = abs_mat,
+            absorption_prob_names = abs_prob_names,
+            lineage_drivers = lineage_drivers
+        )
+    },
+    mtx_dir = tmp_dir)
     sce <- sclet_restore_state(sce, prev_state)
     
     # Store results
@@ -645,86 +724,3 @@ plot_fate_driver_trends <- function(
             title = paste("Driver Trends:", lineage)
         )
 }
-
-# Package-level basilisk callback for CellRank.
-# Wrapped in local() to create a minimal closure environment (no S4 objects).
-sclet_cellrank_basilisk_fun <- local(function(mtx_dir) {
-    ad <- reticulate::import("anndata")
-    cr <- reticulate::import("cellrank")
-    pd <- reticulate::import("pandas")
-    scio <- reticulate::import("scipy.io")
-
-    v <- scio$mmread(file.path(mtx_dir, "velocity.mtx"))$tocsr()
-    s <- scio$mmread(file.path(mtx_dir, "spliced.mtx"))$tocsr()
-    u <- scio$mmread(file.path(mtx_dir, "unspliced.mtx"))$tocsr()
-    cell_names <- readLines(file.path(mtx_dir, "cell_names.txt"))
-    clusters <- readLines(file.path(mtx_dir, "clusters.txt"))
-    emb <- as.matrix(read.csv(file.path(mtx_dir, "emb.csv")))
-    reduction_name <- readLines(file.path(mtx_dir, "reduction.txt"))
-
-    obs <- pd$DataFrame(index = cell_names)
-    obs[["clusters"]] <- pd$Series(
-        clusters, dtype = "category", index = cell_names)
-
-    adata <- ad$AnnData(X = s, obs = obs)
-    adata$layers[["spliced"]] <- s
-    adata$layers[["unspliced"]] <- u
-    adata$layers[["velocity"]] <- v
-    adata$obsm[[paste0("X_", tolower(reduction_name))]] <- emb
-
-    sc <- reticulate::import("scanpy")
-    scv <- reticulate::import("scvelo")
-    sc$pp$neighbors(adata, use_rep = paste0("X_", tolower(reduction_name)))
-    scv$pp$moments(adata, n_pcs = NULL, n_neighbors = NULL)
-    scv$tl$velocity_graph(adata)
-
-    vk <- cr$kernels$VelocityKernel(adata)
-    vk$compute_transition_matrix()
-
-    g <- cr$estimators$GPCCA(vk)
-    g$compute_eigendecomposition()
-    g$compute_schur(method = "krylov")
-    g$compute_macrostates(cluster_key = "clusters")
-    g$predict_terminal_states()
-    g$compute_fate_probabilities()
-
-    term_states <- g$terminal_states
-    abs_probs <- g$fate_probabilities
-
-    abs_mat <- tryCatch(
-        as.matrix(abs_probs$X),
-        error = function(e) {
-            tryCatch(
-                as.matrix(abs_probs),
-                error = function(e2) {
-                    cli::cli_abort(
-                        c("Failed to extract absorption probabilities.",
-                          i = "CellRank returned: {.val {class(abs_probs)}}"),
-                        parent = e2
-                    )
-                }
-            )
-        }
-    )
-
-    abs_prob_names <- colnames(abs_mat)
-    lineage_drivers <- NULL
-    tryCatch({
-        g$compute_lineage_drivers()
-        lineage_drivers <- as.data.frame(g$lineage_drivers)
-        if (!"gene" %in% colnames(lineage_drivers)) {
-            lineage_drivers$gene <- rownames(lineage_drivers)
-        }
-        lineage_drivers <- lineage_drivers[, c("gene", setdiff(colnames(lineage_drivers), "gene")), drop = FALSE]
-        rownames(lineage_drivers) <- NULL
-    }, error = function(e) {
-        NULL
-    })
-
-    list(
-        terminal_states = as.character(term_states),
-        absorption_probs = abs_mat,
-        absorption_prob_names = abs_prob_names,
-        lineage_drivers = lineage_drivers
-    )
-}, envir = new.env(parent = baseenv()))
