@@ -173,6 +173,7 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
         zellkonverter::writeH5AD(sce_sub, tmp_h5ad)
 
         message("Running scVI via basilisk...")
+        message("(First run will take several minutes to set up the Python environment)")
 
         latent <- basilisk::basiliskRun(env = sclet_scvi_env, fun = function(h5ad_path, batches, ...) {
             scvi <- reticulate::import("scvi")

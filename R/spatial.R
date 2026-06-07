@@ -43,6 +43,7 @@ RunSpatialDeconvolution <- function(sce_spatial, sce_ref, ref_group_key,
     }
 
     message("Running Cell2location via basilisk (this is computationally intensive)...")
+    message("(First run will take several minutes to set up the Python environment)")
 
     c2l_res <- basilisk::basiliskRun(env = sclet_cell2location_env, fun = function(sp, ref, grp, btc, max_ep, ...) {
         c2l <- reticulate::import("cell2location")

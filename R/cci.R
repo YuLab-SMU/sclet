@@ -291,6 +291,8 @@ RunCellPhoneDB <- function(sce, group = NULL,
     )
     
     # Execute Python CellPhoneDB via basilisk
+    message("Running CellPhoneDB via basilisk...")
+    message("(First run will take several minutes to set up the Python environment)")
     proc <- basilisk::basiliskStart(sclet_cellphonedb_env)
     on.exit(basilisk::basiliskStop(proc))
     

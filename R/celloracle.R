@@ -45,6 +45,7 @@ RunInSilicoPerturbation <- function(sce, target_gene, perturbation_value = 0.0, 
     emb <- SingleCellExperiment::reducedDim(sce, reduction)
     
     message("Running CellOracle via basilisk...")
+    message("(First run will take several minutes to set up the Python environment)")
     
     co_res <- basilisk::basiliskRun(
         env = sclet_celloracle_env,

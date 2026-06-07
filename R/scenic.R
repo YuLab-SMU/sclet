@@ -66,6 +66,7 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
     cell_names <- rownames(expr_mat)
     
     message("Running pySCENIC via basilisk (this may take a while)...")
+    message("(First run will take several minutes to set up the Python environment)")
     
     auc_matrix <- basilisk::basiliskRun(env = sclet_scenic_env, fun = function(expr, genes, cells, tfs_f, motif_f, dbs, n_workers, s) {
         # Import Python modules

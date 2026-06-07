@@ -88,6 +88,7 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
     write.csv(emb, file.path(tmp_dir, "emb.csv"), row.names = FALSE)
 
     cli::cli_alert_info("Running CellRank via basilisk...")
+    cli::cli_alert_info("(First run will take several minutes to set up the Python environment)")
     prev_state <- sclet_get_state(sce)
 
     cr_res <- basilisk::basiliskRun(
