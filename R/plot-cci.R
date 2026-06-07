@@ -205,7 +205,11 @@ plot_cci_chord <- function(object, signaling = NULL, id = NULL, pval_thresh = 0.
         args$annotationTrack <- c("grid", "name") # Remove default 'axis' to hide tiny scientific notation numbers
     }
     if (!"preAllocateTracks" %in% names(args)) {
-        args$preAllocateTracks <- list(track.height = max(graphics::strwidth(unlist(dimnames(agg_df)))))
+        track_height <- tryCatch(
+            max(graphics::strwidth(unlist(dimnames(agg_df)))),
+            error = function(e) 0.2
+        )
+        args$preAllocateTracks <- list(track.height = track_height)
     }
     
     do.call(circlize::chordDiagram, c(list(x = agg_df), args))
