@@ -120,7 +120,7 @@ plot_cci_bubble(sce, sources = c("Ductal", "Endocrine"), targets = c("Ductal", "
 plot_cci_chord(sce, signaling = c("PTN"))
 ```
 
-```{r cci-sigmoid, fig.width=8, fig.height=6}
+```{r cci-sigmoid, fig.width=8, fig.height=6, eval=eval_chunks && requireNamespace("ggbump", quietly = TRUE)}
 # Native Sigmoid plot for interactions
 plot_cci_sigmoid(sce, top_n = 15)
 ```

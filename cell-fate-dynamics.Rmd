@@ -238,7 +238,7 @@ When standard trajectory tools (like Slingshot) struggle with complex, cyclic, o
 
 `RunCellFate()` is the user-facing entry point for fate mapping in `sclet`. At the moment it dispatches to `CellRank`, automatically senses the upstream velocity run, and records the resulting terminal states, named fate probabilities, and lineage drivers in the shared state contract.
 
-```{r cellrank-run, eval=FALSE}
+```{r cellrank-run, eval=eval_chunks && requireNamespace("velociraptor", quietly = TRUE) && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
 # Compute transition matrix, terminal states, and absorption probabilities
 sce <- RunCellFate(sce, reduction = "PCA", cluster_key = "cluster")
 
@@ -248,14 +248,14 @@ get_cellrank(sce)
 
 The resulting terminal state assignments and directional fate probabilities are written directly into `colData(sce)`. In addition, `sclet` now provides fate-specific plotting helpers following the `plot_<module>_<type>` convention, so you do not need to manually reconstruct the plotting data frame after every run.
 
-```{r cellrank-plot, fig.width=12, fig.height=5.5, eval=FALSE}
+```{r cellrank-plot, fig.width=12, fig.height=5.5, eval=eval_chunks && requireNamespace("velociraptor", quietly = TRUE) && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
 p_prob <- plot_fate_probability(sce, fate = 1, reduction = "UMAP", id = "cellrank")
 p_term <- plot_fate_terminal_states(sce, reduction = "UMAP", id = "cellrank")
 
 plot_list(`Fate Probability` = p_prob, `Terminal States` = p_term)
 ```
 
-```{r cellrank-driver-trends, fig.width=11, fig.height=7, eval=FALSE}
+```{r cellrank-driver-trends, fig.width=11, fig.height=7, eval=eval_chunks && requireNamespace("velociraptor", quietly = TRUE) && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
 cr <- get_cellrank(sce, id = "cellrank")
 driver_lineage <- if (!is.null(cr$artifacts$fate_probability_names)) {
   cr$artifacts$fate_probability_names[[1]]
