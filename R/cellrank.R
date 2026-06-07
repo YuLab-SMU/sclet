@@ -91,9 +91,9 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
     cli::cli_alert_info("(First run will take several minutes to set up the Python environment)")
     prev_state <- sclet_get_state(sce)
 
-    cr_res <- basilisk::basiliskRun(
-        env = sclet_cellrank_env,
-        fun = function(mtx_dir) {
+    proc <- basilisk::basiliskStart(sclet_cellrank_env)
+    on.exit(basilisk::basiliskStop(proc), add = TRUE)
+    cr_res <- basilisk::basiliskRun(proc, function(mtx_dir) {
         ad <- reticulate::import("anndata")
         cr <- reticulate::import("cellrank")
         pd <- reticulate::import("pandas")
