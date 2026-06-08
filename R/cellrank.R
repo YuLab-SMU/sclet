@@ -113,10 +113,16 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
             reticulate::py_to_r(x)
         }
 
-        v <- py_call(scio$mmread(file.path(mtx_dir, "velocity.mtx")), "tocsr")
-        s <- py_call(scio$mmread(file.path(mtx_dir, "spliced.mtx")), "tocsr")
-        u <- py_call(scio$mmread(file.path(mtx_dir, "unspliced.mtx")), "tocsr")
+        as_cell_feature <- function(path) {
+            mat <- scio$mmread(path)
+            py_call(py_attr(mat, "T"), "tocsr")
+        }
+
+        v <- as_cell_feature(file.path(mtx_dir, "velocity.mtx"))
+        s <- as_cell_feature(file.path(mtx_dir, "spliced.mtx"))
+        u <- as_cell_feature(file.path(mtx_dir, "unspliced.mtx"))
         cell_names <- readLines(file.path(mtx_dir, "cell_names.txt"))
+        gene_names <- readLines(file.path(mtx_dir, "gene_names.txt"))
         clusters <- readLines(file.path(mtx_dir, "clusters.txt"))
         emb <- as.matrix(utils::read.csv(file.path(mtx_dir, "emb.csv")))
         reduction_name <- readLines(file.path(mtx_dir, "reduction.txt"))
@@ -124,8 +130,9 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         obs <- pd$DataFrame(index = reticulate::r_to_py(cell_names))
         obs[["clusters"]] <- pd$Series(
             reticulate::r_to_py(clusters), dtype = "category", index = reticulate::r_to_py(cell_names))
+        var <- pd$DataFrame(index = reticulate::r_to_py(gene_names))
 
-        adata <- ad$AnnData(X = s, obs = obs)
+        adata <- ad$AnnData(X = s, obs = obs, var = var)
         adata$layers[["spliced"]] <- s
         adata$layers[["unspliced"]] <- u
         adata$layers[["velocity"]] <- v
