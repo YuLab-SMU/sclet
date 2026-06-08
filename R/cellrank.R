@@ -94,22 +94,36 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
     proc <- basilisk::basiliskStart(sclet_cellrank_env)
     on.exit(basilisk::basiliskStop(proc), add = TRUE)
     cr_res <- basilisk::basiliskRun(proc, function(mtx_dir) {
-        ad <- reticulate::import("anndata")
-        cr <- reticulate::import("cellrank")
-        pd <- reticulate::import("pandas")
-        scio <- reticulate::import("scipy.io")
+        ad <- reticulate::import("anndata", convert = FALSE)
+        cr <- reticulate::import("cellrank", convert = FALSE)
+        pd <- reticulate::import("pandas", convert = FALSE)
+        scio <- reticulate::import("scipy.io", convert = FALSE)
 
-        v <- scio$mmread(file.path(mtx_dir, "velocity.mtx"))$tocsr()
-        s <- scio$mmread(file.path(mtx_dir, "spliced.mtx"))$tocsr()
-        u <- scio$mmread(file.path(mtx_dir, "unspliced.mtx"))$tocsr()
+        py_attr <- function(x, name, default = NULL) {
+            if (reticulate::py_has_attr(x, name)) {
+                reticulate::py_get_attr(x, name)
+            } else {
+                default
+            }
+        }
+        py_call <- function(x, name, ...) {
+            reticulate::py_call(py_attr(x, name), ...)
+        }
+        py_to_r <- function(x) {
+            reticulate::py_to_r(x)
+        }
+
+        v <- py_call(scio$mmread(file.path(mtx_dir, "velocity.mtx")), "tocsr")
+        s <- py_call(scio$mmread(file.path(mtx_dir, "spliced.mtx")), "tocsr")
+        u <- py_call(scio$mmread(file.path(mtx_dir, "unspliced.mtx")), "tocsr")
         cell_names <- readLines(file.path(mtx_dir, "cell_names.txt"))
         clusters <- readLines(file.path(mtx_dir, "clusters.txt"))
         emb <- as.matrix(utils::read.csv(file.path(mtx_dir, "emb.csv")))
         reduction_name <- readLines(file.path(mtx_dir, "reduction.txt"))
 
-        obs <- pd$DataFrame(index = cell_names)
+        obs <- pd$DataFrame(index = reticulate::r_to_py(cell_names))
         obs[["clusters"]] <- pd$Series(
-            clusters, dtype = "category", index = cell_names)
+            reticulate::r_to_py(clusters), dtype = "category", index = reticulate::r_to_py(cell_names))
 
         adata <- ad$AnnData(X = s, obs = obs)
         adata$layers[["spliced"]] <- s
@@ -117,27 +131,38 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         adata$layers[["velocity"]] <- v
         adata$obsm[[paste0("X_", tolower(reduction_name))]] <- emb
 
-        sc <- reticulate::import("scanpy")
-        scv <- reticulate::import("scvelo")
+        sc <- reticulate::import("scanpy", convert = FALSE)
+        scv <- reticulate::import("scvelo", convert = FALSE)
         sc$pp$neighbors(adata, use_rep = paste0("X_", tolower(reduction_name)))
         scv$pp$moments(adata, n_pcs = NULL, n_neighbors = NULL)
         scv$tl$velocity_graph(adata)
 
         vk <- cr$kernels$VelocityKernel(adata)
-        vk$compute_transition_matrix()
+        py_call(vk, "compute_transition_matrix")
 
         g <- cr$estimators$GPCCA(vk)
-        g$compute_eigendecomposition()
-        g$compute_schur(method = "krylov")
-        g$compute_macrostates(cluster_key = "clusters")
-        g$predict_terminal_states()
-        g$compute_fate_probabilities()
+        py_call(g, "compute_eigendecomposition")
+        py_call(g, "compute_schur", method = "krylov")
+        py_call(g, "compute_macrostates", cluster_key = "clusters")
+        py_call(g, "predict_terminal_states")
+        py_call(g, "compute_fate_probabilities")
 
-        term_states <- g$terminal_states
-        abs_probs <- g$fate_probabilities
+        term_states <- py_attr(g, "terminal_states")
+        abs_probs <- py_attr(g, "fate_probabilities")
+
+        extract_array <- function(x) {
+            x_mat <- py_attr(x, "X", default = x)
+            if (reticulate::py_module_available("scipy.sparse")) {
+                sp_sparse <- reticulate::import("scipy.sparse", convert = FALSE)
+                if (py_to_r(sp_sparse$issparse(x_mat))) {
+                    x_mat <- py_call(x_mat, "toarray")
+                }
+            }
+            as.matrix(py_to_r(x_mat))
+        }
 
         abs_mat <- tryCatch(
-            as.matrix(abs_probs$X),
+            extract_array(abs_probs),
             error = function(e) {
                 tryCatch(
                     as.matrix(abs_probs),
@@ -153,10 +178,20 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         )
 
         abs_prob_names <- colnames(abs_mat)
+        if (is.null(abs_prob_names) && !is.null(abs_probs)) {
+            abs_prob_names <- tryCatch({
+                names_attr <- py_attr(abs_probs, "names")
+                if (!is.null(names_attr)) {
+                    as.character(py_to_r(names_attr))
+                } else {
+                    NULL
+                }
+            }, error = function(e) NULL)
+        }
         lineage_drivers <- NULL
         tryCatch({
-            g$compute_lineage_drivers()
-            lineage_drivers <- as.data.frame(g$lineage_drivers)
+            py_call(g, "compute_lineage_drivers")
+            lineage_drivers <- as.data.frame(py_to_r(py_attr(g, "lineage_drivers")))
             if (!"gene" %in% colnames(lineage_drivers)) {
                 lineage_drivers$gene <- rownames(lineage_drivers)
             }
@@ -167,7 +202,7 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         })
 
         list(
-            terminal_states = as.character(term_states),
+            terminal_states = as.character(py_to_r(term_states)),
             absorption_probs = abs_mat,
             absorption_prob_names = abs_prob_names,
             lineage_drivers = lineage_drivers
