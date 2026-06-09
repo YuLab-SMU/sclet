@@ -82,8 +82,8 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
     # Write all auxiliary data to disk so basilisk fun receives only one string
     clusters <- as.character(SummarizedExperiment::colData(sce)[[cluster_key]])
     writeLines(clusters, file.path(tmp_dir, "clusters.txt"))
-    writeLines(colnames(v_mat), file.path(tmp_dir, "cell_names.txt"))
-    writeLines(rownames(v_mat), file.path(tmp_dir, "gene_names.txt"))
+    writeLines(colnames(vel_res), file.path(tmp_dir, "cell_names.txt"))
+    writeLines(rownames(vel_res), file.path(tmp_dir, "gene_names.txt"))
     writeLines(reduction, file.path(tmp_dir, "reduction.txt"))
     write.csv(emb, file.path(tmp_dir, "emb.csv"), row.names = FALSE)
 
@@ -113,16 +113,30 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
             reticulate::py_to_r(x)
         }
 
-        as_cell_feature <- function(path) {
+        as_cell_feature <- function(path, n_cells, n_genes) {
             mat <- scio$mmread(path)
-            py_call(py_attr(mat, "T"), "tocsr")
+            shape <- as.integer(py_to_r(py_attr(mat, "shape")))
+            if (identical(shape, c(n_genes, n_cells))) {
+                mat <- py_attr(mat, "T")
+            } else if (!identical(shape, c(n_cells, n_genes))) {
+                stop(
+                    "Unexpected CellRank matrix dimensions for ", basename(path),
+                    ": got ", paste(shape, collapse = " x "),
+                    ", expected ", n_cells, " x ", n_genes,
+                    " or ", n_genes, " x ", n_cells, "."
+                )
+            }
+            py_call(mat, "tocsr")
         }
 
-        v <- as_cell_feature(file.path(mtx_dir, "velocity.mtx"))
-        s <- as_cell_feature(file.path(mtx_dir, "spliced.mtx"))
-        u <- as_cell_feature(file.path(mtx_dir, "unspliced.mtx"))
         cell_names <- readLines(file.path(mtx_dir, "cell_names.txt"))
         gene_names <- readLines(file.path(mtx_dir, "gene_names.txt"))
+        n_cells <- length(cell_names)
+        n_genes <- length(gene_names)
+
+        v <- as_cell_feature(file.path(mtx_dir, "velocity.mtx"), n_cells, n_genes)
+        s <- as_cell_feature(file.path(mtx_dir, "spliced.mtx"), n_cells, n_genes)
+        u <- as_cell_feature(file.path(mtx_dir, "unspliced.mtx"), n_cells, n_genes)
         clusters <- readLines(file.path(mtx_dir, "clusters.txt"))
         emb <- as.matrix(utils::read.csv(file.path(mtx_dir, "emb.csv")))
         reduction_name <- readLines(file.path(mtx_dir, "reduction.txt"))
