@@ -147,14 +147,20 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         var <- pd$DataFrame(index = reticulate::r_to_py(gene_names))
 
         adata <- ad$AnnData(X = s, obs = obs, var = var)
-        adata$layers[["spliced"]] <- s
-        adata$layers[["unspliced"]] <- u
-        adata$layers[["velocity"]] <- v
-        adata$obsm[[paste0("X_", tolower(reduction_name))]] <- emb
+        reticulate::py_set_item(py_attr(adata, "layers"), "spliced", s)
+        reticulate::py_set_item(py_attr(adata, "layers"), "unspliced", u)
+        reticulate::py_set_item(py_attr(adata, "layers"), "velocity", v)
+
+        reduction_key <- paste0("X_", tolower(reduction_name))
+        reticulate::py_set_item(
+            py_attr(adata, "obsm"),
+            reduction_key,
+            reticulate::r_to_py(emb)
+        )
 
         sc <- reticulate::import("scanpy", convert = FALSE)
         scv <- reticulate::import("scvelo", convert = FALSE)
-        sc$pp$neighbors(adata, use_rep = paste0("X_", tolower(reduction_name)))
+        sc$pp$neighbors(adata, use_rep = reduction_key)
         scv$pp$moments(adata, n_pcs = NULL, n_neighbors = NULL)
         scv$tl$velocity_graph(adata)
 
