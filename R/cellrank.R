@@ -142,8 +142,15 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         reduction_name <- readLines(file.path(mtx_dir, "reduction.txt"))
 
         obs <- pd$DataFrame(index = reticulate::r_to_py(cell_names))
-        obs[["clusters"]] <- pd$Series(
-            reticulate::r_to_py(clusters), dtype = "category", index = reticulate::r_to_py(cell_names))
+        reticulate::py_set_item(
+            obs,
+            "clusters",
+            pd$Series(
+                reticulate::r_to_py(clusters),
+                dtype = "category",
+                index = reticulate::r_to_py(cell_names)
+            )
+        )
         var <- pd$DataFrame(index = reticulate::r_to_py(gene_names))
 
         adata <- ad$AnnData(X = s, obs = obs, var = var)
@@ -170,7 +177,7 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         g <- cr$estimators$GPCCA(vk)
         py_call(g, "compute_eigendecomposition")
         py_call(g, "compute_schur", method = "krylov")
-        py_call(g, "compute_macrostates", cluster_key = "clusters")
+        py_call(g, "compute_macrostates")
         py_call(g, "predict_terminal_states")
         py_call(g, "compute_fate_probabilities")
 
