@@ -207,7 +207,7 @@ RunSpatialColocalization <- function(sce, features = NULL,
         cli::cli_alert_info(
             "Running SVP global bivariate analysis on {.val {length(features)}} features"
         )
-        sce <- SVP::runGLOBALBV(sce, features = features, ...)
+        sce <- SVP::runGLOBALBV(sce, features1 = features, ...)
 
         gbv_result <- S4Vectors::metadata(sce)$SVP$GLOBALBV
         corr_matrix <- if (!is.null(gbv_result)) gbv_result$corr else NULL
