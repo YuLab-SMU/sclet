@@ -754,8 +754,9 @@ plot_fate_driver_trends <- function(
         x_label <- paste("Fate probability:", lineage)
     }
 
-    plot_df <- cbind(
-        data.frame(.x = x_var, .fate = SummarizedExperiment::colData(object)[[fate_col]], check.names = FALSE),
+    plot_df <- data.frame(
+        .x = x_var,
+        .fate = SummarizedExperiment::colData(object)[[fate_col]],
         expr_df,
         check.names = FALSE
     )
