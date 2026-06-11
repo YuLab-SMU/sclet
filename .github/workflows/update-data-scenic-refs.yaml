@@ -31,8 +31,10 @@ jobs:
           use-public-rspm: true
 
       - name: Build SCENIC reference caches
-        working-directory: docs-src/bookdown/data-raw
-        run: Rscript -e 'source("../../../../sclet-src/bookdown/data-raw/scenic-refs.R")'
+        run: |
+          set -euo pipefail
+          cd docs-src/bookdown/data-raw
+          Rscript -e 'source("../../../../sclet-src/bookdown/data-raw/scenic-refs.R")'
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@v6
