@@ -12,6 +12,8 @@ permissions:
 jobs:
   update-data:
     runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout docs branch
         uses: actions/checkout@v4
@@ -33,19 +35,34 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libhdf5-dev libpng-dev libjpeg-dev libtiff5-dev libfreetype6-dev libfontconfig1-dev
+          sudo apt-get install -y \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libxml2-dev \
+            libhdf5-dev \
+            libpng-dev \
+            libjpeg-dev \
+            libtiff5-dev \
+            libfreetype6-dev \
+            libfontconfig1-dev
 
       - name: Install dependencies
         run: |
           Rscript -e 'install.packages(c("remotes", "BiocManager"))'
-          Rscript -e 'BiocManager::install(c("TENxPBMCData", "scuttle", "scran", "SingleCellExperiment", "SummarizedExperiment", "basilisk", "reticulate", "zellkonverter"), ask = FALSE, update = FALSE)'
+          Rscript -e 'BiocManager::install(c("Rhdf5lib", "rhdf5filters", "rhdf5", "h5mread", "HDF5Array", "bluster", "TENxPBMCData", "scuttle", "scran", "SingleCellExperiment", "SummarizedExperiment", "basilisk", "reticulate", "zellkonverter"), ask = FALSE, update = FALSE, dependencies = TRUE)'
           Rscript -e 'remotes::install_github(c("YuLab-SMU/ggsc", "YuLab-SMU/yulab.utils", "YuLab-SMU/fanyi"), upgrade = "never")'
           Rscript -e 'remotes::install_deps("sclet-src", dependencies = c("Depends", "Imports", "LinkingTo"), upgrade = "never")'
           R CMD INSTALL sclet-src
 
       - name: Build scVI cache
-        working-directory: docs-src/bookdown/data-raw
-        run: Rscript -e 'source("../../../../sclet-src/bookdown/data-raw/pbmc-scvi.R")'
+        run: |
+          set -euo pipefail
+          ws="$GITHUB_WORKSPACE"
+          bookdir=$(dirname "$(find "$ws/docs-src" -maxdepth 6 -name '_bookdown.yml' -print -quit)")
+          mkdir -p "$bookdir/data"
+          cd "$ws/sclet-src/bookdown/data-raw"
+          Rscript -e 'source("pbmc-scvi.R")'
+          cp -f "$ws/sclet-src/bookdown/data/rm_scvi_pbmc.rds" "$bookdir/data/"
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@v6

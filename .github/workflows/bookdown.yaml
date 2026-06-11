@@ -128,7 +128,7 @@ jobs:
             outdir <- file.path(ws, "site")
             dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
             setwd(bookdir_abs)
-            bookdown::render_book("index.Rmd", output_format = "bookdown::gitbook", output_dir = outdir)
+            bookdown::render_book("index.Rmd", output_format = "bookdown::gitbook", output_dir = outdir, new_session = TRUE)
           '
 
       - name: Deploy to gh-pages

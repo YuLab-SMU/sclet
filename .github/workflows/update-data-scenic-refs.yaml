@@ -12,6 +12,8 @@ permissions:
 jobs:
   update-data:
     runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout docs branch
         uses: actions/checkout@v4
@@ -33,8 +35,13 @@ jobs:
       - name: Build SCENIC reference caches
         run: |
           set -euo pipefail
-          cd docs-src/bookdown/data-raw
-          Rscript -e 'source("../../../../sclet-src/bookdown/data-raw/scenic-refs.R")'
+          ws="$GITHUB_WORKSPACE"
+          bookdir=$(dirname "$(find "$ws/docs-src" -maxdepth 6 -name '_bookdown.yml' -print -quit)")
+          mkdir -p "$bookdir/data"
+          cd "$ws/sclet-src/bookdown/data-raw"
+          Rscript -e 'source("scenic-refs.R")'
+          cp -f "$ws/sclet-src/bookdown/data/allTFs_hg38.txt" "$bookdir/data/"
+          cp -f "$ws/sclet-src/bookdown/data/motifs-v9-nr.hgnc.tbl" "$bookdir/data/"
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@v6
