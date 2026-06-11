@@ -45,11 +45,14 @@ jobs:
             libtiff5-dev \
             libfreetype6-dev \
             libfontconfig1-dev
+          if ! ldconfig -p | grep -q 'libglpk\.so\.40'; then
+            sudo apt-get install -y libglpk40 || sudo apt-get install -y libglpk40t64 || sudo apt-get install -y libglpk-dev
+          fi
 
       - name: Install dependencies
         run: |
           Rscript -e 'install.packages(c("remotes", "BiocManager"))'
-          Rscript -e 'BiocManager::install(c("Rhdf5lib", "rhdf5filters", "rhdf5", "h5mread", "HDF5Array", "bluster", "TENxPBMCData", "SingleCellExperiment", "SummarizedExperiment", "scuttle", "scran", "BiocNeighbors"), ask = FALSE, update = FALSE, dependencies = TRUE)'
+          Rscript -e 'BiocManager::install(c("Rhdf5lib", "rhdf5filters", "rhdf5", "h5mread", "HDF5Array", "bluster", "TENxPBMCData", "SingleCellExperiment", "SummarizedExperiment", "scuttle", "scran", "scater", "scrapper", "BiocNeighbors"), ask = FALSE, update = FALSE, dependencies = TRUE)'
           Rscript -e 'remotes::install_github(c("YuLab-SMU/ggsc", "YuLab-SMU/yulab.utils", "YuLab-SMU/fanyi"), upgrade = "never")'
           Rscript -e 'remotes::install_deps("sclet-src", dependencies = c("Depends", "Imports", "LinkingTo"), upgrade = "never")'
           R CMD INSTALL sclet-src
