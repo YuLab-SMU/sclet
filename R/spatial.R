@@ -207,10 +207,11 @@ RunSpatialColocalization <- function(sce, features = NULL,
         cli::cli_alert_info(
             "Running SVP global bivariate analysis on {.val {length(features)}} features"
         )
-        sce <- SVP::runGLOBALBV(sce, features1 = features, ...)
-
-        gbv_result <- S4Vectors::metadata(sce)$SVP$GLOBALBV
-        corr_matrix <- if (!is.null(gbv_result)) gbv_result$corr else NULL
+        gbv_result <- SVP::runGLOBALBV(sce, features1 = features, ...)
+        if (inherits(gbv_result, "SingleCellExperiment")) {
+            gbv_result <- S4Vectors::metadata(gbv_result)$SVP$GLOBALBV
+        }
+        corr_matrix <- if (is.list(gbv_result)) gbv_result$Lee else NULL
 
         sce <- sclet_set_analysis(sce, "colocalization", list(
             id = name,
