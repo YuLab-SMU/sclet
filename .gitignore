@@ -3,4 +3,3 @@ sclet_cache
 sclet_files
 docs
 sclet.Rmd
-data/pbmc-3k-sce.rds

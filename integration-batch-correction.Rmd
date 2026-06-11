@@ -8,7 +8,7 @@ In `sclet`, integration is not treated as an isolated algorithm demo. It is a re
 
 We load the PBMC 3k and 4k datasets using `TENxPBMCData`. Note that these datasets use Ensembl IDs as row names by default. To facilitate downstream analysis (e.g., cell type annotation with `SingleR` which requires Gene Symbols matching the reference), we map the Ensembl IDs to Gene Symbols. We use `scuttle::uniquifyFeatureNames()` to perform this mapping while ensuring that the resulting row names remain unique.
 
-```{r pbmc3k4k}
+```{r pbmc3k4k, eval=FALSE}
 library(TENxPBMCData)
 library(scuttle)
 
@@ -23,7 +23,7 @@ rownames(pbmc4k) <- scuttle::uniquifyFeatureNames(rownames(pbmc4k), rowData(pbmc
 
 
 ## Preprocess
-```{r pbmc3k4k-preprocess}
+```{r pbmc3k4k-preprocess, eval=FALSE}
 library(sclet)
 
 sce_process <- function(sce) {
@@ -48,7 +48,7 @@ pbmc_list <- list(pbmc3k = pbmc3k, pbmc4k = pbmc4k)
 
 `sclet` provides a unified `RunIntegration` entry point to perform multi-backend data integration (e.g., `fastMNN`, `Harmony`). It automatically manages the resulting representations (layers or reductions) and registers an active integration state so that downstream tools can consume them seamlessly.
 
-```{r batch-remove}
+```{r batch-remove, eval=FALSE}
 # Merge datasets
 combined_pbmc <- sce_merge(pbmc_list)
 
@@ -66,9 +66,9 @@ get_integration(rm_batch_pbmc)
 
 Alternatively, you can use `Harmony` or `scVI` (Deep Learning via `basilisk`), which operate on the latent space and return a corrected reduction rather than an expression layer:
 
-The Harmony example is executed during book rendering, which means it also serves as a regression test in CI. The `scVI` call is also executed when the Python-backed `basilisk` environment is available, giving the book a minimal end-to-end test of the deep generative integration path.
+The Harmony example is executed during book rendering, which means it also serves as a regression test in CI. The `scVI` call is now cached through `bookdown/data/rm_scvi_pbmc.rds`, so the book no longer provisions the Python-backed `basilisk` environment during render.
 
-```{r run-harmony-scvi}
+```{r run-harmony-scvi, eval=FALSE}
 # Integration using Harmony
 rm_harmony_pbmc <- RunIntegration(combined_pbmc, method = "Harmony", batch = "batch")
 
@@ -77,15 +77,14 @@ DefaultReduction(rm_harmony_pbmc)
 
 ```
 
-```{r run-scvi, eval=eval_chunks && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
-# Integration using scVI (Requires Python basilisk environment)
-rm_scvi_pbmc <- RunIntegration(combined_pbmc, method = "scVI", batch = "batch")
-DefaultReduction(rm_scvi_pbmc) # Returns "scVI"
+```{r run-scvi, eval = file.exists("data/rm_scvi_pbmc.rds")}
+rm_scvi_pbmc <- readRDS("data/rm_scvi_pbmc.rds")
+DefaultReduction(rm_scvi_pbmc)
 ```
 
 Recent `sclet` versions also tightened the memory behavior of this path. Instead of forcing the count matrix through `as.matrix()` and materializing a dense block before crossing into Python, the `scVI` backend now keeps sparse inputs sparse and converts them directly to `scipy.sparse.csr_matrix` via `reticulate`. For toy PBMC data this is just cleaner; for large atlas-scale data it is the difference between "runs" and "explodes".
 
-```{r run-scvi-state, eval=eval_chunks && requireNamespace("basilisk", quietly = TRUE) && requireNamespace("reticulate", quietly = TRUE)}
+```{r run-scvi-state, eval = file.exists("data/rm_scvi_pbmc.rds")}
 get_integration(rm_scvi_pbmc)
 ```
 
