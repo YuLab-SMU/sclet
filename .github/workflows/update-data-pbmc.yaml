@@ -11,70 +11,14 @@ permissions:
 
 jobs:
   update-data:
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout docs branch
-        uses: actions/checkout@v4
-        with:
-          ref: docs
-          path: docs-src
-
-      - name: Checkout package source
-        uses: actions/checkout@v4
-        with:
-          ref: devel
-          path: sclet-src
-
-      - uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: "release"
-          use-public-rspm: true
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libcurl4-openssl-dev \
-            libssl-dev \
-            libxml2-dev \
-            libhdf5-dev \
-            libpng-dev \
-            libjpeg-dev \
-            libtiff5-dev \
-            libfreetype6-dev \
-            libfontconfig1-dev
-          if ! ldconfig -p | grep -q 'libglpk\.so\.40'; then
-            sudo apt-get install -y libglpk40 || sudo apt-get install -y libglpk40t64 || sudo apt-get install -y libglpk-dev
-          fi
-
-      - name: Install dependencies
-        run: |
-          Rscript -e 'install.packages(c("remotes", "BiocManager"))'
-          Rscript -e 'BiocManager::install(c("Rhdf5lib", "rhdf5filters", "rhdf5", "h5mread", "HDF5Array", "bluster", "TENxPBMCData", "SingleCellExperiment", "SummarizedExperiment", "scuttle", "scran", "scater", "scrapper", "BiocNeighbors"), ask = FALSE, update = FALSE, dependencies = TRUE)'
-          Rscript -e 'remotes::install_github(c("YuLab-SMU/ggsc", "YuLab-SMU/yulab.utils", "YuLab-SMU/fanyi"), upgrade = "never")'
-          Rscript -e 'remotes::install_deps("sclet-src", dependencies = c("Depends", "Imports", "LinkingTo"), upgrade = "never")'
-          R CMD INSTALL sclet-src
-
-      - name: Build PBMC cache
-        run: |
-          set -euo pipefail
-          ws="$GITHUB_WORKSPACE"
-          bookdir=$(dirname "$(find "$ws/docs-src" -maxdepth 6 -name '_bookdown.yml' -print -quit)")
-          mkdir -p "$bookdir/data"
-          cd "$bookdir/data-raw"
-          Rscript -e 'source("pbmc-3k-sce.R")'
-          cp -f "$bookdir/data/pbmc-3k-sce.rds" "$bookdir/data/"
-
-      - name: Create pull request
-        uses: peter-evans/create-pull-request@v6
-        with:
-          path: docs-src
-          branch: update-data-pbmc
-          base: docs
-          title: "chore(data): update PBMC bookdown cache"
-          commit-message: "chore(data): update PBMC bookdown cache"
-          body: "Update cached PBMC data generated from bookdown/data-raw/pbmc-3k-sce.R."
-          add-paths: |
-            data/pbmc-3k-sce.rds
+    uses: ./.github/workflows/update-data-template.yaml
+    secrets: inherit
+    with:
+      run_scripts: |
+        Rscript -e 'source("pbmc-3k-sce.R")'
+      bioc_packages: "TENxPBMCData"
+      add_paths: |
+        data/pbmc-3k-sce.rds
+      branch: update-data-pbmc
+      title: "chore(data): update PBMC bookdown cache"
+      body: "Update cached PBMC data generated from bookdown/data-raw/pbmc-3k-sce.R."
