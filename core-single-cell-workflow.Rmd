@@ -14,10 +14,9 @@ pbmc <- readRDS(f)
 
 ## Read 10X data
 
-```{r readdata, eval = eval_chunks && requireNamespace("TENxPBMCData", quietly = TRUE)}
+```{r readdata}
 library(sclet)
-pbmc_10x <- TENxPBMCData::TENxPBMCData("pbmc3k")
-pbmc_10x
+pbmc
 ```
 
 If you are starting from a local Cell Ranger directory instead, the corresponding `sclet` call is simply `pbmc <- Read10X("filtered_feature_bc_matrix/")`.
