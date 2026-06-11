@@ -157,25 +157,10 @@ object <- RunReferenceWorkflow(
 
 ### Run SingleR
 
-```{r run-singleR, eval = eval_chunks && requireNamespace("SingleR", quietly = TRUE) && requireNamespace("celldex", quietly = TRUE)}
-
-hpca <- celldex::HumanPrimaryCellAtlasData()
-hpca
-res <- SingleR::SingleR(
-    test = SummarizedExperiment::assay(pbmc, "logcounts"),
-    ref = hpca,
-    labels = hpca$label.main
-)
-head(res)
-
-
-dice <- celldex::DatabaseImmuneCellExpressionData()
-res2 <- SingleR::SingleR(
-    test = SummarizedExperiment::assay(pbmc, "logcounts"),
-    ref = dice,
-    labels = dice$label.main
-)
-head(res2)
+```{r run-scvi, eval=FALSE}
+# Integration using scVI (cached in bookdown/data/rm_scvi_pbmc.rds)
+rm_scvi_pbmc <- readRDS("data/rm_scvi_pbmc.rds")
+DefaultReduction(rm_scvi_pbmc) # Returns "scVI"
 ```
 
 When you use the low-level `SingleR()` call directly, you are responsible for deciding which matrix to pass. In contrast, `RunReferenceMapping(method = "SingleR")` follows the current `sclet` layer contract and resolves that choice from `DefaultLayer(pbmc)` unless you override it. If you provide `name = "hpca_main"`, both the annotation record and the mapping record are stored under that id, and the predicted labels are written to run-specific columns such as `hpca_main_labels`.
