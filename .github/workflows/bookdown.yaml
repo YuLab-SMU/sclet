@@ -81,8 +81,8 @@ jobs:
           Rscript -e 'BiocManager::install("SpatialExperiment", ask = FALSE, update = FALSE, force = TRUE)'
           Rscript -e 'stopifnot(requireNamespace("SpatialExperiment", quietly = TRUE))'
           Rscript -e 'BiocManager::install(c("AUCell", "GSVA", "UCell", "zellkonverter"), ask = FALSE, update = FALSE)'
-          Rscript -e 'BiocManager::install(c("scater","scran","scrapper","scuttle","TENxPBMCData","MouseThymusAgeing","SingleR","celldex","DropletUtils","SingleCellExperiment","SummarizedExperiment","velociraptor","enrichplot","org.Mm.eg.db","org.Hs.eg.db","org.Rn.eg.db","batchelor","iSEE","slingshot","miloR","ComplexHeatmap","harmony","scDblFinder","celda","destiny","BiocNeighbors","DESeq2"), ask = FALSE, update = FALSE)'
-          Rscript -e 'stopifnot(requireNamespace("scrapper", quietly = TRUE), requireNamespace("TENxPBMCData", quietly = TRUE), requireNamespace("SingleCellExperiment", quietly = TRUE), requireNamespace("BiocNeighbors", quietly = TRUE), requireNamespace("DESeq2", quietly = TRUE))'
+          Rscript -e 'BiocManager::install(c("scater","scran","scrapper","scuttle","MouseThymusAgeing","SingleR","celldex","DropletUtils","SingleCellExperiment","SummarizedExperiment","enrichplot","org.Mm.eg.db","org.Hs.eg.db","org.Rn.eg.db","batchelor","iSEE","slingshot","miloR","ComplexHeatmap","harmony","scDblFinder","celda","destiny","BiocNeighbors","DESeq2"), ask = FALSE, update = FALSE)'
+          Rscript -e 'stopifnot(requireNamespace("scrapper", quietly = TRUE), requireNamespace("SingleCellExperiment", quietly = TRUE), requireNamespace("BiocNeighbors", quietly = TRUE), requireNamespace("DESeq2", quietly = TRUE))'
           Rscript -e 'install.packages("symphony", repos = "https://cloud.r-project.org")'
           Rscript -e 'stopifnot(requireNamespace("symphony", quietly = TRUE))'
           Rscript -e 'remotes::install_github(c("immunogenomics/presto", "GfellerLab/SuperCell", "jinworks/CellChat", "YuLab-SMU/aisdk", "YuLab-SMU/ggsc", "YuLab-SMU/yulab.utils", "YuLab-SMU/fanyi", "KlugerLab/ALRA", "aiminXie/scPAS", "neurorestore/Augur"), upgrade = "never")'
@@ -90,15 +90,6 @@ jobs:
           Rscript -e 'remotes::install_deps("sclet-src", dependencies = c("Depends","Imports","LinkingTo"), upgrade = "never")'
           R CMD INSTALL sclet-src
           Rscript -e 'stopifnot(requireNamespace("sclet", quietly = TRUE))'
-
-      - name: Pull cached book data
-        working-directory: docs-src/bookdown
-        run: |
-          mkdir -p data
-          cp -f ../../sclet-src/bookdown/data/*.rds data/ 2>/dev/null || true
-          cp -f ../../sclet-src/bookdown/data/*.txt data/ 2>/dev/null || true
-          cp -f ../../sclet-src/bookdown/data/*.tbl data/ 2>/dev/null || true
-          cp -f ../../sclet-src/bookdown/data/*.csv data/ 2>/dev/null || true
 
       - name: Detect book directory
         shell: bash
