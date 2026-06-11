@@ -62,16 +62,24 @@ jobs:
             libcurl4-openssl-dev \
             libssl-dev \
             libxml2-dev \
-            libhdf5-dev \
-            libpng-dev \
-            libjpeg-dev \
-            libtiff5-dev \
-            libfreetype6-dev \
+            libharfbuzz-dev \
+            libfribidi-dev \
+            liblz4-dev \
+            libzstd-dev \
+            zlib1g-dev \
             libfontconfig1-dev \
-            libglpk-dev
-          sudo apt-get install -y libglpk40t64 || sudo apt-get install -y libglpk40 || true
-          sudo ldconfig
-          ldconfig -p | grep -E 'libglpk\.so' || true
+            libfreetype6-dev \
+            libpng-dev \
+            libtiff5-dev \
+            libjpeg-dev \
+            libcairo2-dev \
+            libbz2-dev \
+            liblzma-dev \
+            libmagick++-dev \
+            libhdf5-dev
+          if ! ldconfig -p | grep -q 'libglpk\.so\.40'; then
+            sudo apt-get install -y libglpk40 || sudo apt-get install -y libglpk40t64 || sudo apt-get install -y libglpk-dev
+          fi
 
       - name: Install R bootstrap dependencies
         run: Rscript -e 'install.packages(c("remotes", "BiocManager"))'
