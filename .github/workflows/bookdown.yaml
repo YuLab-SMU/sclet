@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: bookdown-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-deploy:
@@ -72,7 +72,7 @@ jobs:
           Rscript -e 'install.packages("fs")'
           Rscript -e 'install.packages(c("bookdown","rmarkdown","knitr"))'
           Rscript -e 'stopifnot(requireNamespace("bookdown", quietly = TRUE), requireNamespace("rmarkdown", quietly = TRUE), requireNamespace("knitr", quietly = TRUE))'
-          Rscript -e 'install.packages(c("shadowtext","conflicted","aplot","ggplot2","pkgbuild","patchwork","gdtools","NMF","circlize","reticulate"))'
+          Rscript -e 'install.packages(c("shadowtext","conflicted","aplot","ggplot2","pkgbuild","patchwork","gdtools","NMF","circlize"))'
           Rscript -e 'BiocManager::install("YuLab-SMU/ggtree", ask = FALSE, update = FALSE)'
           Rscript -e 'BiocManager::install("clusterProfiler", ask = FALSE, update = TRUE, force = TRUE)'
           Rscript -e 'stopifnot(requireNamespace("clusterProfiler", quietly = TRUE))'
@@ -80,8 +80,8 @@ jobs:
           Rscript -e 'stopifnot(requireNamespace("ensembldb", quietly = TRUE))'
           Rscript -e 'BiocManager::install("SpatialExperiment", ask = FALSE, update = FALSE, force = TRUE)'
           Rscript -e 'stopifnot(requireNamespace("SpatialExperiment", quietly = TRUE))'
-          Rscript -e 'BiocManager::install(c("SVP", "AUCell", "GSVA", "UCell", "basilisk", "zellkonverter"), ask = FALSE, update = FALSE)'
-          Rscript -e 'BiocManager::install(c("scater","scran","scrapper","scuttle","TENxPBMCData","scRNAseq","MouseThymusAgeing","SingleR","celldex","DropletUtils","SingleCellExperiment","SummarizedExperiment","velociraptor","enrichplot","org.Mm.eg.db","org.Hs.eg.db","org.Rn.eg.db","batchelor","iSEE","slingshot","miloR","ComplexHeatmap","harmony","scDblFinder","celda","destiny","STexampleData","BiocNeighbors","DESeq2"), ask = FALSE, update = FALSE)'
+          Rscript -e 'BiocManager::install(c("AUCell", "GSVA", "UCell", "zellkonverter"), ask = FALSE, update = FALSE)'
+          Rscript -e 'BiocManager::install(c("scater","scran","scrapper","scuttle","TENxPBMCData","MouseThymusAgeing","SingleR","celldex","DropletUtils","SingleCellExperiment","SummarizedExperiment","velociraptor","enrichplot","org.Mm.eg.db","org.Hs.eg.db","org.Rn.eg.db","batchelor","iSEE","slingshot","miloR","ComplexHeatmap","harmony","scDblFinder","celda","destiny","BiocNeighbors","DESeq2"), ask = FALSE, update = FALSE)'
           Rscript -e 'stopifnot(requireNamespace("scrapper", quietly = TRUE), requireNamespace("TENxPBMCData", quietly = TRUE), requireNamespace("SingleCellExperiment", quietly = TRUE), requireNamespace("BiocNeighbors", quietly = TRUE), requireNamespace("DESeq2", quietly = TRUE))'
           Rscript -e 'install.packages("symphony", repos = "https://cloud.r-project.org")'
           Rscript -e 'stopifnot(requireNamespace("symphony", quietly = TRUE))'
@@ -90,6 +90,15 @@ jobs:
           Rscript -e 'remotes::install_deps("sclet-src", dependencies = c("Depends","Imports","LinkingTo"), upgrade = "never")'
           R CMD INSTALL sclet-src
           Rscript -e 'stopifnot(requireNamespace("sclet", quietly = TRUE))'
+
+      - name: Pull cached book data
+        working-directory: docs-src/bookdown
+        run: |
+          mkdir -p data
+          cp -f ../../sclet-src/bookdown/data/*.rds data/ 2>/dev/null || true
+          cp -f ../../sclet-src/bookdown/data/*.txt data/ 2>/dev/null || true
+          cp -f ../../sclet-src/bookdown/data/*.tbl data/ 2>/dev/null || true
+          cp -f ../../sclet-src/bookdown/data/*.csv data/ 2>/dev/null || true
 
       - name: Detect book directory
         shell: bash
@@ -109,61 +118,6 @@ jobs:
             ls -la "$BOOKDIR" >&2
             exit 1
           fi
-
-      - name: Generate demo data
-        shell: bash
-        run: |
-          set -euo pipefail
-          ws="$GITHUB_WORKSPACE"
-          bookdir="$BOOKDIR"
-          target_dir="$ws/$bookdir/data"
-          mkdir -p "$target_dir"
-
-          # Find and run data-raw scripts
-          candidates=(
-            "$ws/$bookdir/data-raw"
-            "$ws/docs-src/bookdown/data-raw"
-            "$ws/sclet-src/bookdown/data-raw"
-          )
-          script_dir=""
-          for d in "${candidates[@]}"; do
-            if [ -d "$d" ] && [ -f "$d/pbmc-3k-sce.R" ]; then
-              script_dir="$d"
-              break
-            fi
-          done
-          if [ -z "$script_dir" ]; then
-            echo "Could not find data-raw directory" >&2
-            exit 1
-          fi
-          echo "Using data-raw: $script_dir"
-          echo "Target data dir: $target_dir"
-
-          # Run each data-raw script
-          for script in \
-            pbmc-3k-sce.R \
-            hermann-sperm-velo.R \
-            visium-dlpfc-spatial.R \
-            scenic-refs.R \
-            cell2location-paired.R
-          do
-            echo "=== Running $script ==="
-            Rscript -e "
-              setwd('$script_dir')
-              source('$script')
-            "
-          done
-
-          # Verify output files
-          for f in pbmc-3k-sce.rds hermann-sperm-velo.rds visium-dlpfc-sub.rds dlpfpc-spatial.rds dlpfpc-ref.rds; do
-            if [ ! -f "$target_dir/$f" ]; then
-              echo "ERROR: Missing expected output: $target_dir/$f" >&2
-              ls -la "$target_dir" || true
-              exit 1
-            fi
-            echo "  OK: $target_dir/$f"
-          done
-          echo "All demo data generated."
 
       - name: Build site
         run: |

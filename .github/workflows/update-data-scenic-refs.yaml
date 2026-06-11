@@ -1,0 +1,48 @@
+name: update-data-scenic-refs
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 19 * * 0"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout docs branch
+        uses: actions/checkout@v4
+        with:
+          ref: docs
+          path: docs-src
+
+      - name: Checkout package source
+        uses: actions/checkout@v4
+        with:
+          ref: devel
+          path: sclet-src
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+          use-public-rspm: true
+
+      - name: Build SCENIC reference caches
+        working-directory: docs-src/bookdown/data-raw
+        run: Rscript -e 'source("../../../../sclet-src/bookdown/data-raw/scenic-refs.R")'
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          path: docs-src
+          branch: update-data-scenic-refs
+          base: docs
+          title: "chore(data): update SCENIC reference caches"
+          commit-message: "chore(data): update SCENIC reference caches"
+          body: "Update cached SCENIC reference files generated from bookdown/data-raw/scenic-refs.R."
+          add-paths: |
+            bookdown/data/allTFs_hg38.txt
+            bookdown/data/motifs-v9-nr.hgnc.tbl
