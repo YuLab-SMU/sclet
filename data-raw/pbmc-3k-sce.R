@@ -12,6 +12,7 @@ library(scuttle)
 library(TENxPBMCData)
 library(SingleCellExperiment)
 library(SummarizedExperiment)
+library(Matrix)
 
 set.seed(20241001)
 
@@ -57,6 +58,11 @@ pbmc <- FindNeighbors(pbmc, dims = 1:10)
 pbmc <- FindClusters(pbmc, resolution = 0.88)
 pbmc$ident <- as.character(SingleCellExperiment::colLabels(pbmc))
 pbmc <- RunUMAP(pbmc, 1:10)
+
+SummarizedExperiment::assays(pbmc) <- S4Vectors::SimpleList(lapply(
+    SummarizedExperiment::assays(pbmc),
+    function(x) Matrix::Matrix(as.matrix(x), sparse = TRUE)
+))
 
 S4Vectors::metadata(pbmc)$sclet_bookdown_cache <- list(
     source = "TENxPBMCData::pbmc3k",
