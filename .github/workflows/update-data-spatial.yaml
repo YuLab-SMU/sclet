@@ -60,12 +60,12 @@ jobs:
           ws="$GITHUB_WORKSPACE"
           bookdir=$(dirname "$(find "$ws/docs-src" -maxdepth 6 -name '_bookdown.yml' -print -quit)")
           mkdir -p "$bookdir/data"
-          cd "$ws/sclet-src/bookdown/data-raw"
+          cd "$bookdir/data-raw"
           Rscript -e 'source("visium-dlpfc-spatial.R")'
           Rscript -e 'source("cell2location-paired.R")'
-          cp -f "$ws/sclet-src/bookdown/data/visium-dlpfc-sub.rds" "$bookdir/data/"
-          cp -f "$ws/sclet-src/bookdown/data/dlpfpc-spatial.rds" "$bookdir/data/"
-          cp -f "$ws/sclet-src/bookdown/data/dlpfpc-ref.rds" "$bookdir/data/"
+          cp -f "$bookdir/data/visium-dlpfc-sub.rds" "$bookdir/data/"
+          cp -f "$bookdir/data/dlpfpc-spatial.rds" "$bookdir/data/"
+          cp -f "$bookdir/data/dlpfpc-ref.rds" "$bookdir/data/"
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@v6

@@ -60,9 +60,9 @@ jobs:
           ws="$GITHUB_WORKSPACE"
           bookdir=$(dirname "$(find "$ws/docs-src" -maxdepth 6 -name '_bookdown.yml' -print -quit)")
           mkdir -p "$bookdir/data"
-          cd "$ws/sclet-src/bookdown/data-raw"
+          cd "$bookdir/data-raw"
           Rscript -e 'source("pbmc-3k-sce.R")'
-          cp -f "$ws/sclet-src/bookdown/data/pbmc-3k-sce.rds" "$bookdir/data/"
+          cp -f "$bookdir/data/pbmc-3k-sce.rds" "$bookdir/data/"
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@v6

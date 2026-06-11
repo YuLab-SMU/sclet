@@ -60,11 +60,11 @@ jobs:
           ws="$GITHUB_WORKSPACE"
           bookdir=$(dirname "$(find "$ws/docs-src" -maxdepth 6 -name '_bookdown.yml' -print -quit)")
           mkdir -p "$bookdir/data"
-          cd "$ws/sclet-src/bookdown/data-raw"
+          cd "$bookdir/data-raw"
           Rscript -e 'source("hermann-sperm-velo.R")'
           Rscript -e 'source("hermann-sperm-dynamics.R")'
-          cp -f "$ws/sclet-src/bookdown/data/hermann-sperm-velo.rds" "$bookdir/data/"
-          cp -f "$ws/sclet-src/bookdown/data/hermann-sperm-dynamics.rds" "$bookdir/data/"
+          cp -f "$bookdir/data/hermann-sperm-velo.rds" "$bookdir/data/"
+          cp -f "$bookdir/data/hermann-sperm-dynamics.rds" "$bookdir/data/"
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@v6
