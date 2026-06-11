@@ -77,6 +77,6 @@ jobs:
           commit-message: "chore(data): update spatial bookdown caches"
           body: "Update cached spatial data generated from bookdown/data-raw."
           add-paths: |
-            bookdown/data/visium-dlpfc-sub.rds
-            bookdown/data/dlpfpc-spatial.rds
-            bookdown/data/dlpfpc-ref.rds
+            data/visium-dlpfc-sub.rds
+            data/dlpfpc-spatial.rds
+            data/dlpfpc-ref.rds

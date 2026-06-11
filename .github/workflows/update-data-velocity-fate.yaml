@@ -76,5 +76,5 @@ jobs:
           commit-message: "chore(data): update velocity and fate bookdown caches"
           body: "Update cached velocity and CellRank data generated from bookdown/data-raw."
           add-paths: |
-            bookdown/data/hermann-sperm-velo.rds
-            bookdown/data/hermann-sperm-dynamics.rds
+            data/hermann-sperm-velo.rds
+            data/hermann-sperm-dynamics.rds

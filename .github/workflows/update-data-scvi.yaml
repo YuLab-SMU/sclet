@@ -74,4 +74,4 @@ jobs:
           commit-message: "chore(data): update scVI integration cache"
           body: "Update cached scVI integration output generated from bookdown/data-raw/pbmc-scvi.R."
           add-paths: |
-            bookdown/data/rm_scvi_pbmc.rds
+            data/rm_scvi_pbmc.rds

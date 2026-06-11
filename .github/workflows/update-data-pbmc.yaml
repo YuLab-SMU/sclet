@@ -74,4 +74,4 @@ jobs:
           commit-message: "chore(data): update PBMC bookdown cache"
           body: "Update cached PBMC data generated from bookdown/data-raw/pbmc-3k-sce.R."
           add-paths: |
-            bookdown/data/pbmc-3k-sce.rds
+            data/pbmc-3k-sce.rds
