@@ -40,8 +40,6 @@ jobs:
           mkdir -p "$bookdir/data"
           cd "$bookdir/data-raw"
           Rscript -e 'source("scenic-refs.R")'
-          cp -f "$bookdir/data/allTFs_hg38.txt" "$bookdir/data/"
-          cp -f "$bookdir/data/motifs-v9-nr.hgnc.tbl" "$bookdir/data/"
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@v6
