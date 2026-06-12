@@ -46,7 +46,6 @@ options(width=60)
 
 opts_chunk$set(message=FALSE, warning=FALSE, eval=eval_chunks, echo=TRUE, cache=TRUE)
 
-eval_chunks <- TRUE
 ```
 
 
