@@ -44,6 +44,7 @@ jobs:
           install.packages('remotes')
           remotes::install_github("saeyslab/nichenetr")
           remotes::install_github("neurorestore/Augur")
+          remotes::install_github(c("immunogenomics/harmony", "immunogenomics/symphony"))
         shell: Rscript {0}
 
       - uses: r-lib/actions/check-r-package@v2

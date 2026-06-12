@@ -27,9 +27,10 @@ RunImputation <- function(sce, method = "ALRA", assay = "logcounts", ...) {
         
         mat <- SummarizedExperiment::assay(sce, assay)
         
-        # ALRA expects cells as rows and genes as columns
-        # Using t() works for both dense and sparse matrices (dgCMatrix)
-        mat_t <- t(mat)
+        # ALRA expects cells as rows and genes as columns.
+        # Convert to a plain matrix before calling ALRA, because ALRA's
+        # internal matrix operations can drop dimensions on sparse/delayed inputs.
+        mat_t <- as.matrix(t(mat))
         
         # We wrap this in a message because ALRA can be verbose and take time
         message("Running ALRA imputation...")
