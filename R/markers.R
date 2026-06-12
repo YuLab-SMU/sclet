@@ -42,8 +42,11 @@ FindAllMarkers <- function(
 
     message("Calculating markers for all clusters using presto...")
     
-    # presto::wilcoxauc works directly on the matrix
+    # presto::wilcoxauc does not support DelayedMatrix directly.
     mat <- SummarizedExperiment::assay(object, assay)
+    if (inherits(mat, "DelayedArray")) {
+        mat <- as.matrix(mat)
+    }
     results <- wilcoxauc(mat, idents)
 
     # presto returns: feature, group, avg_logFC, pval, padj, pct_in, pct_out, auc
@@ -249,6 +252,10 @@ resolve_marker_assay <- function(object, assay = NULL, layer = NULL) {
 FindMarkers_Presto <- function(object, ident.1 = NULL, ident.2 = NULL, clusters, 
                               min.pct = 0.01,logfc.threshold = 0.1, base=2,
                               pseudocount.use=1, ...) {
+
+    if (inherits(object, "DelayedArray")) {
+        object <- as.matrix(object)
+    }
 
     if (is.null(ident.1)) stop("ident.1 must be specified")
     if (is.null(clusters)) stop("clusters must be specified")

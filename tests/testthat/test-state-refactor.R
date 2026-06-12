@@ -360,6 +360,26 @@ test_that("FindMarkers prefers logcounts when active assay is scaled", {
     expect_true(is.data.frame(res))
 })
 
+test_that("FindMarkers handles delayed marker assay for presto", {
+    skip_if_not_installed("DelayedArray")
+    skip_if_not_installed("scuttle")
+    skip_if_not_installed("presto")
+
+    set.seed(8)
+    sce <- scuttle::mockSCE(ncells = 24, ngenes = 60)
+    sce$cluster <- rep(c("A", "B"), each = 12)
+    SingleCellExperiment::colLabels(sce) <- factor(sce$cluster)
+    sce <- NormalizeData(sce)
+    SummarizedExperiment::assay(sce, "logcounts") <- DelayedArray::DelayedArray(
+        SummarizedExperiment::assay(sce, "logcounts")
+    )
+
+    expect_no_error({
+        res <- FindMarkers(sce, ident.1 = "A")
+    })
+    expect_true(is.data.frame(res))
+})
+
 test_that("expression source resolver prefers active layer and falls back from scaled", {
     sce <- SingleCellExperiment::SingleCellExperiment(
         list(
