@@ -16,12 +16,50 @@ More importantly, `sclet` quietly records a **Directed Acyclic Graph (DAG)** in 
 
 ## Macro View: `Status()`
 
+Let's build a compact PBMC object directly during book rendering. This keeps the examples reproducible without relying on a cached `.rds` file.
+
+```{r pbmc-demo}
+set.seed(20241001)
+pbmc <- TENxPBMCData::TENxPBMCData("pbmc3k")
+rownames(pbmc) <- scuttle::uniquifyFeatureNames(rownames(pbmc), SummarizedExperiment::rowData(pbmc)$Symbol_TENx)
+pbmc <- SingleCellExperiment::SingleCellExperiment(
+    assays = list(counts = SummarizedExperiment::assay(pbmc, "counts")),
+    rowData = S4Vectors::DataFrame(SummarizedExperiment::rowData(pbmc)),
+    colData = S4Vectors::DataFrame(SummarizedExperiment::colData(pbmc))
+)
+
+pbmc <- QCMetrics(pbmc)
+pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, "^MT-")
+pbmc <- subset_feature(pbmc, mincell = 3, peek = FALSE)
+keep <- colData(pbmc)$nFeature_RNA > 200 &
+    colData(pbmc)$nFeature_RNA < 2500 &
+    colData(pbmc)$percent.mt < 5
+pbmc <- pbmc[, keep, drop = FALSE]
+
+if (ncol(pbmc) > 800) {
+    pbmc <- pbmc[, sample(seq_len(ncol(pbmc)), 800), drop = FALSE]
+}
+
+pbmc <- NormalizeData(pbmc)
+pbmc <- FindVariableFeatures(pbmc, method = "scran")
+var_features <- VariableFeatures(pbmc)
+if (length(var_features) > 2000) {
+    var_features <- var_features[seq_len(2000)]
+}
+
+pbmc <- ScaleData(pbmc)
+pbmc <- RunPCA(pbmc, subset_row = var_features, layer = "scaled")
+pbmc <- FindNeighbors(pbmc, dims = 1:10)
+pbmc <- FindClusters(pbmc, resolution = 0.88)
+pbmc$ident <- as.character(SingleCellExperiment::colLabels(pbmc))
+pbmc <- RunUMAP(pbmc, 1:10)
+```
+
 Let's look at a minimal runnable example. By simply calling `Status()`, `sclet` provides a comprehensive health report of your object:
 
 ```{r state-status}
 library(sclet)
-# Load a pre-processed PBMC dataset
-pbmc <- readRDS("data/pbmc-3k-sce.rds")
+# Use the PBMC object created in index.Rmd
 
 # Check the current status of the object
 Status(pbmc)

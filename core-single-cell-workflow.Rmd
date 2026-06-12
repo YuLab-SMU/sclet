@@ -7,9 +7,6 @@ Every later mainline in the book builds on top of this one. If you are unsure wh
 ```{r pbmc-data, include=FALSE}
 knitr::opts_chunk$set(warning = FALSE,
                       message = TRUE)
-
-f <- "data/pbmc-3k-sce.rds"
-pbmc <- readRDS(f)
 ```
 
 ## Read 10X data

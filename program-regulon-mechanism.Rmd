@@ -27,7 +27,6 @@ Let's define a few gene sets of interest and run the scoring on our PBMC dataset
 
 ```{r geneset-scoring-setup}
 library(sclet)
-pbmc <- readRDS("data/pbmc-3k-sce.rds")
 
 # Define signatures
 my_signatures <- list(

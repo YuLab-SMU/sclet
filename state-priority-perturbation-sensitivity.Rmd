@@ -19,7 +19,7 @@ The simplest entry point is `RunStatePriorityWorkflow()`. It delegates to Augur 
 
 ```{r state-priority-workflow, eval=FALSE}
 library(sclet)
-sce <- readRDS("data/pbmc-3k-sce.rds")
+sce <- pbmc
 
 # The object must have condition labels and cluster labels in colData.
 sce$condition <- ifelse(seq_len(ncol(sce)) %% 2 == 0, "treated", "control")
@@ -78,7 +78,7 @@ head(auc_table)
 
 ```{r rare-cell-density, eval = eval_chunks && requireNamespace("BiocNeighbors", quietly = TRUE)}
 library(sclet)
-sce <- readRDS("data/pbmc-3k-sce.rds")
+sce <- pbmc
 
 # Ensure PCA is in the object (already there from core workflow)
 sce <- RunRareCellDetection(

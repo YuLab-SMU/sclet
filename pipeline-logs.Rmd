@@ -11,8 +11,7 @@ pipeline_ready <- eval_chunks
 
 if (pipeline_ready) {
     library(sclet)
-    sce_pipeline_input <- readRDS("data/pbmc-3k-sce.rds")
-    sce_pipeline_input <- sce_pipeline_input[, seq_len(min(800, ncol(sce_pipeline_input)))]
+    sce_pipeline_input <- pbmc[, seq_len(min(800, ncol(pbmc)))]
 }
 ```
 

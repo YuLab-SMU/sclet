@@ -19,7 +19,7 @@ To reproduce this locally, the only real prerequisites are an `SCE` object with 
 
 ```{r, eval=FALSE}
 library(sclet)
-sce <- readRDS("data/pbmc-3k-sce.rds")
+sce <- pbmc
 
 # Launch the app
 RunExplorer(sce)
