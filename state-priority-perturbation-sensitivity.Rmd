@@ -40,7 +40,7 @@ The real Augur run is not executed during book rendering because it requires the
 
 ```{r augur-direct, eval=FALSE}
 library(sclet)
-sce <- readRDS("data/pbmc-3k-sce.rds")
+sce <- pbmc
 sce$condition <- ifelse(seq_len(ncol(sce)) %% 2 == 0, "treated", "control")
 
 sce <- RunPerturbationPriority(

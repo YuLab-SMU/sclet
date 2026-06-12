@@ -66,7 +66,7 @@ plot_list(p1, p2)
 Quality control thresholds remove obvious outliers, but they do not solve two common single-cell annoyances: ambient RNA contamination and doublets. `sclet` now exposes both through `SingleCellExperiment`-native wrappers, so the outputs stay in `colData` or new assays instead of being scattered across ad hoc objects.
 
 ```{r pbmc-cleaning-advanced, eval = eval_chunks && requireNamespace("scDblFinder", quietly = TRUE) && requireNamespace("celda", quietly = TRUE)}
-pbmc_clean <- pbmc[, seq_len(min(400, ncol(pbmc)))]
+pbmc_clean <- pbmc
 
 pbmc_clean <- RunDoubletFinder(pbmc_clean)
 table(pbmc_clean$scDblFinder.class)
@@ -94,7 +94,7 @@ VariableFeaturePlot(pbmc, label = top10, method = "scran")
 If you want a denoised expression view for visualization or downstream ranking, `RunImputation()` adds a zero-preserving ALRA layer without contaminating the original `counts` or `logcounts`. In other words, this is an extra view of the data, not a silent replacement of the baseline matrix.
 
 ```{r pbmc-imputation, eval = eval_chunks && requireNamespace("ALRA", quietly = TRUE)}
-pbmc_impute <- pbmc[, seq_len(min(400, ncol(pbmc)))]
+pbmc_impute <- pbmc
 pbmc_impute <- NormalizeData(pbmc_impute)
 pbmc_impute <- RunImputation(pbmc_impute, assay = "logcounts")
 

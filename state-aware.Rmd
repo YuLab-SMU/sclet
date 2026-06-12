@@ -36,10 +36,6 @@ keep <- colData(pbmc)$nFeature_RNA > 200 &
     colData(pbmc)$percent.mt < 5
 pbmc <- pbmc[, keep, drop = FALSE]
 
-if (ncol(pbmc) > 800) {
-    pbmc <- pbmc[, sample(seq_len(ncol(pbmc)), 800), drop = FALSE]
-}
-
 pbmc <- NormalizeData(pbmc)
 pbmc <- FindVariableFeatures(pbmc, method = "scran")
 var_features <- VariableFeatures(pbmc)
@@ -59,7 +55,7 @@ Let's look at a minimal runnable example. By simply calling `Status()`, `sclet` 
 
 ```{r state-status}
 library(sclet)
-# Use the PBMC object created in index.Rmd
+# Use the PBMC object created above
 
 # Check the current status of the object
 Status(pbmc)

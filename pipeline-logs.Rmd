@@ -11,7 +11,7 @@ pipeline_ready <- eval_chunks
 
 if (pipeline_ready) {
     library(sclet)
-    sce_pipeline_input <- pbmc[, seq_len(min(800, ncol(pbmc)))]
+    sce_pipeline_input <- pbmc
 }
 ```
 
