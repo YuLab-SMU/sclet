@@ -23,9 +23,10 @@ rownames(pbmc4k) <- scuttle::uniquifyFeatureNames(rownames(pbmc4k), rowData(pbmc
 
 
 ## Preprocess
-```{r pbmc3k4k-preprocess, eval=FALSE}
+```{r pbmc3k4k-preprocess, eval=eval_chunks}
 library(sclet)
 
+# Apply standard QC thresholds before normalization
 sce_process <- function(sce) {
   sce <- QCMetrics(sce)
   sce[["percent.mt"]] <- PercentageFeatureSet(sce, "^MT-")
@@ -55,11 +56,11 @@ combined_pbmc <- sce_merge(pbmc_list)
 # Integration using fastMNN (default)
 rm_batch_pbmc <- RunIntegration(combined_pbmc, method = "fastMNN", batch = "batch")
 
-# RunIntegration registers a logical "corrected" layer for fastMNN
+# RunIntegration registers the logical "corrected" layer for fastMNN
 DefaultLayer(rm_batch_pbmc)
 Layers(rm_batch_pbmc)
 
-# and records a typed integration state
+# and records the typed integration state
 has_integration(rm_batch_pbmc)
 get_integration(rm_batch_pbmc)
 ```
