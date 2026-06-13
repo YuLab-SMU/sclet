@@ -35,7 +35,7 @@ PercentageFeatureSet <- function(object, pattern = NULL, feature=NULL) {
     if (length(has_pattern) == 0) {
         return(rep(0, ncol(object)))
     }
-    subset_counts <- sclet_matrix_colSums(counts_mat[has_pattern, , drop = FALSE])
+    subset_counts <- MatrixGenerics::colSums(counts_mat[has_pattern, , drop = FALSE])
     percent <- (subset_counts / total_counts) * 100
     percent[is.na(percent)] <- 0
     return(percent)

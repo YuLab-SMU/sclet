@@ -279,7 +279,7 @@ FindMarkers_Presto <- function(object, ident.1 = NULL, ident.2 = NULL, clusters,
     thresh.min <- 0
     mat <- object[features, ]
     pct.1 <- round(sclet_matrix_rowSums(mat[, cells.1, drop = FALSE] > thresh.min)/length(cells.1), digits = 3)
-    pct.2 <- round(sclet_matrix_rowSums(mat[, cells.2, drop = FALSE] > thresh.min)/length(cells.2), digits = 3)
+    pct.2 <- round(sclet_matrix_rowSums(mat[, cells.2, drop = FALSE] > thresh.min) / length(cells.2), digits = 3)
     data.1 <- mean.fxn(mat[, cells.1, drop = FALSE])
     data.2 <- mean.fxn(mat[, cells.2, drop = FALSE])
     fc <- (data.1 - data.2) 

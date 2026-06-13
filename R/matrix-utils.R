@@ -1,49 +1,49 @@
 sclet_matrix_colSums <- function(x, na.rm = FALSE, dims = 1L) {
     if (methods::is(x, "DelayedArray")) {
-        return(MatrixGenerics::colSums(x, na.rm = na.rm, dims = dims))
+        return(MatrixGenerics::colSums(x, na.rm = na.rm))
     }
     if (methods::is(x, "Matrix")) {
-        return(Matrix::colSums(x, na.rm = na.rm, dims = dims))
+        return(Matrix::colSums(x, na.rm = na.rm))
     }
     base::colSums(x, na.rm = na.rm, dims = dims)
 }
 
 sclet_matrix_rowSums <- function(x, na.rm = FALSE, dims = 1L) {
     if (methods::is(x, "DelayedArray")) {
-        return(MatrixGenerics::rowSums(x, na.rm = na.rm, dims = dims))
+        return(MatrixGenerics::rowSums(x, na.rm = na.rm))
     }
     if (methods::is(x, "Matrix")) {
-        return(Matrix::rowSums(x, na.rm = na.rm, dims = dims))
+        return(Matrix::rowSums(x, na.rm = na.rm))
     }
     base::rowSums(x, na.rm = na.rm, dims = dims)
 }
 
 sclet_matrix_colMeans <- function(x, na.rm = FALSE, dims = 1L) {
     if (methods::is(x, "DelayedArray")) {
-        return(MatrixGenerics::colMeans(x, na.rm = na.rm, dims = dims))
+        return(MatrixGenerics::colMeans(x, na.rm = na.rm))
     }
     if (methods::is(x, "Matrix")) {
-        return(Matrix::colMeans(x, na.rm = na.rm, dims = dims))
+        return(Matrix::colMeans(x, na.rm = na.rm))
     }
     base::colMeans(x, na.rm = na.rm, dims = dims)
 }
 
 sclet_matrix_rowMeans <- function(x, na.rm = FALSE, dims = 1L) {
     if (methods::is(x, "DelayedArray")) {
-        return(MatrixGenerics::rowMeans(x, na.rm = na.rm, dims = dims))
+        return(MatrixGenerics::rowMeans(x, na.rm = na.rm))
     }
     if (methods::is(x, "Matrix")) {
-        return(Matrix::rowMeans(x, na.rm = na.rm, dims = dims))
+        return(Matrix::rowMeans(x, na.rm = na.rm))
     }
     base::rowMeans(x, na.rm = na.rm, dims = dims)
 }
 
 sclet_matrix_rowSds <- function(x, na.rm = FALSE, dims = 1L) {
     if (methods::is(x, "DelayedArray")) {
-        return(MatrixGenerics::rowSds(x, na.rm = na.rm, dims = dims))
+        return(MatrixGenerics::rowSds(x, na.rm = na.rm))
     }
     if (methods::is(x, "Matrix")) {
-        return(MatrixGenerics::rowSds(x, na.rm = na.rm, dims = dims))
+        return(Matrix::rowSds(x, na.rm = na.rm))
     }
     apply(x, 1, stats::sd, na.rm = na.rm)
 }
