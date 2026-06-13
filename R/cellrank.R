@@ -12,6 +12,7 @@
 #' @return A SingleCellExperiment object with CellRank states and transition probabilities recorded.
 #' @importFrom S4Vectors metadata metadata<-
 #' @importFrom SummarizedExperiment colData colData<-
+#' @importFrom utils write.csv
 #' @export
 RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), name = "cellrank", ...) {
     if (!requireNamespace("basilisk", quietly = TRUE)) {

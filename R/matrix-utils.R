@@ -38,12 +38,13 @@ sclet_matrix_rowMeans <- function(x, na.rm = FALSE, dims = 1L) {
     base::rowMeans(x, na.rm = na.rm, dims = dims)
 }
 
+#' @importFrom MatrixGenerics rowSds
 sclet_matrix_rowSds <- function(x, na.rm = FALSE, dims = 1L) {
     if (methods::is(x, "DelayedArray")) {
         return(MatrixGenerics::rowSds(x, na.rm = na.rm))
     }
     if (methods::is(x, "Matrix")) {
-        return(Matrix::rowSds(x, na.rm = na.rm))
+        return(MatrixGenerics::rowSds(x, na.rm = na.rm))
     }
     apply(x, 1, stats::sd, na.rm = na.rm)
 }
