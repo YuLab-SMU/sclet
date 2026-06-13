@@ -27,11 +27,11 @@ subset_feature <- function(x, mincell, peek = TRUE) {
     y <- counts(x)
     
     if (!peek) {
-        return(x[Matrix::rowSums(y > 0) >= mincell, ])
+        return(x[sclet_matrix_rowSums(y > 0) >= mincell, , drop = FALSE])
     }
 
     n <- 0:mincell
-    yy <- sapply(n, \(i) sum(Matrix::rowSums(y > 0) >= i))
+    yy <- sapply(n, \(i) sum(sclet_matrix_rowSums(y > 0) >= i))
     r <- yy/yy[1] * 100
     j <- round(r/2)
     for (i in seq_along(j)) {

@@ -271,15 +271,15 @@ FindMarkers_Presto <- function(object, ident.1 = NULL, ident.2 = NULL, clusters,
         stop("One or both of the identity groups have no cells")}
     
     mean.fxn <- function(x) {
-        log((Matrix::rowSums(expm1(x = x)) + pseudocount.use)/NCOL(x), base = base)
+        log((sclet_matrix_rowSums(expm1(x = x)) + pseudocount.use)/NCOL(x), base = base)
     }
 
     fc.name <- sprintf("avg_log%dFC", base)
     features <- rownames(x = object)
     thresh.min <- 0
     mat <- object[features, ]
-    pct.1 <- round(Matrix::rowSums(mat[, cells.1, drop = FALSE] > thresh.min)/length(cells.1), digits = 3)
-    pct.2 <- round(Matrix::rowSums(mat[, cells.2, drop = FALSE] > thresh.min)/length(cells.2), digits = 3)
+    pct.1 <- round(sclet_matrix_rowSums(mat[, cells.1, drop = FALSE] > thresh.min)/length(cells.1), digits = 3)
+    pct.2 <- round(sclet_matrix_rowSums(mat[, cells.2, drop = FALSE] > thresh.min)/length(cells.2), digits = 3)
     data.1 <- mean.fxn(mat[, cells.1, drop = FALSE])
     data.2 <- mean.fxn(mat[, cells.2, drop = FALSE])
     fc <- (data.1 - data.2) 

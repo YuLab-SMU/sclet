@@ -567,8 +567,8 @@ RunNicheNet <- function(sce, group = NULL,
     }
 
     # Define expressed genes
-    expressed_genes_receiver <- rownames(exprs_mat)[rowMeans(exprs_mat[, receiver_cells, drop=FALSE] > 0) >= exprs_pct]
-    expressed_genes_sender <- rownames(exprs_mat)[rowMeans(exprs_mat[, sender_cells, drop=FALSE] > 0) >= exprs_pct]
+    expressed_genes_receiver <- rownames(exprs_mat)[sclet_matrix_rowMeans(exprs_mat[, receiver_cells, drop=FALSE] > 0) >= as.numeric(exprs_pct)]
+    expressed_genes_sender <- rownames(exprs_mat)[sclet_matrix_rowMeans(exprs_mat[, sender_cells, drop=FALSE] > 0) >= as.numeric(exprs_pct)]
     background_expressed_genes <- expressed_genes_receiver
 
     # Define genes of interest

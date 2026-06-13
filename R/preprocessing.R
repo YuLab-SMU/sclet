@@ -35,7 +35,7 @@ PercentageFeatureSet <- function(object, pattern = NULL, feature=NULL) {
     if (length(has_pattern) == 0) {
         return(rep(0, ncol(object)))
     }
-    subset_counts <- MatrixGenerics::colSums(counts_mat[has_pattern, , drop = FALSE])
+    subset_counts <- sclet_matrix_colSums(counts_mat[has_pattern, , drop = FALSE])
     percent <- (subset_counts / total_counts) * 100
     percent[is.na(percent)] <- 0
     return(percent)
@@ -633,8 +633,8 @@ sclet_model_gene_var <- function(object, ..., assay.type = "logcounts",
 
             idx <- sclet_subset2index(subset.row, mat)
             submat <- mat[idx, , drop = FALSE]
-            means <- MatrixGenerics::rowMeans(submat)
-            vars <- MatrixGenerics::rowVars(submat)
+            means <- sclet_matrix_rowMeans(submat)
+            vars <- MatrixGenerics::rowVars(submat, center = means)
             out <- S4Vectors::DataFrame(
                 mean = means,
                 total = vars,
@@ -715,11 +715,11 @@ ScaleData <- function(object, features = NULL, assay = "logcounts") {
     } else {
         # In-memory logic (could be sparse or dense)
         if (is(mat, "dgCMatrix")) {
-             rm <- Matrix::rowMeans(mat)
+             rm <- sclet_matrix_rowMeans(mat)
              # Sparse matrix rowSds calculation can be tricky if not careful, 
              # but MatrixGenerics handles it or we use sparseMatrixStats if available.
              # Fallback to apply for now if not available, but let's assume MatrixGenerics works.
-             rs <- MatrixGenerics::rowSds(mat)
+             rs <- stats::sd(as.numeric(mat))
         } else {
              rm <- rowMeans(mat)
              rs <- apply(mat, 1, stats::sd)
