@@ -53,6 +53,9 @@ sclet_as_dgCMatrix <- function(x) {
     if (methods::is(x, "dgCMatrix")) {
         return(x)
     }
+    if (methods::is(x, "DelayedArray")) {
+        return(methods::as(x, "dgCMatrix"))
+    }
     if (methods::is(x, "Matrix")) {
         return(methods::as(x, "dgCMatrix"))
     }

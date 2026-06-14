@@ -48,6 +48,7 @@ RunGeneSetScoring <- function(sce, gene_sets = NULL, features = NULL,
     }
     
     expr_mat <- assay(sce, assay_use)
+    expr_mat_for_rank <- NULL
     
     scores <- NULL
     
@@ -56,14 +57,16 @@ RunGeneSetScoring <- function(sce, gene_sets = NULL, features = NULL,
             stop("Please install 'UCell' package to use method='UCell'.")
         }
         message("Running UCell scoring...")
-        scores <- UCell::ScoreSignatures_UCell(expr_mat, features = gene_sets, ncores = ncores, name = "", ...)
+        expr_mat_for_rank <- sclet_as_dgCMatrix(expr_mat)
+        scores <- UCell::ScoreSignatures_UCell(expr_mat_for_rank, features = gene_sets, ncores = ncores, name = "", ...)
         
     } else if (method == "AUCell") {
         if (!requireNamespace("AUCell", quietly = TRUE)) {
             stop("Please install 'AUCell' package to use method='AUCell'.")
         }
         message("Running AUCell scoring...")
-        cells_rankings <- AUCell::AUCell_buildRankings(expr_mat, nCores = ncores, plotStats = FALSE, verbose = FALSE)
+        expr_mat_for_rank <- sclet_as_dgCMatrix(expr_mat)
+        cells_rankings <- AUCell::AUCell_buildRankings(expr_mat_for_rank, nCores = ncores, plotStats = FALSE, verbose = FALSE)
         cells_AUC <- AUCell::AUCell_calcAUC(gene_sets, cells_rankings, nCores = ncores, ...)
         scores <- t(AUCell::getAUC(cells_AUC))
         
