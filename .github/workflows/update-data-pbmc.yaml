@@ -1,0 +1,24 @@
+name: update-data-pbmc
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 18 * * 0"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-data:
+    uses: ./.github/workflows/update-data-template.yaml
+    secrets: inherit
+    with:
+      run_scripts: |
+        Rscript -e 'source("pbmc-3k-sce.R")'
+      bioc_packages: "TENxPBMCData,SingleR,BiocNeighbors"
+      add_paths: |
+        data/knn-refmap-pbmc.rds
+      branch: update-data-pbmc
+      title: "chore(data): update PBMC reference-mapping cache"
+      body: "Update cached PBMC KNN reference-mapping output generated from bookdown/data-raw/pbmc-3k-sce.R."
