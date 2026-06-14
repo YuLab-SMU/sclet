@@ -29,7 +29,7 @@ If your real question is "what does this query dataset correspond to in a refere
 
 If you have a reference `SingleCellExperiment` with cell type annotations, you can use it to map labels to your query dataset quickly:
 
-```{r run-knn-predict, eval = eval_chunks && requireNamespace("BiocNeighbors", quietly = TRUE)}
+```{r run-knn-predict, eval = FALSE}
 set.seed(1)
 ref_idx <- sample(seq_len(ncol(pbmc)), 500)
 ref_sce <- pbmc[, ref_idx]
@@ -53,6 +53,15 @@ get_mapping(query_sce)
 # Visualize the query and reference in the same projection space
 ProjectionPlot(query_sce, ref_sce)
 ```
+
+```{r run-knn-predict-cache, include=FALSE, eval=FALSE}
+knn_query_sce <- if (file.exists("data/knn-refmap-pbmc.rds")) {
+    readRDS("data/knn-refmap-pbmc.rds")
+} else {
+    NULL
+}
+```
+
 
 ### Run SingleR with sclet
 
@@ -92,6 +101,10 @@ plot_reference_label_confidence(
 )
 ```
 
+### Reference mapping workflow
+
+`RunReferenceWorkflow()` is the higher-level entry point for the same mainline. It is still useful to show in the book, but if the dependency stack gets heavy we can move this example to a separate cache workflow and let the rendered chapter read the saved result instead of recomputing it every time.
+
 ```{r run-reference-workflow, eval = eval_chunks && requireNamespace("SingleR", quietly = TRUE) && requireNamespace("celldex", quietly = TRUE)}
 pbmc_ref <- RunReferenceWorkflow(
     pbmc,
@@ -113,7 +126,6 @@ plot_reference_label_confidence(
     id = "reference_main_mapping"
 )
 ```
-
 
 ### Symphony Atlas Mapping
 
@@ -138,7 +150,7 @@ object <- RunReferenceMapping(
 table(object$symphony_predicted)
 head(object$symphony_confidence)
 
-# Check mapping state
+# Inspect the recorded mapping state
 get_mapping(object, id = "symphony_demo")
 ```
 
@@ -170,7 +182,7 @@ pbmc[['dice_label']] <- res2$labels
 ```
 
 
-### Comparision with manual annotation result
+### Comparison with manual annotation result
 
 ```{r annotation-comparison, fig.width=16, fig.height=6, eval = eval_chunks && exists("res") && exists("res2")}
 # Ensure manual labels are available in colData for comparison

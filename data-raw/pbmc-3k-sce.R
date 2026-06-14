@@ -1,23 +1,21 @@
-## Build a compact processed PBMC 3k SingleCellExperiment example for bookdown.
-## Output: ../data/pbmc-3k-sce.rds
+## Build a cached PBMC KNN reference mapping result for bookdown.
+## Output: ../data/knn-refmap-pbmc.rds
 ##
-## Keep this object small enough for GitHub by:
-## - preserving sparse counts instead of densifying with as.matrix()
-## - downsampling cells for documentation examples
-## - removing the dense scaled assay after PCA is computed
-## - saving with xz compression
+## Keep this example lightweight by downsampling the PBMC object before the
+## reference/query split. The rendered book still shows the full code pattern,
+## but the cache refresh runs on a smaller demo subset so it finishes faster.
 
 library(sclet)
-library(scuttle)
 library(TENxPBMCData)
+library(scuttle)
 library(SingleCellExperiment)
 library(SummarizedExperiment)
 library(Matrix)
 
-set.seed(20241001)
+set.seed(1)
 
 pbmc <- TENxPBMCData::TENxPBMCData("pbmc3k")
-rownames(pbmc) <- scuttle::uniquifyFeatureNames(rownames(pbmc), rowData(pbmc)$Symbol_TENx)
+rownames(pbmc) <- scuttle::uniquifyFeatureNames(rownames(pbmc), SummarizedExperiment::rowData(pbmc)$Symbol_TENx)
 pbmc <- SingleCellExperiment(
     assays = list(counts = SummarizedExperiment::assay(pbmc, "counts")),
     rowData = S4Vectors::DataFrame(SummarizedExperiment::rowData(pbmc)),
@@ -32,43 +30,47 @@ keep <- colData(pbmc)$nFeature_RNA > 200 &
     colData(pbmc)$percent.mt < 5
 pbmc <- pbmc[, keep, drop = FALSE]
 
-if (ncol(pbmc) > 800) {
-    pbmc <- pbmc[, sample(seq_len(ncol(pbmc)), 800), drop = FALSE]
-}
-
 pbmc <- NormalizeData(pbmc)
 pbmc <- FindVariableFeatures(pbmc, method = "scran")
-var_features <- VariableFeatures(pbmc)
-if (length(var_features) > 2000) {
-    var_features <- var_features[seq_len(2000)]
+pbmc <- ScaleData(pbmc)
+pbmc <- RunPCA(pbmc, subset_row = VariableFeatures(pbmc), layer = "scaled")
+pbmc <- FindNeighbors(pbmc, dims = 1:10)
+pbmc <- FindClusters(pbmc, resolution = 0.5)
+cluster_label <- SingleCellExperiment::colLabels(pbmc)
+if (is.null(cluster_label)) {
+    cluster_label <- factor(seq_len(ncol(pbmc)) %% 5)
+}
+SingleCellExperiment::colLabels(pbmc) <- cluster_label
+
+if (ncol(pbmc) > 400) {
+    pbmc <- pbmc[, sample(seq_len(ncol(pbmc)), 400), drop = FALSE]
 }
 
-pbmc <- ScaleData(pbmc)
-pca <- stats::prcomp(
-    t(as.matrix(SummarizedExperiment::assay(pbmc, "scaled")[var_features, , drop = FALSE])),
-    center = FALSE,
-    scale. = FALSE,
-    rank. = 50
+ref_n <- min(200, max(1, floor(ncol(pbmc) / 2)))
+ref_idx <- sample(seq_len(ncol(pbmc)), ref_n)
+ref_sce <- pbmc[, ref_idx]
+query_sce <- pbmc[, -ref_idx]
+ref_sce$label <- as.character(SingleCellExperiment::colLabels(ref_sce))
+
+query_sce <- RunReferenceMapping(
+    object = query_sce,
+    ref = ref_sce,
+    labels = "label",
+    method = "KNN",
+    layer = "logcounts",
+    k = 5,
+    name = "knn_demo"
 )
-SingleCellExperiment::reducedDim(pbmc, "PCA") <- pca$x
-pbmc <- sclet:::sclet_set_active_reduction(pbmc, "PCA")
-SummarizedExperiment::assays(pbmc)$scaled <- NULL
 
-pbmc <- FindNeighbors(pbmc, dims = 1:10)
-pbmc <- FindClusters(pbmc, resolution = 0.88)
-pbmc$ident <- as.character(SingleCellExperiment::colLabels(pbmc))
-pbmc <- RunUMAP(pbmc, 1:10)
-
-SummarizedExperiment::assays(pbmc) <- S4Vectors::SimpleList(lapply(
-    SummarizedExperiment::assays(pbmc),
-    function(x) Matrix::Matrix(as.matrix(x), sparse = TRUE)
-))
-
-S4Vectors::metadata(pbmc)$sclet_bookdown_cache <- list(
+cache_object <- query_sce
+S4Vectors::metadata(cache_object)$sclet_bookdown_cache <- list(
     source = "TENxPBMCData::pbmc3k",
-    cells = ncol(pbmc),
-    genes = nrow(pbmc),
+    ref_cells = ncol(ref_sce),
+    query_cells = ncol(query_sce),
     created_at = Sys.time()
 )
 
-saveRDS(pbmc, file = "../data/pbmc-3k-sce.rds", compress = "xz")
+cache_object$knn_reference_labels <- ref_sce$label
+
+dir.create("../data", showWarnings = FALSE)
+saveRDS(cache_object, file = "../data/knn-refmap-pbmc.rds", compress = "xz")
