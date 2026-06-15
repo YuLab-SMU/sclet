@@ -11,7 +11,9 @@ This mainline shifts the analysis story from static identity to directional biol
 velocity_cache <- "data/hermann-sperm-velo.rds"
 dynamics_cache <- "data/hermann-sperm-dynamics.rds"
 velocity_cache_ready <- eval_chunks && file.exists(velocity_cache)
-dynamics_cache_ready <- eval_chunks && file.exists(dynamics_cache)
+#dynamics_cache_ready <- eval_chunks && file.exists(dynamics_cache)
+
+dynamics_cache_ready <- TRUE
 ```
 
 ## Trajectory mainline workflow
@@ -183,16 +185,12 @@ Although some researchers are skeptical about RNA velocity, it has received sign
 > This example is adopted from <https://www.bioconductor.org/packages/devel/bioc/vignettes/velociraptor/inst/doc/velociraptor.html>.
 
 
-```{r velocity-data, eval = velocity_cache_ready || dynamics_cache_ready}
-sce <- if (dynamics_cache_ready) {
-  readRDS(dynamics_cache)
-} else {
-  readRDS(velocity_cache)
-}
+```{r velocity-data, eval = TRUE}
+sce <- readRDS("data/hermann-sperm-dynamics.rds")
 sce
 ```
 
-```{r velocity-hvgs, eval = velocity_cache_ready || dynamics_cache_ready}
+```{r velocity-hvgs, eval = TRUE}
 top_genes <- S4Vectors::metadata(sce)$sclet_bookdown_cache$top_genes
 head(top_genes)
 ```
@@ -201,7 +199,7 @@ head(top_genes)
 
 `sclet` wraps the RNA velocity inference via `RunVelocity()`. Under the hood, it delegates the heavy lifting to `scVelo` (managed safely via the `basilisk`/`velociraptor` Python sandbox) and smoothly registers the outputs to the `velocity` analysis state.
 
-```{r velocity, eval = dynamics_cache_ready}
+```{r velocity, eval = TRUE}
 get_velocity(sce)
 ```
 
@@ -209,7 +207,7 @@ get_velocity(sce)
 
 Once the `velocity` state is recorded, visualizing it is a breeze. You can use `VelocityPlot()` to draw the dynamic stream or arrows over any active dimensionality reduction space (like UMAP or t-SNE).
 
-```{r velocity-plot, eval = dynamics_cache_ready && requireNamespace("velociraptor", quietly = TRUE)}
+```{r velocity-plot, eval = TRUE && requireNamespace("velociraptor", quietly = TRUE)}
 # Project the cached velocity stream onto the UMAP embedding
 VelocityPlot(sce, reduction = "UMAP")
 ```
@@ -224,7 +222,7 @@ When standard trajectory tools (like Slingshot) struggle with complex, cyclic, o
 
 `RunCellFate()` is the user-facing entry point for fate mapping in `sclet`. At the moment it dispatches to `CellRank`, automatically senses the upstream velocity run, and records the resulting terminal states, named fate probabilities, and lineage drivers in the shared state contract.
 
-```{r cellrank-run, eval = dynamics_cache_ready}
+```{r cellrank-run, eval = TRUE}
 # Inspect the cached CellRank analysis state
 get_cellrank(sce, id = "cellrank")
 ```

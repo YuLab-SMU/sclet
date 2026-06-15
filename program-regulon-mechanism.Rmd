@@ -136,7 +136,7 @@ If you have ever run the legacy R version of SCENIC, you undoubtedly remember it
 
 Rather than forcing users to leave the `SingleCellExperiment` workflow and manually manage a separate Python environment, `sclet` brings this functionality back into the same state-aware framework. Leveraging the `basilisk` isolated environment, it provides a native `sclet` entry point to `pySCENIC`: `RunSCENIC()`.
 
-The examples in this chapter are shown but not executed during book rendering. A realistic `pySCENIC` workflow depends on external transcription-factor lists and cisTarget ranking databases, so it is more honest to present the code as a template that readers can adapt to their own resources. In practice, the limiting factor is not the Python environment itself, but the requirement to provide large database files that are version-matched to the species and genome build of your dataset.
+The examples in this chapter are split by what the documentation cache provides. The TF list and motif annotation table are cached by the bookdown data workflow, so those setup steps can run during rendering. The actual `RunSCENIC()` call still requires a cisTarget ranking `.feather` database, which is intentionally not stored in the repository because it is large and version-specific.
 
 ## Environment and Data Preparation
 
@@ -147,23 +147,26 @@ You no longer need to manually configure complex Python environments or wrestle 
 
 For most human or mouse analyses, this also means checking that your TF list, motif annotation table, and cisTarget ranking database all come from the same release family before you start the run.
 
-```{r grn-setup, eval=FALSE}
+```{r grn-setup, eval = file.exists("data/allTFs_hg38.txt") && file.exists("data/motifs-v9-nr.hgnc.tbl")}
 library(sclet)
-# Assuming 'sce' is your pre-processed object
+sce <- pbmc
 
-# Specify the paths to your downloaded databases
-tfs_path <- "path/to/hs_hgnc_tfs.txt"
-database_paths <- c(
-  "path/to/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather"
-)
-motif_annotations_path <- "path/to/motifs-v9-nr.hgnc-m0.001-o0.0.tbl"
+# Cached small SCENIC reference files
+tfs_path <- "data/allTFs_hg38.txt"
+motif_annotations_path <- "data/motifs-v9-nr.hgnc.tbl"
+
+# The large cisTarget ranking database is optional in the book build.
+database_paths <- Sys.getenv("SCLET_SCENIC_DB", unset = "")
+database_paths <- if (nzchar(database_paths)) database_paths else character()
+scenic_db_ready <- length(database_paths) > 0 && all(file.exists(database_paths))
+scenic_db_ready
 ```
 
 ## One-Click Inference and Scoring
 
 Next, call `RunSCENIC()`. All heavy lifting—GRNBoost2 inference, Motif pruning, and AUCell scoring—will be executed blazingly fast in the Python backend.
 
-```{r grn-run, eval=FALSE}
+```{r grn-run, eval = exists("scenic_db_ready") && isTRUE(scenic_db_ready)}
 sce <- RunSCENIC(
   sce,
   tfs_path = tfs_path,
@@ -181,7 +184,7 @@ After the run, where does the massive AUCell scoring matrix (tens of thousands o
 
 To keep the main SCE object clean and performant, `sclet` mounts this large scoring matrix as an `altExp` (Alternative Experiment) and records it in the `scenic` state. This means you can retrieve either the active SCENIC run or a specific run by `id`, instead of manually digging through `metadata()`.
 
-```{r grn-result, eval=FALSE}
+```{r grn-result, eval = exists("scenic_db_ready") && isTRUE(scenic_db_ready)}
 # Check the currently active SCENIC state provenance
 get_scenic(sce)
 
@@ -200,7 +203,7 @@ head(rownames(auc_matrix))
 
 Once the AUC matrix is stored, the next question is not "where is the result?", but "can I directly visualize a regulon on my embedding?" That is exactly what `plot_scenic_activity()` is for.
 
-```{r grn-plot, eval=FALSE}
+```{r grn-plot, eval = exists("scenic_db_ready") && isTRUE(scenic_db_ready)}
 # Make sure you already have a reduction such as UMAP
 DefaultReduction(sce) <- "UMAP"
 
@@ -219,13 +222,13 @@ You can now treat SCENIC as a proper state-aware module: run it with a named rec
 
 If your question is simply "what gene regulatory networks are active in my cells?", the implementation detail of which backend you used should not matter. `RunGRN()` wraps `RunSCENIC()` as the default backend while leaving room for future methods (decoupleR, FigR, SCENIC+) through the same interface.
 
-```{r grn-unified, eval=FALSE}
+```{r grn-unified, eval = exists("scenic_db_ready") && isTRUE(scenic_db_ready)}
 # Same parameters as RunSCENIC, different semantic framing
 sce <- RunGRN(
     sce,
-    tfs_path = "allTFs.txt",
-    motif_annotations_path = "motifs.tbl",
-    database_paths = c("hg38_10kbp.feather"),
+    tfs_path = tfs_path,
+    motif_annotations_path = motif_annotations_path,
+    database_paths = database_paths,
     name = "grn_main"
 )
 ```
