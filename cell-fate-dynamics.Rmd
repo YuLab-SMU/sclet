@@ -247,6 +247,91 @@ driver_lineage <- if (!is.null(cr$artifacts$fate_probability_names)) {
 plot_fate_driver_trends(sce, lineage = driver_lineage, top_n = 4)
 ```
 
+## RegVelo with CellRank diagnostics {#regvelo-cellrank}
+
+RegVelo extends RNA velocity inference by using a prior gene regulatory network, and in practice it is most useful when run on a GPU-enabled Python environment. The book build does not provision GPU resources, so this section follows the same cache-first pattern as the heavier CellRank examples above: the GPU step is shown as runnable user code, but the rendered book reads a precomputed `SingleCellExperiment` from `bookdown/data`.
+
+The upstream run uses spliced and unspliced assays plus a prior GRN, writes the inferred velocity matrix back into the object as a named assay, and then hands that stored velocity result to CellRank. This code is intentionally not executed during book rendering.
+
+```{r regvelo-gpu-run, eval=FALSE}
+# Run this on a GPU server, not during book rendering.
+sce <- RunRegVelo(
+  sce,
+  grn = prior_grn,
+  reduction = "PCA",
+  name = "regvelo_smoke",
+  backend = "reticulate",
+  python = "/path/to/gpu/venv/bin/python",
+  max_epochs = 20,
+  batch_size = 128
+)
+
+sce <- RunCellRank(
+  sce,
+  reduction = "PCA",
+  cluster_key = "celltype_or_cluster",
+  velocity_id = "regvelo_smoke",
+  backend = "reticulate",
+  python = "/path/to/gpu/venv/bin/python",
+  name = "cellrank_regvelo_smoke"
+)
+
+saveRDS(sce, "bookdown/data/regvelo-smoke-cellrank.rds")
+```
+
+The cached object below was generated outside the book render. It lets the documentation demonstrate downstream inspection and plotting without rerunning PyTorch, RegVelo, or CellRank on the GitHub Actions worker.
+
+```{r regvelo-cache, eval=TRUE}
+regvelo_sce <- readRDS("data/regvelo-smoke-cellrank.rds")
+get_velocity(regvelo_sce, id = "regvelo_smoke")$artifacts
+```
+
+```{r regvelo-cellrank-summary, eval=TRUE}
+regvelo_diag <- CellRankSummary(regvelo_sce, id = "cellrank_regvelo_smoke")
+regvelo_diag$summary
+regvelo_diag$terminal_states
+regvelo_diag$fate_probabilities
+```
+
+```{r regvelo-velocity-plots, fig.width=12, fig.height=5.5, eval=TRUE}
+p_mag <- plot_velocity_magnitude(regvelo_sce, id = "regvelo_smoke", reduction = "PCA")
+p_genes <- plot_top_velocity_genes(regvelo_sce, id = "regvelo_smoke", n = 15)
+
+plot_list(`Velocity Magnitude` = p_mag, `Top Velocity Genes` = p_genes)
+```
+
+```{r regvelo-cellrank-plots, fig.width=12, fig.height=5.5, eval=TRUE}
+p_regvelo_term <- plot_fate_terminal_states(
+  regvelo_sce,
+  id = "cellrank_regvelo_smoke",
+  reduction = "PCA"
+)
+p_regvelo_fate <- plot_fate_probability(
+  regvelo_sce,
+  id = "cellrank_regvelo_smoke",
+  fate = 1,
+  reduction = "PCA"
+)
+
+plot_list(`Terminal States` = p_regvelo_term, `Fate Probability` = p_regvelo_fate)
+```
+
+```{r regvelo-fate-correlation, fig.width=7, fig.height=5.5, eval=TRUE}
+VelocityFateCorrelation(
+  regvelo_sce,
+  velocity_id = "regvelo_smoke",
+  trajectory_id = "cellrank_regvelo_smoke"
+)
+
+plot_velocity_fate_correlation(
+  regvelo_sce,
+  velocity_id = "regvelo_smoke",
+  trajectory_id = "cellrank_regvelo_smoke"
+)
+```
+
+In this small smoke-test object, CellRank detects only one terminal state and the single fate probability is effectively constant. That is still useful as a workflow check: it confirms that the RegVelo velocity assay can be consumed by the CellRank wrapper and downstream visualization. For biological interpretation, a real dataset should usually show multiple terminal states or nontrivial fate probability gradients.
+
 ## Workflow shell for velocity and fate
 
 When spliced/unspliced assays are available, the same trajectory mainline can extend from lineage inference to velocity and fate mapping:
@@ -274,7 +359,8 @@ plot_trajectory_overview(
 
 When scVelo is run in dynamical mode, it infers a latent time for each cell — a pseudotime ordering derived from the RNA velocity field itself, not from a separate trajectory method. `plot_velocity_latent_time()` colors cells on an embedding by this inferred temporal progression.
 
-```{r velocity-latent, eval=FALSE}    # requires scVelo dynamical mode latent time
+```{r velocity-latent, eval=FALSE}    
+# requires scVelo dynamical mode latent time
 plot_velocity_latent_time(
     sce,
     reduction = "UMAP",

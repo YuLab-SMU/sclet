@@ -156,8 +156,11 @@ tfs_path <- "data/allTFs_hg38.txt"
 motif_annotations_path <- "data/motifs-v9-nr.hgnc.tbl"
 
 # The large cisTarget ranking database is optional in the book build.
-database_paths <- Sys.getenv("SCLET_SCENIC_DB", unset = "")
-database_paths <- if (nzchar(database_paths)) database_paths else character()
+database_paths <- "data/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather"
+env_database_paths <- Sys.getenv("SCLET_SCENIC_DB", unset = "")
+if (nzchar(env_database_paths)) {
+    database_paths <- strsplit(env_database_paths, .Platform$path.sep, fixed = TRUE)[[1]]
+}
 scenic_db_ready <- length(database_paths) > 0 && all(file.exists(database_paths))
 scenic_db_ready
 ```
