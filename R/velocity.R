@@ -290,18 +290,25 @@ plot_velocity_latent_time <- function(object, reduction = NULL, id = NULL,
         stop("A valid dimensional reduction is required.")
     }
 
-    pseudotime_col <- "velocity_pseudotime"
-    if (!pseudotime_col %in% colnames(SummarizedExperiment::colData(object))) {
+    object_coldata <- colnames(SummarizedExperiment::colData(object))
+    velocity_coldata <- vel$artifacts$colData
+    if (is.null(velocity_coldata)) {
         velocity_coldata <- vel$artifacts$velocity_coldata
-        if (is.null(velocity_coldata)) {
-            velocity_coldata <- vel$velocity_coldata
-        }
-        if (!is.null(velocity_coldata) && "velocity_pseudotime" %in% velocity_coldata) {
-            pseudotime_col <- "velocity_pseudotime"
-        } else {
-            stop("No velocity pseudotime found in colData. Was scVelo run in dynamical mode?")
-        }
     }
+    if (is.null(velocity_coldata)) {
+        velocity_coldata <- vel$velocity_coldata
+    }
+    candidate_cols <- unique(c(
+        velocity_coldata[grepl("latent_time|pseudotime", velocity_coldata)],
+        "velocity_pseudotime",
+        "latent_time_regvelo",
+        "regvelo_latent_time"
+    ))
+    candidate_cols <- candidate_cols[candidate_cols %in% object_coldata]
+    if (!length(candidate_cols)) {
+        stop("No velocity latent-time or pseudotime column found in colData.")
+    }
+    pseudotime_col <- candidate_cols[[1]]
 
     emb <- SingleCellExperiment::reducedDim(object, reduction)
     df <- data.frame(
@@ -318,6 +325,204 @@ plot_velocity_latent_time <- function(object, reduction = NULL, id = NULL,
             y = paste0(reduction, " 2"),
             color = "Latent\ntime",
             title = "Velocity Latent Time"
+        ) +
+        ggplot2::theme_classic() +
+        ggplot2::theme(
+            plot.title = ggplot2::element_text(face = "bold", size = 13)
+        )
+}
+
+sclet_velocity_assay_name <- function(object, id = NULL, assay = NULL) {
+    if (!is.null(assay)) {
+        if (!assay %in% SummarizedExperiment::assayNames(object)) {
+            stop("Velocity assay '", assay, "' not found in object.")
+        }
+        return(assay)
+    }
+
+    vel <- get_velocity(object, id = id)
+    if (is.null(vel)) {
+        stop("No velocity results found. Please run RunVelocity() or RunRegVelo() first.")
+    }
+
+    assay <- vel$artifacts$velocity_assay
+    if (is.null(assay) && !is.null(vel$id)) {
+        candidate <- paste0(vel$id, "_velocity")
+        if (candidate %in% SummarizedExperiment::assayNames(object)) {
+            assay <- candidate
+        }
+    }
+    if (is.null(assay) || !assay %in% SummarizedExperiment::assayNames(object)) {
+        label <- vel$id
+        if (is.null(label)) {
+            label <- id
+        }
+        if (is.null(label)) {
+            label <- "<active>"
+        }
+        stop("No velocity assay recorded for velocity result '", label, "'.")
+    }
+    assay
+}
+
+#' Compute Velocity Magnitude
+#'
+#' Computes the Euclidean norm of a stored velocity matrix per cell or per gene.
+#' For RegVelo results this uses the assay recorded in
+#' `get_velocity(object, id)$artifacts$velocity_assay`.
+#'
+#' @param object A SingleCellExperiment object with velocity results.
+#' @param id Optional velocity record id. If `NULL`, uses the active velocity
+#'   result.
+#' @param assay Optional velocity assay name. If supplied, overrides `id`.
+#' @param margin One of `"cell"` or `"gene"`.
+#' @param name Optional column name used when `store = TRUE`.
+#' @param store Logical. If `TRUE`, stores cell magnitudes in `colData` or gene
+#'   magnitudes in `rowData` and returns the updated object.
+#'
+#' @return A numeric vector, or an updated SingleCellExperiment when
+#'   `store = TRUE`.
+#' @export
+VelocityMagnitude <- function(object, id = NULL, assay = NULL,
+                              margin = c("cell", "gene"), name = NULL,
+                              store = FALSE) {
+    margin <- match.arg(margin)
+    assay <- sclet_velocity_assay_name(object, id = id, assay = assay)
+    velocity <- SummarizedExperiment::assay(object, assay)
+    velocity <- Matrix::Matrix(velocity, sparse = TRUE)
+
+    values <- switch(
+        margin,
+        cell = sqrt(Matrix::colSums(velocity ^ 2)),
+        gene = sqrt(Matrix::rowSums(velocity ^ 2))
+    )
+    values <- as.numeric(values)
+    names(values) <- if (identical(margin, "cell")) colnames(object) else rownames(object)
+
+    if (!isTRUE(store)) {
+        return(values)
+    }
+
+    if (is.null(name)) {
+        name <- paste0(assay, "_magnitude")
+    }
+    if (identical(margin, "cell")) {
+        SummarizedExperiment::colData(object)[[name]] <- values
+    } else {
+        SummarizedExperiment::rowData(object)[[name]] <- values
+    }
+    object
+}
+
+#' Plot Velocity Magnitude on an Embedding
+#'
+#' Colors cells on a dimensional reduction by the per-cell magnitude of a stored
+#' velocity matrix.
+#'
+#' @param object A SingleCellExperiment object with velocity results.
+#' @param reduction Character. Dimensional reduction to use. If `NULL`, uses
+#'   the reduction recorded by the velocity result, then `DefaultReduction()`.
+#' @param id Optional velocity record id.
+#' @param assay Optional velocity assay name. If supplied, overrides `id`.
+#' @param point_size Numeric point size.
+#' @param low,high Colors for the magnitude gradient.
+#'
+#' @return A ggplot object.
+#' @export
+plot_velocity_magnitude <- function(object, reduction = NULL, id = NULL,
+                                    assay = NULL, point_size = 0.6,
+                                    low = "grey90", high = "navy") {
+    if (!requireNamespace("ggplot2", quietly = TRUE)) {
+        stop("Package 'ggplot2' is needed for this function to work. Please install it.")
+    }
+
+    vel <- get_velocity(object, id = id)
+    if (is.null(reduction) && !is.null(vel)) {
+        reduction <- vel$inputs$reduction
+    }
+    if (is.null(reduction)) {
+        reduction <- DefaultReduction(object)
+    }
+    if (is.null(reduction) || !reduction %in% SingleCellExperiment::reducedDimNames(object)) {
+        stop("A valid dimensional reduction is required.")
+    }
+
+    assay <- sclet_velocity_assay_name(object, id = id, assay = assay)
+    magnitude <- VelocityMagnitude(object, assay = assay, margin = "cell")
+    emb <- SingleCellExperiment::reducedDim(object, reduction)
+    df <- data.frame(
+        dim1 = emb[, 1],
+        dim2 = emb[, 2],
+        magnitude = magnitude
+    )
+
+    ggplot2::ggplot(df, ggplot2::aes(x = .data$dim1, y = .data$dim2, color = .data$magnitude)) +
+        ggplot2::geom_point(size = point_size) +
+        ggplot2::scale_color_gradient(low = low, high = high) +
+        ggplot2::labs(
+            x = paste0(reduction, " 1"),
+            y = paste0(reduction, " 2"),
+            color = "Velocity\nmagnitude",
+            title = "Velocity Magnitude"
+        ) +
+        ggplot2::theme_classic() +
+        ggplot2::theme(
+            plot.title = ggplot2::element_text(face = "bold", size = 13)
+        )
+}
+
+#' Top Velocity Magnitude Genes
+#'
+#' Returns genes ranked by the magnitude of their velocity vector across cells.
+#'
+#' @param object A SingleCellExperiment object with velocity results.
+#' @param id Optional velocity record id.
+#' @param assay Optional velocity assay name. If supplied, overrides `id`.
+#' @param n Number of genes to return.
+#' @param decreasing Logical. If `TRUE`, returns the largest magnitudes.
+#'
+#' @return A data.frame with `gene`, `velocity_magnitude`, and `rank`.
+#' @export
+TopVelocityGenes <- function(object, id = NULL, assay = NULL, n = 20,
+                             decreasing = TRUE) {
+    magnitude <- VelocityMagnitude(object, id = id, assay = assay, margin = "gene")
+    ord <- order(magnitude, decreasing = decreasing, na.last = NA)
+    ord <- ord[seq_len(min(as.integer(n), length(ord)))]
+    data.frame(
+        gene = names(magnitude)[ord],
+        velocity_magnitude = as.numeric(magnitude[ord]),
+        rank = seq_along(ord),
+        stringsAsFactors = FALSE
+    )
+}
+
+#' Plot Top Velocity Magnitude Genes
+#'
+#' Shows genes with the largest velocity magnitude across cells.
+#'
+#' @param object A SingleCellExperiment object with velocity results.
+#' @param id Optional velocity record id.
+#' @param assay Optional velocity assay name. If supplied, overrides `id`.
+#' @param n Number of genes to show.
+#' @param fill Bar fill color.
+#'
+#' @return A ggplot object.
+#' @export
+plot_top_velocity_genes <- function(object, id = NULL, assay = NULL, n = 20,
+                                    fill = "steelblue") {
+    if (!requireNamespace("ggplot2", quietly = TRUE)) {
+        stop("Package 'ggplot2' is needed for this function to work. Please install it.")
+    }
+
+    df <- TopVelocityGenes(object, id = id, assay = assay, n = n)
+    df$gene <- factor(df$gene, levels = rev(df$gene))
+    ggplot2::ggplot(df, ggplot2::aes(x = .data$gene, y = .data$velocity_magnitude)) +
+        ggplot2::geom_col(fill = fill, width = 0.75) +
+        ggplot2::coord_flip() +
+        ggplot2::labs(
+            x = NULL,
+            y = "Velocity magnitude",
+            title = "Top Velocity Genes"
         ) +
         ggplot2::theme_classic() +
         ggplot2::theme(

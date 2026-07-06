@@ -5,15 +5,20 @@
 #' @param backend backend of the data, default is "memory", support "HDF5"
 #' @param ... additional parameters passed to 'DropletUtils::read10xCounts()'
 #' @return a 'SingleCellExperiment' object
-#' @importFrom DropletUtils read10xCounts
 #' @importFrom scuttle uniquifyFeatureNames
 #' @importFrom SummarizedExperiment rowData
 #' @importFrom SummarizedExperiment colData
 #' @export
 Read10X <- function(data.dir, backend = c("memory", "HDF5"), ...) {
+    if (!requireNamespace("DropletUtils", quietly = TRUE)) {
+        stop("Package 'DropletUtils' is needed for Read10X(). Please install it.", call. = FALSE)
+    }
     backend <- match.arg(backend)
     
     if (backend == "HDF5") {
+        if (!requireNamespace("HDF5Array", quietly = TRUE)) {
+            stop("Package 'HDF5Array' is needed for Read10X(backend = 'HDF5'). Please install it.", call. = FALSE)
+        }
         # Currently DropletUtils::read10xCounts returns a DelayedArray if type="HDF5" is specified,
         # but that usually requires an HDF5 file, not a directory of MTX.
         # However, we can read into memory and then realize to HDF5, 

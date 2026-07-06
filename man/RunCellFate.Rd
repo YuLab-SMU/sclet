@@ -9,6 +9,9 @@ RunCellFate(
   method = c("CellRank"),
   reduction = "PCA",
   cluster_key = ActiveIdent(sce),
+  velocity_id = NULL,
+  backend = c("basilisk", "reticulate"),
+  python = NULL,
   name = "cellfate",
   ...
 )
@@ -21,6 +24,14 @@ RunCellFate(
 \item{reduction}{String specifying the reduction to use for kNN graph. Defaults to \code{"PCA"}.}
 
 \item{cluster_key}{String specifying the column in \code{colData} containing cluster labels.}
+
+\item{velocity_id}{Optional velocity record id. If \code{NULL}, uses the active
+velocity result.}
+
+\item{backend}{Python execution backend passed to \code{RunCellRank()}.}
+
+\item{python}{Optional Python executable or conda environment name used when
+\code{backend = "reticulate"}.}
 
 \item{name}{trajectory record id. Defaults to \code{"cellfate"}.}
 

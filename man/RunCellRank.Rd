@@ -8,16 +8,29 @@ RunCellRank(
   sce,
   reduction = "PCA",
   cluster_key = ActiveIdent(sce),
+  velocity_id = NULL,
+  backend = c("basilisk", "reticulate"),
+  python = NULL,
   name = "cellrank",
   ...
 )
 }
 \arguments{
-\item{sce}{A SingleCellExperiment object with velocity computed (via \code{RunVelocity}).}
+\item{sce}{A SingleCellExperiment object with velocity computed via
+\code{RunVelocity()} or \code{RunRegVelo()}.}
 
 \item{reduction}{String specifying the reduction to use for kNN graph. Defaults to "PCA".}
 
 \item{cluster_key}{String specifying the column in \code{colData} containing cluster labels.}
+
+\item{velocity_id}{Optional velocity record id. If \code{NULL}, uses the active
+velocity result.}
+
+\item{backend}{Python execution backend. \code{"basilisk"} creates the packaged
+CellRank environment; \code{"reticulate"} uses the caller-configured Python.}
+
+\item{python}{Optional Python executable or conda environment name used when
+\code{backend = "reticulate"}.}
 
 \item{name}{trajectory record id. Defaults to \code{"cellrank"}.}
 

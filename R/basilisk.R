@@ -40,6 +40,24 @@ sclet_cellrank_env <- basilisk::BasiliskEnvironment(
     )
 )
 
+sclet_regvelo_env <- basilisk::BasiliskEnvironment(
+    envname = "sclet_regvelo_env",
+    pkgname = "sclet",
+    packages = c(
+        "python=3.10",
+        "scanpy=1.10.3",
+        "anndata=0.10.8",
+        "numpy=1.26.4",
+        "pandas=2.2.2",
+        "scvelo=0.3.2",
+        "scvi-tools=1.1.6",
+        "pytorch=2.5.1"
+    ),
+    pip = c(
+        "regvelo==0.4.2"
+    )
+)
+
 sclet_cell2location_env <- basilisk::BasiliskEnvironment(
     envname = "sclet_cell2location_env",
     pkgname = "sclet",

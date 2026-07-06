@@ -60,6 +60,7 @@ sclet_default_command_outputs <- function(command) {
         RunSlingshot = list(analysis = "trajectory"),
         RunSlingshot_trajectory = list(analysis = "trajectory"),
         RunVelocity = list(analysis = "velocity", state = "velocity"),
+        RunRegVelo = list(analysis = "velocity", state = "velocity"),
         RunCellRank = list(analysis = "cellrank", state = "trajectory"),
         RunCellFate = list(analysis = "cellrank", state = "trajectory"),
         RunSuperCell = list(analysis = "supercell"),

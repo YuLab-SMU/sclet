@@ -3,9 +3,16 @@
 #' This function runs CellRank via `basilisk` to infer complex cellular trajectories
 #' and terminal states based on RNA velocity results.
 #'
-#' @param sce A SingleCellExperiment object with velocity computed (via `RunVelocity`).
+#' @param sce A SingleCellExperiment object with velocity computed via
+#'   `RunVelocity()` or `RunRegVelo()`.
 #' @param reduction String specifying the reduction to use for kNN graph. Defaults to "PCA".
 #' @param cluster_key String specifying the column in `colData` containing cluster labels.
+#' @param velocity_id Optional velocity record id. If `NULL`, uses the active
+#'   velocity result.
+#' @param backend Python execution backend. `"basilisk"` creates the packaged
+#'   CellRank environment; `"reticulate"` uses the caller-configured Python.
+#' @param python Optional Python executable or conda environment name used when
+#'   `backend = "reticulate"`.
 #' @param name trajectory record id. Defaults to `"cellrank"`.
 #' @param ... Additional arguments (currently unused).
 #' 
@@ -14,35 +21,31 @@
 #' @importFrom SummarizedExperiment colData colData<-
 #' @importFrom utils write.csv
 #' @export
-RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), name = "cellrank", ...) {
-    if (!requireNamespace("basilisk", quietly = TRUE)) {
+RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce),
+                        velocity_id = NULL, backend = c("basilisk", "reticulate"),
+                        python = NULL, name = "cellrank", ...) {
+    backend <- match.arg(backend)
+    if (identical(backend, "basilisk") && !requireNamespace("basilisk", quietly = TRUE)) {
         cli::cli_abort(
-            "Please install {.pkg basilisk} to run CellRank.",
+            "Please install {.pkg basilisk} to run CellRank with {.val backend = 'basilisk'}.",
+            class = "sclet_package_missing"
+        )
+    }
+    if (identical(backend, "reticulate") && !requireNamespace("reticulate", quietly = TRUE)) {
+        cli::cli_abort(
+            "Please install {.pkg reticulate} to run CellRank with {.val backend = 'reticulate'}.",
             class = "sclet_package_missing"
         )
     }
 
-    vel_state <- get_velocity(sce)
-    if (is.null(vel_state) || is.null(vel_state$results)) {
+    vel_state <- get_velocity(sce, id = velocity_id)
+    if (is.null(vel_state)) {
         cli::cli_abort(
             c("No velocity results found.",
-              i = "Please run {.fun RunVelocity} first."),
+              i = "Please run {.fun RunVelocity} or {.fun RunRegVelo} first."),
             class = "sclet_missing_velocity"
         )
     }
-
-    vel_res <- vel_state$results
-
-    # Align cells between sce and velocity results (velociraptor may subset/reorder)
-    common_cells <- intersect(colnames(sce), colnames(vel_res))
-    if (length(common_cells) == 0) {
-        cli::cli_abort(
-            "No common cells between the query object and the velocity results.",
-            class = "sclet_cell_mismatch"
-        )
-    }
-    sce <- sce[, common_cells, drop = FALSE]
-    vel_res <- vel_res[, common_cells, drop = FALSE]
 
     if (!reduction %in% SingleCellExperiment::reducedDimNames(sce)) {
         cli::cli_abort(
@@ -61,17 +64,20 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
 
     emb <- as.matrix(SingleCellExperiment::reducedDim(sce, reduction))
 
-    if (!"velocity" %in% SummarizedExperiment::assayNames(vel_res)) {
-        cli::cli_abort(
-            "Assay {.val velocity} not found in velocity results.",
-            class = "sclet_missing_velocity_assay"
-        )
-    }
-
-    # Extract velocity matrices
-    v_mat <- sclet_extract_cell_feature_matrix(vel_res, "velocity")
-    s_mat <- sclet_extract_cell_feature_matrix(vel_res, "spliced")
-    u_mat <- sclet_extract_cell_feature_matrix(vel_res, "unspliced")
+    cellrank_input <- sclet_prepare_cellrank_velocity_input(
+        sce = sce,
+        vel_state = vel_state,
+        velocity_id = velocity_id
+    )
+    sce <- cellrank_input$sce
+    emb <- as.matrix(SingleCellExperiment::reducedDim(sce, reduction))
+    v_mat <- cellrank_input$velocity
+    s_mat <- cellrank_input$spliced
+    u_mat <- cellrank_input$unspliced
+    velocity_source <- cellrank_input$velocity_source
+    velocity_assay <- cellrank_input$velocity_assay
+    cell_names <- cellrank_input$cell_names
+    gene_names <- cellrank_input$gene_names
 
     # Write sparse matrices to .mtx files to bypass all reticulate conversion issues
     tmp_dir <- tempfile("cellrank_")
@@ -83,167 +89,22 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
     # Write all auxiliary data to disk so basilisk fun receives only one string
     clusters <- as.character(SummarizedExperiment::colData(sce)[[cluster_key]])
     writeLines(clusters, file.path(tmp_dir, "clusters.txt"))
-    writeLines(colnames(vel_res), file.path(tmp_dir, "cell_names.txt"))
-    writeLines(rownames(vel_res), file.path(tmp_dir, "gene_names.txt"))
+    writeLines(cell_names, file.path(tmp_dir, "cell_names.txt"))
+    writeLines(gene_names, file.path(tmp_dir, "gene_names.txt"))
     writeLines(reduction, file.path(tmp_dir, "reduction.txt"))
     write.csv(emb, file.path(tmp_dir, "emb.csv"), row.names = FALSE)
 
-    cli::cli_alert_info("Running CellRank via basilisk...")
-    cli::cli_alert_info("(First run will take several minutes to set up the Python environment)")
+    cli::cli_alert_info("Running CellRank via {.val {backend}}...")
+    if (identical(backend, "basilisk")) {
+        cli::cli_alert_info("(First run will take several minutes to set up the Python environment)")
+    }
     prev_state <- sclet_get_state(sce)
 
-    proc <- basilisk::basiliskStart(sclet_cellrank_env)
-    on.exit(basilisk::basiliskStop(proc), add = TRUE)
-    cr_res <- basilisk::basiliskRun(proc, function(mtx_dir) {
-        ad <- reticulate::import("anndata", convert = FALSE)
-        cr <- reticulate::import("cellrank", convert = FALSE)
-        pd <- reticulate::import("pandas", convert = FALSE)
-        scio <- reticulate::import("scipy.io", convert = FALSE)
-
-        py_attr <- function(x, name, default = NULL) {
-            if (reticulate::py_has_attr(x, name)) {
-                reticulate::py_get_attr(x, name)
-            } else {
-                default
-            }
-        }
-        py_call <- function(x, name, ...) {
-            reticulate::py_call(py_attr(x, name), ...)
-        }
-        py_to_r <- function(x) {
-            reticulate::py_to_r(x)
-        }
-
-        as_cell_feature <- function(path, n_cells, n_genes) {
-            mat <- scio$mmread(path)
-            shape <- as.integer(py_to_r(py_attr(mat, "shape")))
-            if (identical(shape, c(n_genes, n_cells))) {
-                mat <- py_attr(mat, "T")
-            } else if (!identical(shape, c(n_cells, n_genes))) {
-                stop(
-                    "Unexpected CellRank matrix dimensions for ", basename(path),
-                    ": got ", paste(shape, collapse = " x "),
-                    ", expected ", n_cells, " x ", n_genes,
-                    " or ", n_genes, " x ", n_cells, "."
-                )
-            }
-            py_call(mat, "tocsr")
-        }
-
-        cell_names <- readLines(file.path(mtx_dir, "cell_names.txt"))
-        gene_names <- readLines(file.path(mtx_dir, "gene_names.txt"))
-        n_cells <- length(cell_names)
-        n_genes <- length(gene_names)
-
-        v <- as_cell_feature(file.path(mtx_dir, "velocity.mtx"), n_cells, n_genes)
-        s <- as_cell_feature(file.path(mtx_dir, "spliced.mtx"), n_cells, n_genes)
-        u <- as_cell_feature(file.path(mtx_dir, "unspliced.mtx"), n_cells, n_genes)
-        clusters <- readLines(file.path(mtx_dir, "clusters.txt"))
-        emb <- as.matrix(utils::read.csv(file.path(mtx_dir, "emb.csv")))
-        reduction_name <- readLines(file.path(mtx_dir, "reduction.txt"))
-
-        obs <- pd$DataFrame(index = reticulate::r_to_py(cell_names))
-        reticulate::py_set_item(
-            obs,
-            "clusters",
-            pd$Series(
-                reticulate::r_to_py(clusters),
-                dtype = "category",
-                index = reticulate::r_to_py(cell_names)
-            )
-        )
-        var <- pd$DataFrame(index = reticulate::r_to_py(gene_names))
-
-        adata <- ad$AnnData(X = s, obs = obs, var = var)
-        reticulate::py_set_item(py_attr(adata, "layers"), "spliced", s)
-        reticulate::py_set_item(py_attr(adata, "layers"), "unspliced", u)
-        reticulate::py_set_item(py_attr(adata, "layers"), "velocity", v)
-
-        reduction_key <- paste0("X_", tolower(reduction_name))
-        reticulate::py_set_item(
-            py_attr(adata, "obsm"),
-            reduction_key,
-            reticulate::r_to_py(emb)
-        )
-
-        sc <- reticulate::import("scanpy", convert = FALSE)
-        scv <- reticulate::import("scvelo", convert = FALSE)
-        sc$pp$neighbors(adata, use_rep = reduction_key)
-        scv$pp$moments(adata, n_pcs = NULL, n_neighbors = NULL)
-        scv$tl$velocity_graph(adata)
-
-        vk <- cr$kernels$VelocityKernel(adata)
-        py_call(vk, "compute_transition_matrix")
-
-        g <- cr$estimators$GPCCA(vk)
-        py_call(g, "compute_eigendecomposition")
-        py_call(g, "compute_schur", method = "krylov")
-        py_call(g, "compute_macrostates")
-        py_call(g, "predict_terminal_states")
-        py_call(g, "compute_fate_probabilities")
-
-        term_states <- py_attr(g, "terminal_states")
-        abs_probs <- py_attr(g, "fate_probabilities")
-
-        extract_array <- function(x) {
-            x_mat <- py_attr(x, "X", default = x)
-            if (reticulate::py_module_available("scipy.sparse")) {
-                sp_sparse <- reticulate::import("scipy.sparse", convert = FALSE)
-                if (py_to_r(sp_sparse$issparse(x_mat))) {
-                    x_mat <- py_call(x_mat, "toarray")
-                }
-            }
-            as.matrix(py_to_r(x_mat))
-        }
-
-        abs_mat <- tryCatch(
-            extract_array(abs_probs),
-            error = function(e) {
-                tryCatch(
-                    as.matrix(abs_probs),
-                    error = function(e2) {
-                        cli::cli_abort(
-                            c("Failed to extract absorption probabilities.",
-                              i = "CellRank returned: {.val {class(abs_probs)}}"),
-                            parent = e2
-                        )
-                    }
-                )
-            }
-        )
-
-        abs_prob_names <- colnames(abs_mat)
-        if (is.null(abs_prob_names) && !is.null(abs_probs)) {
-            abs_prob_names <- tryCatch({
-                names_attr <- py_attr(abs_probs, "names")
-                if (!is.null(names_attr)) {
-                    as.character(py_to_r(names_attr))
-                } else {
-                    NULL
-                }
-            }, error = function(e) NULL)
-        }
-        lineage_drivers <- NULL
-        tryCatch({
-            py_call(g, "compute_lineage_drivers")
-            lineage_drivers <- as.data.frame(py_to_r(py_attr(g, "lineage_drivers")))
-            if (!"gene" %in% colnames(lineage_drivers)) {
-                lineage_drivers$gene <- rownames(lineage_drivers)
-            }
-            lineage_drivers <- lineage_drivers[, c("gene", setdiff(colnames(lineage_drivers), "gene")), drop = FALSE]
-            rownames(lineage_drivers) <- NULL
-        }, error = function(e) {
-            NULL
-        })
-
-        list(
-            terminal_states = as.character(py_to_r(term_states)),
-            absorption_probs = abs_mat,
-            absorption_prob_names = abs_prob_names,
-            lineage_drivers = lineage_drivers
-        )
-    },
-    mtx_dir = tmp_dir)
+    cr_res <- sclet_run_cellrank_backend(
+        backend = backend,
+        python = python,
+        mtx_dir = tmp_dir
+    )
     sce <- sclet_restore_state(sce, prev_state)
     
     # Store results
@@ -261,6 +122,10 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
     SummarizedExperiment::colData(sce)[, fate_prob_cols] <- fate_prob_df
 
     lineage_drivers <- sclet_normalize_cellrank_driver_table(cr_res$lineage_drivers)
+    recorded_velocity_id <- velocity_id
+    if (is.null(recorded_velocity_id)) {
+        recorded_velocity_id <- sclet_get_active_state(sce, "velocity")
+    }
 
     cellrank_analysis <- list(
         id = name,
@@ -286,7 +151,11 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
             inputs = list(
                 reduction = reduction,
                 cluster_key = cluster_key,
-                velocity_id = sclet_get_active_state(sce, "velocity")
+                velocity_id = recorded_velocity_id,
+                velocity_source = velocity_source,
+                velocity_assay = velocity_assay,
+                backend = backend,
+                python = python
             ),
             artifacts = list(
                 analysis_key = name,
@@ -318,6 +187,9 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
         params = list(
             reduction = reduction,
             cluster_key = cluster_key,
+            velocity_id = velocity_id,
+            backend = backend,
+            python = python,
             name = name
         ),
         outputs = list(
@@ -327,6 +199,272 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
     )
 
     return(sce)
+}
+
+sclet_prepare_cellrank_velocity_input <- function(sce, vel_state, velocity_id = NULL) {
+    velocity_assay <- tryCatch(
+        sclet_velocity_assay_name(sce, id = velocity_id, assay = NULL),
+        error = function(e) NULL
+    )
+
+    if (!is.null(velocity_assay)) {
+        required <- c("spliced", "unspliced", velocity_assay)
+        missing <- setdiff(required, SummarizedExperiment::assayNames(sce))
+        if (length(missing)) {
+            cli::cli_abort(
+                "Required assay(s) not found for CellRank input: {.val {missing}}.",
+                class = "sclet_missing_assay"
+            )
+        }
+
+        return(sclet_build_cellrank_velocity_input(
+            sce = sce,
+            source_object = sce,
+            velocity_assay = velocity_assay,
+            velocity_source = "object"
+        ))
+    }
+
+    if (!is.null(vel_state$results) && methods::is(vel_state$results, "SingleCellExperiment")) {
+        vel_res <- vel_state$results
+        common_cells <- intersect(colnames(sce), colnames(vel_res))
+        if (length(common_cells) == 0) {
+            cli::cli_abort(
+                "No common cells between the query object and the velocity results.",
+                class = "sclet_cell_mismatch"
+            )
+        }
+
+        sce <- sce[, common_cells, drop = FALSE]
+        vel_res <- vel_res[, common_cells, drop = FALSE]
+        if (!"velocity" %in% SummarizedExperiment::assayNames(vel_res)) {
+            cli::cli_abort(
+                "Assay {.val velocity} not found in velocity results.",
+                class = "sclet_missing_velocity_assay"
+            )
+        }
+
+        return(sclet_build_cellrank_velocity_input(
+            sce = sce,
+            source_object = vel_res,
+            velocity_assay = "velocity",
+            velocity_source = "results"
+        ))
+    }
+
+    cli::cli_abort(
+        "No velocity assay was recorded and no compatible velocity result object is available.",
+        class = "sclet_missing_velocity_assay"
+    )
+}
+
+sclet_build_cellrank_velocity_input <- function(sce, source_object, velocity_assay, velocity_source) {
+    required <- c("spliced", "unspliced", velocity_assay)
+    missing <- setdiff(required, SummarizedExperiment::assayNames(source_object))
+    if (length(missing)) {
+        cli::cli_abort(
+            "Required assay(s) not found for CellRank input: {.val {missing}}.",
+            class = "sclet_missing_assay"
+        )
+    }
+
+    v_mat <- sclet_extract_cell_feature_matrix(source_object, velocity_assay)
+    s_mat <- sclet_extract_cell_feature_matrix(source_object, "spliced")
+    u_mat <- sclet_extract_cell_feature_matrix(source_object, "unspliced")
+    dims <- list(
+        velocity = dim(v_mat),
+        spliced = dim(s_mat),
+        unspliced = dim(u_mat)
+    )
+    if (!identical(dims$velocity, dims$spliced) || !identical(dims$velocity, dims$unspliced)) {
+        cli::cli_abort(
+            c("Velocity, spliced, and unspliced matrices must have matching dimensions for CellRank.",
+              i = "Observed dimensions are velocity={paste(dims$velocity, collapse = ' x ')}, spliced={paste(dims$spliced, collapse = ' x ')}, unspliced={paste(dims$unspliced, collapse = ' x ')}."),
+            class = "sclet_cellrank_matrix_mismatch"
+        )
+    }
+
+    list(
+        sce = sce,
+        velocity = v_mat,
+        spliced = s_mat,
+        unspliced = u_mat,
+        velocity_source = velocity_source,
+        velocity_assay = velocity_assay,
+        cell_names = colnames(source_object),
+        gene_names = rownames(source_object)
+    )
+}
+
+sclet_run_cellrank_backend <- function(backend, python, mtx_dir) {
+    if (identical(backend, "basilisk")) {
+        proc <- basilisk::basiliskStart(sclet_cellrank_env)
+        on.exit(basilisk::basiliskStop(proc), add = TRUE)
+        return(basilisk::basiliskRun(
+            proc,
+            sclet_run_cellrank_python,
+            mtx_dir = mtx_dir
+        ))
+    }
+
+    if (!is.null(python) && !reticulate::py_available(initialize = FALSE)) {
+        if (file.exists(python)) {
+            reticulate::use_python(python, required = TRUE)
+        } else {
+            reticulate::use_condaenv(python, required = TRUE)
+        }
+    }
+    sclet_run_cellrank_python(mtx_dir = mtx_dir)
+}
+
+sclet_run_cellrank_python <- function(mtx_dir) {
+    ad <- reticulate::import("anndata", convert = FALSE)
+    cr <- reticulate::import("cellrank", convert = FALSE)
+    pd <- reticulate::import("pandas", convert = FALSE)
+    scio <- reticulate::import("scipy.io", convert = FALSE)
+
+    py_attr <- function(x, name, default = NULL) {
+        if (reticulate::py_has_attr(x, name)) {
+            reticulate::py_get_attr(x, name)
+        } else {
+            default
+        }
+    }
+    py_call <- function(x, name, ...) {
+        reticulate::py_call(py_attr(x, name), ...)
+    }
+    py_to_r <- function(x) {
+        reticulate::py_to_r(x)
+    }
+
+    as_cell_feature <- function(path, n_cells, n_genes) {
+        mat <- scio$mmread(path)
+        shape <- as.integer(py_to_r(py_attr(mat, "shape")))
+        if (identical(shape, c(n_genes, n_cells))) {
+            mat <- py_attr(mat, "T")
+        } else if (!identical(shape, c(n_cells, n_genes))) {
+            stop(
+                "Unexpected CellRank matrix dimensions for ", basename(path),
+                ": got ", paste(shape, collapse = " x "),
+                ", expected ", n_cells, " x ", n_genes,
+                " or ", n_genes, " x ", n_cells, "."
+            )
+        }
+        py_call(mat, "tocsr")
+    }
+
+    cell_names <- readLines(file.path(mtx_dir, "cell_names.txt"))
+    gene_names <- readLines(file.path(mtx_dir, "gene_names.txt"))
+    n_cells <- length(cell_names)
+    n_genes <- length(gene_names)
+
+    v <- as_cell_feature(file.path(mtx_dir, "velocity.mtx"), n_cells, n_genes)
+    s <- as_cell_feature(file.path(mtx_dir, "spliced.mtx"), n_cells, n_genes)
+    u <- as_cell_feature(file.path(mtx_dir, "unspliced.mtx"), n_cells, n_genes)
+    clusters <- readLines(file.path(mtx_dir, "clusters.txt"))
+    emb <- as.matrix(utils::read.csv(file.path(mtx_dir, "emb.csv")))
+    reduction_name <- readLines(file.path(mtx_dir, "reduction.txt"))
+
+    obs <- pd$DataFrame(index = reticulate::r_to_py(cell_names))
+    reticulate::py_set_item(
+        obs,
+        "clusters",
+        pd$Series(
+            reticulate::r_to_py(clusters),
+            dtype = "category",
+            index = reticulate::r_to_py(cell_names)
+        )
+    )
+    var <- pd$DataFrame(index = reticulate::r_to_py(gene_names))
+
+    adata <- ad$AnnData(X = s, obs = obs, var = var)
+    reticulate::py_set_item(py_attr(adata, "layers"), "spliced", s)
+    reticulate::py_set_item(py_attr(adata, "layers"), "unspliced", u)
+    reticulate::py_set_item(py_attr(adata, "layers"), "velocity", v)
+
+    reduction_key <- paste0("X_", tolower(reduction_name))
+    reticulate::py_set_item(
+        py_attr(adata, "obsm"),
+        reduction_key,
+        reticulate::r_to_py(emb)
+    )
+
+    sc <- reticulate::import("scanpy", convert = FALSE)
+    scv <- reticulate::import("scvelo", convert = FALSE)
+    sc$pp$neighbors(adata, use_rep = reduction_key)
+    scv$pp$moments(adata, n_pcs = NULL, n_neighbors = NULL)
+    scv$tl$velocity_graph(adata)
+
+    vk <- cr$kernels$VelocityKernel(adata)
+    py_call(vk, "compute_transition_matrix")
+
+    g <- cr$estimators$GPCCA(vk)
+    py_call(g, "compute_eigendecomposition")
+    py_call(g, "compute_schur", method = "krylov")
+    py_call(g, "compute_macrostates")
+    py_call(g, "predict_terminal_states")
+    py_call(g, "compute_fate_probabilities")
+
+    term_states <- py_attr(g, "terminal_states")
+    abs_probs <- py_attr(g, "fate_probabilities")
+
+    extract_array <- function(x) {
+        x_mat <- py_attr(x, "X", default = x)
+        if (reticulate::py_module_available("scipy.sparse")) {
+            sp_sparse <- reticulate::import("scipy.sparse", convert = FALSE)
+            if (py_to_r(sp_sparse$issparse(x_mat))) {
+                x_mat <- py_call(x_mat, "toarray")
+            }
+        }
+        as.matrix(py_to_r(x_mat))
+    }
+
+    abs_mat <- tryCatch(
+        extract_array(abs_probs),
+        error = function(e) {
+            tryCatch(
+                as.matrix(abs_probs),
+                error = function(e2) {
+                    cli::cli_abort(
+                        c("Failed to extract absorption probabilities.",
+                          i = "CellRank returned: {.val {class(abs_probs)}}"),
+                        parent = e2
+                    )
+                }
+            )
+        }
+    )
+
+    abs_prob_names <- colnames(abs_mat)
+    if (is.null(abs_prob_names) && !is.null(abs_probs)) {
+        abs_prob_names <- tryCatch({
+            names_attr <- py_attr(abs_probs, "names")
+            if (!is.null(names_attr)) {
+                as.character(py_to_r(names_attr))
+            } else {
+                NULL
+            }
+        }, error = function(e) NULL)
+    }
+    lineage_drivers <- NULL
+    tryCatch({
+        py_call(g, "compute_lineage_drivers")
+        lineage_drivers <- as.data.frame(py_to_r(py_attr(g, "lineage_drivers")))
+        if (!"gene" %in% colnames(lineage_drivers)) {
+            lineage_drivers$gene <- rownames(lineage_drivers)
+        }
+        lineage_drivers <- lineage_drivers[, c("gene", setdiff(colnames(lineage_drivers), "gene")), drop = FALSE]
+        rownames(lineage_drivers) <- NULL
+    }, error = function(e) {
+        NULL
+    })
+
+    list(
+        terminal_states = as.character(py_to_r(term_states)),
+        absorption_probs = abs_mat,
+        absorption_prob_names = abs_prob_names,
+        lineage_drivers = lineage_drivers
+    )
 }
 
 #' Run Cell Fate Inference
@@ -339,6 +477,11 @@ RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce), 
 #' @param method Backend used for fate inference. Currently only `"CellRank"`.
 #' @param reduction String specifying the reduction to use for kNN graph. Defaults to `"PCA"`.
 #' @param cluster_key String specifying the column in `colData` containing cluster labels.
+#' @param velocity_id Optional velocity record id. If `NULL`, uses the active
+#'   velocity result.
+#' @param backend Python execution backend passed to `RunCellRank()`.
+#' @param python Optional Python executable or conda environment name used when
+#'   `backend = "reticulate"`.
 #' @param name trajectory record id. Defaults to `"cellfate"`.
 #' @param ... Additional arguments passed to the selected backend.
 #'
@@ -349,10 +492,14 @@ RunCellFate <- function(
     method = c("CellRank"),
     reduction = "PCA",
     cluster_key = ActiveIdent(sce),
+    velocity_id = NULL,
+    backend = c("basilisk", "reticulate"),
+    python = NULL,
     name = "cellfate",
     ...
 ) {
     method <- match.arg(method)
+    backend <- match.arg(backend)
 
     switch(
         method,
@@ -360,6 +507,9 @@ RunCellFate <- function(
             sce = sce,
             reduction = reduction,
             cluster_key = cluster_key,
+            velocity_id = velocity_id,
+            backend = backend,
+            python = python,
             name = name,
             ...
         )
@@ -453,6 +603,285 @@ sclet_pick_cellrank_driver_metric <- function(drivers) {
     NULL
 }
 
+sclet_cellrank_fate_columns <- function(cellrank) {
+    fate_cols <- cellrank$artifacts$fate_probability_cols
+    if (is.null(fate_cols)) {
+        fate_cols <- cellrank$fate_probability_cols
+    }
+    fate_cols
+}
+
+sclet_cellrank_fate_names <- function(cellrank) {
+    fate_prob_names <- cellrank$artifacts$fate_probability_names
+    if (is.null(fate_prob_names)) {
+        fate_prob_names <- cellrank$fate_probability_names
+    }
+    fate_prob_names
+}
+
+sclet_resolve_cellrank_fate_col <- function(cellrank, fate = NULL) {
+    fate_cols <- sclet_cellrank_fate_columns(cellrank)
+    if (is.null(fate_cols) || length(fate_cols) == 0) {
+        stop("No fate probability columns found. Please run RunCellRank() or RunCellFate() first.")
+    }
+
+    fate_prob_names <- sclet_cellrank_fate_names(cellrank)
+    fate_name_map <- stats::setNames(fate_cols, fate_prob_names)
+    fate_col <- fate
+    if (is.null(fate_col)) {
+        fate_col <- fate_cols[[1]]
+    } else if (is.numeric(fate_col)) {
+        if (length(fate_col) != 1 || is.na(fate_col) ||
+            fate_col < 1 || fate_col > length(fate_cols)) {
+            stop("Numeric `fate` must be a valid 1-based index into stored fate probability columns.")
+        }
+        fate_col <- fate_cols[[fate_col]]
+    } else if (fate_col %in% names(fate_name_map)) {
+        fate_col <- fate_name_map[[fate_col]]
+    }
+    if (!fate_col %in% fate_cols) {
+        stop(
+            "Unknown fate column '", fate_col, "'. Available columns are: ",
+            paste(c(fate_cols, names(fate_name_map)), collapse = ", "), "."
+        )
+    }
+    fate_col
+}
+
+#' Summarize CellRank Results
+#'
+#' Reports key diagnostics for stored CellRank results, including terminal-state
+#' counts and fate-probability ranges. This is useful for detecting smoke-test
+#' cases where CellRank returns a single terminal state or near-constant fate
+#' probabilities.
+#'
+#' @param object A SingleCellExperiment object with CellRank results.
+#' @param id Optional trajectory record id.
+#'
+#' @return A list with `summary`, `terminal_states`, and `fate_probabilities`.
+#' @export
+CellRankSummary <- function(object, id = NULL) {
+    cellrank <- get_cellrank(object, id = id)
+    if (is.null(cellrank)) {
+        stop("No CellRank results found in the object.")
+    }
+
+    terminal_state_col <- cellrank$artifacts$terminal_state_col
+    if (is.null(terminal_state_col)) {
+        terminal_state_col <- cellrank$terminal_state_col
+    }
+    fate_cols <- sclet_cellrank_fate_columns(cellrank)
+
+    terminal_df <- data.frame(
+        terminal_state = character(),
+        n_cells = integer(),
+        stringsAsFactors = FALSE
+    )
+    if (!is.null(terminal_state_col) &&
+        terminal_state_col %in% colnames(SummarizedExperiment::colData(object))) {
+        terminal_state <- as.character(SummarizedExperiment::colData(object)[[terminal_state_col]])
+        terminal_state[is.na(terminal_state) | !nzchar(terminal_state)] <- "Unassigned"
+        terminal_tab <- table(terminal_state, useNA = "ifany")
+        terminal_df <- data.frame(
+            terminal_state = names(terminal_tab),
+            n_cells = as.integer(terminal_tab),
+            stringsAsFactors = FALSE
+        )
+    }
+
+    fate_df <- data.frame(
+        fate_probability_col = character(),
+        min = numeric(),
+        median = numeric(),
+        max = numeric(),
+        sd = numeric(),
+        stringsAsFactors = FALSE
+    )
+    if (!is.null(fate_cols) && length(fate_cols)) {
+        fate_df <- do.call(rbind, lapply(fate_cols, function(col) {
+            values <- as.numeric(SummarizedExperiment::colData(object)[[col]])
+            data.frame(
+                fate_probability_col = col,
+                min = min(values, na.rm = TRUE),
+                median = stats::median(values, na.rm = TRUE),
+                max = max(values, na.rm = TRUE),
+                sd = stats::sd(values, na.rm = TRUE),
+                stringsAsFactors = FALSE
+            )
+        }))
+    }
+
+    terminal_state_col_value <- if (is.null(terminal_state_col)) "" else terminal_state_col
+    fate_cols_value <- if (is.null(fate_cols)) character() else fate_cols
+
+    list(
+        summary = data.frame(
+            metric = c(
+                "n_cells",
+                "n_terminal_states",
+                "n_fate_dimensions",
+                "has_lineage_drivers",
+                "terminal_state_col",
+                "fate_probability_cols"
+            ),
+            value = c(
+                ncol(object),
+                length(setdiff(terminal_df$terminal_state, "Unassigned")),
+                if (is.null(fate_cols)) 0L else length(fate_cols),
+                isTRUE(cellrank$artifacts$has_lineage_drivers),
+                terminal_state_col_value,
+                paste(fate_cols_value, collapse = ";")
+            ),
+            stringsAsFactors = FALSE
+        ),
+        terminal_states = terminal_df,
+        fate_probabilities = fate_df
+    )
+}
+
+#' Correlate Velocity Magnitude with CellRank Fate Probabilities
+#'
+#' Computes correlations between per-cell velocity magnitude and CellRank fate
+#' probabilities. This is a lightweight diagnostic for connecting RegVelo or
+#' scVelo velocity strength to downstream fate assignments.
+#'
+#' @param object A SingleCellExperiment object with velocity and CellRank
+#'   results.
+#' @param velocity_id Optional velocity record id.
+#' @param trajectory_id Optional CellRank trajectory record id.
+#' @param assay Optional velocity assay name. If supplied, overrides
+#'   `velocity_id`.
+#' @param method Correlation method passed to `stats::cor.test()`.
+#'
+#' @return A data.frame with one row per fate probability column.
+#' @export
+VelocityFateCorrelation <- function(
+    object,
+    velocity_id = NULL,
+    trajectory_id = NULL,
+    assay = NULL,
+    method = c("spearman", "pearson", "kendall")
+) {
+    method <- match.arg(method)
+    cellrank <- get_cellrank(object, id = trajectory_id)
+    if (is.null(cellrank)) {
+        stop("No CellRank results found in the object.")
+    }
+    fate_cols <- sclet_cellrank_fate_columns(cellrank)
+    if (is.null(fate_cols) || !length(fate_cols)) {
+        stop("No fate probability columns found. Please run RunCellRank() or RunCellFate() first.")
+    }
+
+    velocity_magnitude <- VelocityMagnitude(
+        object,
+        id = velocity_id,
+        assay = assay,
+        margin = "cell"
+    )
+    velocity_assay <- sclet_velocity_assay_name(object, id = velocity_id, assay = assay)
+    do.call(rbind, lapply(fate_cols, function(fate_col) {
+        fate <- as.numeric(SummarizedExperiment::colData(object)[[fate_col]])
+        ok <- stats::complete.cases(velocity_magnitude, fate)
+        estimate <- NA_real_
+        p_value <- NA_real_
+        if (sum(ok) >= 3 &&
+            stats::sd(velocity_magnitude[ok]) > 0 &&
+            stats::sd(fate[ok]) > 0) {
+            test <- stats::cor.test(velocity_magnitude[ok], fate[ok], method = method)
+            estimate <- unname(test$estimate)
+            p_value <- test$p.value
+        }
+        data.frame(
+            fate_probability_col = fate_col,
+            velocity_assay = velocity_assay,
+            method = method,
+            n_cells = sum(ok),
+            estimate = estimate,
+            p_value = p_value,
+            stringsAsFactors = FALSE
+        )
+    }))
+}
+
+#' Plot Velocity Magnitude Against CellRank Fate Probability
+#'
+#' Draws a per-cell scatter plot linking velocity magnitude to one CellRank fate
+#' probability. Cells can be colored by terminal state when available.
+#'
+#' @param object A SingleCellExperiment object with velocity and CellRank
+#'   results.
+#' @param fate Fate branch to plot. Can be a stored fate probability column, a
+#'   lineage name, or a 1-based column index. If `NULL`, uses the first one.
+#' @param velocity_id Optional velocity record id.
+#' @param trajectory_id Optional CellRank trajectory record id.
+#' @param assay Optional velocity assay name. If supplied, overrides
+#'   `velocity_id`.
+#' @param point_size Point size for cells.
+#' @param alpha Point alpha.
+#'
+#' @return A ggplot object.
+#' @importFrom rlang .data
+#' @export
+plot_velocity_fate_correlation <- function(
+    object,
+    fate = NULL,
+    velocity_id = NULL,
+    trajectory_id = NULL,
+    assay = NULL,
+    point_size = 0.8,
+    alpha = 0.8
+) {
+    if (!requireNamespace("ggplot2", quietly = TRUE)) {
+        stop("Package 'ggplot2' is needed for this function to work. Please install it.")
+    }
+
+    cellrank <- get_cellrank(object, id = trajectory_id)
+    if (is.null(cellrank)) {
+        stop("No CellRank results found in the object.")
+    }
+    fate_col <- sclet_resolve_cellrank_fate_col(cellrank, fate = fate)
+    velocity_magnitude <- VelocityMagnitude(
+        object,
+        id = velocity_id,
+        assay = assay,
+        margin = "cell"
+    )
+    terminal_state_col <- cellrank$artifacts$terminal_state_col
+    if (is.null(terminal_state_col)) {
+        terminal_state_col <- cellrank$terminal_state_col
+    }
+    terminal_state <- rep("Unassigned", ncol(object))
+    if (!is.null(terminal_state_col) &&
+        terminal_state_col %in% colnames(SummarizedExperiment::colData(object))) {
+        terminal_state <- as.character(SummarizedExperiment::colData(object)[[terminal_state_col]])
+        terminal_state[is.na(terminal_state) | !nzchar(terminal_state)] <- "Unassigned"
+    }
+
+    plot_df <- data.frame(
+        velocity_magnitude = as.numeric(velocity_magnitude),
+        fate_probability = as.numeric(SummarizedExperiment::colData(object)[[fate_col]]),
+        terminal_state = terminal_state,
+        stringsAsFactors = FALSE
+    )
+
+    ggplot2::ggplot(
+        plot_df,
+        ggplot2::aes(
+            x = .data$velocity_magnitude,
+            y = .data$fate_probability,
+            color = .data$terminal_state
+        )
+    ) +
+        ggplot2::geom_point(size = point_size, alpha = alpha) +
+        ggplot2::theme_classic() +
+        ggplot2::labs(
+            x = "Velocity magnitude",
+            y = fate_col,
+            color = "Terminal state",
+            title = "Velocity Magnitude vs Fate Probability"
+        )
+}
+
 #' Plot Cell Fate Probability
 #'
 #' Plot fate probabilities inferred by CellRank on a reduced-dimensional
@@ -489,10 +918,7 @@ plot_fate_probability <- function(
         stop("No CellRank results found in the object.")
     }
 
-    fate_cols <- cellrank$artifacts$fate_probability_cols
-    if (is.null(fate_cols)) {
-        fate_cols <- cellrank$fate_probability_cols
-    }
+    fate_cols <- sclet_cellrank_fate_columns(cellrank)
     if (is.null(fate_cols) || length(fate_cols) == 0) {
         stop("No fate probability columns found. Please run RunCellRank() or RunCellFate() first.")
     }
@@ -507,29 +933,7 @@ plot_fate_probability <- function(
         stop("A valid reduction is required for plotting fate probabilities.")
     }
 
-    fate_col <- fate
-    fate_prob_names <- cellrank$artifacts$fate_probability_names
-    if (is.null(fate_prob_names)) {
-        fate_prob_names <- cellrank$fate_probability_names
-    }
-    fate_name_map <- stats::setNames(fate_cols, fate_prob_names)
-    if (is.null(fate_col)) {
-        fate_col <- fate_cols[[1]]
-    } else if (is.numeric(fate_col)) {
-        if (length(fate_col) != 1 || is.na(fate_col) ||
-            fate_col < 1 || fate_col > length(fate_cols)) {
-            stop("Numeric `fate` must be a valid 1-based index into stored fate probability columns.")
-        }
-        fate_col <- fate_cols[[fate_col]]
-    } else if (fate_col %in% names(fate_name_map)) {
-        fate_col <- fate_name_map[[fate_col]]
-    }
-    if (!fate_col %in% fate_cols) {
-        stop(
-            "Unknown fate column '", fate_col, "'. Available columns are: ",
-            paste(c(fate_cols, names(fate_name_map)), collapse = ", "), "."
-        )
-    }
+    fate_col <- sclet_resolve_cellrank_fate_col(cellrank, fate = fate)
 
     emb <- SingleCellExperiment::reducedDim(object, reduction)
     plot_df <- data.frame(

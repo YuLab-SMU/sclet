@@ -6,3 +6,10 @@ runMilo_v2
 dev-notes
 .trae/
 Rplots.pdf
+logs/
+regvelo_smoke_source/
+regvelo_smoke_data/
+regvelo_smoke_results/
+regvelo_smoke_cellrank/
+regvelo_smoke_cellrank-local-check/
+inst/regvelo-smoke-test/__pycache__/

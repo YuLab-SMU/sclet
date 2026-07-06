@@ -1,3 +1,9 @@
+# sclet 1.0.1
+
++ **RegVelo GPU Backend**: Added `RunRegVelo()` as an RNA velocity backend that runs RegVelo through either the packaged Python stack or a user-managed `reticulate` Python, stores the inferred velocity as a `SingleCellExperiment` assay, and registers it in the standard velocity state layer.
++ **RegVelo to CellRank Workflow**: Extended `RunCellRank()` so CellRank can consume velocity assays produced by `RunRegVelo()`, including the GPU/SLURM-friendly `reticulate` path. Added CellRank diagnostics via `CellRankSummary()`, `VelocityFateCorrelation()`, and `plot_velocity_fate_correlation()`.
++ **RegVelo Smoke-Test Kit**: Added a self-contained `inst/regvelo-smoke-test` workflow for pyenv-based server setup, small h5ad preparation, SLURM RegVelo execution, and CellRank-after-RegVelo validation without conda/mamba.
+
 # sclet 1.0.0
 
 + **State Priority & Perturbation Sensitivity Mainline**: Introduced `RunPerturbationPriority()` wrapping the Augur framework for ranking cell types by perturbation responsiveness, `RunRareCellDetection()` as a reserved interface for rare-cell identification, and `RunStatePriorityWorkflow()` as the semantic shell over the state-priority analysis mainline. Added `get_perturbation_priority()` / `has_perturbation_priority()` and `get_rare_cells()` / `has_rare_cells()` accessors.
