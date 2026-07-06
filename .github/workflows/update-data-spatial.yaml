@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   update-data:
@@ -22,6 +21,6 @@ jobs:
         data/visium-dlpfc-sub.rds
         data/dlpfpc-spatial.rds
         data/dlpfpc-ref.rds
-      branch: update-data-spatial
+      branch: ci-update-data
       title: "chore(data): update spatial bookdown caches"
       body: "Update cached spatial data generated from bookdown/data-raw."

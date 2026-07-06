@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   update-data:
@@ -21,6 +20,6 @@ jobs:
       add_paths: |
         data/hermann-sperm-velo.rds
         data/hermann-sperm-dynamics.rds
-      branch: update-data-velocity-fate
+      branch: ci-update-data
       title: "chore(data): update velocity and fate bookdown caches"
       body: "Update cached velocity and CellRank data generated from bookdown/data-raw."

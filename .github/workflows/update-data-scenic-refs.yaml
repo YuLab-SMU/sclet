@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   update-data:
@@ -20,6 +19,6 @@ jobs:
       add_paths: |
         data/allTFs_hg38.txt
         data/motifs-v9-nr.hgnc.tbl
-      branch: update-data-scenic-refs
+      branch: ci-update-data
       title: "chore(data): update SCENIC reference caches"
       body: "Update cached SCENIC reference files generated from bookdown/data-raw/scenic-refs.R."

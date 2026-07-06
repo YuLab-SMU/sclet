@@ -29,7 +29,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   update-data:
@@ -49,6 +48,12 @@ jobs:
         with:
           ref: devel
           path: sclet-src
+
+      - name: Checkout CI-updated data branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          path: data-src
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -116,14 +121,31 @@ jobs:
           ${{ inputs.run_scripts }}
           git -C "$ws/docs-src" status --short
 
-      - name: Create pull request
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ env.GITHUB_PAT }}
-          path: docs-src
-          branch: ${{ inputs.branch }}
-          base: docs
-          title: ${{ inputs.title }}
-          commit-message: ${{ inputs.title }}
-          body: ${{ inputs.body }}
-          add-paths: ${{ inputs.add_paths }}
+      - name: Commit CI-updated data
+        shell: bash
+        run: |
+          set -euo pipefail
+          ws="$GITHUB_WORKSPACE"
+          cd "$ws/docs-src"
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            mkdir -p "$ws/data-src/$(dirname "$path")"
+            cp -a "$path" "$ws/data-src/$path"
+          done <<'EOF'
+          ${{ inputs.add_paths }}
+          EOF
+          cd "$ws/data-src"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            git add "$path"
+          done <<'EOF'
+          ${{ inputs.add_paths }}
+          EOF
+          if git diff --cached --quiet; then
+            echo "No CI-updated data changes to commit."
+            exit 0
+          fi
+          git commit -m "${{ inputs.title }}"
+          git push origin HEAD:${{ inputs.branch }}
