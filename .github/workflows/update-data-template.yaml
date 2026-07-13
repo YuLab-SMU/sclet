@@ -103,7 +103,10 @@ jobs:
       - name: Install sclet
         if: ${{ inputs.install_sclet }}
         run: |
+          cp sclet-src/DESCRIPTION sclet-src/DESCRIPTION.orig
+          Rscript -e 'd <- read.dcf("sclet-src/DESCRIPTION"); d[, "Remotes"] <- NA; write.dcf(d, "sclet-src/DESCRIPTION")'
           Rscript -e 'remotes::install_deps("sclet-src", dependencies = c("Depends", "Imports", "LinkingTo"), upgrade = "never")'
+          mv sclet-src/DESCRIPTION.orig sclet-src/DESCRIPTION
           R CMD INSTALL sclet-src
 
       - name: Build cached data
