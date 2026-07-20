@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+<head>
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>10 Program, Regulon, and Mechanistic Interpretation | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
+  <meta name="description" content="10 Program, Regulon, and Mechanistic Interpretation | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
+  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+
+  <meta property="og:title" content="10 Program, Regulon, and Mechanistic Interpretation | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
+  <meta property="og:type" content="book" />
+  
+  
+  
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="10 Program, Regulon, and Mechanistic Interpretation | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
+  
+  
+  
+
+
+
+<meta name="date" content="2026-07-20" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  
+  
+<link rel="prev" href="cell-fate.html"/>
+<link rel="next" href="differential-interpretation.html"/>
+<script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-table.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-clipboard.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+<link href="libs/anchor-sections-1.1.0/anchor-sections.css" rel="stylesheet" />
+<link href="libs/anchor-sections-1.1.0/anchor-sections-hash.css" rel="stylesheet" />
+<script src="libs/anchor-sections-1.1.0/anchor-sections.js"></script>
+
+
+<style type="text/css">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+<style type="text/css">
+  
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+</style>
+<style type="text/css">
+/* Used with Pandoc 2.11+ new --citeproc when CSL is used */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}
+</style>
+
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li class="chapter" data-level="" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i>Preface</a>
+<ul>
+<li class="chapter" data-level="0.1" data-path="index.html"><a href="index.html#mainline-map"><i class="fa fa-check"></i><b>0.1</b> Mainline Map</a></li>
+<li class="chapter" data-level="0.2" data-path="index.html"><a href="index.html#how-this-book-is-organized"><i class="fa fa-check"></i><b>0.2</b> How This Book Is Organized</a></li>
+<li class="chapter" data-level="0.3" data-path="index.html"><a href="index.html#reading-paths"><i class="fa fa-check"></i><b>0.3</b> Reading Paths</a></li>
+<li class="chapter" data-level="0.4" data-path="index.html"><a href="index.html#example-conventions"><i class="fa fa-check"></i><b>0.4</b> Example Conventions</a></li>
+</ul></li>
+<li class="part"><span><b>I How sclet Thinks: State, Provenance, and Navigation</b></span></li>
+<li class="chapter" data-level="1" data-path="state-aware.html"><a href="state-aware.html"><i class="fa fa-check"></i><b>1</b> State-Aware Analysis Contract</a>
+<ul>
+<li class="chapter" data-level="1.1" data-path="state-aware.html"><a href="state-aware.html#what-is-the-state-contract"><i class="fa fa-check"></i><b>1.1</b> What is the State Contract?</a></li>
+<li class="chapter" data-level="1.2" data-path="state-aware.html"><a href="state-aware.html#macro-view-status"><i class="fa fa-check"></i><b>1.2</b> Macro View: <code>Status()</code></a></li>
+<li class="chapter" data-level="1.3" data-path="state-aware.html"><a href="state-aware.html#digging-deeper-get_analysis_context"><i class="fa fa-check"></i><b>1.3</b> Digging Deeper: <code>get_analysis_context()</code></a></li>
+<li class="chapter" data-level="1.4" data-path="state-aware.html"><a href="state-aware.html#named-state-records-and-typed-accessors"><i class="fa fa-check"></i><b>1.4</b> Named State Records and Typed Accessors</a></li>
+<li class="chapter" data-level="1.5" data-path="state-aware.html"><a href="state-aware.html#memory-safety-and-sparse-data"><i class="fa fa-check"></i><b>1.5</b> Memory Safety and Sparse Data</a></li>
+<li class="chapter" data-level="1.6" data-path="state-aware.html"><a href="state-aware.html#manual-overrides-layers-and-default-apis"><i class="fa fa-check"></i><b>1.6</b> Manual Overrides: Layers and Default APIs</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="pipeline-logs.html"><a href="pipeline-logs.html"><i class="fa fa-check"></i><b>2</b> Automation &amp; Provenance Logs</a>
+<ul>
+<li class="chapter" data-level="2.1" data-path="pipeline-logs.html"><a href="pipeline-logs.html#the-one-liner-pipeline"><i class="fa fa-check"></i><b>2.1</b> The One-Liner Pipeline</a></li>
+<li class="chapter" data-level="2.2" data-path="pipeline-logs.html"><a href="pipeline-logs.html#the-provenance-log-commandlog"><i class="fa fa-check"></i><b>2.2</b> The Provenance Log (CommandLog)</a></li>
+<li class="chapter" data-level="2.3" data-path="pipeline-logs.html"><a href="pipeline-logs.html#writing-methods-for-you-pipelinesummary"><i class="fa fa-check"></i><b>2.3</b> Writing Methods for You: <code>PipelineSummary</code></a></li>
+</ul></li>
+<li class="part"><span><b>II From Data to Discovery: Analysis Mainlines</b></span></li>
+<li class="chapter" data-level="3" data-path="data-ingress.html"><a href="data-ingress.html"><i class="fa fa-check"></i><b>3</b> Data Ingress and Object Interoperability</a>
+<ul>
+<li class="chapter" data-level="3.1" data-path="data-ingress.html"><a href="data-ingress.html#seurat-and-sce-conversion"><i class="fa fa-check"></i><b>3.1</b> Seurat and SCE Conversion</a></li>
+<li class="chapter" data-level="3.2" data-path="data-ingress.html"><a href="data-ingress.html#anndata-h5ad"><i class="fa fa-check"></i><b>3.2</b> AnnData (h5ad)</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="recommended-usage.html"><a href="recommended-usage.html"><i class="fa fa-check"></i><b>4</b> Recommended usage</a>
+<ul>
+<li class="chapter" data-level="4.1" data-path="recommended-usage.html"><a href="recommended-usage.html#for-end-users"><i class="fa fa-check"></i><b>4.1</b> For end users</a></li>
+<li class="chapter" data-level="4.2" data-path="recommended-usage.html"><a href="recommended-usage.html#for-pipeline-authors"><i class="fa fa-check"></i><b>4.2</b> For pipeline authors</a></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="developer-design-notes.html"><a href="developer-design-notes.html"><i class="fa fa-check"></i><b>5</b> Developer design notes</a>
+<ul>
+<li class="chapter" data-level="5.1" data-path="developer-design-notes.html"><a href="developer-design-notes.html#core-object-contract"><i class="fa fa-check"></i><b>5.1</b> Core object contract</a></li>
+<li class="chapter" data-level="5.2" data-path="developer-design-notes.html"><a href="developer-design-notes.html#how-to-add-a-new-analysis-function"><i class="fa fa-check"></i><b>5.2</b> How to add a new analysis function</a></li>
+<li class="chapter" data-level="5.3" data-path="developer-design-notes.html"><a href="developer-design-notes.html#implementation-rules-for-contributors"><i class="fa fa-check"></i><b>5.3</b> Implementation rules for contributors</a></li>
+<li class="chapter" data-level="5.4" data-path="developer-design-notes.html"><a href="developer-design-notes.html#what-should-be-tested"><i class="fa fa-check"></i><b>5.4</b> What should be tested</a></li>
+</ul></li>
+<li class="chapter" data-level="6" data-path="core-workflow.html"><a href="core-workflow.html"><i class="fa fa-check"></i><b>6</b> Core Single-Cell Workflow</a>
+<ul>
+<li class="chapter" data-level="6.1" data-path="core-workflow.html"><a href="core-workflow.html#read-10x-data"><i class="fa fa-check"></i><b>6.1</b> Read 10X data</a></li>
+<li class="chapter" data-level="6.2" data-path="core-workflow.html"><a href="core-workflow.html#qc"><i class="fa fa-check"></i><b>6.2</b> QC</a></li>
+<li class="chapter" data-level="6.3" data-path="core-workflow.html"><a href="core-workflow.html#ambient-rna-and-doublet-cleanup"><i class="fa fa-check"></i><b>6.3</b> Ambient RNA and doublet cleanup</a></li>
+<li class="chapter" data-level="6.4" data-path="core-workflow.html"><a href="core-workflow.html#variable-features"><i class="fa fa-check"></i><b>6.4</b> Variable features</a></li>
+<li class="chapter" data-level="6.5" data-path="core-workflow.html"><a href="core-workflow.html#zero-preserving-imputation"><i class="fa fa-check"></i><b>6.5</b> Zero-preserving imputation</a></li>
+<li class="chapter" data-level="6.6" data-path="core-workflow.html"><a href="core-workflow.html#dimensional-reduction"><i class="fa fa-check"></i><b>6.6</b> Dimensional reduction</a></li>
+<li class="chapter" data-level="6.7" data-path="core-workflow.html"><a href="core-workflow.html#FindClusters"><i class="fa fa-check"></i><b>6.7</b> Clustering</a></li>
+<li class="chapter" data-level="6.8" data-path="core-workflow.html"><a href="core-workflow.html#umap"><i class="fa fa-check"></i><b>6.8</b> UMAP</a></li>
+<li class="chapter" data-level="6.9" data-path="core-workflow.html"><a href="core-workflow.html#find-markers"><i class="fa fa-check"></i><b>6.9</b> Find Markers</a>
+<ul>
+<li class="chapter" data-level="6.9.1" data-path="core-workflow.html"><a href="core-workflow.html#marker-gene-information"><i class="fa fa-check"></i><b>6.9.1</b> Marker gene information</a></li>
+</ul></li>
+<li class="chapter" data-level="6.10" data-path="core-workflow.html"><a href="core-workflow.html#manual-annotation"><i class="fa fa-check"></i><b>6.10</b> Cell cluster annotation</a></li>
+<li class="chapter" data-level="6.11" data-path="core-workflow.html"><a href="core-workflow.html#automatic-annotation-singler"><i class="fa fa-check"></i><b>6.11</b> Automatic Annotation (SingleR)</a></li>
+</ul></li>
+<li class="chapter" data-level="7" data-path="integration.html"><a href="integration.html"><i class="fa fa-check"></i><b>7</b> Integration and Batch Correction</a>
+<ul>
+<li class="chapter" data-level="7.1" data-path="integration.html"><a href="integration.html#load-datasets"><i class="fa fa-check"></i><b>7.1</b> Load datasets</a></li>
+<li class="chapter" data-level="7.2" data-path="integration.html"><a href="integration.html#preprocess"><i class="fa fa-check"></i><b>7.2</b> Preprocess</a></li>
+<li class="chapter" data-level="7.3" data-path="integration.html"><a href="integration.html#integration-workflow"><i class="fa fa-check"></i><b>7.3</b> Integration Workflow</a></li>
+<li class="chapter" data-level="7.4" data-path="integration.html"><a href="integration.html#clustering"><i class="fa fa-check"></i><b>7.4</b> Clustering</a></li>
+<li class="chapter" data-level="7.5" data-path="integration.html"><a href="integration.html#visualization"><i class="fa fa-check"></i><b>7.5</b> Visualization</a></li>
+<li class="chapter" data-level="7.6" data-path="integration.html"><a href="integration.html#pseudobulk-differential-expression"><i class="fa fa-check"></i><b>7.6</b> Pseudobulk Differential Expression</a></li>
+</ul></li>
+<li class="chapter" data-level="8" data-path="reference-mapping.html"><a href="reference-mapping.html"><i class="fa fa-check"></i><b>8</b> Cell Identity and Reference Mapping</a>
+<ul>
+<li class="chapter" data-level="8.1" data-path="reference-mapping.html"><a href="reference-mapping.html#manual-annotation-1"><i class="fa fa-check"></i><b>8.1</b> Manual annotation</a></li>
+<li class="chapter" data-level="8.2" data-path="reference-mapping.html"><a href="reference-mapping.html#automatic-annotation"><i class="fa fa-check"></i><b>8.2</b> Automatic annotation</a></li>
+<li class="chapter" data-level="8.3" data-path="reference-mapping.html"><a href="reference-mapping.html#reference-mapping-mainline-workflow"><i class="fa fa-check"></i><b>8.3</b> Reference mapping mainline workflow</a>
+<ul>
+<li class="chapter" data-level="8.3.1" data-path="reference-mapping.html"><a href="reference-mapping.html#lightweight-reference-mapping-knn"><i class="fa fa-check"></i><b>8.3.1</b> Lightweight Reference Mapping (KNN)</a></li>
+<li class="chapter" data-level="8.3.2" data-path="reference-mapping.html"><a href="reference-mapping.html#run-singler-with-sclet"><i class="fa fa-check"></i><b>8.3.2</b> Run SingleR with sclet</a></li>
+<li class="chapter" data-level="8.3.3" data-path="reference-mapping.html"><a href="reference-mapping.html#reference-mapping-workflow"><i class="fa fa-check"></i><b>8.3.3</b> Reference mapping workflow</a></li>
+<li class="chapter" data-level="8.3.4" data-path="reference-mapping.html"><a href="reference-mapping.html#symphony-atlas-mapping"><i class="fa fa-check"></i><b>8.3.4</b> Symphony Atlas Mapping</a></li>
+<li class="chapter" data-level="8.3.5" data-path="reference-mapping.html"><a href="reference-mapping.html#state-aware-singler-provenance"><i class="fa fa-check"></i><b>8.3.5</b> State-aware SingleR provenance</a></li>
+<li class="chapter" data-level="8.3.6" data-path="reference-mapping.html"><a href="reference-mapping.html#annotate-with-singler-result"><i class="fa fa-check"></i><b>8.3.6</b> Annotate with SingleR result</a></li>
+<li class="chapter" data-level="8.3.7" data-path="reference-mapping.html"><a href="reference-mapping.html#comparison-with-manual-annotation-result"><i class="fa fa-check"></i><b>8.3.7</b> Comparison with manual annotation result</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="9" data-path="cell-fate.html"><a href="cell-fate.html"><i class="fa fa-check"></i><b>9</b> Cell Fate and Dynamic Processes</a>
+<ul>
+<li class="chapter" data-level="9.1" data-path="cell-fate.html"><a href="cell-fate.html#trajectory-mainline-workflow"><i class="fa fa-check"></i><b>9.1</b> Trajectory mainline workflow</a>
+<ul>
+<li class="chapter" data-level="9.1.1" data-path="cell-fate.html"><a href="cell-fate.html#lineage-plot"><i class="fa fa-check"></i><b>9.1.1</b> Lineage plot</a></li>
+<li class="chapter" data-level="9.1.2" data-path="cell-fate.html"><a href="cell-fate.html#pseudotime-plot"><i class="fa fa-check"></i><b>9.1.2</b> Pseudotime plot</a></li>
+<li class="chapter" data-level="9.1.3" data-path="cell-fate.html"><a href="cell-fate.html#expression-trends-in-different-cell-trajectories"><i class="fa fa-check"></i><b>9.1.3</b> Expression trends in different cell trajectories</a></li>
+<li class="chapter" data-level="9.1.4" data-path="cell-fate.html"><a href="cell-fate.html#heatmap"><i class="fa fa-check"></i><b>9.1.4</b> Heatmap</a></li>
+</ul></li>
+<li class="chapter" data-level="9.2" data-path="cell-fate.html"><a href="cell-fate.html#diffusion-map"><i class="fa fa-check"></i><b>9.2</b> Diffusion Map for complex trajectories</a>
+<ul>
+<li class="chapter" data-level="9.2.1" data-path="cell-fate.html"><a href="cell-fate.html#example-data"><i class="fa fa-check"></i><b>9.2.1</b> Example data</a></li>
+<li class="chapter" data-level="9.2.2" data-path="cell-fate.html"><a href="cell-fate.html#run-velocity-analysis"><i class="fa fa-check"></i><b>9.2.2</b> Run velocity analysis</a></li>
+<li class="chapter" data-level="9.2.3" data-path="cell-fate.html"><a href="cell-fate.html#visualize-velocity-based-trajectory"><i class="fa fa-check"></i><b>9.2.3</b> Visualize velocity-based trajectory</a></li>
+</ul></li>
+<li class="chapter" data-level="9.3" data-path="cell-fate.html"><a href="cell-fate.html#cellrank"><i class="fa fa-check"></i><b>9.3</b> CellRank: Advanced Fate Mapping</a>
+<ul>
+<li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
+</ul></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+</ul></li>
+<li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
+<ul>
+<li class="chapter" data-level="10.1" data-path="program-regulon.html"><a href="program-regulon.html#gene-set-scoring-and-pathway-activity"><i class="fa fa-check"></i><b>10.1</b> Gene set scoring and pathway activity</a></li>
+<li class="chapter" data-level="10.2" data-path="program-regulon.html"><a href="program-regulon.html#multi-backend-scoring-in-one-click"><i class="fa fa-check"></i><b>10.2</b> Multi-Backend Scoring in One Click</a></li>
+<li class="chapter" data-level="10.3" data-path="program-regulon.html"><a href="program-regulon.html#program-mainline-workflow"><i class="fa fa-check"></i><b>10.3</b> Program mainline workflow</a></li>
+<li class="chapter" data-level="10.4" data-path="program-regulon.html"><a href="program-regulon.html#reading-and-visualizing-results"><i class="fa fa-check"></i><b>10.4</b> Reading and Visualizing Results</a></li>
+<li class="chapter" data-level="10.5" data-path="program-regulon.html"><a href="program-regulon.html#advanced-pathway-discovery-altexp-and-runkegg"><i class="fa fa-check"></i><b>10.5</b> Advanced Pathway Discovery (altExp and RunKEGG)</a></li>
+<li class="chapter" data-level="10.6" data-path="program-regulon.html"><a href="program-regulon.html#scenic-regulon-inference"><i class="fa fa-check"></i><b>10.6</b> SCENIC regulon inference</a></li>
+<li class="chapter" data-level="10.7" data-path="program-regulon.html"><a href="program-regulon.html#environment-and-data-preparation"><i class="fa fa-check"></i><b>10.7</b> Environment and Data Preparation</a></li>
+<li class="chapter" data-level="10.8" data-path="program-regulon.html"><a href="program-regulon.html#one-click-inference-and-scoring"><i class="fa fa-check"></i><b>10.8</b> One-Click Inference and Scoring</a></li>
+<li class="chapter" data-level="10.9" data-path="program-regulon.html"><a href="program-regulon.html#result-retrieval-and-state-awareness"><i class="fa fa-check"></i><b>10.9</b> Result Retrieval and State Awareness</a></li>
+<li class="chapter" data-level="10.10" data-path="program-regulon.html"><a href="program-regulon.html#visualizing-regulon-activity"><i class="fa fa-check"></i><b>10.10</b> Visualizing Regulon Activity</a></li>
+<li class="chapter" data-level="10.11" data-path="program-regulon.html"><a href="program-regulon.html#unified-grn-entry-rungrn"><i class="fa fa-check"></i><b>10.11</b> Unified GRN Entry: <code>RunGRN()</code></a></li>
+<li class="chapter" data-level="10.12" data-path="program-regulon.html"><a href="program-regulon.html#unified-program-access-get_program-has_program"><i class="fa fa-check"></i><b>10.12</b> Unified Program Access: <code>get_program()</code> / <code>has_program()</code></a></li>
+<li class="chapter" data-level="10.13" data-path="program-regulon.html"><a href="program-regulon.html#program-activity-dotplot-plot_program_dotplot"><i class="fa fa-check"></i><b>10.13</b> Program Activity Dotplot: <code>plot_program_dotplot()</code></a></li>
+</ul></li>
+<li class="chapter" data-level="11" data-path="differential-interpretation.html"><a href="differential-interpretation.html"><i class="fa fa-check"></i><b>11</b> Differential Analysis and Functional Interpretation</a>
+<ul>
+<li class="chapter" data-level="11.1" data-path="differential-interpretation.html"><a href="differential-interpretation.html#differential-expression-and-pseudobulk-testing"><i class="fa fa-check"></i><b>11.1</b> Differential expression and pseudobulk testing</a></li>
+<li class="chapter" data-level="11.2" data-path="differential-interpretation.html"><a href="differential-interpretation.html#standard-single-cell-de"><i class="fa fa-check"></i><b>11.2</b> Standard Single-Cell DE</a>
+<ul>
+<li class="chapter" data-level="11.2.1" data-path="differential-interpretation.html"><a href="differential-interpretation.html#the-what-does-this-gene-even-do-problem"><i class="fa fa-check"></i><b>11.2.1</b> The “What does this gene even do?” Problem</a></li>
+</ul></li>
+<li class="chapter" data-level="11.3" data-path="differential-interpretation.html"><a href="differential-interpretation.html#the-gold-standard-pseudobulk-analysis"><i class="fa fa-check"></i><b>11.3</b> The Gold Standard: Pseudobulk Analysis</a>
+<ul>
+<li class="chapter" data-level="11.3.1" data-path="differential-interpretation.html"><a href="differential-interpretation.html#step-1-aggregate-expression"><i class="fa fa-check"></i><b>11.3.1</b> Step 1: Aggregate Expression</a></li>
+<li class="chapter" data-level="11.3.2" data-path="differential-interpretation.html"><a href="differential-interpretation.html#step-2-pseudobulk-de-with-deseq2"><i class="fa fa-check"></i><b>11.3.2</b> Step 2: Pseudobulk DE with DESeq2</a></li>
+</ul></li>
+<li class="chapter" data-level="11.4" data-path="differential-interpretation.html"><a href="differential-interpretation.html#functional-enrichment-on-top-of-differential-results"><i class="fa fa-check"></i><b>11.4</b> Functional enrichment on top of differential results</a></li>
+<li class="chapter" data-level="11.5" data-path="differential-interpretation.html"><a href="differential-interpretation.html#go-enrichment"><i class="fa fa-check"></i><b>11.5</b> GO Enrichment</a></li>
+<li class="chapter" data-level="11.6" data-path="differential-interpretation.html"><a href="differential-interpretation.html#kegg-enrichment"><i class="fa fa-check"></i><b>11.6</b> KEGG Enrichment</a></li>
+</ul></li>
+<li class="chapter" data-level="12" data-path="communication.html"><a href="communication.html"><i class="fa fa-check"></i><b>12</b> Cell-Cell Communication and Microenvironment Interaction</a>
+<ul>
+<li class="chapter" data-level="12.1" data-path="communication.html"><a href="communication.html#input"><i class="fa fa-check"></i><b>12.1</b> Input</a></li>
+<li class="chapter" data-level="12.2" data-path="communication.html"><a href="communication.html#running-cci"><i class="fa fa-check"></i><b>12.2</b> Running CCI</a></li>
+<li class="chapter" data-level="12.3" data-path="communication.html"><a href="communication.html#using-alternative-backends-cellphonedb-nichenet"><i class="fa fa-check"></i><b>12.3</b> Using Alternative Backends (CellPhoneDB &amp; NicheNet)</a>
+<ul>
+<li class="chapter" data-level="12.3.1" data-path="communication.html"><a href="communication.html#cellphonedb"><i class="fa fa-check"></i><b>12.3.1</b> CellPhoneDB</a></li>
+<li class="chapter" data-level="12.3.2" data-path="communication.html"><a href="communication.html#nichenet"><i class="fa fa-check"></i><b>12.3.2</b> NicheNet</a></li>
+</ul></li>
+<li class="chapter" data-level="12.4" data-path="communication.html"><a href="communication.html#visualization-1"><i class="fa fa-check"></i><b>12.4</b> Visualization</a>
+<ul>
+<li class="chapter" data-level="12.4.1" data-path="communication.html"><a href="communication.html#legacy-cellchat-visualization"><i class="fa fa-check"></i><b>12.4.1</b> Legacy CellChat Visualization</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="13" data-path="state-priority.html"><a href="state-priority.html"><i class="fa fa-check"></i><b>13</b> State Priority and Perturbation Sensitivity</a>
+<ul>
+<li class="chapter" data-level="13.1" data-path="state-priority.html"><a href="state-priority.html#perturbation-priority-workflow"><i class="fa fa-check"></i><b>13.1</b> Perturbation Priority Workflow</a>
+<ul>
+<li class="chapter" data-level="13.1.1" data-path="state-priority.html"><a href="state-priority.html#one-step-dispatch"><i class="fa fa-check"></i><b>13.1.1</b> One-Step Dispatch</a></li>
+<li class="chapter" data-level="13.1.2" data-path="state-priority.html"><a href="state-priority.html#direct-augur-call"><i class="fa fa-check"></i><b>13.1.2</b> Direct Augur Call</a></li>
+<li class="chapter" data-level="13.1.3" data-path="state-priority.html"><a href="state-priority.html#inspecting-results"><i class="fa fa-check"></i><b>13.1.3</b> Inspecting Results</a></li>
+</ul></li>
+<li class="chapter" data-level="13.2" data-path="state-priority.html"><a href="state-priority.html#rare-cell-detection"><i class="fa fa-check"></i><b>13.2</b> Rare Cell Detection</a></li>
+<li class="chapter" data-level="13.3" data-path="state-priority.html"><a href="state-priority.html#what-fits-nearby"><i class="fa fa-check"></i><b>13.3</b> What Fits Nearby</a></li>
+<li class="chapter" data-level="13.4" data-path="state-priority.html"><a href="state-priority.html#current-recommendation"><i class="fa fa-check"></i><b>13.4</b> Current Recommendation</a></li>
+</ul></li>
+<li class="chapter" data-level="14" data-path="spatial-context.html"><a href="spatial-context.html"><i class="fa fa-check"></i><b>14</b> Spatial Context and Niche Analysis</a>
+<ul>
+<li class="chapter" data-level="14.1" data-path="spatial-context.html"><a href="spatial-context.html#spatial-mainline-workflow"><i class="fa fa-check"></i><b>14.1</b> Spatial Mainline Workflow</a></li>
+<li class="chapter" data-level="14.2" data-path="spatial-context.html"><a href="spatial-context.html#high-resolution-spatial-deconvolution-cell2location"><i class="fa fa-check"></i><b>14.2</b> High-Resolution Spatial Deconvolution: Cell2location</a></li>
+<li class="chapter" data-level="14.3" data-path="spatial-context.html"><a href="spatial-context.html#spatial-colocalization-with-svp"><i class="fa fa-check"></i><b>14.3</b> Spatial Colocalization with SVP</a></li>
+<li class="chapter" data-level="14.4" data-path="spatial-context.html"><a href="spatial-context.html#spatial-niche-detection-with-svp-lisa"><i class="fa fa-check"></i><b>14.4</b> Spatial Niche Detection with SVP LISA</a></li>
+<li class="chapter" data-level="14.5" data-path="spatial-context.html"><a href="spatial-context.html#inspecting-spatial-results-across-layers"><i class="fa fa-check"></i><b>14.5</b> Inspecting Spatial Results Across Layers</a></li>
+<li class="chapter" data-level="14.6" data-path="spatial-context.html"><a href="spatial-context.html#in-silico-gene-perturbation-celloracle"><i class="fa fa-check"></i><b>14.6</b> In-Silico Gene Perturbation: CellOracle</a></li>
+</ul></li>
+<li class="chapter" data-level="15" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html"><i class="fa fa-check"></i><b>15</b> Multimodal Expansion</a>
+<ul>
+<li class="chapter" data-level="15.1" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#what-is-already-available"><i class="fa fa-check"></i><b>15.1</b> What Is Already Available</a></li>
+<li class="chapter" data-level="15.2" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#detecting-and-registering-modalities"><i class="fa fa-check"></i><b>15.2</b> Detecting and Registering Modalities</a></li>
+<li class="chapter" data-level="15.3" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#one-step-registration"><i class="fa fa-check"></i><b>15.3</b> One-Step Registration</a></li>
+<li class="chapter" data-level="15.4" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#planned-interface-direction"><i class="fa fa-check"></i><b>15.4</b> Planned Interface Direction</a></li>
+<li class="chapter" data-level="15.5" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#current-guidance"><i class="fa fa-check"></i><b>15.5</b> Current Guidance</a></li>
+</ul></li>
+<li class="part"><span><b>III Specialized Techniques and Reference</b></span></li>
+<li class="chapter" data-level="16" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html"><i class="fa fa-check"></i><b>16</b> Enhanced Visualization</a>
+<ul>
+<li class="chapter" data-level="16.1" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#loading-data"><i class="fa fa-check"></i><b>16.1</b> Loading data</a></li>
+<li class="chapter" data-level="16.2" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#dimensionality-reduction-plots"><i class="fa fa-check"></i><b>16.2</b> Dimensionality Reduction Plots</a>
+<ul>
+<li class="chapter" data-level="16.2.1" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#celldimplot"><i class="fa fa-check"></i><b>16.2.1</b> CellDimPlot</a></li>
+<li class="chapter" data-level="16.2.2" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#featuredimplot"><i class="fa fa-check"></i><b>16.2.2</b> FeatureDimPlot</a></li>
+</ul></li>
+<li class="chapter" data-level="16.3" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#expression-heatmaps"><i class="fa fa-check"></i><b>16.3</b> Expression Heatmaps</a></li>
+<li class="chapter" data-level="16.4" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#cell-statistics"><i class="fa fa-check"></i><b>16.4</b> Cell Statistics</a></li>
+<li class="chapter" data-level="16.5" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#module-specific-visualization"><i class="fa fa-check"></i><b>16.5</b> Module-Specific Visualization</a>
+<ul>
+<li class="chapter" data-level="16.5.1" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#trajectory-and-fate"><i class="fa fa-check"></i><b>16.5.1</b> Trajectory and Fate</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="17" data-path="fate-probability-on-embedding.html"><a href="fate-probability-on-embedding.html"><i class="fa fa-check"></i><b>17</b> Fate probability on embedding</a></li>
+<li class="chapter" data-level="18" data-path="terminal-state-assignments.html"><a href="terminal-state-assignments.html"><i class="fa fa-check"></i><b>18</b> Terminal state assignments</a></li>
+<li class="chapter" data-level="19" data-path="lineage-driver-trends.html"><a href="lineage-driver-trends.html"><i class="fa fa-check"></i><b>19</b> Lineage driver trends</a></li>
+<li class="chapter" data-level="20" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html"><i class="fa fa-check"></i><b>20</b> Velocity latent time</a>
+<ul>
+<li class="chapter" data-level="20.0.1" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html#perturbation-priority"><i class="fa fa-check"></i><b>20.0.1</b> Perturbation Priority</a></li>
+<li class="chapter" data-level="20.0.2" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html#spatial-analysis"><i class="fa fa-check"></i><b>20.0.2</b> Spatial Analysis</a></li>
+<li class="chapter" data-level="20.0.3" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html#cell-cell-communication"><i class="fa fa-check"></i><b>20.0.3</b> Cell-Cell Communication</a></li>
+<li class="chapter" data-level="20.0.4" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html#reference-mapping-1"><i class="fa fa-check"></i><b>20.0.4</b> Reference Mapping</a></li>
+</ul></li>
+<li class="chapter" data-level="21" data-path="supercell.html"><a href="supercell.html"><i class="fa fa-check"></i><b>21</b> Metacells with SuperCell</a>
+<ul>
+<li class="chapter" data-level="21.1" data-path="supercell.html"><a href="supercell.html#runsupercell"><i class="fa fa-check"></i><b>21.1</b> RunSuperCell</a></li>
+<li class="chapter" data-level="21.2" data-path="supercell.html"><a href="supercell.html#estimate-supercell-purity"><i class="fa fa-check"></i><b>21.2</b> Estimate SuperCell Purity</a></li>
+</ul></li>
+<li class="chapter" data-level="22" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html"><i class="fa fa-check"></i><b>22</b> Milo: Differential Abundance</a>
+<ul>
+<li class="chapter" data-level="22.1" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#requirements"><i class="fa fa-check"></i><b>22.1</b> Requirements</a></li>
+<li class="chapter" data-level="22.2" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#two-group-da-glm"><i class="fa fa-check"></i><b>22.2</b> Two-group DA (GLM)</a></li>
+<li class="chapter" data-level="22.3" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#multi-contrast-testing"><i class="fa fa-check"></i><b>22.3</b> Multi-contrast testing</a></li>
+<li class="chapter" data-level="22.4" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#glmm-random-intercept"><i class="fa fa-check"></i><b>22.4</b> GLMM (random intercept)</a></li>
+<li class="chapter" data-level="22.5" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#refit-after-dropping-separated-neighbourhoods"><i class="fa fa-check"></i><b>22.5</b> Refit after dropping separated neighbourhoods</a></li>
+</ul></li>
+<li class="chapter" data-level="23" data-path="phenotype-association.html"><a href="phenotype-association.html"><i class="fa fa-check"></i><b>23</b> Phenotype Association</a>
+<ul>
+<li class="chapter" data-level="23.1" data-path="phenotype-association.html"><a href="phenotype-association.html#a-practical-pattern"><i class="fa fa-check"></i><b>23.1</b> A practical pattern</a></li>
+<li class="chapter" data-level="23.2" data-path="phenotype-association.html"><a href="phenotype-association.html#what-gets-recorded"><i class="fa fa-check"></i><b>23.2</b> What gets recorded</a></li>
+</ul></li>
+<li class="chapter" data-level="24" data-path="interactive.html"><a href="interactive.html"><i class="fa fa-check"></i><b>24</b> Interactive Data Exploration</a>
+<ul>
+<li class="chapter" data-level="24.1" data-path="interactive.html"><a href="interactive.html#launch-explorer"><i class="fa fa-check"></i><b>24.1</b> Launch Explorer</a></li>
+<li class="chapter" data-level="24.2" data-path="interactive.html"><a href="interactive.html#customization"><i class="fa fa-check"></i><b>24.2</b> Customization</a></li>
+</ul></li>
+<li class="chapter" data-level="25" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><i class="fa fa-check"></i><b>25</b> SVP: Gene Set Activity in Spatial and Single-Cell Data</a>
+<ul>
+<li class="chapter" data-level="25.1" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html#runsgsa"><i class="fa fa-check"></i><b>25.1</b> runSGSA</a></li>
+<li class="chapter" data-level="25.2" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html#runlisa"><i class="fa fa-check"></i><b>25.2</b> runLISA</a></li>
+<li class="chapter" data-level="25.3" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html#runlocalbv"><i class="fa fa-check"></i><b>25.3</b> runLOCALBV</a></li>
+</ul></li>
+<li class="chapter" data-level="26" data-path="copilot.html"><a href="copilot.html"><i class="fa fa-check"></i><b>26</b> AI Copilot &amp; Evidence Governance</a>
+<ul>
+<li class="chapter" data-level="26.1" data-path="copilot.html"><a href="copilot.html#sclet_copilot-an-ai-that-understands-your-objects"><i class="fa fa-check"></i><b>26.1</b> <code>sclet_copilot</code>: An AI That Understands Your Objects</a></li>
+<li class="chapter" data-level="26.2" data-path="copilot.html"><a href="copilot.html#auditanalysischain-cross-chain-error-control"><i class="fa fa-check"></i><b>26.2</b> <code>AuditAnalysisChain</code>: Cross-Chain Error Control</a></li>
+</ul></li>
+<li class="chapter" data-level="" data-path="references.html"><a href="references.html"><i class="fa fa-check"></i>References</a></li>
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">sclet: A Lightweight Toolkit for Single-Cell Data Analysis</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="program-regulon" class="section level1 hasAnchor" number="10">
+<h1><span class="header-section-number">10</span> Program, Regulon, and Mechanistic Interpretation<a href="program-regulon.html#program-regulon" class="anchor-section" aria-label="Anchor link to header"></a></h1>
+<p>Your clustering is done. Your trajectory is drawn. You have a list of marker genes. But the most important question remains unanswered: <strong>why</strong> are those states different? Which pathways drive the identity of each cluster? Which transcription factors control the developmental transitions? And can you summarize dozens of marker genes into a handful of interpretable “programs” that a biologist can reason about?</p>
+<p>This mainline answers that downstream question. In <code>sclet</code>, signature scoring, pathway-level summarization, regulon inference, and program access are not scattered tools—they form one interpretation chain that moves from raw gene lists to mechanistically meaningful summaries.</p>
+<p>The high-level direction is to let users move from quick activity scoring to richer mechanism-oriented models without changing the object contract. <code>RunProgramWorkflow()</code> is the intended mainline entry; the chapters below document the atomic building blocks that already make up that workflow.</p>
+<div id="gene-set-scoring-and-pathway-activity" class="section level2 hasAnchor" number="10.1">
+<h2><span class="header-section-number">10.1</span> Gene set scoring and pathway activity<a href="program-regulon.html#gene-set-scoring-and-pathway-activity" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Often, relying on the expression of a single gene (like a traditional marker) introduces too much noise and dropout artifacts. If you want to know whether a cell population is undergoing “Hypoxia” or has an active “Cell Cycle”, scoring the entire pathway or gene set is the most robust approach.</p>
+<p>However, the algorithm landscape is fragmented: <code>AUCell</code>, <code>UCell</code>, <code>GSVA</code>… Each backend has a different output format. If you want to plot the results downstream, standardizing these formats can be a nightmare.</p>
+<p>This is exactly the kind of problem <code>sclet</code> is designed to simplify. We provide the <code>RunGeneSetScoring()</code> interface, which unifies these backends and injects the scores directly into the state-aware workflow and <code>colData</code>, so the results remain easy to inspect and easy to reuse later.</p>
+</div>
+<div id="multi-backend-scoring-in-one-click" class="section level2 hasAnchor" number="10.2">
+<h2><span class="header-section-number">10.2</span> Multi-Backend Scoring in One Click<a href="program-regulon.html#multi-backend-scoring-in-one-click" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Let’s define a few gene sets of interest and run the scoring on our PBMC dataset.</p>
+<div class="sourceCode" id="cb419"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb419-1"><a href="program-regulon.html#cb419-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb419-2"><a href="program-regulon.html#cb419-2" tabindex="-1"></a></span>
+<span id="cb419-3"><a href="program-regulon.html#cb419-3" tabindex="-1"></a><span class="co"># Define signatures</span></span>
+<span id="cb419-4"><a href="program-regulon.html#cb419-4" tabindex="-1"></a>my_signatures <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb419-5"><a href="program-regulon.html#cb419-5" tabindex="-1"></a>  <span class="at">T_cell =</span> <span class="fu">c</span>(<span class="st">&quot;CD3D&quot;</span>, <span class="st">&quot;CD3E&quot;</span>, <span class="st">&quot;CD8A&quot;</span>, <span class="st">&quot;CD4&quot;</span>),</span>
+<span id="cb419-6"><a href="program-regulon.html#cb419-6" tabindex="-1"></a>  <span class="at">B_cell =</span> <span class="fu">c</span>(<span class="st">&quot;CD79A&quot;</span>, <span class="st">&quot;MS4A1&quot;</span>),</span>
+<span id="cb419-7"><a href="program-regulon.html#cb419-7" tabindex="-1"></a>  <span class="at">Myeloid =</span> <span class="fu">c</span>(<span class="st">&quot;LYZ&quot;</span>, <span class="st">&quot;CD14&quot;</span>, <span class="st">&quot;FCGR3A&quot;</span>)</span>
+<span id="cb419-8"><a href="program-regulon.html#cb419-8" tabindex="-1"></a>)</span></code></pre></div>
+<p>You can decisively choose the backend that best fits your needs. <code>UCell</code> is rank-based, extremely fast, and highly suitable for single-cell data.</p>
+<div class="sourceCode" id="cb420"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb420-1"><a href="program-regulon.html#cb420-1" tabindex="-1"></a><span class="co"># Use UCell backend</span></span>
+<span id="cb420-2"><a href="program-regulon.html#cb420-2" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RunGeneSetScoring</span>(pbmc, <span class="at">gene_sets =</span> my_signatures, <span class="at">method =</span> <span class="st">&quot;UCell&quot;</span>, <span class="at">name =</span> <span class="st">&quot;UCellScore&quot;</span>)</span></code></pre></div>
+<pre><code>## Running UCell scoring...</code></pre>
+<pre><code>## Gene set scoring completed using UCell. Added 3 columns to colData.</code></pre>
+</div>
+<div id="program-mainline-workflow" class="section level2 hasAnchor" number="10.3">
+<h2><span class="header-section-number">10.3</span> Program mainline workflow<a href="program-regulon.html#program-mainline-workflow" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>If you want to organize pathway scoring and regulon activity as one coherent interpretation mainline, use <code>RunProgramWorkflow()</code> as the semantic entry point. It keeps the analysis story centered on “which programs are active” instead of “which backend did I call”.</p>
+<div class="sourceCode" id="cb423"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb423-1"><a href="program-regulon.html#cb423-1" tabindex="-1"></a>pbmc_program <span class="ot">&lt;-</span> pbmc</span>
+<span id="cb423-2"><a href="program-regulon.html#cb423-2" tabindex="-1"></a>pbmc_program <span class="ot">&lt;-</span> <span class="fu">RunProgramWorkflow</span>(</span>
+<span id="cb423-3"><a href="program-regulon.html#cb423-3" tabindex="-1"></a>  pbmc_program,</span>
+<span id="cb423-4"><a href="program-regulon.html#cb423-4" tabindex="-1"></a>  <span class="at">gene_sets =</span> my_signatures,</span>
+<span id="cb423-5"><a href="program-regulon.html#cb423-5" tabindex="-1"></a>  <span class="at">scoring_method =</span> <span class="st">&quot;UCell&quot;</span>,</span>
+<span id="cb423-6"><a href="program-regulon.html#cb423-6" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;program_main&quot;</span></span>
+<span id="cb423-7"><a href="program-regulon.html#cb423-7" tabindex="-1"></a>)</span></code></pre></div>
+<pre><code>## Running UCell scoring...</code></pre>
+<pre><code>## Gene set scoring completed using UCell. Added 3 columns to colData.</code></pre>
+</div>
+<div id="reading-and-visualizing-results" class="section level2 hasAnchor" number="10.4">
+<h2><span class="header-section-number">10.4</span> Reading and Visualizing Results<a href="program-regulon.html#reading-and-visualizing-results" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Where do the scores go after calculation?
+1. By default, they are added as columns in the cellular metadata (<code>colData</code>).
+2. The action is recorded in the <code>geneset_scoring</code> state machine.</p>
+<p>Because the scores are now registered as a state-aware analysis result, we can inspect their provenance and directly plot a single program through a unified activity consumer:</p>
+<div class="sourceCode" id="cb426"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb426-1"><a href="program-regulon.html#cb426-1" tabindex="-1"></a><span class="co"># Inspect the scoring state provenance</span></span>
+<span id="cb426-2"><a href="program-regulon.html#cb426-2" tabindex="-1"></a><span class="fu">get_geneset_scoring</span>(pbmc, <span class="at">id =</span> <span class="st">&quot;UCellScore&quot;</span>)</span></code></pre></div>
+<pre><code>## $id
+## [1] &quot;UCellScore&quot;
+## 
+## $type
+## [1] &quot;geneset_scoring&quot;
+## 
+## $status
+## [1] &quot;completed&quot;
+## 
+## $method
+## [1] &quot;UCell&quot;
+## 
+## $inputs
+## $inputs$assay
+## [1] &quot;counts&quot;
+## 
+## $inputs$gene_sets
+## [1] &quot;T_cell&quot;  &quot;B_cell&quot;  &quot;Myeloid&quot;
+## 
+## 
+## $artifacts
+## $artifacts$storage
+## [1] &quot;colData&quot;
+## 
+## $artifacts$score_columns
+## [1] &quot;UCellScore_T_cell&quot;  &quot;UCellScore_B_cell&quot; 
+## [3] &quot;UCellScore_Myeloid&quot;
+## 
+## 
+## $params
+## $params$ncores
+## [1] 1
+## 
+## $params$as_altExp
+## [1] FALSE
+## 
+## 
+## $summary
+## $summary$n_programs
+## [1] 3
+## 
+## $summary$n_cells
+## [1] 2638
+## 
+## 
+## $created_at
+## [1] &quot;2026-07-20 04:21:27 UTC&quot;
+## 
+## $assay_use
+## [1] &quot;counts&quot;
+## 
+## $gene_sets
+## [1] &quot;T_cell&quot;  &quot;B_cell&quot;  &quot;Myeloid&quot;
+## 
+## $as_altExp
+## [1] FALSE
+## 
+## $timestamp
+## [1] &quot;2026-07-20 04:21:27 UTC&quot;</code></pre>
+<div class="sourceCode" id="cb428"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb428-1"><a href="program-regulon.html#cb428-1" tabindex="-1"></a><span class="co"># Visualize the T_cell score distribution on the UMAP space</span></span>
+<span id="cb428-2"><a href="program-regulon.html#cb428-2" tabindex="-1"></a><span class="fu">plot_program_activity</span>(pbmc, <span class="at">program =</span> <span class="st">&quot;T_cell&quot;</span>, <span class="at">source =</span> <span class="st">&quot;geneset_scoring&quot;</span>, <span class="at">id =</span> <span class="st">&quot;UCellScore&quot;</span>)</span></code></pre></div>
+<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
+<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
+<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
+<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
+<p><img src="sclet_files/figure-html/geneset-plot-1.png" alt="" width="1152" /></p>
+<div class="sourceCode" id="cb433"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb433-1"><a href="program-regulon.html#cb433-1" tabindex="-1"></a><span class="co"># Summarize multiple programs across groups</span></span>
+<span id="cb433-2"><a href="program-regulon.html#cb433-2" tabindex="-1"></a><span class="fu">plot_program_heatmap</span>(</span>
+<span id="cb433-3"><a href="program-regulon.html#cb433-3" tabindex="-1"></a>  pbmc,</span>
+<span id="cb433-4"><a href="program-regulon.html#cb433-4" tabindex="-1"></a>  <span class="at">programs =</span> <span class="fu">c</span>(<span class="st">&quot;T_cell&quot;</span>, <span class="st">&quot;B_cell&quot;</span>, <span class="st">&quot;Myeloid&quot;</span>),</span>
+<span id="cb433-5"><a href="program-regulon.html#cb433-5" tabindex="-1"></a>  <span class="at">source =</span> <span class="st">&quot;geneset_scoring&quot;</span>,</span>
+<span id="cb433-6"><a href="program-regulon.html#cb433-6" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
+<span id="cb433-7"><a href="program-regulon.html#cb433-7" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;UCellScore&quot;</span></span>
+<span id="cb433-8"><a href="program-regulon.html#cb433-8" tabindex="-1"></a>)</span></code></pre></div>
+<p><img src="sclet_files/figure-html/geneset-plot-2.png" alt="" width="1152" /></p>
+<div class="sourceCode" id="cb434"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb434-1"><a href="program-regulon.html#cb434-1" tabindex="-1"></a><span class="fu">plot_program_activity</span>(</span>
+<span id="cb434-2"><a href="program-regulon.html#cb434-2" tabindex="-1"></a>  pbmc_program,</span>
+<span id="cb434-3"><a href="program-regulon.html#cb434-3" tabindex="-1"></a>  <span class="at">program =</span> <span class="st">&quot;T_cell&quot;</span>,</span>
+<span id="cb434-4"><a href="program-regulon.html#cb434-4" tabindex="-1"></a>  <span class="at">source =</span> <span class="st">&quot;geneset_scoring&quot;</span>,</span>
+<span id="cb434-5"><a href="program-regulon.html#cb434-5" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;program_main_scores&quot;</span></span>
+<span id="cb434-6"><a href="program-regulon.html#cb434-6" tabindex="-1"></a>)</span></code></pre></div>
+<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
+<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
+<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
+<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
+<p><img src="sclet_files/figure-html/geneset-workflow-plot-1.png" alt="" width="1152" /></p>
+<div class="sourceCode" id="cb439"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb439-1"><a href="program-regulon.html#cb439-1" tabindex="-1"></a><span class="fu">plot_program_heatmap</span>(</span>
+<span id="cb439-2"><a href="program-regulon.html#cb439-2" tabindex="-1"></a>  pbmc_program,</span>
+<span id="cb439-3"><a href="program-regulon.html#cb439-3" tabindex="-1"></a>  <span class="at">programs =</span> <span class="fu">c</span>(<span class="st">&quot;T_cell&quot;</span>, <span class="st">&quot;B_cell&quot;</span>, <span class="st">&quot;Myeloid&quot;</span>),</span>
+<span id="cb439-4"><a href="program-regulon.html#cb439-4" tabindex="-1"></a>  <span class="at">source =</span> <span class="st">&quot;geneset_scoring&quot;</span>,</span>
+<span id="cb439-5"><a href="program-regulon.html#cb439-5" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
+<span id="cb439-6"><a href="program-regulon.html#cb439-6" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;program_main_scores&quot;</span></span>
+<span id="cb439-7"><a href="program-regulon.html#cb439-7" tabindex="-1"></a>)</span></code></pre></div>
+<p><img src="sclet_files/figure-html/geneset-workflow-plot-2.png" alt="" width="1152" /></p>
+</div>
+<div id="advanced-pathway-discovery-altexp-and-runkegg" class="section level2 hasAnchor" number="10.5">
+<h2><span class="header-section-number">10.5</span> Advanced Pathway Discovery (altExp and RunKEGG)<a href="program-regulon.html#advanced-pathway-discovery-altexp-and-runkegg" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>When dealing with hundreds of pathways (like the entire KEGG database), dumping all scores into <code>colData</code> is messy. Instead, <code>sclet</code> allows storing these massive score matrices as an alternative experiment (<code>altExp</code>). This keeps your metadata clean while retaining perfect alignment with your cells.</p>
+<p>Furthermore, <code>sclet</code> provides <code>RunKEGG()</code> as a one-stop wrapper. It automatically downloads pathways via <code>clusterProfiler</code>, scores the cells using <code>UCell</code>, stores the matrix in an <code>altExp</code>, and even identifies cell-type specific marker pathways using robust Wilcoxon rank-sum tests via <code>FindMarkerPathways()</code>.</p>
+<div class="sourceCode" id="cb440"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb440-1"><a href="program-regulon.html#cb440-1" tabindex="-1"></a><span class="co"># Run the complete KEGG workflow</span></span>
+<span id="cb440-2"><a href="program-regulon.html#cb440-2" tabindex="-1"></a><span class="co"># Note: Requires org.Hs.eg.db for human data</span></span>
+<span id="cb440-3"><a href="program-regulon.html#cb440-3" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">RunKEGG</span>(pbmc, <span class="at">species =</span> <span class="st">&quot;hsa&quot;</span>, <span class="at">method =</span> <span class="st">&quot;UCell&quot;</span>, <span class="at">group.by =</span> <span class="st">&quot;seurat_annotations&quot;</span>)</span>
+<span id="cb440-4"><a href="program-regulon.html#cb440-4" tabindex="-1"></a></span>
+<span id="cb440-5"><a href="program-regulon.html#cb440-5" tabindex="-1"></a><span class="co"># The updated SCE object with the KEGG altExp</span></span>
+<span id="cb440-6"><a href="program-regulon.html#cb440-6" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> res<span class="sc">$</span>sce</span>
+<span id="cb440-7"><a href="program-regulon.html#cb440-7" tabindex="-1"></a></span>
+<span id="cb440-8"><a href="program-regulon.html#cb440-8" tabindex="-1"></a><span class="co"># The marker pathways data.frame</span></span>
+<span id="cb440-9"><a href="program-regulon.html#cb440-9" tabindex="-1"></a>kegg_markers <span class="ot">&lt;-</span> res<span class="sc">$</span>markers</span>
+<span id="cb440-10"><a href="program-regulon.html#cb440-10" tabindex="-1"></a><span class="fu">head</span>(kegg_markers)</span></code></pre></div>
+<p>You can also manually run differential testing on any pathway scores stored in an <code>altExp</code>:</p>
+<div class="sourceCode" id="cb441"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb441-1"><a href="program-regulon.html#cb441-1" tabindex="-1"></a><span class="co"># If you ran RunGeneSetScoring with as_altExp = TRUE and name = &quot;MyScores&quot;</span></span>
+<span id="cb441-2"><a href="program-regulon.html#cb441-2" tabindex="-1"></a>markers <span class="ot">&lt;-</span> <span class="fu">FindMarkerPathways</span>(pbmc, <span class="at">altExp_name =</span> <span class="st">&quot;MyScores&quot;</span>, <span class="at">group.by =</span> <span class="st">&quot;seurat_annotations&quot;</span>)</span></code></pre></div>
+<p><strong>Bottom Line:</strong>
+Regardless of whether the underlying engine is <code>UCell</code> or <code>AUCell</code>, you can immediately plot the results with <code>FeatureDimPlot</code> or seamlessly run differential analysis. Life is too short to wrangle metadata formats.</p>
+</div>
+<div id="scenic-regulon-inference" class="section level2 hasAnchor" number="10.6">
+<h2><span class="header-section-number">10.6</span> SCENIC regulon inference<a href="program-regulon.html#scenic-regulon-inference" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>How do Transcription Factors (TFs) regulate target genes? Traditional differential expression analysis only tells you “which genes changed,” but SCENIC tells you “who is issuing the commands.”</p>
+<p>If you have ever run the legacy R version of SCENIC, you undoubtedly remember its excruciatingly slow speed and the requirement to download tens of gigabytes of local databases. Today, the Python-based <code>pySCENIC</code> (powered by GRNBoost2) completely crushes the original R version in both speed and performance.</p>
+<p>Rather than forcing users to leave the <code>SingleCellExperiment</code> workflow and manually manage a separate Python environment, <code>sclet</code> brings this functionality back into the same state-aware framework. Leveraging the <code>basilisk</code> isolated environment, it provides a native <code>sclet</code> entry point to <code>pySCENIC</code>: <code>RunSCENIC()</code>.</p>
+<p>The examples in this chapter are split by what the documentation cache provides. The TF list and motif annotation table are cached by the bookdown data workflow, so those setup steps can run during rendering. The actual <code>RunSCENIC()</code> call still requires a cisTarget ranking <code>.feather</code> database, which is intentionally not stored in the repository because it is large and version-specific.</p>
+</div>
+<div id="environment-and-data-preparation" class="section level2 hasAnchor" number="10.7">
+<h2><span class="header-section-number">10.7</span> Environment and Data Preparation<a href="program-regulon.html#environment-and-data-preparation" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>You no longer need to manually configure complex Python environments or wrestle with <code>conda</code> conflicts. <code>sclet</code> securely prepares the sandbox in the background. You only need to provide three things:
+1. Your single-cell expression matrix (SCE object)
+2. A list of transcription factors (<code>.txt</code>)
+3. The Motif database file (in <code>Feather</code> format)</p>
+<p>For most human or mouse analyses, this also means checking that your TF list, motif annotation table, and cisTarget ranking database all come from the same release family before you start the run.</p>
+<div class="sourceCode" id="cb442"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb442-1"><a href="program-regulon.html#cb442-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb442-2"><a href="program-regulon.html#cb442-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> pbmc</span>
+<span id="cb442-3"><a href="program-regulon.html#cb442-3" tabindex="-1"></a></span>
+<span id="cb442-4"><a href="program-regulon.html#cb442-4" tabindex="-1"></a><span class="co"># Cached small SCENIC reference files</span></span>
+<span id="cb442-5"><a href="program-regulon.html#cb442-5" tabindex="-1"></a>tfs_path <span class="ot">&lt;-</span> <span class="st">&quot;data/allTFs_hg38.txt&quot;</span></span>
+<span id="cb442-6"><a href="program-regulon.html#cb442-6" tabindex="-1"></a>motif_annotations_path <span class="ot">&lt;-</span> <span class="st">&quot;data/motifs-v9-nr.hgnc.tbl&quot;</span></span>
+<span id="cb442-7"><a href="program-regulon.html#cb442-7" tabindex="-1"></a></span>
+<span id="cb442-8"><a href="program-regulon.html#cb442-8" tabindex="-1"></a><span class="co"># The large cisTarget ranking database is optional in the book build.</span></span>
+<span id="cb442-9"><a href="program-regulon.html#cb442-9" tabindex="-1"></a>database_paths <span class="ot">&lt;-</span> <span class="st">&quot;data/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather&quot;</span></span>
+<span id="cb442-10"><a href="program-regulon.html#cb442-10" tabindex="-1"></a>env_database_paths <span class="ot">&lt;-</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;SCLET_SCENIC_DB&quot;</span>, <span class="at">unset =</span> <span class="st">&quot;&quot;</span>)</span>
+<span id="cb442-11"><a href="program-regulon.html#cb442-11" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">nzchar</span>(env_database_paths)) {</span>
+<span id="cb442-12"><a href="program-regulon.html#cb442-12" tabindex="-1"></a>    database_paths <span class="ot">&lt;-</span> <span class="fu">strsplit</span>(env_database_paths, .Platform<span class="sc">$</span>path.sep, <span class="at">fixed =</span> <span class="cn">TRUE</span>)[[<span class="dv">1</span>]]</span>
+<span id="cb442-13"><a href="program-regulon.html#cb442-13" tabindex="-1"></a>}</span>
+<span id="cb442-14"><a href="program-regulon.html#cb442-14" tabindex="-1"></a>scenic_db_ready <span class="ot">&lt;-</span> <span class="fu">length</span>(database_paths) <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">&amp;&amp;</span> <span class="fu">all</span>(<span class="fu">file.exists</span>(database_paths))</span>
+<span id="cb442-15"><a href="program-regulon.html#cb442-15" tabindex="-1"></a>scenic_db_ready</span></code></pre></div>
+<pre><code>## [1] FALSE</code></pre>
+</div>
+<div id="one-click-inference-and-scoring" class="section level2 hasAnchor" number="10.8">
+<h2><span class="header-section-number">10.8</span> One-Click Inference and Scoring<a href="program-regulon.html#one-click-inference-and-scoring" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Next, call <code>RunSCENIC()</code>. All heavy lifting—GRNBoost2 inference, Motif pruning, and AUCell scoring—will be executed blazingly fast in the Python backend.</p>
+<div class="sourceCode" id="cb444"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb444-1"><a href="program-regulon.html#cb444-1" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunSCENIC</span>(</span>
+<span id="cb444-2"><a href="program-regulon.html#cb444-2" tabindex="-1"></a>  sce,</span>
+<span id="cb444-3"><a href="program-regulon.html#cb444-3" tabindex="-1"></a>  <span class="at">tfs_path =</span> tfs_path,</span>
+<span id="cb444-4"><a href="program-regulon.html#cb444-4" tabindex="-1"></a>  <span class="at">motif_annotations_path =</span> motif_annotations_path,</span>
+<span id="cb444-5"><a href="program-regulon.html#cb444-5" tabindex="-1"></a>  <span class="at">database_paths =</span> database_paths,</span>
+<span id="cb444-6"><a href="program-regulon.html#cb444-6" tabindex="-1"></a>  <span class="at">assay_use =</span> <span class="st">&quot;counts&quot;</span>,</span>
+<span id="cb444-7"><a href="program-regulon.html#cb444-7" tabindex="-1"></a>  <span class="at">num_workers =</span> <span class="dv">8</span>,</span>
+<span id="cb444-8"><a href="program-regulon.html#cb444-8" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;scenic_main&quot;</span></span>
+<span id="cb444-9"><a href="program-regulon.html#cb444-9" tabindex="-1"></a>) <span class="co"># Supports multi-threading</span></span></code></pre></div>
+</div>
+<div id="result-retrieval-and-state-awareness" class="section level2 hasAnchor" number="10.9">
+<h2><span class="header-section-number">10.9</span> Result Retrieval and State Awareness<a href="program-regulon.html#result-retrieval-and-state-awareness" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>After the run, where does the massive AUCell scoring matrix (tens of thousands of cells by hundreds of regulons) go?</p>
+<p>To keep the main SCE object clean and performant, <code>sclet</code> mounts this large scoring matrix as an <code>altExp</code> (Alternative Experiment) and records it in the <code>scenic</code> state. This means you can retrieve either the active SCENIC run or a specific run by <code>id</code>, instead of manually digging through <code>metadata()</code>.</p>
+<div class="sourceCode" id="cb445"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb445-1"><a href="program-regulon.html#cb445-1" tabindex="-1"></a><span class="co"># Check the currently active SCENIC state provenance</span></span>
+<span id="cb445-2"><a href="program-regulon.html#cb445-2" tabindex="-1"></a><span class="fu">get_scenic</span>(sce)</span>
+<span id="cb445-3"><a href="program-regulon.html#cb445-3" tabindex="-1"></a></span>
+<span id="cb445-4"><a href="program-regulon.html#cb445-4" tabindex="-1"></a><span class="co"># Retrieve a specific SCENIC run by id</span></span>
+<span id="cb445-5"><a href="program-regulon.html#cb445-5" tabindex="-1"></a><span class="fu">get_scenic</span>(sce, <span class="at">id =</span> <span class="st">&quot;scenic_main&quot;</span>)</span>
+<span id="cb445-6"><a href="program-regulon.html#cb445-6" tabindex="-1"></a></span>
+<span id="cb445-7"><a href="program-regulon.html#cb445-7" tabindex="-1"></a><span class="co"># Extract the AUCell matrix for downstream analysis</span></span>
+<span id="cb445-8"><a href="program-regulon.html#cb445-8" tabindex="-1"></a>auc_sce <span class="ot">&lt;-</span> SingleCellExperiment<span class="sc">::</span><span class="fu">altExp</span>(sce, <span class="st">&quot;SCENIC_AUC&quot;</span>)</span>
+<span id="cb445-9"><a href="program-regulon.html#cb445-9" tabindex="-1"></a>auc_matrix <span class="ot">&lt;-</span> SummarizedExperiment<span class="sc">::</span><span class="fu">assay</span>(auc_sce, <span class="st">&quot;AUC&quot;</span>)</span>
+<span id="cb445-10"><a href="program-regulon.html#cb445-10" tabindex="-1"></a></span>
+<span id="cb445-11"><a href="program-regulon.html#cb445-11" tabindex="-1"></a><span class="co"># Inspect available regulons</span></span>
+<span id="cb445-12"><a href="program-regulon.html#cb445-12" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">rownames</span>(auc_matrix))</span></code></pre></div>
+</div>
+<div id="visualizing-regulon-activity" class="section level2 hasAnchor" number="10.10">
+<h2><span class="header-section-number">10.10</span> Visualizing Regulon Activity<a href="program-regulon.html#visualizing-regulon-activity" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Once the AUC matrix is stored, the next question is not “where is the result?”, but “can I directly visualize a regulon on my embedding?” That is exactly what <code>plot_scenic_activity()</code> is for.</p>
+<div class="sourceCode" id="cb446"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb446-1"><a href="program-regulon.html#cb446-1" tabindex="-1"></a><span class="co"># Make sure you already have a reduction such as UMAP</span></span>
+<span id="cb446-2"><a href="program-regulon.html#cb446-2" tabindex="-1"></a><span class="fu">DefaultReduction</span>(sce) <span class="ot">&lt;-</span> <span class="st">&quot;UMAP&quot;</span></span>
+<span id="cb446-3"><a href="program-regulon.html#cb446-3" tabindex="-1"></a></span>
+<span id="cb446-4"><a href="program-regulon.html#cb446-4" tabindex="-1"></a><span class="co"># Plot a single regulon on the active embedding</span></span>
+<span id="cb446-5"><a href="program-regulon.html#cb446-5" tabindex="-1"></a><span class="fu">plot_scenic_activity</span>(</span>
+<span id="cb446-6"><a href="program-regulon.html#cb446-6" tabindex="-1"></a>  sce,</span>
+<span id="cb446-7"><a href="program-regulon.html#cb446-7" tabindex="-1"></a>  <span class="at">regulon =</span> <span class="st">&quot;STAT1(+)&quot;</span>,</span>
+<span id="cb446-8"><a href="program-regulon.html#cb446-8" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;scenic_main&quot;</span></span>
+<span id="cb446-9"><a href="program-regulon.html#cb446-9" tabindex="-1"></a>)</span></code></pre></div>
+<p><strong>Bottom Line:</strong>
+You can now treat SCENIC as a proper state-aware module: run it with a named record, retrieve it via <code>get_scenic(id = ...)</code>, and visualize a regulon directly with <code>plot_scenic_activity()</code>. From there, you can further perform dimensionality reduction and clustering on the <code>auc_matrix</code> to see whether cells group together based on “regulatory network activity” rather than only “gene expression levels”.</p>
+</div>
+<div id="unified-grn-entry-rungrn" class="section level2 hasAnchor" number="10.11">
+<h2><span class="header-section-number">10.11</span> Unified GRN Entry: <code>RunGRN()</code><a href="program-regulon.html#unified-grn-entry-rungrn" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>If your question is simply “what gene regulatory networks are active in my cells?”, the implementation detail of which backend you used should not matter. <code>RunGRN()</code> wraps <code>RunSCENIC()</code> as the default backend while leaving room for future methods (decoupleR, FigR, SCENIC+) through the same interface.</p>
+<div class="sourceCode" id="cb447"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb447-1"><a href="program-regulon.html#cb447-1" tabindex="-1"></a><span class="co"># Same parameters as RunSCENIC, different semantic framing</span></span>
+<span id="cb447-2"><a href="program-regulon.html#cb447-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunGRN</span>(</span>
+<span id="cb447-3"><a href="program-regulon.html#cb447-3" tabindex="-1"></a>    sce,</span>
+<span id="cb447-4"><a href="program-regulon.html#cb447-4" tabindex="-1"></a>    <span class="at">tfs_path =</span> tfs_path,</span>
+<span id="cb447-5"><a href="program-regulon.html#cb447-5" tabindex="-1"></a>    <span class="at">motif_annotations_path =</span> motif_annotations_path,</span>
+<span id="cb447-6"><a href="program-regulon.html#cb447-6" tabindex="-1"></a>    <span class="at">database_paths =</span> database_paths,</span>
+<span id="cb447-7"><a href="program-regulon.html#cb447-7" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;grn_main&quot;</span></span>
+<span id="cb447-8"><a href="program-regulon.html#cb447-8" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="unified-program-access-get_program-has_program" class="section level2 hasAnchor" number="10.12">
+<h2><span class="header-section-number">10.12</span> Unified Program Access: <code>get_program()</code> / <code>has_program()</code><a href="program-regulon.html#unified-program-access-get_program-has_program" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Once you have signature scores and regulon activities in your object, you should not need to remember which source they came from. <code>get_program()</code> transparently resolves a program name from either gene set scoring or SCENIC, returning a per-cell activity vector. <code>has_program()</code> is the corresponding boolean guard.</p>
+<div class="sourceCode" id="cb448"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb448-1"><a href="program-regulon.html#cb448-1" tabindex="-1"></a><span class="co"># Check if a program exists</span></span>
+<span id="cb448-2"><a href="program-regulon.html#cb448-2" tabindex="-1"></a><span class="fu">has_program</span>(sce, <span class="st">&quot;T_cell&quot;</span>)</span>
+<span id="cb448-3"><a href="program-regulon.html#cb448-3" tabindex="-1"></a></span>
+<span id="cb448-4"><a href="program-regulon.html#cb448-4" tabindex="-1"></a><span class="co"># Get activity vector</span></span>
+<span id="cb448-5"><a href="program-regulon.html#cb448-5" tabindex="-1"></a>t_activity <span class="ot">&lt;-</span> <span class="fu">get_program</span>(sce, <span class="st">&quot;T_cell&quot;</span>, <span class="at">source =</span> <span class="st">&quot;auto&quot;</span>)</span>
+<span id="cb448-6"><a href="program-regulon.html#cb448-6" tabindex="-1"></a><span class="fu">head</span>(t_activity)</span>
+<span id="cb448-7"><a href="program-regulon.html#cb448-7" tabindex="-1"></a></span>
+<span id="cb448-8"><a href="program-regulon.html#cb448-8" tabindex="-1"></a><span class="co"># Same interface works for regulons</span></span>
+<span id="cb448-9"><a href="program-regulon.html#cb448-9" tabindex="-1"></a><span class="fu">has_program</span>(sce, <span class="st">&quot;STAT1(+)&quot;</span>, <span class="at">source =</span> <span class="st">&quot;scenic&quot;</span>)</span>
+<span id="cb448-10"><a href="program-regulon.html#cb448-10" tabindex="-1"></a>stat1 <span class="ot">&lt;-</span> <span class="fu">get_program</span>(sce, <span class="st">&quot;STAT1(+)&quot;</span>, <span class="at">source =</span> <span class="st">&quot;scenic&quot;</span>)</span></code></pre></div>
+</div>
+<div id="program-activity-dotplot-plot_program_dotplot" class="section level2 hasAnchor" number="10.13">
+<h2><span class="header-section-number">10.13</span> Program Activity Dotplot: <code>plot_program_dotplot()</code><a href="program-regulon.html#program-activity-dotplot-plot_program_dotplot" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>When you want a single overview of multiple programs across cell groups, <code>plot_program_dotplot()</code> summarizes each program per group with dot size reflecting the fraction of expressing cells and color reflecting mean activity. This is the program-level equivalent of Seurat’s DotPlot, consuming the same typed state records as <code>get_program()</code>.</p>
+<div class="sourceCode" id="cb449"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb449-1"><a href="program-regulon.html#cb449-1" tabindex="-1"></a><span class="fu">plot_program_dotplot</span>(</span>
+<span id="cb449-2"><a href="program-regulon.html#cb449-2" tabindex="-1"></a>    sce,</span>
+<span id="cb449-3"><a href="program-regulon.html#cb449-3" tabindex="-1"></a>    <span class="at">programs =</span> <span class="fu">c</span>(<span class="st">&quot;T_cell&quot;</span>, <span class="st">&quot;B_cell&quot;</span>, <span class="st">&quot;Myeloid&quot;</span>, <span class="st">&quot;STAT1(+)&quot;</span>),</span>
+<span id="cb449-4"><a href="program-regulon.html#cb449-4" tabindex="-1"></a>    <span class="at">source =</span> <span class="st">&quot;auto&quot;</span>,</span>
+<span id="cb449-5"><a href="program-regulon.html#cb449-5" tabindex="-1"></a>    <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span></span>
+<span id="cb449-6"><a href="program-regulon.html#cb449-6" tabindex="-1"></a>)</span></code></pre></div>
+
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="cell-fate.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="differential-interpretation.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/clipboard.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-clipboard.js"></script>
+<script>
+gitbook.require(["gitbook"], function(gitbook) {
+gitbook.start({
+  "sharing": {
+    "github": false,
+    "facebook": true,
+    "twitter": true,
+    "linkedin": false,
+    "weibo": false,
+    "instapaper": false,
+    "vk": false,
+    "whatsapp": false,
+    "all": ["facebook", "google", "twitter", "linkedin", "weibo", "instapaper"],
+    "google": false
+  },
+  "fontsettings": {
+    "theme": "white",
+    "family": "sans",
+    "size": 2
+  },
+  "edit": null,
+  "history": {
+    "link": null,
+    "text": null
+  },
+  "view": {
+    "link": null,
+    "text": null
+  },
+  "download": null,
+  "search": {
+    "engine": "fuse",
+    "options": null
+  },
+  "toc": {
+    "collapse": "subsection",
+    "scroll_highlight": true
+  },
+  "toolbar": {
+    "position": "fixed"
+  }
+});
+});
+</script>
+
+</body>
+
+</html>

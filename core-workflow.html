@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+<head>
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>6 Core Single-Cell Workflow | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
+  <meta name="description" content="6 Core Single-Cell Workflow | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
+  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+
+  <meta property="og:title" content="6 Core Single-Cell Workflow | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
+  <meta property="og:type" content="book" />
+  
+  
+  
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="6 Core Single-Cell Workflow | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
+  
+  
+  
+
+
+
+<meta name="date" content="2026-07-20" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  
+  
+<link rel="prev" href="developer-design-notes.html"/>
+<link rel="next" href="integration.html"/>
+<script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-table.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-clipboard.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+<link href="libs/anchor-sections-1.1.0/anchor-sections.css" rel="stylesheet" />
+<link href="libs/anchor-sections-1.1.0/anchor-sections-hash.css" rel="stylesheet" />
+<script src="libs/anchor-sections-1.1.0/anchor-sections.js"></script>
+
+
+<style type="text/css">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+<style type="text/css">
+  
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+</style>
+<style type="text/css">
+/* Used with Pandoc 2.11+ new --citeproc when CSL is used */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}
+</style>
+
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li class="chapter" data-level="" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i>Preface</a>
+<ul>
+<li class="chapter" data-level="0.1" data-path="index.html"><a href="index.html#mainline-map"><i class="fa fa-check"></i><b>0.1</b> Mainline Map</a></li>
+<li class="chapter" data-level="0.2" data-path="index.html"><a href="index.html#how-this-book-is-organized"><i class="fa fa-check"></i><b>0.2</b> How This Book Is Organized</a></li>
+<li class="chapter" data-level="0.3" data-path="index.html"><a href="index.html#reading-paths"><i class="fa fa-check"></i><b>0.3</b> Reading Paths</a></li>
+<li class="chapter" data-level="0.4" data-path="index.html"><a href="index.html#example-conventions"><i class="fa fa-check"></i><b>0.4</b> Example Conventions</a></li>
+</ul></li>
+<li class="part"><span><b>I How sclet Thinks: State, Provenance, and Navigation</b></span></li>
+<li class="chapter" data-level="1" data-path="state-aware.html"><a href="state-aware.html"><i class="fa fa-check"></i><b>1</b> State-Aware Analysis Contract</a>
+<ul>
+<li class="chapter" data-level="1.1" data-path="state-aware.html"><a href="state-aware.html#what-is-the-state-contract"><i class="fa fa-check"></i><b>1.1</b> What is the State Contract?</a></li>
+<li class="chapter" data-level="1.2" data-path="state-aware.html"><a href="state-aware.html#macro-view-status"><i class="fa fa-check"></i><b>1.2</b> Macro View: <code>Status()</code></a></li>
+<li class="chapter" data-level="1.3" data-path="state-aware.html"><a href="state-aware.html#digging-deeper-get_analysis_context"><i class="fa fa-check"></i><b>1.3</b> Digging Deeper: <code>get_analysis_context()</code></a></li>
+<li class="chapter" data-level="1.4" data-path="state-aware.html"><a href="state-aware.html#named-state-records-and-typed-accessors"><i class="fa fa-check"></i><b>1.4</b> Named State Records and Typed Accessors</a></li>
+<li class="chapter" data-level="1.5" data-path="state-aware.html"><a href="state-aware.html#memory-safety-and-sparse-data"><i class="fa fa-check"></i><b>1.5</b> Memory Safety and Sparse Data</a></li>
+<li class="chapter" data-level="1.6" data-path="state-aware.html"><a href="state-aware.html#manual-overrides-layers-and-default-apis"><i class="fa fa-check"></i><b>1.6</b> Manual Overrides: Layers and Default APIs</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="pipeline-logs.html"><a href="pipeline-logs.html"><i class="fa fa-check"></i><b>2</b> Automation &amp; Provenance Logs</a>
+<ul>
+<li class="chapter" data-level="2.1" data-path="pipeline-logs.html"><a href="pipeline-logs.html#the-one-liner-pipeline"><i class="fa fa-check"></i><b>2.1</b> The One-Liner Pipeline</a></li>
+<li class="chapter" data-level="2.2" data-path="pipeline-logs.html"><a href="pipeline-logs.html#the-provenance-log-commandlog"><i class="fa fa-check"></i><b>2.2</b> The Provenance Log (CommandLog)</a></li>
+<li class="chapter" data-level="2.3" data-path="pipeline-logs.html"><a href="pipeline-logs.html#writing-methods-for-you-pipelinesummary"><i class="fa fa-check"></i><b>2.3</b> Writing Methods for You: <code>PipelineSummary</code></a></li>
+</ul></li>
+<li class="part"><span><b>II From Data to Discovery: Analysis Mainlines</b></span></li>
+<li class="chapter" data-level="3" data-path="data-ingress.html"><a href="data-ingress.html"><i class="fa fa-check"></i><b>3</b> Data Ingress and Object Interoperability</a>
+<ul>
+<li class="chapter" data-level="3.1" data-path="data-ingress.html"><a href="data-ingress.html#seurat-and-sce-conversion"><i class="fa fa-check"></i><b>3.1</b> Seurat and SCE Conversion</a></li>
+<li class="chapter" data-level="3.2" data-path="data-ingress.html"><a href="data-ingress.html#anndata-h5ad"><i class="fa fa-check"></i><b>3.2</b> AnnData (h5ad)</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="recommended-usage.html"><a href="recommended-usage.html"><i class="fa fa-check"></i><b>4</b> Recommended usage</a>
+<ul>
+<li class="chapter" data-level="4.1" data-path="recommended-usage.html"><a href="recommended-usage.html#for-end-users"><i class="fa fa-check"></i><b>4.1</b> For end users</a></li>
+<li class="chapter" data-level="4.2" data-path="recommended-usage.html"><a href="recommended-usage.html#for-pipeline-authors"><i class="fa fa-check"></i><b>4.2</b> For pipeline authors</a></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="developer-design-notes.html"><a href="developer-design-notes.html"><i class="fa fa-check"></i><b>5</b> Developer design notes</a>
+<ul>
+<li class="chapter" data-level="5.1" data-path="developer-design-notes.html"><a href="developer-design-notes.html#core-object-contract"><i class="fa fa-check"></i><b>5.1</b> Core object contract</a></li>
+<li class="chapter" data-level="5.2" data-path="developer-design-notes.html"><a href="developer-design-notes.html#how-to-add-a-new-analysis-function"><i class="fa fa-check"></i><b>5.2</b> How to add a new analysis function</a></li>
+<li class="chapter" data-level="5.3" data-path="developer-design-notes.html"><a href="developer-design-notes.html#implementation-rules-for-contributors"><i class="fa fa-check"></i><b>5.3</b> Implementation rules for contributors</a></li>
+<li class="chapter" data-level="5.4" data-path="developer-design-notes.html"><a href="developer-design-notes.html#what-should-be-tested"><i class="fa fa-check"></i><b>5.4</b> What should be tested</a></li>
+</ul></li>
+<li class="chapter" data-level="6" data-path="core-workflow.html"><a href="core-workflow.html"><i class="fa fa-check"></i><b>6</b> Core Single-Cell Workflow</a>
+<ul>
+<li class="chapter" data-level="6.1" data-path="core-workflow.html"><a href="core-workflow.html#read-10x-data"><i class="fa fa-check"></i><b>6.1</b> Read 10X data</a></li>
+<li class="chapter" data-level="6.2" data-path="core-workflow.html"><a href="core-workflow.html#qc"><i class="fa fa-check"></i><b>6.2</b> QC</a></li>
+<li class="chapter" data-level="6.3" data-path="core-workflow.html"><a href="core-workflow.html#ambient-rna-and-doublet-cleanup"><i class="fa fa-check"></i><b>6.3</b> Ambient RNA and doublet cleanup</a></li>
+<li class="chapter" data-level="6.4" data-path="core-workflow.html"><a href="core-workflow.html#variable-features"><i class="fa fa-check"></i><b>6.4</b> Variable features</a></li>
+<li class="chapter" data-level="6.5" data-path="core-workflow.html"><a href="core-workflow.html#zero-preserving-imputation"><i class="fa fa-check"></i><b>6.5</b> Zero-preserving imputation</a></li>
+<li class="chapter" data-level="6.6" data-path="core-workflow.html"><a href="core-workflow.html#dimensional-reduction"><i class="fa fa-check"></i><b>6.6</b> Dimensional reduction</a></li>
+<li class="chapter" data-level="6.7" data-path="core-workflow.html"><a href="core-workflow.html#FindClusters"><i class="fa fa-check"></i><b>6.7</b> Clustering</a></li>
+<li class="chapter" data-level="6.8" data-path="core-workflow.html"><a href="core-workflow.html#umap"><i class="fa fa-check"></i><b>6.8</b> UMAP</a></li>
+<li class="chapter" data-level="6.9" data-path="core-workflow.html"><a href="core-workflow.html#find-markers"><i class="fa fa-check"></i><b>6.9</b> Find Markers</a>
+<ul>
+<li class="chapter" data-level="6.9.1" data-path="core-workflow.html"><a href="core-workflow.html#marker-gene-information"><i class="fa fa-check"></i><b>6.9.1</b> Marker gene information</a></li>
+</ul></li>
+<li class="chapter" data-level="6.10" data-path="core-workflow.html"><a href="core-workflow.html#manual-annotation"><i class="fa fa-check"></i><b>6.10</b> Cell cluster annotation</a></li>
+<li class="chapter" data-level="6.11" data-path="core-workflow.html"><a href="core-workflow.html#automatic-annotation-singler"><i class="fa fa-check"></i><b>6.11</b> Automatic Annotation (SingleR)</a></li>
+</ul></li>
+<li class="chapter" data-level="7" data-path="integration.html"><a href="integration.html"><i class="fa fa-check"></i><b>7</b> Integration and Batch Correction</a>
+<ul>
+<li class="chapter" data-level="7.1" data-path="integration.html"><a href="integration.html#load-datasets"><i class="fa fa-check"></i><b>7.1</b> Load datasets</a></li>
+<li class="chapter" data-level="7.2" data-path="integration.html"><a href="integration.html#preprocess"><i class="fa fa-check"></i><b>7.2</b> Preprocess</a></li>
+<li class="chapter" data-level="7.3" data-path="integration.html"><a href="integration.html#integration-workflow"><i class="fa fa-check"></i><b>7.3</b> Integration Workflow</a></li>
+<li class="chapter" data-level="7.4" data-path="integration.html"><a href="integration.html#clustering"><i class="fa fa-check"></i><b>7.4</b> Clustering</a></li>
+<li class="chapter" data-level="7.5" data-path="integration.html"><a href="integration.html#visualization"><i class="fa fa-check"></i><b>7.5</b> Visualization</a></li>
+<li class="chapter" data-level="7.6" data-path="integration.html"><a href="integration.html#pseudobulk-differential-expression"><i class="fa fa-check"></i><b>7.6</b> Pseudobulk Differential Expression</a></li>
+</ul></li>
+<li class="chapter" data-level="8" data-path="reference-mapping.html"><a href="reference-mapping.html"><i class="fa fa-check"></i><b>8</b> Cell Identity and Reference Mapping</a>
+<ul>
+<li class="chapter" data-level="8.1" data-path="reference-mapping.html"><a href="reference-mapping.html#manual-annotation-1"><i class="fa fa-check"></i><b>8.1</b> Manual annotation</a></li>
+<li class="chapter" data-level="8.2" data-path="reference-mapping.html"><a href="reference-mapping.html#automatic-annotation"><i class="fa fa-check"></i><b>8.2</b> Automatic annotation</a></li>
+<li class="chapter" data-level="8.3" data-path="reference-mapping.html"><a href="reference-mapping.html#reference-mapping-mainline-workflow"><i class="fa fa-check"></i><b>8.3</b> Reference mapping mainline workflow</a>
+<ul>
+<li class="chapter" data-level="8.3.1" data-path="reference-mapping.html"><a href="reference-mapping.html#lightweight-reference-mapping-knn"><i class="fa fa-check"></i><b>8.3.1</b> Lightweight Reference Mapping (KNN)</a></li>
+<li class="chapter" data-level="8.3.2" data-path="reference-mapping.html"><a href="reference-mapping.html#run-singler-with-sclet"><i class="fa fa-check"></i><b>8.3.2</b> Run SingleR with sclet</a></li>
+<li class="chapter" data-level="8.3.3" data-path="reference-mapping.html"><a href="reference-mapping.html#reference-mapping-workflow"><i class="fa fa-check"></i><b>8.3.3</b> Reference mapping workflow</a></li>
+<li class="chapter" data-level="8.3.4" data-path="reference-mapping.html"><a href="reference-mapping.html#symphony-atlas-mapping"><i class="fa fa-check"></i><b>8.3.4</b> Symphony Atlas Mapping</a></li>
+<li class="chapter" data-level="8.3.5" data-path="reference-mapping.html"><a href="reference-mapping.html#state-aware-singler-provenance"><i class="fa fa-check"></i><b>8.3.5</b> State-aware SingleR provenance</a></li>
+<li class="chapter" data-level="8.3.6" data-path="reference-mapping.html"><a href="reference-mapping.html#annotate-with-singler-result"><i class="fa fa-check"></i><b>8.3.6</b> Annotate with SingleR result</a></li>
+<li class="chapter" data-level="8.3.7" data-path="reference-mapping.html"><a href="reference-mapping.html#comparison-with-manual-annotation-result"><i class="fa fa-check"></i><b>8.3.7</b> Comparison with manual annotation result</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="9" data-path="cell-fate.html"><a href="cell-fate.html"><i class="fa fa-check"></i><b>9</b> Cell Fate and Dynamic Processes</a>
+<ul>
+<li class="chapter" data-level="9.1" data-path="cell-fate.html"><a href="cell-fate.html#trajectory-mainline-workflow"><i class="fa fa-check"></i><b>9.1</b> Trajectory mainline workflow</a>
+<ul>
+<li class="chapter" data-level="9.1.1" data-path="cell-fate.html"><a href="cell-fate.html#lineage-plot"><i class="fa fa-check"></i><b>9.1.1</b> Lineage plot</a></li>
+<li class="chapter" data-level="9.1.2" data-path="cell-fate.html"><a href="cell-fate.html#pseudotime-plot"><i class="fa fa-check"></i><b>9.1.2</b> Pseudotime plot</a></li>
+<li class="chapter" data-level="9.1.3" data-path="cell-fate.html"><a href="cell-fate.html#expression-trends-in-different-cell-trajectories"><i class="fa fa-check"></i><b>9.1.3</b> Expression trends in different cell trajectories</a></li>
+<li class="chapter" data-level="9.1.4" data-path="cell-fate.html"><a href="cell-fate.html#heatmap"><i class="fa fa-check"></i><b>9.1.4</b> Heatmap</a></li>
+</ul></li>
+<li class="chapter" data-level="9.2" data-path="cell-fate.html"><a href="cell-fate.html#diffusion-map"><i class="fa fa-check"></i><b>9.2</b> Diffusion Map for complex trajectories</a>
+<ul>
+<li class="chapter" data-level="9.2.1" data-path="cell-fate.html"><a href="cell-fate.html#example-data"><i class="fa fa-check"></i><b>9.2.1</b> Example data</a></li>
+<li class="chapter" data-level="9.2.2" data-path="cell-fate.html"><a href="cell-fate.html#run-velocity-analysis"><i class="fa fa-check"></i><b>9.2.2</b> Run velocity analysis</a></li>
+<li class="chapter" data-level="9.2.3" data-path="cell-fate.html"><a href="cell-fate.html#visualize-velocity-based-trajectory"><i class="fa fa-check"></i><b>9.2.3</b> Visualize velocity-based trajectory</a></li>
+</ul></li>
+<li class="chapter" data-level="9.3" data-path="cell-fate.html"><a href="cell-fate.html#cellrank"><i class="fa fa-check"></i><b>9.3</b> CellRank: Advanced Fate Mapping</a>
+<ul>
+<li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
+</ul></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+</ul></li>
+<li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
+<ul>
+<li class="chapter" data-level="10.1" data-path="program-regulon.html"><a href="program-regulon.html#gene-set-scoring-and-pathway-activity"><i class="fa fa-check"></i><b>10.1</b> Gene set scoring and pathway activity</a></li>
+<li class="chapter" data-level="10.2" data-path="program-regulon.html"><a href="program-regulon.html#multi-backend-scoring-in-one-click"><i class="fa fa-check"></i><b>10.2</b> Multi-Backend Scoring in One Click</a></li>
+<li class="chapter" data-level="10.3" data-path="program-regulon.html"><a href="program-regulon.html#program-mainline-workflow"><i class="fa fa-check"></i><b>10.3</b> Program mainline workflow</a></li>
+<li class="chapter" data-level="10.4" data-path="program-regulon.html"><a href="program-regulon.html#reading-and-visualizing-results"><i class="fa fa-check"></i><b>10.4</b> Reading and Visualizing Results</a></li>
+<li class="chapter" data-level="10.5" data-path="program-regulon.html"><a href="program-regulon.html#advanced-pathway-discovery-altexp-and-runkegg"><i class="fa fa-check"></i><b>10.5</b> Advanced Pathway Discovery (altExp and RunKEGG)</a></li>
+<li class="chapter" data-level="10.6" data-path="program-regulon.html"><a href="program-regulon.html#scenic-regulon-inference"><i class="fa fa-check"></i><b>10.6</b> SCENIC regulon inference</a></li>
+<li class="chapter" data-level="10.7" data-path="program-regulon.html"><a href="program-regulon.html#environment-and-data-preparation"><i class="fa fa-check"></i><b>10.7</b> Environment and Data Preparation</a></li>
+<li class="chapter" data-level="10.8" data-path="program-regulon.html"><a href="program-regulon.html#one-click-inference-and-scoring"><i class="fa fa-check"></i><b>10.8</b> One-Click Inference and Scoring</a></li>
+<li class="chapter" data-level="10.9" data-path="program-regulon.html"><a href="program-regulon.html#result-retrieval-and-state-awareness"><i class="fa fa-check"></i><b>10.9</b> Result Retrieval and State Awareness</a></li>
+<li class="chapter" data-level="10.10" data-path="program-regulon.html"><a href="program-regulon.html#visualizing-regulon-activity"><i class="fa fa-check"></i><b>10.10</b> Visualizing Regulon Activity</a></li>
+<li class="chapter" data-level="10.11" data-path="program-regulon.html"><a href="program-regulon.html#unified-grn-entry-rungrn"><i class="fa fa-check"></i><b>10.11</b> Unified GRN Entry: <code>RunGRN()</code></a></li>
+<li class="chapter" data-level="10.12" data-path="program-regulon.html"><a href="program-regulon.html#unified-program-access-get_program-has_program"><i class="fa fa-check"></i><b>10.12</b> Unified Program Access: <code>get_program()</code> / <code>has_program()</code></a></li>
+<li class="chapter" data-level="10.13" data-path="program-regulon.html"><a href="program-regulon.html#program-activity-dotplot-plot_program_dotplot"><i class="fa fa-check"></i><b>10.13</b> Program Activity Dotplot: <code>plot_program_dotplot()</code></a></li>
+</ul></li>
+<li class="chapter" data-level="11" data-path="differential-interpretation.html"><a href="differential-interpretation.html"><i class="fa fa-check"></i><b>11</b> Differential Analysis and Functional Interpretation</a>
+<ul>
+<li class="chapter" data-level="11.1" data-path="differential-interpretation.html"><a href="differential-interpretation.html#differential-expression-and-pseudobulk-testing"><i class="fa fa-check"></i><b>11.1</b> Differential expression and pseudobulk testing</a></li>
+<li class="chapter" data-level="11.2" data-path="differential-interpretation.html"><a href="differential-interpretation.html#standard-single-cell-de"><i class="fa fa-check"></i><b>11.2</b> Standard Single-Cell DE</a>
+<ul>
+<li class="chapter" data-level="11.2.1" data-path="differential-interpretation.html"><a href="differential-interpretation.html#the-what-does-this-gene-even-do-problem"><i class="fa fa-check"></i><b>11.2.1</b> The “What does this gene even do?” Problem</a></li>
+</ul></li>
+<li class="chapter" data-level="11.3" data-path="differential-interpretation.html"><a href="differential-interpretation.html#the-gold-standard-pseudobulk-analysis"><i class="fa fa-check"></i><b>11.3</b> The Gold Standard: Pseudobulk Analysis</a>
+<ul>
+<li class="chapter" data-level="11.3.1" data-path="differential-interpretation.html"><a href="differential-interpretation.html#step-1-aggregate-expression"><i class="fa fa-check"></i><b>11.3.1</b> Step 1: Aggregate Expression</a></li>
+<li class="chapter" data-level="11.3.2" data-path="differential-interpretation.html"><a href="differential-interpretation.html#step-2-pseudobulk-de-with-deseq2"><i class="fa fa-check"></i><b>11.3.2</b> Step 2: Pseudobulk DE with DESeq2</a></li>
+</ul></li>
+<li class="chapter" data-level="11.4" data-path="differential-interpretation.html"><a href="differential-interpretation.html#functional-enrichment-on-top-of-differential-results"><i class="fa fa-check"></i><b>11.4</b> Functional enrichment on top of differential results</a></li>
+<li class="chapter" data-level="11.5" data-path="differential-interpretation.html"><a href="differential-interpretation.html#go-enrichment"><i class="fa fa-check"></i><b>11.5</b> GO Enrichment</a></li>
+<li class="chapter" data-level="11.6" data-path="differential-interpretation.html"><a href="differential-interpretation.html#kegg-enrichment"><i class="fa fa-check"></i><b>11.6</b> KEGG Enrichment</a></li>
+</ul></li>
+<li class="chapter" data-level="12" data-path="communication.html"><a href="communication.html"><i class="fa fa-check"></i><b>12</b> Cell-Cell Communication and Microenvironment Interaction</a>
+<ul>
+<li class="chapter" data-level="12.1" data-path="communication.html"><a href="communication.html#input"><i class="fa fa-check"></i><b>12.1</b> Input</a></li>
+<li class="chapter" data-level="12.2" data-path="communication.html"><a href="communication.html#running-cci"><i class="fa fa-check"></i><b>12.2</b> Running CCI</a></li>
+<li class="chapter" data-level="12.3" data-path="communication.html"><a href="communication.html#using-alternative-backends-cellphonedb-nichenet"><i class="fa fa-check"></i><b>12.3</b> Using Alternative Backends (CellPhoneDB &amp; NicheNet)</a>
+<ul>
+<li class="chapter" data-level="12.3.1" data-path="communication.html"><a href="communication.html#cellphonedb"><i class="fa fa-check"></i><b>12.3.1</b> CellPhoneDB</a></li>
+<li class="chapter" data-level="12.3.2" data-path="communication.html"><a href="communication.html#nichenet"><i class="fa fa-check"></i><b>12.3.2</b> NicheNet</a></li>
+</ul></li>
+<li class="chapter" data-level="12.4" data-path="communication.html"><a href="communication.html#visualization-1"><i class="fa fa-check"></i><b>12.4</b> Visualization</a>
+<ul>
+<li class="chapter" data-level="12.4.1" data-path="communication.html"><a href="communication.html#legacy-cellchat-visualization"><i class="fa fa-check"></i><b>12.4.1</b> Legacy CellChat Visualization</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="13" data-path="state-priority.html"><a href="state-priority.html"><i class="fa fa-check"></i><b>13</b> State Priority and Perturbation Sensitivity</a>
+<ul>
+<li class="chapter" data-level="13.1" data-path="state-priority.html"><a href="state-priority.html#perturbation-priority-workflow"><i class="fa fa-check"></i><b>13.1</b> Perturbation Priority Workflow</a>
+<ul>
+<li class="chapter" data-level="13.1.1" data-path="state-priority.html"><a href="state-priority.html#one-step-dispatch"><i class="fa fa-check"></i><b>13.1.1</b> One-Step Dispatch</a></li>
+<li class="chapter" data-level="13.1.2" data-path="state-priority.html"><a href="state-priority.html#direct-augur-call"><i class="fa fa-check"></i><b>13.1.2</b> Direct Augur Call</a></li>
+<li class="chapter" data-level="13.1.3" data-path="state-priority.html"><a href="state-priority.html#inspecting-results"><i class="fa fa-check"></i><b>13.1.3</b> Inspecting Results</a></li>
+</ul></li>
+<li class="chapter" data-level="13.2" data-path="state-priority.html"><a href="state-priority.html#rare-cell-detection"><i class="fa fa-check"></i><b>13.2</b> Rare Cell Detection</a></li>
+<li class="chapter" data-level="13.3" data-path="state-priority.html"><a href="state-priority.html#what-fits-nearby"><i class="fa fa-check"></i><b>13.3</b> What Fits Nearby</a></li>
+<li class="chapter" data-level="13.4" data-path="state-priority.html"><a href="state-priority.html#current-recommendation"><i class="fa fa-check"></i><b>13.4</b> Current Recommendation</a></li>
+</ul></li>
+<li class="chapter" data-level="14" data-path="spatial-context.html"><a href="spatial-context.html"><i class="fa fa-check"></i><b>14</b> Spatial Context and Niche Analysis</a>
+<ul>
+<li class="chapter" data-level="14.1" data-path="spatial-context.html"><a href="spatial-context.html#spatial-mainline-workflow"><i class="fa fa-check"></i><b>14.1</b> Spatial Mainline Workflow</a></li>
+<li class="chapter" data-level="14.2" data-path="spatial-context.html"><a href="spatial-context.html#high-resolution-spatial-deconvolution-cell2location"><i class="fa fa-check"></i><b>14.2</b> High-Resolution Spatial Deconvolution: Cell2location</a></li>
+<li class="chapter" data-level="14.3" data-path="spatial-context.html"><a href="spatial-context.html#spatial-colocalization-with-svp"><i class="fa fa-check"></i><b>14.3</b> Spatial Colocalization with SVP</a></li>
+<li class="chapter" data-level="14.4" data-path="spatial-context.html"><a href="spatial-context.html#spatial-niche-detection-with-svp-lisa"><i class="fa fa-check"></i><b>14.4</b> Spatial Niche Detection with SVP LISA</a></li>
+<li class="chapter" data-level="14.5" data-path="spatial-context.html"><a href="spatial-context.html#inspecting-spatial-results-across-layers"><i class="fa fa-check"></i><b>14.5</b> Inspecting Spatial Results Across Layers</a></li>
+<li class="chapter" data-level="14.6" data-path="spatial-context.html"><a href="spatial-context.html#in-silico-gene-perturbation-celloracle"><i class="fa fa-check"></i><b>14.6</b> In-Silico Gene Perturbation: CellOracle</a></li>
+</ul></li>
+<li class="chapter" data-level="15" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html"><i class="fa fa-check"></i><b>15</b> Multimodal Expansion</a>
+<ul>
+<li class="chapter" data-level="15.1" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#what-is-already-available"><i class="fa fa-check"></i><b>15.1</b> What Is Already Available</a></li>
+<li class="chapter" data-level="15.2" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#detecting-and-registering-modalities"><i class="fa fa-check"></i><b>15.2</b> Detecting and Registering Modalities</a></li>
+<li class="chapter" data-level="15.3" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#one-step-registration"><i class="fa fa-check"></i><b>15.3</b> One-Step Registration</a></li>
+<li class="chapter" data-level="15.4" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#planned-interface-direction"><i class="fa fa-check"></i><b>15.4</b> Planned Interface Direction</a></li>
+<li class="chapter" data-level="15.5" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#current-guidance"><i class="fa fa-check"></i><b>15.5</b> Current Guidance</a></li>
+</ul></li>
+<li class="part"><span><b>III Specialized Techniques and Reference</b></span></li>
+<li class="chapter" data-level="16" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html"><i class="fa fa-check"></i><b>16</b> Enhanced Visualization</a>
+<ul>
+<li class="chapter" data-level="16.1" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#loading-data"><i class="fa fa-check"></i><b>16.1</b> Loading data</a></li>
+<li class="chapter" data-level="16.2" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#dimensionality-reduction-plots"><i class="fa fa-check"></i><b>16.2</b> Dimensionality Reduction Plots</a>
+<ul>
+<li class="chapter" data-level="16.2.1" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#celldimplot"><i class="fa fa-check"></i><b>16.2.1</b> CellDimPlot</a></li>
+<li class="chapter" data-level="16.2.2" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#featuredimplot"><i class="fa fa-check"></i><b>16.2.2</b> FeatureDimPlot</a></li>
+</ul></li>
+<li class="chapter" data-level="16.3" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#expression-heatmaps"><i class="fa fa-check"></i><b>16.3</b> Expression Heatmaps</a></li>
+<li class="chapter" data-level="16.4" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#cell-statistics"><i class="fa fa-check"></i><b>16.4</b> Cell Statistics</a></li>
+<li class="chapter" data-level="16.5" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#module-specific-visualization"><i class="fa fa-check"></i><b>16.5</b> Module-Specific Visualization</a>
+<ul>
+<li class="chapter" data-level="16.5.1" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#trajectory-and-fate"><i class="fa fa-check"></i><b>16.5.1</b> Trajectory and Fate</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="17" data-path="fate-probability-on-embedding.html"><a href="fate-probability-on-embedding.html"><i class="fa fa-check"></i><b>17</b> Fate probability on embedding</a></li>
+<li class="chapter" data-level="18" data-path="terminal-state-assignments.html"><a href="terminal-state-assignments.html"><i class="fa fa-check"></i><b>18</b> Terminal state assignments</a></li>
+<li class="chapter" data-level="19" data-path="lineage-driver-trends.html"><a href="lineage-driver-trends.html"><i class="fa fa-check"></i><b>19</b> Lineage driver trends</a></li>
+<li class="chapter" data-level="20" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html"><i class="fa fa-check"></i><b>20</b> Velocity latent time</a>
+<ul>
+<li class="chapter" data-level="20.0.1" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html#perturbation-priority"><i class="fa fa-check"></i><b>20.0.1</b> Perturbation Priority</a></li>
+<li class="chapter" data-level="20.0.2" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html#spatial-analysis"><i class="fa fa-check"></i><b>20.0.2</b> Spatial Analysis</a></li>
+<li class="chapter" data-level="20.0.3" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html#cell-cell-communication"><i class="fa fa-check"></i><b>20.0.3</b> Cell-Cell Communication</a></li>
+<li class="chapter" data-level="20.0.4" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html#reference-mapping-1"><i class="fa fa-check"></i><b>20.0.4</b> Reference Mapping</a></li>
+</ul></li>
+<li class="chapter" data-level="21" data-path="supercell.html"><a href="supercell.html"><i class="fa fa-check"></i><b>21</b> Metacells with SuperCell</a>
+<ul>
+<li class="chapter" data-level="21.1" data-path="supercell.html"><a href="supercell.html#runsupercell"><i class="fa fa-check"></i><b>21.1</b> RunSuperCell</a></li>
+<li class="chapter" data-level="21.2" data-path="supercell.html"><a href="supercell.html#estimate-supercell-purity"><i class="fa fa-check"></i><b>21.2</b> Estimate SuperCell Purity</a></li>
+</ul></li>
+<li class="chapter" data-level="22" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html"><i class="fa fa-check"></i><b>22</b> Milo: Differential Abundance</a>
+<ul>
+<li class="chapter" data-level="22.1" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#requirements"><i class="fa fa-check"></i><b>22.1</b> Requirements</a></li>
+<li class="chapter" data-level="22.2" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#two-group-da-glm"><i class="fa fa-check"></i><b>22.2</b> Two-group DA (GLM)</a></li>
+<li class="chapter" data-level="22.3" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#multi-contrast-testing"><i class="fa fa-check"></i><b>22.3</b> Multi-contrast testing</a></li>
+<li class="chapter" data-level="22.4" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#glmm-random-intercept"><i class="fa fa-check"></i><b>22.4</b> GLMM (random intercept)</a></li>
+<li class="chapter" data-level="22.5" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#refit-after-dropping-separated-neighbourhoods"><i class="fa fa-check"></i><b>22.5</b> Refit after dropping separated neighbourhoods</a></li>
+</ul></li>
+<li class="chapter" data-level="23" data-path="phenotype-association.html"><a href="phenotype-association.html"><i class="fa fa-check"></i><b>23</b> Phenotype Association</a>
+<ul>
+<li class="chapter" data-level="23.1" data-path="phenotype-association.html"><a href="phenotype-association.html#a-practical-pattern"><i class="fa fa-check"></i><b>23.1</b> A practical pattern</a></li>
+<li class="chapter" data-level="23.2" data-path="phenotype-association.html"><a href="phenotype-association.html#what-gets-recorded"><i class="fa fa-check"></i><b>23.2</b> What gets recorded</a></li>
+</ul></li>
+<li class="chapter" data-level="24" data-path="interactive.html"><a href="interactive.html"><i class="fa fa-check"></i><b>24</b> Interactive Data Exploration</a>
+<ul>
+<li class="chapter" data-level="24.1" data-path="interactive.html"><a href="interactive.html#launch-explorer"><i class="fa fa-check"></i><b>24.1</b> Launch Explorer</a></li>
+<li class="chapter" data-level="24.2" data-path="interactive.html"><a href="interactive.html#customization"><i class="fa fa-check"></i><b>24.2</b> Customization</a></li>
+</ul></li>
+<li class="chapter" data-level="25" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><i class="fa fa-check"></i><b>25</b> SVP: Gene Set Activity in Spatial and Single-Cell Data</a>
+<ul>
+<li class="chapter" data-level="25.1" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html#runsgsa"><i class="fa fa-check"></i><b>25.1</b> runSGSA</a></li>
+<li class="chapter" data-level="25.2" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html#runlisa"><i class="fa fa-check"></i><b>25.2</b> runLISA</a></li>
+<li class="chapter" data-level="25.3" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html#runlocalbv"><i class="fa fa-check"></i><b>25.3</b> runLOCALBV</a></li>
+</ul></li>
+<li class="chapter" data-level="26" data-path="copilot.html"><a href="copilot.html"><i class="fa fa-check"></i><b>26</b> AI Copilot &amp; Evidence Governance</a>
+<ul>
+<li class="chapter" data-level="26.1" data-path="copilot.html"><a href="copilot.html#sclet_copilot-an-ai-that-understands-your-objects"><i class="fa fa-check"></i><b>26.1</b> <code>sclet_copilot</code>: An AI That Understands Your Objects</a></li>
+<li class="chapter" data-level="26.2" data-path="copilot.html"><a href="copilot.html#auditanalysischain-cross-chain-error-control"><i class="fa fa-check"></i><b>26.2</b> <code>AuditAnalysisChain</code>: Cross-Chain Error Control</a></li>
+</ul></li>
+<li class="chapter" data-level="" data-path="references.html"><a href="references.html"><i class="fa fa-check"></i>References</a></li>
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">sclet: A Lightweight Toolkit for Single-Cell Data Analysis</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="core-workflow" class="section level1 hasAnchor" number="6">
+<h1><span class="header-section-number">6</span> Core Single-Cell Workflow<a href="core-workflow.html#core-workflow" class="anchor-section" aria-label="Anchor link to header"></a></h1>
+<p>This chapter is the baseline mainline for the entire package. The goal is not to teach one isolated PBMC vignette, but to show the standard route that most downstream <code>sclet</code> analyses assume: QC, normalization, variable features, dimensional reduction, clustering, and identity management.</p>
+<p>Every later mainline in the book builds on top of this one. If you are unsure where to start, start here and treat the resulting object as the shared launch point for mapping, dynamics, program analysis, communication, and spatial follow-up.</p>
+<div id="read-10x-data" class="section level2 hasAnchor" number="6.1">
+<h2><span class="header-section-number">6.1</span> Read 10X data<a href="core-workflow.html#read-10x-data" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb27-1"><a href="core-workflow.html#cb27-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb27-2"><a href="core-workflow.html#cb27-2" tabindex="-1"></a>pbmc</span></code></pre></div>
+<pre><code>## class: SingleCellExperiment 
+## dim: 13714 2638 
+## metadata(1): sclet
+## assays(3): counts logcounts scaled
+## rownames(13714): AL627309.1 AP006222.2 ...
+##   PNRC2_ENSG00000215700 SRSF10_ENSG00000215699
+## rowData names(9): ENSEMBL_ID Symbol_TENx ... p.value
+##   FDR
+## colnames: NULL
+## colData names(16): Sample Barcode ... label ident
+## reducedDimNames(3): PCA .dimred UMAP
+## mainExpName: NULL
+## altExpNames(0):</code></pre>
+<p>If you are starting from a local Cell Ranger directory instead, the corresponding <code>sclet</code> call is simply <code>pbmc &lt;- Read10X("filtered_feature_bc_matrix/")</code>.</p>
+</div>
+<div id="qc" class="section level2 hasAnchor" number="6.2">
+<h2><span class="header-section-number">6.2</span> QC<a href="core-workflow.html#qc" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<div class="sourceCode" id="cb29"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb29-1"><a href="core-workflow.html#cb29-1" tabindex="-1"></a><span class="co"># colData(pbmc)$percent.mt &lt;- PercentageFeatureSet(pbmc, &quot;^MT-&quot;)</span></span>
+<span id="cb29-2"><a href="core-workflow.html#cb29-2" tabindex="-1"></a>pbmc[[<span class="st">&quot;percent.mt&quot;</span>]] <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(pbmc, <span class="st">&quot;^MT-&quot;</span>)</span>
+<span id="cb29-3"><a href="core-workflow.html#cb29-3" tabindex="-1"></a><span class="fu">VlnPlot</span>(pbmc, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">&quot;nFeature_RNA&quot;</span>, <span class="st">&quot;nCount_RNA&quot;</span>, <span class="st">&quot;percent.mt&quot;</span>))</span></code></pre></div>
+<p><img src="sclet_files/figure-html/vlnplot-qc-1.png" alt="" width="960" /></p>
+<div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb30-1"><a href="core-workflow.html#cb30-1" tabindex="-1"></a><span class="fu">subset_feature</span>(pbmc, <span class="dv">10</span>)</span></code></pre></div>
+<pre><code>## ************************************************** &gt;=0 | 13714 (100%)
+## ************************************************** &gt;=1 | 13713 (100%)
+## ************************************************** &gt;=2 | 13706 (100%)
+## ************************************************** &gt;=3 | 13656 (100%)
+## *********************************************** &gt;=4 | 12972 (95%)
+## ********************************************** &gt;=5 | 12519 (91%)
+## ******************************************** &gt;=6 | 12138 (89%)
+## ******************************************* &gt;=7 | 11813 (86%)
+## ****************************************** &gt;=8 | 11564 (84%)
+## ***************************************** &gt;=9 | 11319 (83%)
+## **************************************** &gt;=10 | 11095 (81%)</code></pre>
+<div class="sourceCode" id="cb32"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb32-1"><a href="core-workflow.html#cb32-1" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">subset_feature</span>(pbmc, <span class="at">mincell =</span> <span class="dv">3</span>, <span class="at">peek=</span><span class="cn">FALSE</span>)</span>
+<span id="cb32-2"><a href="core-workflow.html#cb32-2" tabindex="-1"></a></span>
+<span id="cb32-3"><a href="core-workflow.html#cb32-3" tabindex="-1"></a>keep <span class="ot">&lt;-</span> <span class="fu">colData</span>(pbmc)<span class="sc">$</span>nFeature_RNA <span class="sc">&gt;</span> <span class="dv">200</span> <span class="sc">&amp;</span></span>
+<span id="cb32-4"><a href="core-workflow.html#cb32-4" tabindex="-1"></a>    <span class="fu">colData</span>(pbmc)<span class="sc">$</span>nFeature_RNA <span class="sc">&lt;</span> <span class="dv">2500</span> <span class="sc">&amp;</span></span>
+<span id="cb32-5"><a href="core-workflow.html#cb32-5" tabindex="-1"></a>    <span class="fu">colData</span>(pbmc)<span class="sc">$</span>percent.mt <span class="sc">&lt;</span> <span class="dv">5</span></span>
+<span id="cb32-6"><a href="core-workflow.html#cb32-6" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> pbmc[, keep, drop <span class="ot">=</span> <span class="cn">FALSE</span>]</span>
+<span id="cb32-7"><a href="core-workflow.html#cb32-7" tabindex="-1"></a>pbmc</span></code></pre></div>
+<pre><code>## class: SingleCellExperiment 
+## dim: 13656 2638 
+## metadata(1): sclet
+## assays(3): counts logcounts scaled
+## rownames(13656): AL627309.1 AP006222.2 ...
+##   PNRC2_ENSG00000215700 SRSF10_ENSG00000215699
+## rowData names(9): ENSEMBL_ID Symbol_TENx ... p.value
+##   FDR
+## colnames: NULL
+## colData names(16): Sample Barcode ... label ident
+## reducedDimNames(3): PCA .dimred UMAP
+## mainExpName: NULL
+## altExpNames(0):</code></pre>
+<div class="sourceCode" id="cb34"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb34-1"><a href="core-workflow.html#cb34-1" tabindex="-1"></a>plot1 <span class="ot">&lt;-</span> <span class="fu">FeatureScatter</span>(pbmc, <span class="at">feature1 =</span> <span class="st">&quot;nCount_RNA&quot;</span>, <span class="at">feature2 =</span> <span class="st">&quot;percent.mt&quot;</span>)</span>
+<span id="cb34-2"><a href="core-workflow.html#cb34-2" tabindex="-1"></a>plot2 <span class="ot">&lt;-</span> <span class="fu">FeatureScatter</span>(pbmc, <span class="at">feature1 =</span> <span class="st">&quot;nCount_RNA&quot;</span>, <span class="at">feature2 =</span> <span class="st">&quot;nFeature_RNA&quot;</span>)</span>
+<span id="cb34-3"><a href="core-workflow.html#cb34-3" tabindex="-1"></a></span>
+<span id="cb34-4"><a href="core-workflow.html#cb34-4" tabindex="-1"></a><span class="fu">library</span>(aplot)</span>
+<span id="cb34-5"><a href="core-workflow.html#cb34-5" tabindex="-1"></a><span class="fu">plot_list</span>(plot1, plot2)</span></code></pre></div>
+<p><img src="sclet_files/figure-html/featurescatter-qc-1.png" alt="" width="960" /></p>
+<p>Users can also use <code>plotColData()</code> to visualize the QC data.</p>
+<div class="sourceCode" id="cb35"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb35-1"><a href="core-workflow.html#cb35-1" tabindex="-1"></a><span class="co"># VlnPlot-like</span></span>
+<span id="cb35-2"><a href="core-workflow.html#cb35-2" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">plotColData</span>(pbmc, <span class="at">y =</span> <span class="st">&#39;nCount_RNA&#39;</span>)</span>
+<span id="cb35-3"><a href="core-workflow.html#cb35-3" tabindex="-1"></a></span>
+<span id="cb35-4"><a href="core-workflow.html#cb35-4" tabindex="-1"></a><span class="co"># FeatureScatter-like</span></span>
+<span id="cb35-5"><a href="core-workflow.html#cb35-5" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">plotColData</span>(pbmc, <span class="at">x =</span> <span class="st">&quot;nCount_RNA&quot;</span>, <span class="at">y =</span> <span class="st">&quot;percent.mt&quot;</span>)</span>
+<span id="cb35-6"><a href="core-workflow.html#cb35-6" tabindex="-1"></a><span class="fu">plot_list</span>(p1, p2)</span></code></pre></div>
+<p><img src="sclet_files/figure-html/plotcoldata-qc-1.png" alt="" width="960" /></p>
+</div>
+<div id="ambient-rna-and-doublet-cleanup" class="section level2 hasAnchor" number="6.3">
+<h2><span class="header-section-number">6.3</span> Ambient RNA and doublet cleanup<a href="core-workflow.html#ambient-rna-and-doublet-cleanup" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Quality control thresholds remove obvious outliers, but they do not solve two common single-cell annoyances: ambient RNA contamination and doublets. <code>sclet</code> now exposes both through <code>SingleCellExperiment</code>-native wrappers, so the outputs stay in <code>colData</code> or new assays instead of being scattered across ad hoc objects.</p>
+<div class="sourceCode" id="cb36"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb36-1"><a href="core-workflow.html#cb36-1" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> pbmc</span>
+<span id="cb36-2"><a href="core-workflow.html#cb36-2" tabindex="-1"></a></span>
+<span id="cb36-3"><a href="core-workflow.html#cb36-3" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">RunDoubletFinder</span>(pbmc_clean)</span></code></pre></div>
+<pre><code>## Creating ~2111 artificial doublets...</code></pre>
+<pre><code>## Dimensional reduction</code></pre>
+<pre><code>## Evaluating kNN...</code></pre>
+<pre><code>## Training model...</code></pre>
+<pre><code>## iter=0, 184 cells excluded from training.</code></pre>
+<pre><code>## iter=1, 144 cells excluded from training.</code></pre>
+<pre><code>## iter=2, 135 cells excluded from training.</code></pre>
+<pre><code>## Threshold found:0.463</code></pre>
+<pre><code>## 86 (3.3%) doublets called</code></pre>
+<div class="sourceCode" id="cb46"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb46-1"><a href="core-workflow.html#cb46-1" tabindex="-1"></a><span class="fu">table</span>(pbmc_clean<span class="sc">$</span>scDblFinder.class)</span></code></pre></div>
+<pre><code>## 
+## singlet doublet 
+##    2552      86</code></pre>
+<div class="sourceCode" id="cb48"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb48-1"><a href="core-workflow.html#cb48-1" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">RunDecontX</span>(pbmc_clean)</span></code></pre></div>
+<pre><code>## --------------------------------------------------</code></pre>
+<pre><code>## Starting DecontX</code></pre>
+<pre><code>## --------------------------------------------------</code></pre>
+<pre><code>## Mon Jul 20 04:02:20 2026 .. Analyzing all cells</code></pre>
+<pre><code>## Mon Jul 20 04:02:20 2026 .... Converting to sparse matrix</code></pre>
+<pre><code>## Mon Jul 20 04:02:21 2026 .... Generating UMAP and estimating cell types</code></pre>
+<pre><code>## Mon Jul 20 04:02:29 2026 .... Estimating contamination</code></pre>
+<pre><code>## Mon Jul 20 04:02:29 2026 ...... Completed iteration: 10 | converge: 0.02974</code></pre>
+<pre><code>## Mon Jul 20 04:02:30 2026 ...... Completed iteration: 20 | converge: 0.009578</code></pre>
+<pre><code>## Mon Jul 20 04:02:30 2026 ...... Completed iteration: 30 | converge: 0.00579</code></pre>
+<pre><code>## Mon Jul 20 04:02:30 2026 ...... Completed iteration: 40 | converge: 0.004016</code></pre>
+<pre><code>## Mon Jul 20 04:02:31 2026 ...... Completed iteration: 50 | converge: 0.002967</code></pre>
+<pre><code>## Mon Jul 20 04:02:31 2026 ...... Completed iteration: 60 | converge: 0.002304</code></pre>
+<pre><code>## Mon Jul 20 04:02:32 2026 ...... Completed iteration: 70 | converge: 0.001826</code></pre>
+<pre><code>## Mon Jul 20 04:02:32 2026 ...... Completed iteration: 80 | converge: 0.001551</code></pre>
+<pre><code>## Mon Jul 20 04:02:33 2026 ...... Completed iteration: 90 | converge: 0.001529</code></pre>
+<pre><code>## Mon Jul 20 04:02:33 2026 ...... Completed iteration: 100 | converge: 0.001376</code></pre>
+<pre><code>## Mon Jul 20 04:02:33 2026 ...... Completed iteration: 106 | converge: 0.0009845</code></pre>
+<pre><code>## Mon Jul 20 04:02:33 2026 .. Calculating final decontaminated matrix</code></pre>
+<pre><code>## Mon Jul 20 04:02:34 2026 .. Converting decontaminated matrix to DelayedMatrix</code></pre>
+<pre><code>## --------------------------------------------------</code></pre>
+<pre><code>## Completed DecontX. Total time: 23.4901 secs</code></pre>
+<pre><code>## --------------------------------------------------</code></pre>
+<div class="sourceCode" id="cb72"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb72-1"><a href="core-workflow.html#cb72-1" tabindex="-1"></a><span class="fu">assayNames</span>(pbmc_clean)</span></code></pre></div>
+<pre><code>## [1] &quot;counts&quot;        &quot;logcounts&quot;     &quot;scaled&quot;       
+## [4] &quot;decontXcounts&quot;</code></pre>
+<div class="sourceCode" id="cb74"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb74-1"><a href="core-workflow.html#cb74-1" tabindex="-1"></a><span class="fu">head</span>(pbmc_clean<span class="sc">$</span>decontX_contamination)</span></code></pre></div>
+<pre><code>## [1] 0.03355352 0.13346162 0.05905774 0.12847845 0.06748552
+## [6] 0.08968640</code></pre>
+<p><code>RunDoubletFinder()</code> writes doublet calls back to <code>colData</code>, while <code>RunDecontX()</code> keeps the decontaminated matrix isolated in <code>assay(pbmc_clean, "decontXcounts")</code>. That separation matters, because it lets you compare raw and cleaned views instead of quietly overwriting the original counts.</p>
+</div>
+<div id="variable-features" class="section level2 hasAnchor" number="6.4">
+<h2><span class="header-section-number">6.4</span> Variable features<a href="core-workflow.html#variable-features" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<div class="sourceCode" id="cb76"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb76-1"><a href="core-workflow.html#cb76-1" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindVariableFeatures</span>(pbmc, <span class="at">method =</span> <span class="st">&quot;scran&quot;</span>)</span>
+<span id="cb76-2"><a href="core-workflow.html#cb76-2" tabindex="-1"></a>top10 <span class="ot">&lt;-</span> <span class="fu">head</span>(<span class="fu">VariableFeatures</span>(pbmc, <span class="at">method =</span> <span class="st">&quot;scran&quot;</span>), <span class="dv">10</span>)</span>
+<span id="cb76-3"><a href="core-workflow.html#cb76-3" tabindex="-1"></a>top10</span></code></pre></div>
+<pre><code>##  [1] &quot;LYZ&quot;     &quot;S100A9&quot;  &quot;HLA-DRA&quot; &quot;CST3&quot;    &quot;TYROBP&quot; 
+##  [6] &quot;S100A8&quot;  &quot;CD74&quot;    &quot;S100A4&quot;  &quot;NKG7&quot;    &quot;FTL&quot;</code></pre>
+<div class="sourceCode" id="cb78"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb78-1"><a href="core-workflow.html#cb78-1" tabindex="-1"></a><span class="fu">VariableFeaturePlot</span>(pbmc, <span class="at">label =</span> top10, <span class="at">method =</span> <span class="st">&quot;scran&quot;</span>)</span></code></pre></div>
+<p><img src="sclet_files/figure-html/variablefeatureplot-pbmc-1.png" alt="" width="960" /></p>
+</div>
+<div id="zero-preserving-imputation" class="section level2 hasAnchor" number="6.5">
+<h2><span class="header-section-number">6.5</span> Zero-preserving imputation<a href="core-workflow.html#zero-preserving-imputation" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>If you want a denoised expression view for visualization or downstream ranking, <code>RunImputation()</code> adds a zero-preserving ALRA layer without contaminating the original <code>counts</code> or <code>logcounts</code>. In other words, this is an extra view of the data, not a silent replacement of the baseline matrix.</p>
+<div class="sourceCode" id="cb79"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb79-1"><a href="core-workflow.html#cb79-1" tabindex="-1"></a>pbmc_impute <span class="ot">&lt;-</span> pbmc</span>
+<span id="cb79-2"><a href="core-workflow.html#cb79-2" tabindex="-1"></a>pbmc_impute <span class="ot">&lt;-</span> <span class="fu">NormalizeData</span>(pbmc_impute)</span>
+<span id="cb79-3"><a href="core-workflow.html#cb79-3" tabindex="-1"></a>pbmc_impute <span class="ot">&lt;-</span> <span class="fu">RunImputation</span>(pbmc_impute, <span class="at">assay =</span> <span class="st">&quot;logcounts&quot;</span>)</span></code></pre></div>
+<pre><code>## Running ALRA imputation...</code></pre>
+<pre><code>## Read matrix with 2638 cells and 13656 genes
+## Chose k=17
+## Getting nonzeros
+## Randomized SVD
+## Find the 0.001000 quantile of each gene
+## Sweep
+## Scaling all except for 26 columns
+## 0.00% of the values became negative in the scaling process and were set to zero
+## The matrix went from 6.21% nonzero to 47.11% nonzero</code></pre>
+<div class="sourceCode" id="cb82"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb82-1"><a href="core-workflow.html#cb82-1" tabindex="-1"></a><span class="fu">assayNames</span>(pbmc_impute)</span></code></pre></div>
+<pre><code>## [1] &quot;counts&quot;       &quot;logcounts&quot;    &quot;scaled&quot;      
+## [4] &quot;alra_imputed&quot;</code></pre>
+<div class="sourceCode" id="cb84"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb84-1"><a href="core-workflow.html#cb84-1" tabindex="-1"></a><span class="fu">Layers</span>(pbmc_impute)</span></code></pre></div>
+<pre><code>## [1] &quot;counts&quot;       &quot;logcounts&quot;    &quot;scaled&quot;      
+## [4] &quot;alra_imputed&quot;</code></pre>
+<div class="sourceCode" id="cb86"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb86-1"><a href="core-workflow.html#cb86-1" tabindex="-1"></a><span class="fu">DefaultLayer</span>(pbmc_impute)</span></code></pre></div>
+<pre><code>## [1] &quot;alra_imputed&quot;</code></pre>
+<p>The imputed output is stored as <code>alra_imputed</code>, so downstream code can opt into it explicitly instead of being forced into a globally smoothed workflow.</p>
+</div>
+<div id="dimensional-reduction" class="section level2 hasAnchor" number="6.6">
+<h2><span class="header-section-number">6.6</span> Dimensional reduction<a href="core-workflow.html#dimensional-reduction" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<div class="sourceCode" id="cb88"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb88-1"><a href="core-workflow.html#cb88-1" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">ScaleData</span>(pbmc)</span>
+<span id="cb88-2"><a href="core-workflow.html#cb88-2" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RunPCA</span>(pbmc, <span class="at">subset_row =</span> <span class="fu">VariableFeatures</span>(pbmc, <span class="at">method =</span> <span class="st">&quot;scran&quot;</span>), <span class="at">layer =</span> <span class="st">&quot;scaled&quot;</span>)</span>
+<span id="cb88-3"><a href="core-workflow.html#cb88-3" tabindex="-1"></a><span class="fu">ElbowPlot</span>(pbmc)</span></code></pre></div>
+<p><img src="sclet_files/figure-html/elbowplot-pbmc-1.png" alt="" width="960" /></p>
+<p>Here the PCA step is intentionally pointed to the logical <code>scaled</code> layer. In current <code>sclet</code>, this is the recommended way to declare which expression view should drive the downstream reduction, instead of hard-coding the underlying assay name.</p>
+</div>
+<div id="FindClusters" class="section level2 hasAnchor" number="6.7">
+<h2><span class="header-section-number">6.7</span> Clustering<a href="core-workflow.html#FindClusters" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<div class="sourceCode" id="cb89"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb89-1"><a href="core-workflow.html#cb89-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">2024-10-01</span>)</span>
+<span id="cb89-2"><a href="core-workflow.html#cb89-2" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindNeighbors</span>(pbmc, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>)</span>
+<span id="cb89-3"><a href="core-workflow.html#cb89-3" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindClusters</span>(pbmc, <span class="at">resolution =</span> <span class="fl">0.88</span>)</span>
+<span id="cb89-4"><a href="core-workflow.html#cb89-4" tabindex="-1"></a></span>
+<span id="cb89-5"><a href="core-workflow.html#cb89-5" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">Idents</span>(pbmc), <span class="dv">5</span>)</span></code></pre></div>
+<pre><code>## [1] 1 2 3 4 5
+## Levels: 1 2 3 4 5 6 7 8 9</code></pre>
+</div>
+<div id="umap" class="section level2 hasAnchor" number="6.8">
+<h2><span class="header-section-number">6.8</span> UMAP<a href="core-workflow.html#umap" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<div class="sourceCode" id="cb91"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb91-1"><a href="core-workflow.html#cb91-1" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RunUMAP</span>(pbmc, <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>)</span>
+<span id="cb91-2"><a href="core-workflow.html#cb91-2" tabindex="-1"></a></span>
+<span id="cb91-3"><a href="core-workflow.html#cb91-3" tabindex="-1"></a><span class="fu">library</span>(aplot)</span>
+<span id="cb91-4"><a href="core-workflow.html#cb91-4" tabindex="-1"></a><span class="co"># DimPlot delegates to ggsc::sc_dim</span></span>
+<span id="cb91-5"><a href="core-workflow.html#cb91-5" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">DimPlot</span>(pbmc, <span class="at">reduction=</span><span class="st">&quot;PCA&quot;</span>)</span>
+<span id="cb91-6"><a href="core-workflow.html#cb91-6" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">DimPlot</span>(pbmc, <span class="at">reduction=</span><span class="st">&quot;UMAP&quot;</span>)</span>
+<span id="cb91-7"><a href="core-workflow.html#cb91-7" tabindex="-1"></a></span>
+<span id="cb91-8"><a href="core-workflow.html#cb91-8" tabindex="-1"></a><span class="fu">plot_list</span>(<span class="at">gglist =</span> <span class="fu">list</span>(<span class="at">PCA=</span>p1, <span class="at">UMAP=</span>p2))</span></code></pre></div>
+<p><img src="sclet_files/figure-html/umap-pbmc-1.png" alt="" width="1248" /></p>
+</div>
+<div id="find-markers" class="section level2 hasAnchor" number="6.9">
+<h2><span class="header-section-number">6.9</span> Find Markers<a href="core-workflow.html#find-markers" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<div class="sourceCode" id="cb92"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb92-1"><a href="core-workflow.html#cb92-1" tabindex="-1"></a><span class="co"># find all markers of cluster 2</span></span>
+<span id="cb92-2"><a href="core-workflow.html#cb92-2" tabindex="-1"></a>cluster2.markers <span class="ot">&lt;-</span> <span class="fu">FindMarkers</span>(pbmc, <span class="at">ident.1 =</span> <span class="dv">2</span>)</span></code></pre></div>
+<pre><code>## Using &#39;logcounts&#39; for marker testing instead of active layer &#39;scaled&#39;.</code></pre>
+<div class="sourceCode" id="cb94"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb94-1"><a href="core-workflow.html#cb94-1" tabindex="-1"></a><span class="fu">head</span>(cluster2.markers, <span class="at">n =</span> <span class="dv">5</span>)</span></code></pre></div>
+<pre><code>##                    pval          padj avg_log2FC pct.1
+## CD79A      0.000000e+00  0.000000e+00   6.897860 0.928
+## MS4A1      0.000000e+00  0.000000e+00   5.699323 0.845
+## TCL1A     8.567975e-273 3.900142e-269   6.837339 0.621
+## CD79B     3.182436e-271 1.086484e-267   4.619318 0.908
+## LINC00926 1.153282e-268 3.149845e-265   7.360560 0.557
+##           pct.2
+## CD79A     0.041
+## MS4A1     0.053
+## TCL1A     0.021
+## CD79B     0.141
+## LINC00926 0.009</code></pre>
+<div class="sourceCode" id="cb96"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb96-1"><a href="core-workflow.html#cb96-1" tabindex="-1"></a><span class="co"># find all markers distinguishing cluster 5 from clusters 0 and 3</span></span>
+<span id="cb96-2"><a href="core-workflow.html#cb96-2" tabindex="-1"></a>cluster5.markers <span class="ot">&lt;-</span> <span class="fu">FindMarkers</span>(pbmc, <span class="at">ident.1 =</span> <span class="dv">5</span>, <span class="at">ident.2 =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">3</span>))</span></code></pre></div>
+<pre><code>## Using &#39;logcounts&#39; for marker testing instead of active layer &#39;scaled&#39;.</code></pre>
+<div class="sourceCode" id="cb98"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb98-1"><a href="core-workflow.html#cb98-1" tabindex="-1"></a><span class="fu">head</span>(cluster5.markers, <span class="at">n =</span> <span class="dv">5</span>)</span></code></pre></div>
+<pre><code>##                 pval          padj avg_log2FC pct.1 pct.2
+## GZMB   1.241347e-132 1.695183e-128   8.282716 0.968 0.038
+## PRF1   2.419150e-117 1.651796e-113   6.222304 0.961 0.085
+## FGFBP2 8.170894e-117 3.719391e-113   7.840220 0.877 0.034
+## NKG7   1.331506e-114 4.545760e-111   7.418555 1.000 0.142
+## GNLY   4.869690e-109 1.330010e-105   7.620154 0.961 0.128</code></pre>
+<div class="sourceCode" id="cb100"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb100-1"><a href="core-workflow.html#cb100-1" tabindex="-1"></a><span class="co"># find markers for every cluster compared to all remaining cells, </span></span>
+<span id="cb100-2"><a href="core-workflow.html#cb100-2" tabindex="-1"></a><span class="co"># report only the positive ones</span></span>
+<span id="cb100-3"><a href="core-workflow.html#cb100-3" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb100-4"><a href="core-workflow.html#cb100-4" tabindex="-1"></a>pbmc.markers <span class="ot">&lt;-</span> <span class="fu">FindAllMarkers</span>(pbmc, <span class="at">only.pos =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<pre><code>## Using &#39;logcounts&#39; for marker testing instead of active layer &#39;scaled&#39;.</code></pre>
+<pre><code>## Calculating markers for all clusters using presto...</code></pre>
+<div class="sourceCode" id="cb103"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb103-1"><a href="core-workflow.html#cb103-1" tabindex="-1"></a>topN_marker <span class="ot">&lt;-</span> <span class="cf">function</span>(markers, n) {</span>
+<span id="cb103-2"><a href="core-workflow.html#cb103-2" tabindex="-1"></a>    markers <span class="sc">%&gt;%</span></span>
+<span id="cb103-3"><a href="core-workflow.html#cb103-3" tabindex="-1"></a>        <span class="fu">group_by</span>(cluster) <span class="sc">%&gt;%</span></span>
+<span id="cb103-4"><a href="core-workflow.html#cb103-4" tabindex="-1"></a>        dplyr<span class="sc">::</span><span class="fu">filter</span>(avg_log2FC <span class="sc">&gt;</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb103-5"><a href="core-workflow.html#cb103-5" tabindex="-1"></a>        <span class="fu">slice_head</span>(<span class="at">n =</span> n) <span class="sc">%&gt;%</span></span>
+<span id="cb103-6"><a href="core-workflow.html#cb103-6" tabindex="-1"></a>        <span class="fu">ungroup</span>()</span>
+<span id="cb103-7"><a href="core-workflow.html#cb103-7" tabindex="-1"></a>}</span>
+<span id="cb103-8"><a href="core-workflow.html#cb103-8" tabindex="-1"></a></span>
+<span id="cb103-9"><a href="core-workflow.html#cb103-9" tabindex="-1"></a>top10 <span class="ot">&lt;-</span> <span class="fu">topN_marker</span>(pbmc.markers, <span class="dv">10</span>)</span>
+<span id="cb103-10"><a href="core-workflow.html#cb103-10" tabindex="-1"></a><span class="fu">split</span>(top10<span class="sc">$</span>gene, top10<span class="sc">$</span>cluster)</span></code></pre></div>
+<pre><code>## $`1`
+## [1] &quot;CCL5&quot; &quot;GZMK&quot; &quot;NKG7&quot; &quot;CST7&quot; &quot;GZMA&quot; &quot;CTSW&quot; &quot;IL32&quot; &quot;CD3D&quot;
+## 
+## $`2`
+##  [1] &quot;CD79A&quot;     &quot;MS4A1&quot;     &quot;TCL1A&quot;     &quot;CD79B&quot;    
+##  [5] &quot;LINC00926&quot; &quot;HLA-DQA1&quot;  &quot;VPREB3&quot;    &quot;HLA-DQB1&quot; 
+##  [9] &quot;CD74&quot;      &quot;HLA-DRA&quot;  
+## 
+## $`3`
+## [1] &quot;LTB&quot;  &quot;IL32&quot; &quot;IL7R&quot; &quot;LDHB&quot; &quot;CD3D&quot;
+## 
+## $`4`
+##  [1] &quot;RP11-290F20.3&quot; &quot;FCGR3A&quot;        &quot;MS4A7&quot;        
+##  [4] &quot;IFITM3&quot;        &quot;LRRC25&quot;        &quot;LST1&quot;         
+##  [7] &quot;HCK&quot;           &quot;SERPINA1&quot;      &quot;FCER1G&quot;       
+## [10] &quot;PILRA&quot;        
+## 
+## $`5`
+##  [1] &quot;GZMB&quot;   &quot;FGFBP2&quot; &quot;SPON2&quot;  &quot;PRF1&quot;   &quot;GNLY&quot;   &quot;CLIC3&quot; 
+##  [7] &quot;XCL2&quot;   &quot;KLRD1&quot;  &quot;CST7&quot;   &quot;GZMA&quot;  
+## 
+## $`6`
+## [1] &quot;LDHB&quot; &quot;CD3D&quot;
+## 
+## $`7`
+##  [1] &quot;S100A8&quot; &quot;LGALS2&quot; &quot;S100A9&quot; &quot;CD14&quot;   &quot;FCN1&quot;   &quot;TYROBP&quot;
+##  [7] &quot;MS4A6A&quot; &quot;LYZ&quot;    &quot;CST3&quot;   &quot;TYMP&quot;  
+## 
+## $`8`
+##  [1] &quot;FCER1A&quot;   &quot;CLEC10A&quot;  &quot;HLA-DQA2&quot; &quot;CPVL&quot;     &quot;HLA-DQA1&quot;
+##  [6] &quot;HLA-DQB1&quot; &quot;HLA-DRB5&quot; &quot;HLA-DMB&quot;  &quot;HLA-DPA1&quot; &quot;CST3&quot;    
+## 
+## $`9`
+##  [1] &quot;GP9&quot;        &quot;AP001189.4&quot; &quot;ITGA2B&quot;     &quot;LY6G6F&quot;    
+##  [5] &quot;TMEM40&quot;     &quot;SEPT5&quot;      &quot;TREML1&quot;     &quot;CLDN5&quot;     
+##  [9] &quot;HGD&quot;        &quot;PTCRA&quot;</code></pre>
+<div id="marker-gene-information" class="section level3 hasAnchor" number="6.9.1">
+<h3><span class="header-section-number">6.9.1</span> Marker gene information<a href="core-workflow.html#marker-gene-information" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<div class="sourceCode" id="cb105"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb105-1"><a href="core-workflow.html#cb105-1" tabindex="-1"></a>top1 <span class="ot">&lt;-</span> <span class="fu">topN_marker</span>(pbmc.markers, <span class="dv">1</span>)</span>
+<span id="cb105-2"><a href="core-workflow.html#cb105-2" tabindex="-1"></a></span>
+<span id="cb105-3"><a href="core-workflow.html#cb105-3" tabindex="-1"></a>gene_table <span class="ot">&lt;-</span> <span class="fu">gene_summary_table</span>(top1, <span class="at">gene_col =</span> <span class="st">&#39;gene&#39;</span>, </span>
+<span id="cb105-4"><a href="core-workflow.html#cb105-4" tabindex="-1"></a>    <span class="at">cluster_col =</span> <span class="st">&#39;cluster&#39;</span>, <span class="at">keyType=</span><span class="st">&#39;SYMBOL&#39;</span>, <span class="at">output =</span> <span class="st">&quot;data.frame&quot;</span>)</span></code></pre></div>
+<pre><code>## Please cite:
+## 
+## D Wang, G Chen, L Li, S Wen, Z Xie, X Luo, L
+## Zhan, S Xu, J Li, R Wang, Q Wang, G Yu. Reducing language
+## barriers, promoting information absorption, and
+## communication using fanyi. Chinese Medical Journal. 2024,
+## 137(16):1950-1956. doi: 10.1097/CM9.0000000000003242</code></pre>
+<pre><code>## </code></pre>
+<pre><code>## </code></pre>
+<pre><code>## &#39;select()&#39; returned 1:1 mapping between keys and
+## columns</code></pre>
+<div class="sourceCode" id="cb110"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb110-1"><a href="core-workflow.html#cb110-1" tabindex="-1"></a>gene_table</span></code></pre></div>
+<pre><code>##   ENTREZID        gene          pval          padj
+## 1     2205      FCER1A 1.406360e-225 1.920525e-221
+## 2     2815         GP9  0.000000e+00  0.000000e+00
+## 3     3002        GZMB 2.098763e-271 2.866071e-267
+## 4     3945        LDHB  9.711927e-98  1.020201e-94
+## 5     4050         LTB 2.825900e-109 3.859049e-105
+## 6     6279      S100A8  0.000000e+00  0.000000e+00
+## 7     6352        CCL5 7.215793e-239 9.853887e-235
+## 8      973       CD79A  0.000000e+00  0.000000e+00
+## 9     &lt;NA&gt; RP11-290F20 2.549479e-214 1.740784e-210
+##   avg_log2FC pct.1 pct.2 cluster  avgExpr statistic
+## 1   2.230122 0.862 0.011       8 2.251977   70201.0
+## 2   3.143334 0.923 0.002       9 3.146220   32806.5
+## 3   3.466415 0.968 0.068       5 3.611844  373837.5
+## 4   1.137065 0.932 0.608       6 2.500805  895911.5
+## 5   1.545001 0.977 0.631       3 3.234251  927523.5
+## 6   3.744548 0.982 0.130       7 3.988248  978633.5
+## 7   3.173382 0.969 0.216       1 3.675337  763164.5
+## 8   2.695300 0.928 0.041       2 2.762239  766035.5
+## 9   1.459251 0.810 0.062       4 1.568574  406468.0
+##         auc   name                     description
+## 1 0.9278360 FCER1A          Fc epsilon receptor Ia
+## 2 0.9613626    GP9        glycoprotein IX platelet
+## 3 0.9772610   GZMB                      granzyme B
+## 4 0.7864834   LDHB         lactate dehydrogenase B
+## 5 0.8023109    LTB                lymphotoxin beta
+## 6 0.9852693 S100A8 S100 calcium binding protein A8
+## 7 0.9507030   CCL5    C-C motif chemokine ligand 5
+## 8 0.9612452  CD79A                  CD79a molecule
+## 9 0.8781643   &lt;NA&gt;                            &lt;NA&gt;
+##                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       summary
+## 1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  The immunoglobulin epsilon receptor (IgE receptor) is the initiator of the allergic response. When two or more high-affinity IgE receptors are brought together by allergen-bound IgE molecules, mediators such as histamine that are responsible for allergy symptoms are released. This receptor is comprised of an alpha subunit, a beta subunit, and two gamma subunits. The protein encoded by this gene represents the alpha subunit. [provided by RefSeq, Aug 2011]
+## 2                                                                                                                                                                                                                                                                                                                                      This gene encodes a small membrane glycoprotein found on the surface of human platelets. It forms a 1-to-1 noncovalent complex with glycoprotein Ib, a platelet surface membrane glycoprotein complex that functions as a receptor for von Willebrand factor. The complete receptor complex includes noncovalent association of the alpha and beta subunits with the protein encoded by this gene and platelet glycoprotein V. Defects in this gene are a cause of Bernard-Soulier syndrome, also known as giant platelet disease. These patients have unusually large platelets and have a clinical bleeding tendency. [provided by RefSeq, Oct 2008]
+## 3                                                                                                                                                                                                                                                                                                                                                                                This gene encodes a member of the granzyme subfamily of proteins, part of the peptidase S1 family of serine proteases. The encoded preproprotein is secreted by natural killer (NK) cells and cytotoxic T lymphocytes (CTLs) and proteolytically processed to generate the active protease, which induces target cell apoptosis. This protein also processes cytokines and degrades extracellular matrix proteins, and these roles are implicated in chronic inflammation and wound healing. Expression of this gene may be elevated in human patients with cardiac fibrosis. [provided by RefSeq, Sep 2016]
+## 4                                                                                                                                                                                                                                                                                  This gene encodes the B subunit of lactate dehydrogenase enzyme, which catalyzes the interconversion of pyruvate and lactate with concomitant interconversion of NADH and NAD+ in a post-glycolysis process. Alternatively spliced transcript variants have been found for this gene. Recent studies have shown that a C-terminally extended isoform is produced by use of an alternative in-frame translation termination codon via a stop codon readthrough mechanism, and that this isoform is localized in the peroxisomes. Mutations in this gene are associated with lactate dehydrogenase B deficiency. Pseudogenes have been identified on chromosomes X, 5 and 13. [provided by RefSeq, Feb 2016]
+## 5                                                                                                                                                                         Lymphotoxin beta is a type II membrane protein of the TNF family. It anchors lymphotoxin-alpha to the cell surface through heterotrimer formation. The predominant form on the lymphocyte surface is the lymphotoxin-alpha 1/beta 2 complex (e.g. 1 molecule alpha/2 molecules beta) and this complex is the primary ligand for the lymphotoxin-beta receptor. The minor complex is lymphotoxin-alpha 2/beta 1. LTB is an inducer of the inflammatory response system and involved in normal development of lymphoid tissue. Lymphotoxin-beta isoform b is unable to complex with lymphotoxin-alpha suggesting a function for lymphotoxin-beta which is independent of lympyhotoxin-alpha. Alternative splicing results in multiple transcript variants encoding different isoforms. [provided by RefSeq, Jul 2008]
+## 6                                                                                                                                                                                                                                                                     The protein encoded by this gene is a member of the S100 family of proteins containing 2 EF-hand calcium-binding motifs. S100 proteins are localized in the cytoplasm and/or nucleus of a wide range of cells, and involved in the regulation of a number of cellular processes such as cell cycle progression and differentiation. S100 genes include at least 13 members which are located as a cluster on chromosome 1q21. This protein may function in the inhibition of casein kinase and as a cytokine. Altered expression of this protein is associated with the disease cystic fibrosis. Multiple transcript variants encoding different isoforms have been found for this gene. [provided by RefSeq, Jan 2016]
+## 7 This gene is one of several chemokine genes clustered on the q-arm of chromosome 17. Chemokines form a superfamily of secreted proteins involved in immunoregulatory and inflammatory processes. The superfamily is divided into four subfamilies based on the arrangement of the N-terminal cysteine residues of the mature peptide. This chemokine, a member of the CC subfamily, functions as a chemoattractant for blood monocytes, memory T helper cells and eosinophils. It causes the release of histamine from basophils and activates eosinophils. This cytokine is one of the major HIV-suppressive factors produced by CD8+ cells. It functions as one of the natural ligands for the chemokine receptor chemokine (C-C motif) receptor 5 (CCR5), and it suppresses in vitro replication of the R5 strains of HIV-1, which use CCR5 as a coreceptor. Alternative splicing results in multiple transcript variants that encode different isoforms. [provided by RefSeq, Jul 2013]
+## 8                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  The B lymphocyte antigen receptor is a multimeric complex that includes the antigen-specific component, surface immunoglobulin (Ig). Surface Ig non-covalently associates with two other proteins, Ig-alpha and Ig-beta, which are necessary for expression and function of the B-cell antigen receptor. This gene encodes the Ig-alpha protein of the B-cell antigen component. Alternatively spliced transcript variants encoding different isoforms have been described. [provided by RefSeq, Jul 2008]
+## 9                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        &lt;NA&gt;</code></pre>
+<p><img src="figures/marker_gene_summary.png" /></p>
+</div>
+</div>
+<div id="manual-annotation" class="section level2 hasAnchor" number="6.10">
+<h2><span class="header-section-number">6.10</span> Cell cluster annotation<a href="core-workflow.html#manual-annotation" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<div class="sourceCode" id="cb112"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb112-1"><a href="core-workflow.html#cb112-1" tabindex="-1"></a>new_labels <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb112-2"><a href="core-workflow.html#cb112-2" tabindex="-1"></a>    <span class="st">&quot;1&quot;</span> <span class="ot">=</span> <span class="st">&quot;Naive CD4+ T&quot;</span>, </span>
+<span id="cb112-3"><a href="core-workflow.html#cb112-3" tabindex="-1"></a>    <span class="st">&quot;2&quot;</span> <span class="ot">=</span> <span class="st">&quot;B&quot;</span>, </span>
+<span id="cb112-4"><a href="core-workflow.html#cb112-4" tabindex="-1"></a>    <span class="st">&quot;3&quot;</span> <span class="ot">=</span> <span class="st">&quot;Memory CD4+&quot;</span>, </span>
+<span id="cb112-5"><a href="core-workflow.html#cb112-5" tabindex="-1"></a>    <span class="st">&quot;4&quot;</span> <span class="ot">=</span> <span class="st">&quot;CD14+ Mono&quot;</span>, </span>
+<span id="cb112-6"><a href="core-workflow.html#cb112-6" tabindex="-1"></a>    <span class="st">&quot;5&quot;</span> <span class="ot">=</span> <span class="st">&quot;NK&quot;</span>, </span>
+<span id="cb112-7"><a href="core-workflow.html#cb112-7" tabindex="-1"></a>    <span class="st">&quot;6&quot;</span> <span class="ot">=</span> <span class="st">&quot;CD8+ T&quot;</span>, </span>
+<span id="cb112-8"><a href="core-workflow.html#cb112-8" tabindex="-1"></a>    <span class="st">&quot;7&quot;</span> <span class="ot">=</span> <span class="st">&quot;Stress Response / Malignant Cells&quot;</span>, </span>
+<span id="cb112-9"><a href="core-workflow.html#cb112-9" tabindex="-1"></a>    <span class="st">&quot;8&quot;</span> <span class="ot">=</span> <span class="st">&quot;FCGR3A+ Mono&quot;</span>, </span>
+<span id="cb112-10"><a href="core-workflow.html#cb112-10" tabindex="-1"></a>    <span class="st">&quot;9&quot;</span> <span class="ot">=</span> <span class="st">&quot;Myeloid / Neutrophil&quot;</span></span>
+<span id="cb112-11"><a href="core-workflow.html#cb112-11" tabindex="-1"></a>)</span>
+<span id="cb112-12"><a href="core-workflow.html#cb112-12" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RenameIdents</span>(pbmc, new_labels)</span>
+<span id="cb112-13"><a href="core-workflow.html#cb112-13" tabindex="-1"></a><span class="fu">DimPlot</span>(pbmc, <span class="at">reduction=</span><span class="st">&quot;UMAP&quot;</span>) <span class="sc">+</span> ggsc<span class="sc">::</span><span class="fu">sc_dim_geom_label</span>()</span></code></pre></div>
+<p><img src="sclet_files/figure-html/umap-pbmc-cell-1.png" alt="" width="672" /></p>
+</div>
+<div id="automatic-annotation-singler" class="section level2 hasAnchor" number="6.11">
+<h2><span class="header-section-number">6.11</span> Automatic Annotation (SingleR)<a href="core-workflow.html#automatic-annotation-singler" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>sclet provides <code>RunSingleR</code> to easily perform automatic annotation using SingleR.</p>
+<div class="sourceCode" id="cb113"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb113-1"><a href="core-workflow.html#cb113-1" tabindex="-1"></a><span class="co"># This requires SingleR and celldex packages.</span></span>
+<span id="cb113-2"><a href="core-workflow.html#cb113-2" tabindex="-1"></a>hpca <span class="ot">&lt;-</span> celldex<span class="sc">::</span><span class="fu">HumanPrimaryCellAtlasData</span>()</span>
+<span id="cb113-3"><a href="core-workflow.html#cb113-3" tabindex="-1"></a>pbmc2 <span class="ot">&lt;-</span> <span class="fu">RunSingleR</span>(pbmc, <span class="at">ref =</span> hpca, <span class="at">labels =</span> hpca<span class="sc">$</span>label.main)</span></code></pre></div>
+<pre><code>## Using &#39;logcounts&#39; for SingleR instead of active layer &#39;scaled&#39;.</code></pre>
+<pre><code>## using unknown matrix fallback for &#39;HDF5ArraySeed&#39;</code></pre>
+<pre><code>## Annotation added to colData columns: &#39;SingleR_labels&#39; and &#39;SingleR_pruned.labels&#39;</code></pre>
+<div class="sourceCode" id="cb117"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb117-1"><a href="core-workflow.html#cb117-1" tabindex="-1"></a><span class="co"># or be explicit about the expression layer used for annotation</span></span>
+<span id="cb117-2"><a href="core-workflow.html#cb117-2" tabindex="-1"></a>pbmc2 <span class="ot">&lt;-</span> <span class="fu">RunSingleR</span>(pbmc, <span class="at">ref =</span> hpca, <span class="at">labels =</span> hpca<span class="sc">$</span>label.main, <span class="at">layer =</span> <span class="st">&quot;logcounts&quot;</span>)</span></code></pre></div>
+<pre><code>## using unknown matrix fallback for &#39;HDF5ArraySeed&#39;
+## Annotation added to colData columns: &#39;SingleR_labels&#39; and &#39;SingleR_pruned.labels&#39;</code></pre>
+<div class="sourceCode" id="cb119"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb119-1"><a href="core-workflow.html#cb119-1" tabindex="-1"></a><span class="co"># View the results</span></span>
+<span id="cb119-2"><a href="core-workflow.html#cb119-2" tabindex="-1"></a><span class="fu">head</span>(pbmc2<span class="sc">$</span>SingleR_labels)</span></code></pre></div>
+<pre><code>## [1] &quot;T_cells&quot;  &quot;B_cell&quot;   &quot;T_cells&quot;  &quot;Monocyte&quot; &quot;NK_cell&quot; 
+## [6] &quot;T_cells&quot;</code></pre>
+<div class="sourceCode" id="cb121"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb121-1"><a href="core-workflow.html#cb121-1" tabindex="-1"></a><span class="fu">get_mapping</span>(pbmc2)</span></code></pre></div>
+<pre><code>## $id
+## [1] &quot;singler&quot;
+## 
+## $type
+## [1] &quot;mapping&quot;
+## 
+## $status
+## [1] &quot;completed&quot;
+## 
+## $method
+## [1] &quot;SingleR&quot;
+## 
+## $inputs
+## $inputs$assay
+## [1] &quot;logcounts&quot;
+## 
+## $inputs$layer
+## [1] &quot;logcounts&quot;
+## 
+## $inputs$reference_class
+## [1] &quot;SummarizedExperiment&quot;
+## 
+## $inputs$mode
+## [1] &quot;label_transfer&quot;
+## 
+## 
+## $artifacts
+## $artifacts$labels_col
+## [1] &quot;SingleR_labels&quot;
+## 
+## $artifacts$pruned_labels_col
+## [1] &quot;SingleR_pruned.labels&quot;
+## 
+## $artifacts$score_col
+## [1] &quot;singler_score&quot;
+## 
+## $artifacts$mapping_type
+## [1] &quot;reference_mapping&quot;
+## 
+## 
+## $params
+## list()
+## 
+## $summary
+## $summary$n_labels
+## [1] 8
+## 
+## $summary$n_pruned_labels
+## [1] 8
+## 
+## $summary$mean_score
+## [1] 0.1371315
+## 
+## 
+## $created_at
+## [1] &quot;2026-07-20 04:04:05 UTC&quot;</code></pre>
+<div class="sourceCode" id="cb123"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb123-1"><a href="core-workflow.html#cb123-1" tabindex="-1"></a><span class="co"># Visualize</span></span>
+<span id="cb123-2"><a href="core-workflow.html#cb123-2" tabindex="-1"></a><span class="fu">DimPlot</span>(pbmc2, <span class="at">reduction=</span><span class="st">&quot;UMAP&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb123-3"><a href="core-workflow.html#cb123-3" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">color =</span> SingleR_labels)</span></code></pre></div>
+<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
+<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
+<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
+<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
+<p><img src="sclet_files/figure-html/run-singler-1.png" alt="" width="672" /></p>
+<p><code>RunSingleR()</code> now follows the same layer contract as the rest of the package. If you do not specify <code>layer</code>, it resolves from <code>DefaultLayer(pbmc)</code> and falls back to a non-scaled expression source when needed.</p>
+<p>In addition to writing annotation labels back to <code>colData</code>, it also records a lightweight reference-mapping state that you can inspect with <code>get_mapping(pbmc)</code>.</p>
+
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="developer-design-notes.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="integration.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/clipboard.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-clipboard.js"></script>
+<script>
+gitbook.require(["gitbook"], function(gitbook) {
+gitbook.start({
+  "sharing": {
+    "github": false,
+    "facebook": true,
+    "twitter": true,
+    "linkedin": false,
+    "weibo": false,
+    "instapaper": false,
+    "vk": false,
+    "whatsapp": false,
+    "all": ["facebook", "google", "twitter", "linkedin", "weibo", "instapaper"],
+    "google": false
+  },
+  "fontsettings": {
+    "theme": "white",
+    "family": "sans",
+    "size": 2
+  },
+  "edit": null,
+  "history": {
+    "link": null,
+    "text": null
+  },
+  "view": {
+    "link": null,
+    "text": null
+  },
+  "download": null,
+  "search": {
+    "engine": "fuse",
+    "options": null
+  },
+  "toc": {
+    "collapse": "subsection",
+    "scroll_highlight": true
+  },
+  "toolbar": {
+    "position": "fixed"
+  }
+});
+});
+</script>
+
+</body>
+
+</html>

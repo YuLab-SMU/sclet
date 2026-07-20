@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+<head>
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>5 Developer design notes | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
+  <meta name="description" content="5 Developer design notes | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
+  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+
+  <meta property="og:title" content="5 Developer design notes | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
+  <meta property="og:type" content="book" />
+  
+  
+  
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="5 Developer design notes | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
+  
+  
+  
+
+
+
+<meta name="date" content="2026-07-20" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  
+  
+<link rel="prev" href="recommended-usage.html"/>
+<link rel="next" href="core-workflow.html"/>
+<script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-table.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-clipboard.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+<link href="libs/anchor-sections-1.1.0/anchor-sections.css" rel="stylesheet" />
+<link href="libs/anchor-sections-1.1.0/anchor-sections-hash.css" rel="stylesheet" />
+<script src="libs/anchor-sections-1.1.0/anchor-sections.js"></script>
+
+
+<style type="text/css">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+<style type="text/css">
+  
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+</style>
+<style type="text/css">
+/* Used with Pandoc 2.11+ new --citeproc when CSL is used */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}
+</style>
+
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li class="chapter" data-level="" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i>Preface</a>
+<ul>
+<li class="chapter" data-level="0.1" data-path="index.html"><a href="index.html#mainline-map"><i class="fa fa-check"></i><b>0.1</b> Mainline Map</a></li>
+<li class="chapter" data-level="0.2" data-path="index.html"><a href="index.html#how-this-book-is-organized"><i class="fa fa-check"></i><b>0.2</b> How This Book Is Organized</a></li>
+<li class="chapter" data-level="0.3" data-path="index.html"><a href="index.html#reading-paths"><i class="fa fa-check"></i><b>0.3</b> Reading Paths</a></li>
+<li class="chapter" data-level="0.4" data-path="index.html"><a href="index.html#example-conventions"><i class="fa fa-check"></i><b>0.4</b> Example Conventions</a></li>
+</ul></li>
+<li class="part"><span><b>I How sclet Thinks: State, Provenance, and Navigation</b></span></li>
+<li class="chapter" data-level="1" data-path="state-aware.html"><a href="state-aware.html"><i class="fa fa-check"></i><b>1</b> State-Aware Analysis Contract</a>
+<ul>
+<li class="chapter" data-level="1.1" data-path="state-aware.html"><a href="state-aware.html#what-is-the-state-contract"><i class="fa fa-check"></i><b>1.1</b> What is the State Contract?</a></li>
+<li class="chapter" data-level="1.2" data-path="state-aware.html"><a href="state-aware.html#macro-view-status"><i class="fa fa-check"></i><b>1.2</b> Macro View: <code>Status()</code></a></li>
+<li class="chapter" data-level="1.3" data-path="state-aware.html"><a href="state-aware.html#digging-deeper-get_analysis_context"><i class="fa fa-check"></i><b>1.3</b> Digging Deeper: <code>get_analysis_context()</code></a></li>
+<li class="chapter" data-level="1.4" data-path="state-aware.html"><a href="state-aware.html#named-state-records-and-typed-accessors"><i class="fa fa-check"></i><b>1.4</b> Named State Records and Typed Accessors</a></li>
+<li class="chapter" data-level="1.5" data-path="state-aware.html"><a href="state-aware.html#memory-safety-and-sparse-data"><i class="fa fa-check"></i><b>1.5</b> Memory Safety and Sparse Data</a></li>
+<li class="chapter" data-level="1.6" data-path="state-aware.html"><a href="state-aware.html#manual-overrides-layers-and-default-apis"><i class="fa fa-check"></i><b>1.6</b> Manual Overrides: Layers and Default APIs</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="pipeline-logs.html"><a href="pipeline-logs.html"><i class="fa fa-check"></i><b>2</b> Automation &amp; Provenance Logs</a>
+<ul>
+<li class="chapter" data-level="2.1" data-path="pipeline-logs.html"><a href="pipeline-logs.html#the-one-liner-pipeline"><i class="fa fa-check"></i><b>2.1</b> The One-Liner Pipeline</a></li>
+<li class="chapter" data-level="2.2" data-path="pipeline-logs.html"><a href="pipeline-logs.html#the-provenance-log-commandlog"><i class="fa fa-check"></i><b>2.2</b> The Provenance Log (CommandLog)</a></li>
+<li class="chapter" data-level="2.3" data-path="pipeline-logs.html"><a href="pipeline-logs.html#writing-methods-for-you-pipelinesummary"><i class="fa fa-check"></i><b>2.3</b> Writing Methods for You: <code>PipelineSummary</code></a></li>
+</ul></li>
+<li class="part"><span><b>II From Data to Discovery: Analysis Mainlines</b></span></li>
+<li class="chapter" data-level="3" data-path="data-ingress.html"><a href="data-ingress.html"><i class="fa fa-check"></i><b>3</b> Data Ingress and Object Interoperability</a>
+<ul>
+<li class="chapter" data-level="3.1" data-path="data-ingress.html"><a href="data-ingress.html#seurat-and-sce-conversion"><i class="fa fa-check"></i><b>3.1</b> Seurat and SCE Conversion</a></li>
+<li class="chapter" data-level="3.2" data-path="data-ingress.html"><a href="data-ingress.html#anndata-h5ad"><i class="fa fa-check"></i><b>3.2</b> AnnData (h5ad)</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="recommended-usage.html"><a href="recommended-usage.html"><i class="fa fa-check"></i><b>4</b> Recommended usage</a>
+<ul>
+<li class="chapter" data-level="4.1" data-path="recommended-usage.html"><a href="recommended-usage.html#for-end-users"><i class="fa fa-check"></i><b>4.1</b> For end users</a></li>
+<li class="chapter" data-level="4.2" data-path="recommended-usage.html"><a href="recommended-usage.html#for-pipeline-authors"><i class="fa fa-check"></i><b>4.2</b> For pipeline authors</a></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="developer-design-notes.html"><a href="developer-design-notes.html"><i class="fa fa-check"></i><b>5</b> Developer design notes</a>
+<ul>
+<li class="chapter" data-level="5.1" data-path="developer-design-notes.html"><a href="developer-design-notes.html#core-object-contract"><i class="fa fa-check"></i><b>5.1</b> Core object contract</a></li>
+<li class="chapter" data-level="5.2" data-path="developer-design-notes.html"><a href="developer-design-notes.html#how-to-add-a-new-analysis-function"><i class="fa fa-check"></i><b>5.2</b> How to add a new analysis function</a></li>
+<li class="chapter" data-level="5.3" data-path="developer-design-notes.html"><a href="developer-design-notes.html#implementation-rules-for-contributors"><i class="fa fa-check"></i><b>5.3</b> Implementation rules for contributors</a></li>
+<li class="chapter" data-level="5.4" data-path="developer-design-notes.html"><a href="developer-design-notes.html#what-should-be-tested"><i class="fa fa-check"></i><b>5.4</b> What should be tested</a></li>
+</ul></li>
+<li class="chapter" data-level="6" data-path="core-workflow.html"><a href="core-workflow.html"><i class="fa fa-check"></i><b>6</b> Core Single-Cell Workflow</a>
+<ul>
+<li class="chapter" data-level="6.1" data-path="core-workflow.html"><a href="core-workflow.html#read-10x-data"><i class="fa fa-check"></i><b>6.1</b> Read 10X data</a></li>
+<li class="chapter" data-level="6.2" data-path="core-workflow.html"><a href="core-workflow.html#qc"><i class="fa fa-check"></i><b>6.2</b> QC</a></li>
+<li class="chapter" data-level="6.3" data-path="core-workflow.html"><a href="core-workflow.html#ambient-rna-and-doublet-cleanup"><i class="fa fa-check"></i><b>6.3</b> Ambient RNA and doublet cleanup</a></li>
+<li class="chapter" data-level="6.4" data-path="core-workflow.html"><a href="core-workflow.html#variable-features"><i class="fa fa-check"></i><b>6.4</b> Variable features</a></li>
+<li class="chapter" data-level="6.5" data-path="core-workflow.html"><a href="core-workflow.html#zero-preserving-imputation"><i class="fa fa-check"></i><b>6.5</b> Zero-preserving imputation</a></li>
+<li class="chapter" data-level="6.6" data-path="core-workflow.html"><a href="core-workflow.html#dimensional-reduction"><i class="fa fa-check"></i><b>6.6</b> Dimensional reduction</a></li>
+<li class="chapter" data-level="6.7" data-path="core-workflow.html"><a href="core-workflow.html#FindClusters"><i class="fa fa-check"></i><b>6.7</b> Clustering</a></li>
+<li class="chapter" data-level="6.8" data-path="core-workflow.html"><a href="core-workflow.html#umap"><i class="fa fa-check"></i><b>6.8</b> UMAP</a></li>
+<li class="chapter" data-level="6.9" data-path="core-workflow.html"><a href="core-workflow.html#find-markers"><i class="fa fa-check"></i><b>6.9</b> Find Markers</a>
+<ul>
+<li class="chapter" data-level="6.9.1" data-path="core-workflow.html"><a href="core-workflow.html#marker-gene-information"><i class="fa fa-check"></i><b>6.9.1</b> Marker gene information</a></li>
+</ul></li>
+<li class="chapter" data-level="6.10" data-path="core-workflow.html"><a href="core-workflow.html#manual-annotation"><i class="fa fa-check"></i><b>6.10</b> Cell cluster annotation</a></li>
+<li class="chapter" data-level="6.11" data-path="core-workflow.html"><a href="core-workflow.html#automatic-annotation-singler"><i class="fa fa-check"></i><b>6.11</b> Automatic Annotation (SingleR)</a></li>
+</ul></li>
+<li class="chapter" data-level="7" data-path="integration.html"><a href="integration.html"><i class="fa fa-check"></i><b>7</b> Integration and Batch Correction</a>
+<ul>
+<li class="chapter" data-level="7.1" data-path="integration.html"><a href="integration.html#load-datasets"><i class="fa fa-check"></i><b>7.1</b> Load datasets</a></li>
+<li class="chapter" data-level="7.2" data-path="integration.html"><a href="integration.html#preprocess"><i class="fa fa-check"></i><b>7.2</b> Preprocess</a></li>
+<li class="chapter" data-level="7.3" data-path="integration.html"><a href="integration.html#integration-workflow"><i class="fa fa-check"></i><b>7.3</b> Integration Workflow</a></li>
+<li class="chapter" data-level="7.4" data-path="integration.html"><a href="integration.html#clustering"><i class="fa fa-check"></i><b>7.4</b> Clustering</a></li>
+<li class="chapter" data-level="7.5" data-path="integration.html"><a href="integration.html#visualization"><i class="fa fa-check"></i><b>7.5</b> Visualization</a></li>
+<li class="chapter" data-level="7.6" data-path="integration.html"><a href="integration.html#pseudobulk-differential-expression"><i class="fa fa-check"></i><b>7.6</b> Pseudobulk Differential Expression</a></li>
+</ul></li>
+<li class="chapter" data-level="8" data-path="reference-mapping.html"><a href="reference-mapping.html"><i class="fa fa-check"></i><b>8</b> Cell Identity and Reference Mapping</a>
+<ul>
+<li class="chapter" data-level="8.1" data-path="reference-mapping.html"><a href="reference-mapping.html#manual-annotation-1"><i class="fa fa-check"></i><b>8.1</b> Manual annotation</a></li>
+<li class="chapter" data-level="8.2" data-path="reference-mapping.html"><a href="reference-mapping.html#automatic-annotation"><i class="fa fa-check"></i><b>8.2</b> Automatic annotation</a></li>
+<li class="chapter" data-level="8.3" data-path="reference-mapping.html"><a href="reference-mapping.html#reference-mapping-mainline-workflow"><i class="fa fa-check"></i><b>8.3</b> Reference mapping mainline workflow</a>
+<ul>
+<li class="chapter" data-level="8.3.1" data-path="reference-mapping.html"><a href="reference-mapping.html#lightweight-reference-mapping-knn"><i class="fa fa-check"></i><b>8.3.1</b> Lightweight Reference Mapping (KNN)</a></li>
+<li class="chapter" data-level="8.3.2" data-path="reference-mapping.html"><a href="reference-mapping.html#run-singler-with-sclet"><i class="fa fa-check"></i><b>8.3.2</b> Run SingleR with sclet</a></li>
+<li class="chapter" data-level="8.3.3" data-path="reference-mapping.html"><a href="reference-mapping.html#reference-mapping-workflow"><i class="fa fa-check"></i><b>8.3.3</b> Reference mapping workflow</a></li>
+<li class="chapter" data-level="8.3.4" data-path="reference-mapping.html"><a href="reference-mapping.html#symphony-atlas-mapping"><i class="fa fa-check"></i><b>8.3.4</b> Symphony Atlas Mapping</a></li>
+<li class="chapter" data-level="8.3.5" data-path="reference-mapping.html"><a href="reference-mapping.html#state-aware-singler-provenance"><i class="fa fa-check"></i><b>8.3.5</b> State-aware SingleR provenance</a></li>
+<li class="chapter" data-level="8.3.6" data-path="reference-mapping.html"><a href="reference-mapping.html#annotate-with-singler-result"><i class="fa fa-check"></i><b>8.3.6</b> Annotate with SingleR result</a></li>
+<li class="chapter" data-level="8.3.7" data-path="reference-mapping.html"><a href="reference-mapping.html#comparison-with-manual-annotation-result"><i class="fa fa-check"></i><b>8.3.7</b> Comparison with manual annotation result</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="9" data-path="cell-fate.html"><a href="cell-fate.html"><i class="fa fa-check"></i><b>9</b> Cell Fate and Dynamic Processes</a>
+<ul>
+<li class="chapter" data-level="9.1" data-path="cell-fate.html"><a href="cell-fate.html#trajectory-mainline-workflow"><i class="fa fa-check"></i><b>9.1</b> Trajectory mainline workflow</a>
+<ul>
+<li class="chapter" data-level="9.1.1" data-path="cell-fate.html"><a href="cell-fate.html#lineage-plot"><i class="fa fa-check"></i><b>9.1.1</b> Lineage plot</a></li>
+<li class="chapter" data-level="9.1.2" data-path="cell-fate.html"><a href="cell-fate.html#pseudotime-plot"><i class="fa fa-check"></i><b>9.1.2</b> Pseudotime plot</a></li>
+<li class="chapter" data-level="9.1.3" data-path="cell-fate.html"><a href="cell-fate.html#expression-trends-in-different-cell-trajectories"><i class="fa fa-check"></i><b>9.1.3</b> Expression trends in different cell trajectories</a></li>
+<li class="chapter" data-level="9.1.4" data-path="cell-fate.html"><a href="cell-fate.html#heatmap"><i class="fa fa-check"></i><b>9.1.4</b> Heatmap</a></li>
+</ul></li>
+<li class="chapter" data-level="9.2" data-path="cell-fate.html"><a href="cell-fate.html#diffusion-map"><i class="fa fa-check"></i><b>9.2</b> Diffusion Map for complex trajectories</a>
+<ul>
+<li class="chapter" data-level="9.2.1" data-path="cell-fate.html"><a href="cell-fate.html#example-data"><i class="fa fa-check"></i><b>9.2.1</b> Example data</a></li>
+<li class="chapter" data-level="9.2.2" data-path="cell-fate.html"><a href="cell-fate.html#run-velocity-analysis"><i class="fa fa-check"></i><b>9.2.2</b> Run velocity analysis</a></li>
+<li class="chapter" data-level="9.2.3" data-path="cell-fate.html"><a href="cell-fate.html#visualize-velocity-based-trajectory"><i class="fa fa-check"></i><b>9.2.3</b> Visualize velocity-based trajectory</a></li>
+</ul></li>
+<li class="chapter" data-level="9.3" data-path="cell-fate.html"><a href="cell-fate.html#cellrank"><i class="fa fa-check"></i><b>9.3</b> CellRank: Advanced Fate Mapping</a>
+<ul>
+<li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
+</ul></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+</ul></li>
+<li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
+<ul>
+<li class="chapter" data-level="10.1" data-path="program-regulon.html"><a href="program-regulon.html#gene-set-scoring-and-pathway-activity"><i class="fa fa-check"></i><b>10.1</b> Gene set scoring and pathway activity</a></li>
+<li class="chapter" data-level="10.2" data-path="program-regulon.html"><a href="program-regulon.html#multi-backend-scoring-in-one-click"><i class="fa fa-check"></i><b>10.2</b> Multi-Backend Scoring in One Click</a></li>
+<li class="chapter" data-level="10.3" data-path="program-regulon.html"><a href="program-regulon.html#program-mainline-workflow"><i class="fa fa-check"></i><b>10.3</b> Program mainline workflow</a></li>
+<li class="chapter" data-level="10.4" data-path="program-regulon.html"><a href="program-regulon.html#reading-and-visualizing-results"><i class="fa fa-check"></i><b>10.4</b> Reading and Visualizing Results</a></li>
+<li class="chapter" data-level="10.5" data-path="program-regulon.html"><a href="program-regulon.html#advanced-pathway-discovery-altexp-and-runkegg"><i class="fa fa-check"></i><b>10.5</b> Advanced Pathway Discovery (altExp and RunKEGG)</a></li>
+<li class="chapter" data-level="10.6" data-path="program-regulon.html"><a href="program-regulon.html#scenic-regulon-inference"><i class="fa fa-check"></i><b>10.6</b> SCENIC regulon inference</a></li>
+<li class="chapter" data-level="10.7" data-path="program-regulon.html"><a href="program-regulon.html#environment-and-data-preparation"><i class="fa fa-check"></i><b>10.7</b> Environment and Data Preparation</a></li>
+<li class="chapter" data-level="10.8" data-path="program-regulon.html"><a href="program-regulon.html#one-click-inference-and-scoring"><i class="fa fa-check"></i><b>10.8</b> One-Click Inference and Scoring</a></li>
+<li class="chapter" data-level="10.9" data-path="program-regulon.html"><a href="program-regulon.html#result-retrieval-and-state-awareness"><i class="fa fa-check"></i><b>10.9</b> Result Retrieval and State Awareness</a></li>
+<li class="chapter" data-level="10.10" data-path="program-regulon.html"><a href="program-regulon.html#visualizing-regulon-activity"><i class="fa fa-check"></i><b>10.10</b> Visualizing Regulon Activity</a></li>
+<li class="chapter" data-level="10.11" data-path="program-regulon.html"><a href="program-regulon.html#unified-grn-entry-rungrn"><i class="fa fa-check"></i><b>10.11</b> Unified GRN Entry: <code>RunGRN()</code></a></li>
+<li class="chapter" data-level="10.12" data-path="program-regulon.html"><a href="program-regulon.html#unified-program-access-get_program-has_program"><i class="fa fa-check"></i><b>10.12</b> Unified Program Access: <code>get_program()</code> / <code>has_program()</code></a></li>
+<li class="chapter" data-level="10.13" data-path="program-regulon.html"><a href="program-regulon.html#program-activity-dotplot-plot_program_dotplot"><i class="fa fa-check"></i><b>10.13</b> Program Activity Dotplot: <code>plot_program_dotplot()</code></a></li>
+</ul></li>
+<li class="chapter" data-level="11" data-path="differential-interpretation.html"><a href="differential-interpretation.html"><i class="fa fa-check"></i><b>11</b> Differential Analysis and Functional Interpretation</a>
+<ul>
+<li class="chapter" data-level="11.1" data-path="differential-interpretation.html"><a href="differential-interpretation.html#differential-expression-and-pseudobulk-testing"><i class="fa fa-check"></i><b>11.1</b> Differential expression and pseudobulk testing</a></li>
+<li class="chapter" data-level="11.2" data-path="differential-interpretation.html"><a href="differential-interpretation.html#standard-single-cell-de"><i class="fa fa-check"></i><b>11.2</b> Standard Single-Cell DE</a>
+<ul>
+<li class="chapter" data-level="11.2.1" data-path="differential-interpretation.html"><a href="differential-interpretation.html#the-what-does-this-gene-even-do-problem"><i class="fa fa-check"></i><b>11.2.1</b> The “What does this gene even do?” Problem</a></li>
+</ul></li>
+<li class="chapter" data-level="11.3" data-path="differential-interpretation.html"><a href="differential-interpretation.html#the-gold-standard-pseudobulk-analysis"><i class="fa fa-check"></i><b>11.3</b> The Gold Standard: Pseudobulk Analysis</a>
+<ul>
+<li class="chapter" data-level="11.3.1" data-path="differential-interpretation.html"><a href="differential-interpretation.html#step-1-aggregate-expression"><i class="fa fa-check"></i><b>11.3.1</b> Step 1: Aggregate Expression</a></li>
+<li class="chapter" data-level="11.3.2" data-path="differential-interpretation.html"><a href="differential-interpretation.html#step-2-pseudobulk-de-with-deseq2"><i class="fa fa-check"></i><b>11.3.2</b> Step 2: Pseudobulk DE with DESeq2</a></li>
+</ul></li>
+<li class="chapter" data-level="11.4" data-path="differential-interpretation.html"><a href="differential-interpretation.html#functional-enrichment-on-top-of-differential-results"><i class="fa fa-check"></i><b>11.4</b> Functional enrichment on top of differential results</a></li>
+<li class="chapter" data-level="11.5" data-path="differential-interpretation.html"><a href="differential-interpretation.html#go-enrichment"><i class="fa fa-check"></i><b>11.5</b> GO Enrichment</a></li>
+<li class="chapter" data-level="11.6" data-path="differential-interpretation.html"><a href="differential-interpretation.html#kegg-enrichment"><i class="fa fa-check"></i><b>11.6</b> KEGG Enrichment</a></li>
+</ul></li>
+<li class="chapter" data-level="12" data-path="communication.html"><a href="communication.html"><i class="fa fa-check"></i><b>12</b> Cell-Cell Communication and Microenvironment Interaction</a>
+<ul>
+<li class="chapter" data-level="12.1" data-path="communication.html"><a href="communication.html#input"><i class="fa fa-check"></i><b>12.1</b> Input</a></li>
+<li class="chapter" data-level="12.2" data-path="communication.html"><a href="communication.html#running-cci"><i class="fa fa-check"></i><b>12.2</b> Running CCI</a></li>
+<li class="chapter" data-level="12.3" data-path="communication.html"><a href="communication.html#using-alternative-backends-cellphonedb-nichenet"><i class="fa fa-check"></i><b>12.3</b> Using Alternative Backends (CellPhoneDB &amp; NicheNet)</a>
+<ul>
+<li class="chapter" data-level="12.3.1" data-path="communication.html"><a href="communication.html#cellphonedb"><i class="fa fa-check"></i><b>12.3.1</b> CellPhoneDB</a></li>
+<li class="chapter" data-level="12.3.2" data-path="communication.html"><a href="communication.html#nichenet"><i class="fa fa-check"></i><b>12.3.2</b> NicheNet</a></li>
+</ul></li>
+<li class="chapter" data-level="12.4" data-path="communication.html"><a href="communication.html#visualization-1"><i class="fa fa-check"></i><b>12.4</b> Visualization</a>
+<ul>
+<li class="chapter" data-level="12.4.1" data-path="communication.html"><a href="communication.html#legacy-cellchat-visualization"><i class="fa fa-check"></i><b>12.4.1</b> Legacy CellChat Visualization</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="13" data-path="state-priority.html"><a href="state-priority.html"><i class="fa fa-check"></i><b>13</b> State Priority and Perturbation Sensitivity</a>
+<ul>
+<li class="chapter" data-level="13.1" data-path="state-priority.html"><a href="state-priority.html#perturbation-priority-workflow"><i class="fa fa-check"></i><b>13.1</b> Perturbation Priority Workflow</a>
+<ul>
+<li class="chapter" data-level="13.1.1" data-path="state-priority.html"><a href="state-priority.html#one-step-dispatch"><i class="fa fa-check"></i><b>13.1.1</b> One-Step Dispatch</a></li>
+<li class="chapter" data-level="13.1.2" data-path="state-priority.html"><a href="state-priority.html#direct-augur-call"><i class="fa fa-check"></i><b>13.1.2</b> Direct Augur Call</a></li>
+<li class="chapter" data-level="13.1.3" data-path="state-priority.html"><a href="state-priority.html#inspecting-results"><i class="fa fa-check"></i><b>13.1.3</b> Inspecting Results</a></li>
+</ul></li>
+<li class="chapter" data-level="13.2" data-path="state-priority.html"><a href="state-priority.html#rare-cell-detection"><i class="fa fa-check"></i><b>13.2</b> Rare Cell Detection</a></li>
+<li class="chapter" data-level="13.3" data-path="state-priority.html"><a href="state-priority.html#what-fits-nearby"><i class="fa fa-check"></i><b>13.3</b> What Fits Nearby</a></li>
+<li class="chapter" data-level="13.4" data-path="state-priority.html"><a href="state-priority.html#current-recommendation"><i class="fa fa-check"></i><b>13.4</b> Current Recommendation</a></li>
+</ul></li>
+<li class="chapter" data-level="14" data-path="spatial-context.html"><a href="spatial-context.html"><i class="fa fa-check"></i><b>14</b> Spatial Context and Niche Analysis</a>
+<ul>
+<li class="chapter" data-level="14.1" data-path="spatial-context.html"><a href="spatial-context.html#spatial-mainline-workflow"><i class="fa fa-check"></i><b>14.1</b> Spatial Mainline Workflow</a></li>
+<li class="chapter" data-level="14.2" data-path="spatial-context.html"><a href="spatial-context.html#high-resolution-spatial-deconvolution-cell2location"><i class="fa fa-check"></i><b>14.2</b> High-Resolution Spatial Deconvolution: Cell2location</a></li>
+<li class="chapter" data-level="14.3" data-path="spatial-context.html"><a href="spatial-context.html#spatial-colocalization-with-svp"><i class="fa fa-check"></i><b>14.3</b> Spatial Colocalization with SVP</a></li>
+<li class="chapter" data-level="14.4" data-path="spatial-context.html"><a href="spatial-context.html#spatial-niche-detection-with-svp-lisa"><i class="fa fa-check"></i><b>14.4</b> Spatial Niche Detection with SVP LISA</a></li>
+<li class="chapter" data-level="14.5" data-path="spatial-context.html"><a href="spatial-context.html#inspecting-spatial-results-across-layers"><i class="fa fa-check"></i><b>14.5</b> Inspecting Spatial Results Across Layers</a></li>
+<li class="chapter" data-level="14.6" data-path="spatial-context.html"><a href="spatial-context.html#in-silico-gene-perturbation-celloracle"><i class="fa fa-check"></i><b>14.6</b> In-Silico Gene Perturbation: CellOracle</a></li>
+</ul></li>
+<li class="chapter" data-level="15" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html"><i class="fa fa-check"></i><b>15</b> Multimodal Expansion</a>
+<ul>
+<li class="chapter" data-level="15.1" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#what-is-already-available"><i class="fa fa-check"></i><b>15.1</b> What Is Already Available</a></li>
+<li class="chapter" data-level="15.2" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#detecting-and-registering-modalities"><i class="fa fa-check"></i><b>15.2</b> Detecting and Registering Modalities</a></li>
+<li class="chapter" data-level="15.3" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#one-step-registration"><i class="fa fa-check"></i><b>15.3</b> One-Step Registration</a></li>
+<li class="chapter" data-level="15.4" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#planned-interface-direction"><i class="fa fa-check"></i><b>15.4</b> Planned Interface Direction</a></li>
+<li class="chapter" data-level="15.5" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#current-guidance"><i class="fa fa-check"></i><b>15.5</b> Current Guidance</a></li>
+</ul></li>
+<li class="part"><span><b>III Specialized Techniques and Reference</b></span></li>
+<li class="chapter" data-level="16" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html"><i class="fa fa-check"></i><b>16</b> Enhanced Visualization</a>
+<ul>
+<li class="chapter" data-level="16.1" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#loading-data"><i class="fa fa-check"></i><b>16.1</b> Loading data</a></li>
+<li class="chapter" data-level="16.2" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#dimensionality-reduction-plots"><i class="fa fa-check"></i><b>16.2</b> Dimensionality Reduction Plots</a>
+<ul>
+<li class="chapter" data-level="16.2.1" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#celldimplot"><i class="fa fa-check"></i><b>16.2.1</b> CellDimPlot</a></li>
+<li class="chapter" data-level="16.2.2" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#featuredimplot"><i class="fa fa-check"></i><b>16.2.2</b> FeatureDimPlot</a></li>
+</ul></li>
+<li class="chapter" data-level="16.3" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#expression-heatmaps"><i class="fa fa-check"></i><b>16.3</b> Expression Heatmaps</a></li>
+<li class="chapter" data-level="16.4" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#cell-statistics"><i class="fa fa-check"></i><b>16.4</b> Cell Statistics</a></li>
+<li class="chapter" data-level="16.5" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#module-specific-visualization"><i class="fa fa-check"></i><b>16.5</b> Module-Specific Visualization</a>
+<ul>
+<li class="chapter" data-level="16.5.1" data-path="enhanced-visualization.html"><a href="enhanced-visualization.html#trajectory-and-fate"><i class="fa fa-check"></i><b>16.5.1</b> Trajectory and Fate</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="17" data-path="fate-probability-on-embedding.html"><a href="fate-probability-on-embedding.html"><i class="fa fa-check"></i><b>17</b> Fate probability on embedding</a></li>
+<li class="chapter" data-level="18" data-path="terminal-state-assignments.html"><a href="terminal-state-assignments.html"><i class="fa fa-check"></i><b>18</b> Terminal state assignments</a></li>
+<li class="chapter" data-level="19" data-path="lineage-driver-trends.html"><a href="lineage-driver-trends.html"><i class="fa fa-check"></i><b>19</b> Lineage driver trends</a></li>
+<li class="chapter" data-level="20" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html"><i class="fa fa-check"></i><b>20</b> Velocity latent time</a>
+<ul>
+<li class="chapter" data-level="20.0.1" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html#perturbation-priority"><i class="fa fa-check"></i><b>20.0.1</b> Perturbation Priority</a></li>
+<li class="chapter" data-level="20.0.2" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html#spatial-analysis"><i class="fa fa-check"></i><b>20.0.2</b> Spatial Analysis</a></li>
+<li class="chapter" data-level="20.0.3" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html#cell-cell-communication"><i class="fa fa-check"></i><b>20.0.3</b> Cell-Cell Communication</a></li>
+<li class="chapter" data-level="20.0.4" data-path="velocity-latent-time-1.html"><a href="velocity-latent-time-1.html#reference-mapping-1"><i class="fa fa-check"></i><b>20.0.4</b> Reference Mapping</a></li>
+</ul></li>
+<li class="chapter" data-level="21" data-path="supercell.html"><a href="supercell.html"><i class="fa fa-check"></i><b>21</b> Metacells with SuperCell</a>
+<ul>
+<li class="chapter" data-level="21.1" data-path="supercell.html"><a href="supercell.html#runsupercell"><i class="fa fa-check"></i><b>21.1</b> RunSuperCell</a></li>
+<li class="chapter" data-level="21.2" data-path="supercell.html"><a href="supercell.html#estimate-supercell-purity"><i class="fa fa-check"></i><b>21.2</b> Estimate SuperCell Purity</a></li>
+</ul></li>
+<li class="chapter" data-level="22" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html"><i class="fa fa-check"></i><b>22</b> Milo: Differential Abundance</a>
+<ul>
+<li class="chapter" data-level="22.1" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#requirements"><i class="fa fa-check"></i><b>22.1</b> Requirements</a></li>
+<li class="chapter" data-level="22.2" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#two-group-da-glm"><i class="fa fa-check"></i><b>22.2</b> Two-group DA (GLM)</a></li>
+<li class="chapter" data-level="22.3" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#multi-contrast-testing"><i class="fa fa-check"></i><b>22.3</b> Multi-contrast testing</a></li>
+<li class="chapter" data-level="22.4" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#glmm-random-intercept"><i class="fa fa-check"></i><b>22.4</b> GLMM (random intercept)</a></li>
+<li class="chapter" data-level="22.5" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#refit-after-dropping-separated-neighbourhoods"><i class="fa fa-check"></i><b>22.5</b> Refit after dropping separated neighbourhoods</a></li>
+</ul></li>
+<li class="chapter" data-level="23" data-path="phenotype-association.html"><a href="phenotype-association.html"><i class="fa fa-check"></i><b>23</b> Phenotype Association</a>
+<ul>
+<li class="chapter" data-level="23.1" data-path="phenotype-association.html"><a href="phenotype-association.html#a-practical-pattern"><i class="fa fa-check"></i><b>23.1</b> A practical pattern</a></li>
+<li class="chapter" data-level="23.2" data-path="phenotype-association.html"><a href="phenotype-association.html#what-gets-recorded"><i class="fa fa-check"></i><b>23.2</b> What gets recorded</a></li>
+</ul></li>
+<li class="chapter" data-level="24" data-path="interactive.html"><a href="interactive.html"><i class="fa fa-check"></i><b>24</b> Interactive Data Exploration</a>
+<ul>
+<li class="chapter" data-level="24.1" data-path="interactive.html"><a href="interactive.html#launch-explorer"><i class="fa fa-check"></i><b>24.1</b> Launch Explorer</a></li>
+<li class="chapter" data-level="24.2" data-path="interactive.html"><a href="interactive.html#customization"><i class="fa fa-check"></i><b>24.2</b> Customization</a></li>
+</ul></li>
+<li class="chapter" data-level="25" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><i class="fa fa-check"></i><b>25</b> SVP: Gene Set Activity in Spatial and Single-Cell Data</a>
+<ul>
+<li class="chapter" data-level="25.1" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html#runsgsa"><i class="fa fa-check"></i><b>25.1</b> runSGSA</a></li>
+<li class="chapter" data-level="25.2" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html#runlisa"><i class="fa fa-check"></i><b>25.2</b> runLISA</a></li>
+<li class="chapter" data-level="25.3" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html#runlocalbv"><i class="fa fa-check"></i><b>25.3</b> runLOCALBV</a></li>
+</ul></li>
+<li class="chapter" data-level="26" data-path="copilot.html"><a href="copilot.html"><i class="fa fa-check"></i><b>26</b> AI Copilot &amp; Evidence Governance</a>
+<ul>
+<li class="chapter" data-level="26.1" data-path="copilot.html"><a href="copilot.html#sclet_copilot-an-ai-that-understands-your-objects"><i class="fa fa-check"></i><b>26.1</b> <code>sclet_copilot</code>: An AI That Understands Your Objects</a></li>
+<li class="chapter" data-level="26.2" data-path="copilot.html"><a href="copilot.html#auditanalysischain-cross-chain-error-control"><i class="fa fa-check"></i><b>26.2</b> <code>AuditAnalysisChain</code>: Cross-Chain Error Control</a></li>
+</ul></li>
+<li class="chapter" data-level="" data-path="references.html"><a href="references.html"><i class="fa fa-check"></i>References</a></li>
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">sclet: A Lightweight Toolkit for Single-Cell Data Analysis</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="developer-design-notes" class="section level1 hasAnchor" number="5">
+<h1><span class="header-section-number">5</span> Developer design notes<a href="developer-design-notes.html#developer-design-notes" class="anchor-section" aria-label="Anchor link to header"></a></h1>
+<p>This section is for contributors who want to extend <code>sclet</code> without making the package harder to reason about.</p>
+<div id="core-object-contract" class="section level2 hasAnchor" number="5.1">
+<h2><span class="header-section-number">5.1</span> Core object contract<a href="developer-design-notes.html#core-object-contract" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p><code>SingleCellExperiment</code> remains the only core container. New features should fit into the existing object rather than introducing a parallel class unless there is a very strong reason.</p>
+<p>Internal state is collected under <code>metadata(sce)$sclet</code>. In practice, contributors should think in terms of a few stable buckets:</p>
+<ul>
+<li><code>active</code>: current assay, reduction, graph, and identity source</li>
+<li><code>layers</code>: logical expression layers mapped to underlying assays</li>
+<li><code>states</code>: typed analysis-state registry with active records and provenance</li>
+<li><code>features</code>: feature-level records such as HVG metadata</li>
+<li><code>graphs</code>: graph registry entries</li>
+<li><code>analyses</code>: higher-level outputs such as trajectory, milo, batch, supercell, and cellchat</li>
+<li><code>commands</code>: command log entries</li>
+</ul>
+</div>
+<div id="how-to-add-a-new-analysis-function" class="section level2 hasAnchor" number="5.2">
+<h2><span class="header-section-number">5.2</span> How to add a new analysis function<a href="developer-design-notes.html#how-to-add-a-new-analysis-function" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>When adding a new user-facing analysis function, the recommended pattern is:</p>
+<ol style="list-style-type: decimal">
+<li>Use a canonical <code>Run*</code> name for the public entry point.</li>
+<li>Write structured outputs into the state layer with <code>sclet_set_analysis()</code>, or the relevant state helper.</li>
+<li>Record the call with <code>sclet_log_command()</code>.</li>
+<li>If the function consumes expression matrices, make it resolve from <code>layer</code> first and only then to an underlying assay.</li>
+<li>Expose the result through <code>get_*()</code> and <code>has_*()</code> helpers if users will need to inspect it later.</li>
+</ol>
+<p>The goal is not just to make a function run once. The goal is to make the result discoverable, inspectable, and reusable across later steps.</p>
+</div>
+<div id="implementation-rules-for-contributors" class="section level2 hasAnchor" number="5.3">
+<h2><span class="header-section-number">5.3</span> Implementation rules for contributors<a href="developer-design-notes.html#implementation-rules-for-contributors" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Contributors should follow a few practical rules:</p>
+<ul>
+<li>Do not access deep S4 internals when an accessor already exists.</li>
+<li>Do not add a second storage path if the state layer can already represent the result.</li>
+<li>Do not introduce a new user-facing expression argument unless you have decided whether it should be a logical <code>layer</code> or a physical <code>assay</code>.</li>
+<li>When migration logic still needs to read old metadata, keep new results written to the unified state schema.</li>
+<li>Keep changes surgical: one new analysis function should normally come with its state write-back, accessor path, and focused tests.</li>
+<li>For derived-object workflows such as <code>RunSuperCell()</code>, record provenance on the returned object itself instead of inventing a separate container class.</li>
+<li>When a workflow needs both a rich analysis object and a typed state record, prefer <code>sclet_set_analysis()</code> for the object payload and <code>sclet_set_analysis_state()</code> for the lightweight contract instead of hand-editing <code>metadata(sce)$sclet</code>.</li>
+<li>If an upstream Bioconductor dependency emits known deprecation warnings that <code>sclet</code> cannot eliminate immediately, wrap the narrow call site with a targeted compatibility helper instead of using broad <code>suppressWarnings()</code>.</li>
+</ul>
+</div>
+<div id="what-should-be-tested" class="section level2 hasAnchor" number="5.4">
+<h2><span class="header-section-number">5.4</span> What should be tested<a href="developer-design-notes.html#what-should-be-tested" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>For each new analysis function or state feature, tests should ideally cover:</p>
+<ul>
+<li>the result is stored in the unified state layer</li>
+<li>the corresponding accessor can read it back</li>
+<li><code>has_*()</code> returns the expected boolean</li>
+<li>active state is updated if the function changes the current assay, reduction, graph, or identity</li>
+<li>command log entries use the canonical public command name</li>
+</ul>
+<p>This keeps <code>sclet</code> ergonomic for end users while still staying grounded in the clearer <code>SingleCellExperiment</code> and Bioconductor model.</p>
+
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="recommended-usage.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="core-workflow.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/clipboard.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-clipboard.js"></script>
+<script>
+gitbook.require(["gitbook"], function(gitbook) {
+gitbook.start({
+  "sharing": {
+    "github": false,
+    "facebook": true,
+    "twitter": true,
+    "linkedin": false,
+    "weibo": false,
+    "instapaper": false,
+    "vk": false,
+    "whatsapp": false,
+    "all": ["facebook", "google", "twitter", "linkedin", "weibo", "instapaper"],
+    "google": false
+  },
+  "fontsettings": {
+    "theme": "white",
+    "family": "sans",
+    "size": 2
+  },
+  "edit": null,
+  "history": {
+    "link": null,
+    "text": null
+  },
+  "view": {
+    "link": null,
+    "text": null
+  },
+  "download": null,
+  "search": {
+    "engine": "fuse",
+    "options": null
+  },
+  "toc": {
+    "collapse": "subsection",
+    "scroll_highlight": true
+  },
+  "toolbar": {
+    "position": "fixed"
+  }
+});
+});
+</script>
+
+</body>
+
+</html>
