@@ -20,3 +20,4 @@ regvelo_smoke_data/
 regvelo_smoke_cellrank/
 regvelo_smoke_cellrank-local-check/
 inst/regvelo-smoke-test/__pycache__/
+^\.scratch$

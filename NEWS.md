@@ -1,5 +1,6 @@
 # sclet 1.0.1
 
++ **In-Silico Perturbation State Contract**: `RunInSilicoPerturbation()` now registers results through the unified `analysis-state` contract: each run creates a typed `perturbation` state record (id `celloracle_<gene>`) with inputs/artifacts/params plus a command log entry, while the shift reduction stays in `reducedDim`. `get_perturbation()` reads typed records by id, keeps the most recent record active across multiple target genes, and falls back to legacy metadata for old objects.
 + **RegVelo GPU Backend**: Added `RunRegVelo()` as an RNA velocity backend that runs RegVelo through either the packaged Python stack or a user-managed `reticulate` Python, stores the inferred velocity as a `SingleCellExperiment` assay, and registers it in the standard velocity state layer.
 + **RegVelo to CellRank Workflow**: Extended `RunCellRank()` so CellRank can consume velocity assays produced by `RunRegVelo()`, including the GPU/SLURM-friendly `reticulate` path. Added CellRank diagnostics via `CellRankSummary()`, `VelocityFateCorrelation()`, and `plot_velocity_fate_correlation()`.
 + **RegVelo Smoke-Test Kit**: Added a self-contained `inst/regvelo-smoke-test` workflow for pyenv-based server setup, small h5ad preparation, SLURM RegVelo execution, and CellRank-after-RegVelo validation without conda/mamba.

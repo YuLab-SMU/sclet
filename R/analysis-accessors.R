@@ -893,17 +893,16 @@ has_spatial_niche <- function(object) {
 #' @title get_perturbation
 #' @param object a SingleCellExperiment object
 #' @param element optional element name
-#' @param id optional perturbation record id
+#' @param id optional perturbation record id (e.g. `"celloracle_<gene>"`)
 #' @return the full perturbation analysis record, a selected element, or `NULL`
 #' @export
 get_perturbation <- function(object, element = NULL, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "perturbation")
     }
-    result <- NULL
-    if (!is.null(id) && id == "celloracle") {
-        result <- sclet_get_analysis(object, "celloracle")
-    } else if (is.null(id)) {
+    result <- sclet_get_state_record(object, "perturbation", id)
+    if (is.null(result)) {
+        # Fallback for objects created before the state contract
         result <- sclet_get_analysis(object, "celloracle")
     }
     extract_analysis_element(result, element)

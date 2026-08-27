@@ -104,22 +104,64 @@ RunInSilicoPerturbation <- function(sce, target_gene, perturbation_value = 0.0, 
     reduction_name = reduction,
     ...)
     
-    # Store the shift vector in reducedDim, e.g., "celloracle_shift"
+    # Store the shift vector in reducedDim, e.g., "co_shift_<gene>"
     rownames(co_res) <- colnames(sce)
     colnames(co_res) <- paste0("shift_", seq_len(ncol(co_res)))
-    
-    SingleCellExperiment::reducedDim(sce, paste0("co_shift_", target_gene)) <- co_res
-    
-    # Register state
-    S4Vectors::metadata(sce)$sclet$analyses$celloracle <- list(
-        method = "CellOracle",
-        target_gene = target_gene,
-        perturbation_value = perturbation_value,
-        shift_reduction = paste0("co_shift_", target_gene),
-        timestamp = Sys.time()
+
+    shift_reduction <- paste0("co_shift_", target_gene)
+    SingleCellExperiment::reducedDim(sce, shift_reduction) <- co_res
+
+    # Register state via the standard analysis-state contract
+    perturbation_id <- paste0("celloracle_", target_gene)
+    sce <- sclet_set_analysis(
+        sce,
+        "celloracle",
+        list(
+            id = perturbation_id,
+            method = "CellOracle",
+            target_gene = target_gene,
+            perturbation_value = perturbation_value,
+            reduction = reduction,
+            cluster_key = cluster_key,
+            shift_reduction = shift_reduction,
+            timestamp = Sys.time()
+        )
     )
-    
-    S4Vectors::metadata(sce)$sclet$active$perturbation <- "celloracle"
-    
+    sce <- sclet_set_state_record(
+        object = sce,
+        type = "perturbation",
+        id = perturbation_id,
+        active = TRUE,
+        value = list(
+            method = "celloracle::Oracle",
+            inputs = list(
+                assay = "counts",
+                cluster_key = cluster_key,
+                reduction = reduction,
+                base_grn_path = base_grn_path
+            ),
+            artifacts = list(shift_reduction = shift_reduction),
+            params = list(
+                target_gene = target_gene,
+                perturbation_value = perturbation_value
+            ),
+            summary = list(n_cells = ncol(sce)),
+            shift_reduction = shift_reduction
+        )
+    )
+    sce <- sclet_log_command(
+        sce,
+        "RunInSilicoPerturbation",
+        params = list(
+            target_gene = target_gene,
+            perturbation_value = perturbation_value,
+            id = perturbation_id
+        ),
+        outputs = list(
+            analysis = "celloracle",
+            perturbation = perturbation_id
+        )
+    )
+
     return(sce)
 }
