@@ -4,6 +4,14 @@ This mainline shifts the analysis story from static identity to directional biol
 
 `sclet` gathers diffusion-based embeddings, lineage inference, velocity, and fate-oriented methods under the same workflow umbrella. The point is not just to expose more algorithms, but to make the dynamics route readable and reusable as one coherent chapter of analysis.
 
+In practice this chapter answers three questions, in the order you are most likely to hit them:
+
+1. *"I have spliced/unspliced assays — how do I get all the way to fate probabilities?"* Start with the [trajectory mainline workflow](#trajectory-mainline-workflow), pass through [RNA velocity](#run-velocity-analysis), then let [CellRank](#cellrank) convert direction into terminal states and fate probabilities. The [`RunTrajectoryWorkflow()`](#workflow-shell-for-velocity-and-fate) section shows the whole chain as one call.
+2. *"I already have RegVelo results on a GPU server — how do they connect to CellRank?"* Jump to [wiring RegVelo into CellRank](#regvelo-cellrank).
+3. *"How do I tell whether the result is real or a smoke screen?"* Read [diagnosing the velocity-fate chain](#velocity-diagnostics). This section makes the diagnostic helpers (`CellRankSummary()`, `VelocityFateCorrelation()`, and their plots) part of the main narrative instead of an afterthought.
+
+All runs along the way write into the same state layer described in [state-aware analysis](#state-aware), so every intermediate result can be inspected by id and replayed without recomputation.
+
 ```{r fate-setup, include=FALSE}
 # Velocity and CellRank are Python-backed through basilisk/velociraptor.
 # The main bookdown build reads cached RDS objects from data/ instead of
@@ -16,7 +24,7 @@ velocity_cache_ready <- eval_chunks && file.exists(velocity_cache)
 dynamics_cache_ready <- TRUE
 ```
 
-## Trajectory mainline workflow
+## Trajectory mainline workflow {#trajectory-mainline-workflow}
 
 If you do not want to stitch together `RunDiffusionMap()`, `RunSlingshot()`, `RunVelocity()`, and `RunCellFate()` by hand every time, `sclet` now provides `RunTrajectoryWorkflow()` as the semantic entry point for this entire analysis mainline.
 
@@ -195,7 +203,7 @@ top_genes <- S4Vectors::metadata(sce)$sclet_bookdown_cache$top_genes
 head(top_genes)
 ```
 
-### Run velocity analysis
+### Run velocity analysis {#run-velocity-analysis}
 
 `sclet` wraps the RNA velocity inference via `RunVelocity()`. Under the hood, it delegates the heavy lifting to `scVelo` (managed safely via the `basilisk`/`velociraptor` Python sandbox) and smoothly registers the outputs to the `velocity` analysis state.
 
@@ -247,9 +255,9 @@ driver_lineage <- if (!is.null(cr$artifacts$fate_probability_names)) {
 plot_fate_driver_trends(sce, lineage = driver_lineage, top_n = 4)
 ```
 
-## RegVelo with CellRank diagnostics {#regvelo-cellrank}
+## Already have RegVelo results? Wiring them into CellRank {#regvelo-cellrank}
 
-RegVelo extends RNA velocity inference by using a prior gene regulatory network, and in practice it is most useful when run on a GPU-enabled Python environment. The book build does not provision GPU resources, so this section follows the same cache-first pattern as the heavier CellRank examples above: the GPU step is shown as runnable user code, but the rendered book reads a precomputed `SingleCellExperiment` from `bookdown/data`.
+RegVelo extends RNA velocity inference by using a prior gene regulatory network, and in practice it is most useful when run on a GPU-enabled Python environment. If that is your situation, this section answers the immediate follow-up question: the GPU step produced a velocity result — how does it get consumed by CellRank without leaving the `sclet` state layer? The book build does not provision GPU resources, so this section follows the same cache-first pattern as the heavier CellRank examples above: the GPU step is shown as runnable user code, but the rendered book reads a precomputed `SingleCellExperiment` from `bookdown/data`.
 
 The upstream run uses spliced and unspliced assays plus a prior GRN, writes the inferred velocity matrix back into the object as a named assay, and then hands that stored velocity result to CellRank. This code is intentionally not executed during book rendering.
 
@@ -332,9 +340,9 @@ plot_velocity_fate_correlation(
 
 In this small smoke-test object, CellRank detects only one terminal state and the single fate probability is effectively constant. That is still useful as a workflow check: it confirms that the RegVelo velocity assay can be consumed by the CellRank wrapper and downstream visualization. For biological interpretation, a real dataset should usually show multiple terminal states or nontrivial fate probability gradients.
 
-## Workflow shell for velocity and fate
+## Workflow shell for velocity and fate {#workflow-shell-for-velocity-and-fate}
 
-When spliced/unspliced assays are available, the same trajectory mainline can extend from lineage inference to velocity and fate mapping:
+This closes the loop on question 1: when spliced/unspliced assays are available, the same trajectory mainline can extend from lineage inference to velocity and fate mapping in a single call — every stage still lands in the state layer under one workflow record:
 
 ```{r trajectory-mainline-dynamic, eval=FALSE}
 sce <- RunTrajectoryWorkflow(
@@ -354,6 +362,47 @@ plot_trajectory_overview(
   panels = c("velocity", "terminal_states", "fate_probability")
 )
 ```
+
+## Is it real or a smoke screen? Diagnosing the velocity-fate chain {#velocity-diagnostics}
+
+This is question 3, and answering it well is what makes the other two questions worth asking. A velocity-fate chain can execute cleanly from end to end and still be biologically empty: a degenerate velocity field will happily produce one dominant terminal state backed by an essentially constant fate probability. The trick is that none of this requires rerunning Python — because `RunCellRank()` and `RunVelocity()` write their results into the state layer, every diagnostic below reads cached records directly.
+
+The helpers shown here (`CellRankSummary()`, `VelocityFateCorrelation()`, `plot_velocity_magnitude()`, `plot_top_velocity_genes()`) were all demonstrated on the RegVelo cache above; this section explains how to read them.
+
+### Reading the CellRank summary
+
+Three things in the `CellRankSummary()` output deserve attention before you interpret anything else:
+
+1. **Number of terminal states.** One terminal state on a development-style dataset usually means the transition matrix collapsed — either the velocity field is too weak, or the neighborhood graph is dominated by one cluster. Treat it as a workflow smoke check, not biology.
+2. **Size balance of terminal states** (`terminal_states` table). A "terminal" state holding a handful of cells is more likely an artifact of the kNN graph than a genuine sink.
+3. **Shape of the fate probabilities** (`fate_probabilities` table). Compare min/median/max per fate column: if max - median is near zero, fate probability carries no cell-to-cell information and downstream gene drivers inherit that flatness.
+
+That is exactly the situation in the smoke-test object above: single terminal state, effectively constant fate probability. Useful as proof that the RegVelo assay was consumed correctly; useless as a developmental claim. A publishable result needs multiple terminal states or a nontrivial fate gradient.
+
+### Does velocity actually explain fate?
+
+`VelocityFateCorrelation()` pairs per-cell velocity magnitude against fate probability, and `plot_velocity_fate_correlation()` renders the scatter. How to read it:
+
+- **Positive correlation**: cells moving fast also have committed fates — consistent with the velocity field actively driving absorption.
+- **Near-zero correlation**: fate probabilities exist but appear decoupled from velocity. Common causes include over-smoothed the diffusion kernel, a prior GRN (RegVelo) that regularized away most of the signal, or simply few genes with informative unspliced counts.
+- **Inversion** (strongly negative): rare, but usually points at sign errors or a mismatch between the reduction used for velocity projection and the one used for fate computation.
+
+Also glance at `plot_velocity_magnitude()` and `plot_top_velocity_genes()`: if the top-gene list is full of low-count noise instead of biology you recognize, the kinetic estimate itself is the weak link — fix that before tuning CellRank parameters.
+
+### Auditing the whole chain in one place
+
+Because each stage logs a command record, the full provenance of a (possibly suspicious) result is inspectable without recomputation:
+
+```{r velocity-diag-audit, eval=TRUE}
+tail(CommandLog(regvelo_sce), 4)
+
+c(
+  velocity = has_velocity(regvelo_sce),
+  trajectory = has_trajectory(regvelo_sce)
+)
+```
+
+If a figure looks wrong, read the command log backwards: which id produced it, with which parameters, fed by which upstream state. Nine times out of ten the problem is visible there before you touch any plot.
 
 ## Velocity Latent Time
 
