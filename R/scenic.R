@@ -68,7 +68,9 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
     message("Running pySCENIC via basilisk (this may take a while)...")
     message("(First run will take several minutes to set up the Python environment)")
     
-    auc_matrix <- basilisk::basiliskRun(env = sclet_scenic_env, fun = function(expr, genes, cells, tfs_f, motif_f, dbs, n_workers, s) {
+    auc_matrix <- sclet_basilisk_run(
+        sclet_scenic_env,
+        function(expr, genes, cells, tfs_f, motif_f, dbs, n_workers, s) {
         # Import Python modules
         pd <- reticulate::import("pandas")
         sp <- reticulate::import("scipy.sparse")
@@ -116,9 +118,16 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
         
         return(auc_mtx)
         
-    }, expr = expr_mat, genes = gene_names, cells = cell_names, 
-       tfs_f = tfs_path, motif_f = motif_annotations_path, dbs = database_paths, 
-       n_workers = num_workers, s = seed)
+    },
+        expr = expr_mat,
+        genes = gene_names,
+        cells = cell_names,
+        tfs_f = tfs_path,
+        motif_f = motif_annotations_path,
+        dbs = database_paths,
+        n_workers = num_workers,
+        s = seed
+    )
     
     # auc_matrix is a pandas DataFrame returned as R data.frame (cells x regulons)
     # Convert to matrix (regulons x cells)

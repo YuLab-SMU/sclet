@@ -4,6 +4,9 @@
 + **RegVelo GPU Backend**: Added `RunRegVelo()` as an RNA velocity backend that runs RegVelo through either the packaged Python stack or a user-managed `reticulate` Python, stores the inferred velocity as a `SingleCellExperiment` assay, and registers it in the standard velocity state layer.
 + **RegVelo to CellRank Workflow**: Extended `RunCellRank()` so CellRank can consume velocity assays produced by `RunRegVelo()`, including the GPU/SLURM-friendly `reticulate` path. Added CellRank diagnostics via `CellRankSummary()`, `VelocityFateCorrelation()`, and `plot_velocity_fate_correlation()`.
 + **RegVelo Smoke-Test Kit**: Added a self-contained `inst/regvelo-smoke-test` workflow for pyenv-based server setup, small h5ad preparation, SLURM RegVelo execution, and CellRank-after-RegVelo validation without conda/mamba.
++ **Basilisk Python Environment Reliability**:
+  + Fixed `RunCellFate()`/`RunCellRank()` failing with an unsatisfiable conda dependency: `sclet_cellrank_env` pinned `python=3.12` together with `scvelo=0.3.2`, whose conda build requires `scikit-learn <1.2.0`, but no such scikit-learn build exists for Python 3.12. Bumped `scvelo=0.3.4`, which relaxed the `scikit-learn` upper bound.
+  + Fixed runtime `GLIBCXX_3.4.31 not found` errors (e.g. `RunIntegration(method="scVI")`, and any env with recent C++ extensions) on older Linux systems by making every basilisk run prepend its own conda `lib`/`lib64` to `LD_LIBRARY_PATH` for the launched Python process, so compiled extensions resolve the environment's newer `libstdc++` instead of an outdated system one. The variable is restored after the run.
 
 # sclet 1.0.0
 

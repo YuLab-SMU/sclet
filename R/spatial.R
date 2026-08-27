@@ -45,7 +45,9 @@ RunSpatialDeconvolution <- function(sce_spatial, sce_ref, ref_group_key,
     message("Running Cell2location via basilisk (this is computationally intensive)...")
     message("(First run will take several minutes to set up the Python environment)")
 
-    c2l_res <- basilisk::basiliskRun(env = sclet_cell2location_env, fun = function(sp, ref, grp, btc, max_ep, ...) {
+    c2l_res <- sclet_basilisk_run(
+        sclet_cell2location_env,
+        function(sp, ref, grp, btc, max_ep, ...) {
         c2l <- reticulate::import("cell2location")
         ad <- reticulate::import("anndata")
         pd <- reticulate::import("pandas")
@@ -91,7 +93,14 @@ RunSpatialDeconvolution <- function(sce_spatial, sce_ref, ref_group_key,
         w_df <- adata_sp$obsm['q05_cell_abundance_w_sf']
 
         return(as.matrix(w_df))
-    }, sp = sp_mat, ref = ref_mat, grp = ref_groups, btc = ref_batches, max_ep = max_epochs, ...)
+    },
+        sp = sp_mat,
+        ref = ref_mat,
+        grp = ref_groups,
+        btc = ref_batches,
+        max_ep = max_epochs,
+        ...
+    )
 
     cnames <- gsub("^q05cell_abundance_w_sf_", "", colnames(c2l_res))
     colnames(c2l_res) <- paste0("c2l_", cnames)

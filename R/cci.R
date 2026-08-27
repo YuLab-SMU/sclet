@@ -293,10 +293,9 @@ RunCellPhoneDB <- function(sce, group = NULL,
     # Execute Python CellPhoneDB via basilisk
     message("Running CellPhoneDB via basilisk...")
     message("(First run will take several minutes to set up the Python environment)")
-    proc <- basilisk::basiliskStart(sclet_cellphonedb_env)
-    on.exit(basilisk::basiliskStop(proc))
-    
-    res_list <- basilisk::basiliskRun(proc, function(mat, gene_names, cell_meta, threads, iterations, pvalue) {
+    res_list <- sclet_basilisk_run(
+        sclet_cellphonedb_env,
+        function(mat, gene_names, cell_meta, threads, iterations, pvalue) {
         if (!requireNamespace("reticulate", quietly = TRUE)) {
             stop("Package 'reticulate' is needed for this function to work. Please install it.")
         }
@@ -381,7 +380,14 @@ else:
         means <- reticulate::py$means_df
         
         list(pvalues = pvals, means = means)
-    }, mat = mat, gene_names = gene_names, cell_meta = cell_meta, threads = threads, iterations = iterations, pvalue = pvalue)
+    },
+        mat = mat,
+        gene_names = gene_names,
+        cell_meta = cell_meta,
+        threads = threads,
+        iterations = iterations,
+        pvalue = pvalue
+    )
     
     # Parse results into standard format
     pvals <- res_list$pvalues

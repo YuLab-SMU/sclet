@@ -342,10 +342,8 @@ sclet_run_regvelo_backend <- function(
     model_params
 ) {
     if (identical(backend, "basilisk")) {
-        proc <- basilisk::basiliskStart(sclet_regvelo_env)
-        on.exit(basilisk::basiliskStop(proc), add = TRUE)
-        return(basilisk::basiliskRun(
-            proc,
+        return(sclet_basilisk_run(
+            sclet_regvelo_env,
             sclet_run_regvelo_python,
             workdir = workdir,
             max_epochs = max_epochs,

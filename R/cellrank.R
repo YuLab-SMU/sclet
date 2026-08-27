@@ -298,10 +298,8 @@ sclet_build_cellrank_velocity_input <- function(sce, source_object, velocity_ass
 
 sclet_run_cellrank_backend <- function(backend, python, mtx_dir) {
     if (identical(backend, "basilisk")) {
-        proc <- basilisk::basiliskStart(sclet_cellrank_env)
-        on.exit(basilisk::basiliskStop(proc), add = TRUE)
-        return(basilisk::basiliskRun(
-            proc,
+        return(sclet_basilisk_run(
+            sclet_cellrank_env,
             sclet_run_cellrank_python,
             mtx_dir = mtx_dir
         ))

@@ -175,7 +175,9 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
         message("Running scVI via basilisk...")
         message("(First run will take several minutes to set up the Python environment)")
 
-        latent <- basilisk::basiliskRun(env = sclet_scvi_env, fun = function(h5ad_path, batches, ...) {
+        latent <- sclet_basilisk_run(
+            sclet_scvi_env,
+            function(h5ad_path, batches, ...) {
             scvi <- reticulate::import("scvi")
             ad <- reticulate::import("anndata")
 
@@ -187,7 +189,10 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             model$train()
             
             return(model$get_latent_representation())
-        }, h5ad_path = tmp_h5ad, batches = batch_vec)
+        },
+            h5ad_path = tmp_h5ad,
+            batches = batch_vec
+        )
         
         rownames(latent) <- colnames(object)
         colnames(latent) <- paste0("scVI_", seq_len(ncol(latent)))

@@ -47,9 +47,9 @@ RunInSilicoPerturbation <- function(sce, target_gene, perturbation_value = 0.0, 
     message("Running CellOracle via basilisk...")
     message("(First run will take several minutes to set up the Python environment)")
     
-    co_res <- basilisk::basiliskRun(
-        env = sclet_celloracle_env,
-        fun = function(counts, cluster_labels, emb, tgt, pval, grn_f, reduction_name, ...) {
+    co_res <- sclet_basilisk_run(
+        sclet_celloracle_env,
+        function(counts, cluster_labels, emb, tgt, pval, grn_f, reduction_name, ...) {
         ad <- reticulate::import("anndata")
         pd <- reticulate::import("pandas")
         co <- reticulate::import("celloracle")
@@ -95,14 +95,15 @@ RunInSilicoPerturbation <- function(sce, target_gene, perturbation_value = 0.0, 
         
         return(as.matrix(shift))
     },
-    counts = counts_mat,
-    cluster_labels = clusters,
-    emb = emb,
-    tgt = target_gene,
-    pval = perturbation_value,
-    grn_f = base_grn_path,
-    reduction_name = reduction,
-    ...)
+        counts = counts_mat,
+        cluster_labels = clusters,
+        emb = emb,
+        tgt = target_gene,
+        pval = perturbation_value,
+        grn_f = base_grn_path,
+        reduction_name = reduction,
+        ...
+    )
     
     # Store the shift vector in reducedDim, e.g., "co_shift_<gene>"
     rownames(co_res) <- colnames(sce)

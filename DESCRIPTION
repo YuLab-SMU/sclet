@@ -22,8 +22,9 @@ Description: Provides a comprehensive, state-aware toolkit for single-cell
     metacell aggregation (SuperCell), differential abundance (Milo),
     spatial deconvolution (cell2location), spatial colocalization and
     niche detection (SVP), in-silico perturbation (CellOracle), phenotype
-    association (scPAS), and enhanced visualization. Python backends are
-    isolated via basilisk and exposed as plain R functions.
+    association (scPAS), and enhanced visualization. Python backends run in
+    self-managed, isolated environments whose dependencies are resolved
+    automatically, and are exposed as plain R functions.
     Interoperability with AnnData and legacy compatibility aliases are
     supported, but the primary design is centered on
     SingleCellExperiment-native analysis.
