@@ -16,11 +16,26 @@ test_that("RunIntegration fastMNN works correctly", {
         sce <- RunIntegration(sce, method = "fastMNN", batch = "batch", PARAM = batchelor::FastMnnParam(d=5))
     })
     
+    # The corrected embedding must be preserved (fastMNN's intended artifact)
+    expect_true("corrected" %in% reducedDimNames(sce))
+    expect_equal(sclet_get_active_reduction(sce), "corrected")
+    expect_equal(sclet:::sclet_get_active_state(sce, "integration"), "fastmnn")
+    
+    # Original expression data must be preserved (not replaced by HVG-only 'reconstructed')
+    expect_true("logcounts" %in% assayNames(sce))
+    expect_equal(nrow(sce), 20)
+    
     expect_true("corrected" %in% Layers(sce))
     expect_equal(sclet_get_active_layer(sce), "corrected")
     
     state <- get_analysis_context(sce)
     expect_equal(state$active$layer, "corrected")
+    
+    # With correct.all = FALSE (default) the integration is embedding-based: the
+    # corrected layer resolves to the source expression for quantitative analyses.
+    expect_true(isFALSE(get_integration(sce, "artifacts")$corrected_expression))
+    expect_true(isTRUE(get_integration(sce, "artifacts")$embedding_only))
+    expect_equal(get_integration(sce, "artifacts")$reduction, "corrected")
     
     # Check downstream
     sce <- RunPCA(sce, ncomponents=5)

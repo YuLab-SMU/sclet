@@ -106,7 +106,14 @@ combine_variable_features_scrapper <- function(hvg.info) {
 #' @param restrict A list of length equal to the number of objects in `...`. Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.
 #' @param correct.all A logical scalar indicating whether to return corrected expression values for all genes, even if `subset.row` is set. Used to ensure that the output is of the same dimensionality as the input.
 #' @param name Integration record id. Defaults to "batchcorrect".
-#' @return A SingleCellExperiment object
+#' @return A SingleCellExperiment object. The original expression assays and every
+#'   gene are preserved; correction artifacts are grafted on rather than replacing
+#'   the input. For MNN/fastMNN the `corrected` embedding is stored in
+#'   `reducedDim("corrected")` and registered as a reduction, and the logical
+#'   `corrected` layer is backed by a full gene-resolution corrected-expression assay
+#'   when `correct.all = TRUE`, otherwise by the original source expression (the
+#'   integration is then recorded as embedding-only, since the batchelor
+#'   `reconstructed` matrix is not meant for quantitative analysis).
 #' @export
 BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000, 
                           assay.type = "logcounts", PARAM = NULL, 
@@ -176,10 +183,19 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
     }
   }
   
-  # Batch correction
-  source_state <- sclet_get_state(sce)
-  source_commands <- sclet_get_commands(sce)
-
+  # Batch correction ---------------------------------------------------
+  # We run the correction and then graft its *artifacts* back onto the ORIGINAL
+  # object (all genes, all expression assays) instead of replacing it with the
+  # correction output. batchelor::fastMNN produces two distinct artifacts:
+  #
+  #   * a corrected embedding  -> reducedDim "corrected"  (clustering / UMAP)
+  #   * a corrected expression -> assay "reconstructed" spanning every gene when
+  #                               correct.all = TRUE, else only the HVGs (NOT for
+  #                               quantitative analysis)
+  #
+  # Keeping the original object preserves counts/logcounts and all genes, so
+  # marker detection / differential expression analysis keep working after
+  # integration. See https://github.com/YuLab-SMU/sclet/issues/24
   corrected <- sclet_muffle_known_warnings(
       batchelor::batchCorrect(
           sce,
@@ -195,119 +211,183 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
           "more singular values/vectors requested than available"
       )
   )
-  SingleCellExperiment::reducedDims(corrected) <- S4Vectors::SimpleList()
-  SingleCellExperiment::colLabels(corrected) <- NULL
-  S4Vectors::metadata(corrected) <- sclet_merge_external_metadata(sce, corrected)
-  
-  corrected <- sclet_set_hvg_state(
-    corrected,
-    nfeatures = nHVG,
-    method = method,
-    hvgcols = sclet_get_hvg_cols(sce),
-    selected = HVG
+
+  # --- base object : keep the input, graft artifacts on top -------------------
+  object <- sce
+
+  # --- 1. corrected embedding (fastMNN's intended clustering artifact) ---------
+  has_embedding <- "corrected" %in% SingleCellExperiment::reducedDimNames(corrected)
+  if (has_embedding) {
+      SingleCellExperiment::reducedDim(object, "corrected") <-
+          SingleCellExperiment::reducedDim(corrected, "corrected")[colnames(object), , drop = FALSE]
+  }
+
+  # --- 2. full-gene corrected expression assay --------------------------------
+  # batchelor::fastMNN always returns its corrected-expression matrix in an assay
+  # (empirically named "reconstructed"). With subset.row set it only spans the
+  # HVGs unless correct.all = TRUE, in which case it covers every gene. The
+  # low-rank "reconstructed" matrix is documented as not ideal for quantitative
+  # analysis, so we only back the "corrected" layer with it when it is a full
+  # gene-resolution matrix; otherwise we fall back to the original source
+  # expression and treat the integration as embedding-only.
+  corrected_assay <- NULL
+  corrected_expression <- FALSE
+  for (cand in c("corrected", "reconstructed")) {
+      if (cand %in% SummarizedExperiment::assayNames(corrected) &&
+          nrow(corrected) == nrow(object)) {
+          corrected_assay <- cand
+          corrected_expression <- TRUE
+          mat <- SummarizedExperiment::assay(corrected, cand)
+          SummarizedExperiment::assay(object, cand) <-
+              mat[rownames(object), colnames(object), drop = FALSE]
+          break
+      }
+  }
+
+  # --- 3. source expression assay ----------------------------------------------
+  source_assay <- assay.type
+  if (!source_assay %in% SummarizedExperiment::assayNames(object)) {
+      source_assay <- sclet_get_active_assay(object)
+  }
+
+  # --- 4. assay that backs the logical "corrected" layer ------------------------
+  layer_assay <- if (corrected_expression && !is.null(corrected_assay)) {
+      corrected_assay
+  } else {
+      source_assay
+  }
+  embedding_only <- has_embedding && !corrected_expression
+
+  object <- sclet_set_layer(
+      object,
+      name = "corrected",
+      assay = layer_assay,
+      role = "corrected",
+      params = list(
+          method = "batchelor::batchCorrect",
+          source = source_assay,
+          corrected_expression = corrected_expression,
+          embedding_only = embedding_only
+      ),
+      active = TRUE
   )
-  
+  object <- sclet_set_active_assay(object, layer_assay)
+
+  # --- 5. record HVG used for this correction (base object already has them) ----
+  object <- sclet_set_hvg_state(
+      object,
+      nfeatures = nHVG,
+      method = method,
+      hvgcols = sclet_get_hvg_cols(sce),
+      selected = HVG
+  )
+
   batch_record <- list(
       method = "batchelor::batchCorrect",
       param = PARAM,
       hvg_n = nHVG,
       assay.type = assay.type,
-      batch_var = if(is.null(batch)) "internal_batch" else "user_provided",
+      batch_var = if (is.null(batch)) "internal_batch" else "user_provided",
       timestamp = Sys.time()
   )
-  corrected <- sclet_set_analysis(corrected, "batch", batch_record)
-  corrected_assay <- if ("corrected" %in% SummarizedExperiment::assayNames(corrected)) {
-    "corrected"
-  } else if ("reconstructed" %in% SummarizedExperiment::assayNames(corrected)) {
-    "reconstructed"
-  } else if (assay.type %in% SummarizedExperiment::assayNames(corrected)) {
-    assay.type
-  } else {
-    SummarizedExperiment::assayNames(corrected)[[1]]
-  }
-  corrected <- sclet_rebuild_internal_state(
-    corrected,
-    hvg = source_state$features$hvg,
-    commands = source_commands,
-    active_assay = corrected_assay
-  )
-  if (assay.type %in% SummarizedExperiment::assayNames(corrected)) {
-    corrected <- sclet_set_layer(
-      corrected,
-      name = assay.type,
-      assay = assay.type,
-      role = assay.type,
-      active = FALSE
-    )
-  }
-  corrected <- sclet_set_layer(
-    corrected,
-    name = "corrected",
-    assay = corrected_assay,
-    role = "corrected",
-    params = list(
-      method = "batchelor::batchCorrect",
-      source = assay.type
-    )
-  )
-  corrected <- sclet_set_analysis_state(
-    object = corrected,
-    type = "integration",
-    id = name,
-    method = "batchelor::batchCorrect",
-    inputs = list(
-      assay = assay.type,
-      layer = if (assay.type %in% Layers(corrected)) assay.type else NULL,
-      batch = batch,
-      hvg = HVG,
-      merge = {
-        merge_state <- sclet_get_state_record(sce, "integration", "merged_inputs")
-        if (is.null(merge_state)) {
+  object <- sclet_set_analysis(object, "batch", batch_record)
+
+  # --- 6. register integration + reduction state --------------------------------
+  merge_input <- {
+      merge_state <- sclet_get_state_record(sce, "integration", "merged_inputs")
+      if (is.null(merge_state)) {
           NULL
-        } else {
+      } else {
           list(
-            type = "integration",
-            id = "merged_inputs",
-            method = merge_state$method
+              type = "integration",
+              id = "merged_inputs",
+              method = merge_state$method
           )
-        }
       }
-    ),
-    artifacts = list(
+  }
+
+  artifacts <- list(
       layer = "corrected",
-      assay = corrected_assay,
+      assay = layer_assay,
+      corrected_expression = corrected_expression,
+      embedding_only = embedding_only,
       analysis_key = "batch"
-    ),
-    params = list(
-      nHVG = nHVG,
-      correct.all = correct.all,
-      restrict = restrict
-    ),
-    summary = list(
-      n_hvg = length(HVG),
-      batch_source = if (batch_supplied) "supplied" else "colData$batch"
-    )
   )
-  corrected <- sclet_set_active_assay(corrected, corrected_assay)
-  corrected <- sclet_log_command(
-    corrected,
-    "BatchRemover",
-    params = list(
-      nHVG = nHVG,
-      assay.type = assay.type,
-      correct.all = correct.all,
-      name = name
-    ),
-    outputs = list(analysis = "batch", hvg = "selected", integration = name)
+  if (has_embedding) {
+      artifacts$reduction <- "corrected"
+  }
+
+  object <- sclet_set_analysis_state(
+      object = object,
+      type = "integration",
+      id = name,
+      method = "batchelor::batchCorrect",
+      inputs = list(
+          assay = assay.type,
+          layer = if (assay.type %in% Layers(object)) assay.type else NULL,
+          batch = batch,
+          hvg = HVG,
+          merge = merge_input
+      ),
+      artifacts = artifacts,
+      params = list(
+          nHVG = nHVG,
+          correct.all = correct.all,
+          restrict = restrict,
+          have_corrected_expression = corrected_expression
+      ),
+      summary = list(
+          n_hvg = length(HVG),
+          batch_source = if (batch_supplied) "supplied" else "colData$batch",
+          corrected_expression = corrected_expression
+      )
   )
 
-  subset.rowdata <- rowData(sce)[HVG,]
-  new.rowdata <- rowData(corrected)
-  
-  #为防行名的顺序出错多做一步（行数和行肯定是对应的）
-  subset.rowdata <- subset.rowdata[rownames(new.rowdata),]
-  rowData(corrected) <- cbind(subset.rowdata, new.rowdata)
-  return(corrected)
+  # register the corrected embedding as a reduction so downstream RunUMAP /
+  # FindNeighbors can consume it and trace the integration dependency
+  if (has_embedding) {
+      object <- sclet_set_analysis_state(
+          object = object,
+          type = "reduction",
+          id = "corrected",
+          method = "batchelor::batchCorrect",
+          inputs = list(
+              layer = "corrected",
+              assay = layer_assay,
+              integration = name
+          ),
+          artifacts = list(
+              reduction = "corrected"
+          ),
+          summary = list(
+              n_components = ncol(SingleCellExperiment::reducedDim(object, "corrected"))
+          )
+      )
+      object <- sclet_set_active_reduction(object, "corrected")
+  }
+
+  object <- sclet_log_command(
+      object,
+      "BatchRemover",
+      params = list(
+          nHVG = nHVG,
+          assay.type = assay.type,
+          correct.all = correct.all,
+          name = name
+      ),
+      outputs = list(analysis = "batch", hvg = "selected", integration = name)
+  )
+
+  if (embedding_only) {
+      message(
+          "MNN/fastMNN integration returned only a corrected embedding (no full-gene ",
+          "corrected expression). The 'corrected' layer points to the source expression '",
+          layer_assay, "'; use `correct.all = TRUE` to obtain a full corrected expression ",
+          "matrix for quantitative downstream analyses."
+      )
+  }
+
+  return(object)
 } 
 
 
@@ -441,3 +521,4 @@ sce_merge <- function(sce_list, combineVarParams = list(equiweight = TRUE, ncell
   
   return(combined_sce)
 }
+

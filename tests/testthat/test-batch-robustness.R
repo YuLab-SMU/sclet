@@ -52,7 +52,14 @@ test_that("BatchRemover and subsequent clustering workflow works", {
     expect_equal(get_integration(rm_batch, "method"), "batchelor::batchCorrect")
     expect_equal(get_integration(rm_batch, "artifacts")$layer, "corrected")
     expect_equal(get_integration(rm_batch, "inputs")$merge$id, "merged_inputs")
-    expect_null(DefaultReduction(rm_batch))
+    
+    # The correction must preserve the original expression data and all genes,
+    # and expose the corrected embedding for clustering/UMAP.
+    expect_true("counts" %in% assayNames(rm_batch))
+    expect_true("logcounts" %in% assayNames(rm_batch))
+    expect_equal(nrow(rm_batch), 200)
+    expect_true("corrected" %in% reducedDimNames(rm_batch))
+    expect_equal(DefaultReduction(rm_batch), "corrected")
     expect_null(DefaultGraph(rm_batch))
     expect_null(ActiveIdent(rm_batch))
     

@@ -36,7 +36,14 @@ BatchRemover(
 \item{name}{Integration record id. Defaults to "batchcorrect".}
 }
 \value{
-A SingleCellExperiment object
+A SingleCellExperiment object. The original expression assays and every gene are
+preserved; correction artifacts are grafted on rather than replacing the input.
+For MNN/fastMNN the \code{corrected} embedding is stored in
+\code{reducedDim("corrected")} and registered as a reduction, and the logical
+\code{corrected} layer is backed by a full gene-resolution corrected-expression
+assay when \code{correct.all = TRUE}, otherwise by the original source expression
+(the integration is then recorded as embedding-only, since the batchelor
+\code{reconstructed} matrix is not meant for quantitative analysis).
 }
 \description{
 Batch correction

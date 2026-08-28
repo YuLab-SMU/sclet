@@ -138,11 +138,25 @@ AuditAnalysisChain <- function(sce, features, raw_layer = "counts", integrated_l
         if (is.null(integ_state)) {
             stop("No integration state found and 'integrated_layer' not specified. Cannot audit batch effects.")
         }
-        # Look for the corrected layer from integration state
-        if (!is.null(integ_state$artifacts$layer)) {
+        # Look for the corrected layer from integration state. Prefer the actual
+        # assay backing the corrected view (artifacts$assay); for MNN integration
+        # artifacts$layer is a logical name ("corrected") that may not be an assay
+        # on the object when no full-gene corrected expression was produced.
+        integrated_layer <- integ_state$artifacts$assay
+        if (is.null(integrated_layer)) {
             integrated_layer <- integ_state$artifacts$layer
-        } else {
-            stop("The active integration method did not output a corrected layer (e.g., it output a reduction like Harmony). Expression-level audit requires a corrected layer like fastMNN's output.")
+        }
+        if (is.null(integrated_layer)) {
+            stop("The active integration method did not output a corrected layer/assay (e.g., it output only a reduction like Harmony). Expression-level audit requires a corrected expression layer.")
+        }
+        if (isTRUE(integ_state$artifacts$embedding_only) ||
+            isFALSE(integ_state$artifacts$corrected_expression)) {
+            message(
+                "Note: this integration is embedding-based (no per-gene corrected expression). ",
+                "The audit falls back to the original source expression; pass `correct.all = TRUE` ",
+                "to fastMNN to obtain a full corrected expression matrix for a meaningful ",
+                "expression-level audit."
+            )
         }
     }
     
