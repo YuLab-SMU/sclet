@@ -7,9 +7,11 @@ sclet_scenic_env <- basilisk::BasiliskEnvironment(
         "scanpy=1.10.1",
         "anndata=0.10.7",
         "numpy=1.26.4",
-        "pandas=2.2.2",
-        "pyscenic=0.12.1",
-        "loompy=3.0.7"
+        "pandas=2.2.2"
+    ),
+    pip = c(
+        "pyscenic==0.12.1",
+        "loompy==3.0.7"
     )
 )
 
@@ -98,6 +100,32 @@ sclet_cellphonedb_env <- basilisk::BasiliskEnvironment(
     )
 )
 
+# Resolve a basilisk environment object by its short name. This is what the
+# public troubleshooting guidance uses, e.g.
+#   basilisk::obtainEnvironmentPath(sclet:::.env("sclet_cellrank_env"))
+# It returns the package-namespace BasiliskEnvironment object for `name`.
+.env <- function(name) {
+    envs <- list(
+        sclet_scenic_env = sclet_scenic_env,
+        sclet_scvi_env = sclet_scvi_env,
+        sclet_cellrank_env = sclet_cellrank_env,
+        sclet_regvelo_env = sclet_regvelo_env,
+        sclet_cell2location_env = sclet_cell2location_env,
+        sclet_celloracle_env = sclet_celloracle_env,
+        sclet_cellphonedb_env = sclet_cellphonedb_env
+    )
+    if (!name %in% names(envs)) {
+        cli::cli_abort(
+            c(
+                "Unknown sclet basilisk environment: {.val {name}}.",
+                i = "Valid names are: {.val {names(envs)}}."
+            ),
+            class = "sclet_unknown_env"
+        )
+    }
+    envs[[name]]
+}
+
 # Locate the directory holding the shared C/C++ libraries bundled inside a
 # basilisk-managed conda environment. Some layouts use `lib`, others `lib64`.
 sclet_env_libdir <- function(envpath) {
@@ -112,10 +140,13 @@ sclet_env_libdir <- function(envpath) {
 
 # Prepend the environment's own library directory to LD_LIBRARY_PATH so that
 # compiled Python extensions (e.g. optree, scipy, pytorch, c-extensions built
-# against a recent GCC) resolve a libstdc++/libgcc that is new enough instead
-# of falling back to an outdated system one (e.g. `GLIBCXX_3.4.31 not found` on
-# Ubuntu 20.04, whose libstdc++ only reaches GLIBCXX_3.4.29). The variable is
-# restored by the caller after the basilisk process has finished.
+# against a recent GCC) resolve a libstdc++/libgcc that is new enough instead of
+# falling back to an outdated system one (e.g. `GLIBCXX_3.4.31 not found`).
+# This only helps when the environment actually bundles a newer libstdc++:
+# conda-backed basilisk environments ship `libstdc++-ng`, whereas the pip/venv
+# backend leaves the env `lib`/`lib64` directory empty, so on that backend this
+# is a no-op and the host runtime is used. The preceding variable is restored by
+# the caller after the basilisk process has finished.
 sclet_prepend_env_lib <- function(env) {
     envpath <- basilisk::obtainEnvironmentPath(env)
     libdir <- sclet_env_libdir(envpath)
@@ -129,6 +160,31 @@ sclet_prepend_env_lib <- function(env) {
         Sys.setenv(LD_LIBRARY_PATH = libdir)
     }
     invisible(libdir)
+}
+
+# Turn a cryptic `GLIBCXX_... not found` / `libstdc++.so.6` import failure into an
+# actionable error. The root cause is a host/toolchain mismatch (the system C++
+# runtime is too old for a compiled Python extension), which the package cannot
+# fix from inside R. We surface that clearly and point to the two real options
+# (a newer system C++ runtime, or a conda-backed basilisk env that bundles one).
+sclet_glibcxx_error <- function(env, e) {
+    msg <- conditionMessage(e)
+    is_glibcxx <- grepl("GLIBCXX_[0-9]+\\.[0-9]+\\.[0-9]+", msg) &&
+        grepl("not found", msg)
+    if (!is_glibcxx) {
+        stop(e)
+    }
+    envname <- env@envname
+    cli::cli_abort(
+        c(
+            "The {.val {envname}} Python environment could not load a compiled C++ extension: the host C++ runtime is too old.",
+            "!" = "A Python extension was built against a newer {.file libstdc++} than this system provides (e.g. {.val GLIBCXX_3.4.31} not found in {.file libstdc++.so.6}).",
+            "i" = "This is a host/toolchain limitation, not a sclet bug, and it cannot be fixed from inside R.",
+            "i" = "Either (a) provide a newer system C++ runtime (e.g. a newer {.pkg libstdc++6} / {.pkg gcc}; on Ubuntu that means >= 22.04 with GCC >= 12), or (b) use a conda-backed basilisk environment, which bundles its own newer {.file libstdc++}. See the sclet NEWS for the minimum host requirement.",
+            "i" = "Original error: {msg}"
+        ),
+        class = "sclet_glibcxx_not_found"
+    )
 }
 
 # Start a basilisk environment with its bundled libraries taking precedence
@@ -160,5 +216,8 @@ sclet_basilisk_run <- function(
     )
     on.exit(basilisk::basiliskStop(proc), add = TRUE)
 
-    basilisk::basiliskRun(proc, fun = fun, ...)
+    tryCatch(
+        basilisk::basiliskRun(proc, fun = fun, ...),
+        error = function(e) sclet_glibcxx_error(env, e)
+    )
 }
