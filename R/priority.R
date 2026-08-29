@@ -226,7 +226,11 @@ RunRareCellDetection <- function(sce, method = c("density"),
         cli::cli_alert_info(
             "Building kNN graph (k={.val {k}}) on {.val {max_dim}} dims"
         )
-        knn <- BiocNeighbors::findKNN(emb_sub, k = k, BNPARAM = BiocNeighbors::KmknnParam())
+        knn <- BiocNeighbors::findKNN(
+            sclet_as_knn_matrix(emb_sub),
+            k = k,
+            BNPARAM = BiocNeighbors::KmknnParam()
+        )
 
         n_cells <- nrow(emb_sub)
         mutual_counts <- integer(n_cells)

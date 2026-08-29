@@ -276,7 +276,13 @@ RunKNNPredict <- function(object, ref, labels = NULL, features = NULL, layer = N
     
     # Run KNN
     # By default queryKNN returns indices.
-    knn_res <- BiocNeighbors::queryKNN(X = ref_mat, query = query_mat, k = k)
+    # BiocNeighbors 2.0.x-2.4.x cannot dispatch on dgCMatrix inputs (see #25);
+    # sclet_as_knn_matrix() falls back to ordinary matrices on those versions.
+    knn_res <- BiocNeighbors::queryKNN(
+        X = sclet_as_knn_matrix(ref_mat),
+        query = sclet_as_knn_matrix(query_mat),
+        k = k
+    )
     
     # Predict label by majority vote among K neighbors
     pred_labels <- apply(knn_res$index, 1, function(idx) {
@@ -368,7 +374,8 @@ RunSymphonyMapping <- function(object, ref, labels = NULL, vars = NULL,
     if (!requireNamespace("symphony", quietly = TRUE)) {
         stop(
             "Package 'symphony' is needed for this function to work. ",
-            "Please install it with: install.packages('symphony')",
+            "It is no longer available on CRAN; please install it from ",
+            "GitHub with: remotes::install_github('immunogenomics/symphony')",
             call. = FALSE
         )
     }
