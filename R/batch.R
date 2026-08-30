@@ -218,8 +218,20 @@ BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000,
   # --- 1. corrected embedding (fastMNN's intended clustering artifact) ---------
   has_embedding <- "corrected" %in% SingleCellExperiment::reducedDimNames(corrected)
   if (has_embedding) {
-      SingleCellExperiment::reducedDim(object, "corrected") <-
-          SingleCellExperiment::reducedDim(corrected, "corrected")[colnames(object), , drop = FALSE]
+      rd_corrected <- SingleCellExperiment::reducedDim(corrected, "corrected")
+      cn <- colnames(object)
+      # batchelor emits exactly one row per cell, in the input cell order. When
+      # cell identifiers are available, reorder the embedding to match the object;
+      # when they are missing (e.g. TENxPBMCData objects carry NULL colnames)
+      # keep the positional order so the row count always matches ncol(object).
+      if (!is.null(cn) && length(cn) > 0L) {
+          if (nrow(rd_corrected) == length(cn) && all(cn %in% rownames(rd_corrected))) {
+              rd_corrected <- rd_corrected[cn, , drop = FALSE]
+          } else if (nrow(rd_corrected) == length(cn)) {
+              rownames(rd_corrected) <- cn
+          }
+      }
+      SingleCellExperiment::reducedDim(object, "corrected") <- rd_corrected
   }
 
   # --- 2. full-gene corrected expression assay --------------------------------

@@ -35,6 +35,7 @@ Imports:
     basilisk,
     bluster,
     cli,
+    DelayedMatrixStats,
     dplyr,
     fanyi,
     ggplot2,

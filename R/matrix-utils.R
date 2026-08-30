@@ -41,7 +41,11 @@ sclet_matrix_rowMeans <- function(x, na.rm = FALSE, dims = 1L) {
 #' @importFrom MatrixGenerics rowSds
 sclet_matrix_rowSds <- function(x, na.rm = FALSE, dims = 1L) {
     if (methods::is(x, "DelayedArray")) {
-        return(MatrixGenerics::rowSds(x, na.rm = na.rm))
+        # DelayedMatrixStats::rowSds is used explicitly: MatrixGenerics::rowSds is
+        # ambiguous (SparseArray / matrixStats / DelayedMatrixStats) and, when the
+        # `conflicted` package is loaded, its masking can break the generic's
+        # method lookup for DelayedArray objects.
+        return(DelayedMatrixStats::rowSds(x, na.rm = na.rm))
     }
     if (methods::is(x, "Matrix")) {
         return(MatrixGenerics::rowSds(x, na.rm = na.rm))

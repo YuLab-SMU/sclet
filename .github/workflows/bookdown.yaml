@@ -1,11 +1,20 @@
 name: bookdown
 
 on:
-  push:
-    branches:
-      - docs
-      - devel
-      - ci-update-data
+  workflow_dispatch:
+    inputs:
+      docs_ref:
+        description: 'Bookdown source branch (docs) to build'
+        required: false
+        default: 'docs'
+      devel_ref:
+        description: 'sclet package source branch to install'
+        required: false
+        default: 'devel'
+      ci_data_ref:
+        description: 'Branch with the cached CI data (data overlay)'
+        required: false
+        default: 'ci-update-data'
 
 permissions:
   contents: write
@@ -25,19 +34,19 @@ jobs:
       - name: Checkout docs branch
         uses: actions/checkout@v4
         with:
-          ref: docs
+          ref: ${{ inputs.docs_ref }}
           path: docs-src
 
       - name: Checkout package source (devel)
         uses: actions/checkout@v4
         with:
-          ref: devel
+          ref: ${{ inputs.devel_ref }}
           path: sclet-src
 
       - name: Checkout CI-updated data
         uses: actions/checkout@v4
         with:
-          ref: ci-update-data
+          ref: ${{ inputs.ci_data_ref }}
           path: ci-data
 
       - name: Overlay CI-updated data

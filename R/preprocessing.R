@@ -711,7 +711,11 @@ ScaleData <- function(object, features = NULL, assay = "logcounts") {
     if (is(mat, "DelayedMatrix")) {
         # DelayedArray logic
         rm <- MatrixGenerics::rowMeans(mat)
-        rs <- MatrixGenerics::rowSds(mat)
+        # DelayedMatrixStats::rowSds is used explicitly: MatrixGenerics::rowSds is
+        # ambiguous (SparseArray / matrixStats / DelayedMatrixStats) and, when the
+        # `conflicted` package is loaded, its masking can break the generic's
+        # method lookup for DelayedMatrix objects.
+        rs <- DelayedMatrixStats::rowSds(mat)
     } else {
         # In-memory logic (could be sparse or dense)
         if (is(mat, "dgCMatrix")) {
