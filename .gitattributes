@@ -1,0 +1,1 @@
+data/motifs-v9-nr.hgnc.tbl filter=lfs diff=lfs merge=lfs -text
