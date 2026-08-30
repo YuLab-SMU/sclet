@@ -2,8 +2,6 @@ name: update-data-spatial
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "20 18 * * 0"
 
 permissions:
   contents: write

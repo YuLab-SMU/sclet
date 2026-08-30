@@ -2,8 +2,6 @@ name: update-data-scvi
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "30 18 * * 0"
 
 permissions:
   contents: write
