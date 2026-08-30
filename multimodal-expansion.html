@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>15 Multimodal Expansion | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="15 Multimodal Expansion | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="15 Multimodal Expansion | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -432,25 +437,25 @@ div.csl-indent {
 <div id="detecting-and-registering-modalities" class="section level2 hasAnchor" number="15.2">
 <h2><span class="header-section-number">15.2</span> Detecting and Registering Modalities<a href="multimodal-expansion.html#detecting-and-registering-modalities" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>The helpers are designed to be used before and after loading multimodal data into the object.</p>
-<div class="sourceCode" id="cb541"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb541-1"><a href="multimodal-expansion.html#cb541-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb541-2"><a href="multimodal-expansion.html#cb541-2" tabindex="-1"></a></span>
-<span id="cb541-3"><a href="multimodal-expansion.html#cb541-3" tabindex="-1"></a><span class="co"># After loading data, check which modalities are present</span></span>
-<span id="cb541-4"><a href="multimodal-expansion.html#cb541-4" tabindex="-1"></a><span class="fu">has_multimodal_adt</span>(sce)   <span class="co"># TRUE if altExp(sce, &quot;ADT&quot;) exists</span></span>
-<span id="cb541-5"><a href="multimodal-expansion.html#cb541-5" tabindex="-1"></a><span class="fu">has_multimodal_atac</span>(sce)  <span class="co"># TRUE if altExp(sce, &quot;ATAC&quot;) exists</span></span>
-<span id="cb541-6"><a href="multimodal-expansion.html#cb541-6" tabindex="-1"></a></span>
-<span id="cb541-7"><a href="multimodal-expansion.html#cb541-7" tabindex="-1"></a><span class="co"># Register modalities in the state layer</span></span>
-<span id="cb541-8"><a href="multimodal-expansion.html#cb541-8" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">has_multimodal_adt</span>(sce)) {</span>
-<span id="cb541-9"><a href="multimodal-expansion.html#cb541-9" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">register_multimodal_adt</span>(sce, <span class="at">name =</span> <span class="st">&quot;my_ADT&quot;</span>)</span>
-<span id="cb541-10"><a href="multimodal-expansion.html#cb541-10" tabindex="-1"></a>}</span>
-<span id="cb541-11"><a href="multimodal-expansion.html#cb541-11" tabindex="-1"></a></span>
-<span id="cb541-12"><a href="multimodal-expansion.html#cb541-12" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">has_multimodal_atac</span>(sce)) {</span>
-<span id="cb541-13"><a href="multimodal-expansion.html#cb541-13" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">register_multimodal_atac</span>(sce, <span class="at">name =</span> <span class="st">&quot;my_ATAC&quot;</span>)</span>
-<span id="cb541-14"><a href="multimodal-expansion.html#cb541-14" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb223"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb223-1"><a href="multimodal-expansion.html#cb223-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb223-2"><a href="multimodal-expansion.html#cb223-2" tabindex="-1"></a></span>
+<span id="cb223-3"><a href="multimodal-expansion.html#cb223-3" tabindex="-1"></a><span class="co"># After loading data, check which modalities are present</span></span>
+<span id="cb223-4"><a href="multimodal-expansion.html#cb223-4" tabindex="-1"></a><span class="fu">has_multimodal_adt</span>(sce)   <span class="co"># TRUE if altExp(sce, &quot;ADT&quot;) exists</span></span>
+<span id="cb223-5"><a href="multimodal-expansion.html#cb223-5" tabindex="-1"></a><span class="fu">has_multimodal_atac</span>(sce)  <span class="co"># TRUE if altExp(sce, &quot;ATAC&quot;) exists</span></span>
+<span id="cb223-6"><a href="multimodal-expansion.html#cb223-6" tabindex="-1"></a></span>
+<span id="cb223-7"><a href="multimodal-expansion.html#cb223-7" tabindex="-1"></a><span class="co"># Register modalities in the state layer</span></span>
+<span id="cb223-8"><a href="multimodal-expansion.html#cb223-8" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">has_multimodal_adt</span>(sce)) {</span>
+<span id="cb223-9"><a href="multimodal-expansion.html#cb223-9" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">register_multimodal_adt</span>(sce, <span class="at">name =</span> <span class="st">&quot;my_ADT&quot;</span>)</span>
+<span id="cb223-10"><a href="multimodal-expansion.html#cb223-10" tabindex="-1"></a>}</span>
+<span id="cb223-11"><a href="multimodal-expansion.html#cb223-11" tabindex="-1"></a></span>
+<span id="cb223-12"><a href="multimodal-expansion.html#cb223-12" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">has_multimodal_atac</span>(sce)) {</span>
+<span id="cb223-13"><a href="multimodal-expansion.html#cb223-13" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">register_multimodal_atac</span>(sce, <span class="at">name =</span> <span class="st">&quot;my_ATAC&quot;</span>)</span>
+<span id="cb223-14"><a href="multimodal-expansion.html#cb223-14" tabindex="-1"></a>}</span></code></pre></div>
 </div>
 <div id="one-step-registration" class="section level2 hasAnchor" number="15.3">
 <h2><span class="header-section-number">15.3</span> One-Step Registration<a href="multimodal-expansion.html#one-step-registration" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>For convenience, <code>RunMultimodalWorkflow()</code> detects and registers all available modalities in one call. When no altExps are found, it returns the object unchanged with a message.</p>
-<div class="sourceCode" id="cb542"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb542-1"><a href="multimodal-expansion.html#cb542-1" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunMultimodalWorkflow</span>(sce, <span class="at">name =</span> <span class="st">&quot;my_multimodal&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb224"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb224-1"><a href="multimodal-expansion.html#cb224-1" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunMultimodalWorkflow</span>(sce, <span class="at">name =</span> <span class="st">&quot;my_multimodal&quot;</span>)</span></code></pre></div>
 </div>
 <div id="planned-interface-direction" class="section level2 hasAnchor" number="15.4">
 <h2><span class="header-section-number">15.4</span> Planned Interface Direction<a href="multimodal-expansion.html#planned-interface-direction" class="anchor-section" aria-label="Anchor link to header"></a></h2>

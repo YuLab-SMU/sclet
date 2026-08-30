@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>8 Cell Identity and Reference Mapping | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="8 Cell Identity and Reference Mapping | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="8 Cell Identity and Reference Mapping | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -441,46 +446,45 @@ div.csl-indent {
 <div id="lightweight-reference-mapping-knn" class="section level3 hasAnchor" number="8.3.1">
 <h3><span class="header-section-number">8.3.1</span> Lightweight Reference Mapping (KNN)<a href="reference-mapping.html#lightweight-reference-mapping-knn" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>If you have a reference <code>SingleCellExperiment</code> with cell type annotations, you can use it to map labels to your query dataset quickly:</p>
-<div class="sourceCode" id="cb244"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb244-1"><a href="reference-mapping.html#cb244-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span>
-<span id="cb244-2"><a href="reference-mapping.html#cb244-2" tabindex="-1"></a>ref_idx <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="fu">seq_len</span>(<span class="fu">ncol</span>(pbmc)), <span class="dv">500</span>)</span>
-<span id="cb244-3"><a href="reference-mapping.html#cb244-3" tabindex="-1"></a>ref_sce <span class="ot">&lt;-</span> pbmc[, ref_idx]</span>
-<span id="cb244-4"><a href="reference-mapping.html#cb244-4" tabindex="-1"></a>query_sce <span class="ot">&lt;-</span> pbmc[, <span class="sc">-</span>ref_idx]</span>
-<span id="cb244-5"><a href="reference-mapping.html#cb244-5" tabindex="-1"></a></span>
-<span id="cb244-6"><a href="reference-mapping.html#cb244-6" tabindex="-1"></a>ref_sce<span class="sc">$</span>label <span class="ot">&lt;-</span> <span class="fu">as.character</span>(SingleCellExperiment<span class="sc">::</span><span class="fu">colLabels</span>(ref_sce))</span>
-<span id="cb244-7"><a href="reference-mapping.html#cb244-7" tabindex="-1"></a></span>
-<span id="cb244-8"><a href="reference-mapping.html#cb244-8" tabindex="-1"></a>query_sce <span class="ot">&lt;-</span> <span class="fu">RunReferenceMapping</span>(</span>
-<span id="cb244-9"><a href="reference-mapping.html#cb244-9" tabindex="-1"></a>    <span class="at">object =</span> query_sce,</span>
-<span id="cb244-10"><a href="reference-mapping.html#cb244-10" tabindex="-1"></a>    <span class="at">ref =</span> ref_sce,</span>
-<span id="cb244-11"><a href="reference-mapping.html#cb244-11" tabindex="-1"></a>    <span class="at">labels =</span> <span class="st">&quot;label&quot;</span>,</span>
-<span id="cb244-12"><a href="reference-mapping.html#cb244-12" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;KNN&quot;</span>,</span>
-<span id="cb244-13"><a href="reference-mapping.html#cb244-13" tabindex="-1"></a>    <span class="at">layer =</span> <span class="st">&quot;logcounts&quot;</span>,</span>
-<span id="cb244-14"><a href="reference-mapping.html#cb244-14" tabindex="-1"></a>    <span class="at">k =</span> <span class="dv">5</span>,</span>
-<span id="cb244-15"><a href="reference-mapping.html#cb244-15" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;knn_demo&quot;</span></span>
-<span id="cb244-16"><a href="reference-mapping.html#cb244-16" tabindex="-1"></a>)</span>
-<span id="cb244-17"><a href="reference-mapping.html#cb244-17" tabindex="-1"></a></span>
-<span id="cb244-18"><a href="reference-mapping.html#cb244-18" tabindex="-1"></a><span class="co"># Inspect the recorded reference-mapping state</span></span>
-<span id="cb244-19"><a href="reference-mapping.html#cb244-19" tabindex="-1"></a><span class="fu">get_mapping</span>(query_sce)</span>
-<span id="cb244-20"><a href="reference-mapping.html#cb244-20" tabindex="-1"></a></span>
-<span id="cb244-21"><a href="reference-mapping.html#cb244-21" tabindex="-1"></a><span class="co"># Visualize the query and reference in the same projection space</span></span>
-<span id="cb244-22"><a href="reference-mapping.html#cb244-22" tabindex="-1"></a><span class="fu">ProjectionPlot</span>(query_sce, ref_sce)</span></code></pre></div>
+<div class="sourceCode" id="cb87"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb87-1"><a href="reference-mapping.html#cb87-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span>
+<span id="cb87-2"><a href="reference-mapping.html#cb87-2" tabindex="-1"></a>ref_idx <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="fu">seq_len</span>(<span class="fu">ncol</span>(pbmc)), <span class="dv">500</span>)</span>
+<span id="cb87-3"><a href="reference-mapping.html#cb87-3" tabindex="-1"></a>ref_sce <span class="ot">&lt;-</span> pbmc[, ref_idx]</span>
+<span id="cb87-4"><a href="reference-mapping.html#cb87-4" tabindex="-1"></a>query_sce <span class="ot">&lt;-</span> pbmc[, <span class="sc">-</span>ref_idx]</span>
+<span id="cb87-5"><a href="reference-mapping.html#cb87-5" tabindex="-1"></a></span>
+<span id="cb87-6"><a href="reference-mapping.html#cb87-6" tabindex="-1"></a>ref_sce<span class="sc">$</span>label <span class="ot">&lt;-</span> <span class="fu">as.character</span>(SingleCellExperiment<span class="sc">::</span><span class="fu">colLabels</span>(ref_sce))</span>
+<span id="cb87-7"><a href="reference-mapping.html#cb87-7" tabindex="-1"></a></span>
+<span id="cb87-8"><a href="reference-mapping.html#cb87-8" tabindex="-1"></a>query_sce <span class="ot">&lt;-</span> <span class="fu">RunReferenceMapping</span>(</span>
+<span id="cb87-9"><a href="reference-mapping.html#cb87-9" tabindex="-1"></a>    <span class="at">object =</span> query_sce,</span>
+<span id="cb87-10"><a href="reference-mapping.html#cb87-10" tabindex="-1"></a>    <span class="at">ref =</span> ref_sce,</span>
+<span id="cb87-11"><a href="reference-mapping.html#cb87-11" tabindex="-1"></a>    <span class="at">labels =</span> <span class="st">&quot;label&quot;</span>,</span>
+<span id="cb87-12"><a href="reference-mapping.html#cb87-12" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;KNN&quot;</span>,</span>
+<span id="cb87-13"><a href="reference-mapping.html#cb87-13" tabindex="-1"></a>    <span class="at">layer =</span> <span class="st">&quot;logcounts&quot;</span>,</span>
+<span id="cb87-14"><a href="reference-mapping.html#cb87-14" tabindex="-1"></a>    <span class="at">k =</span> <span class="dv">5</span>,</span>
+<span id="cb87-15"><a href="reference-mapping.html#cb87-15" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;knn_demo&quot;</span></span>
+<span id="cb87-16"><a href="reference-mapping.html#cb87-16" tabindex="-1"></a>)</span>
+<span id="cb87-17"><a href="reference-mapping.html#cb87-17" tabindex="-1"></a></span>
+<span id="cb87-18"><a href="reference-mapping.html#cb87-18" tabindex="-1"></a><span class="co"># Inspect the recorded reference-mapping state</span></span>
+<span id="cb87-19"><a href="reference-mapping.html#cb87-19" tabindex="-1"></a><span class="fu">get_mapping</span>(query_sce)</span>
+<span id="cb87-20"><a href="reference-mapping.html#cb87-20" tabindex="-1"></a></span>
+<span id="cb87-21"><a href="reference-mapping.html#cb87-21" tabindex="-1"></a><span class="co"># Visualize the query and reference in the same projection space</span></span>
+<span id="cb87-22"><a href="reference-mapping.html#cb87-22" tabindex="-1"></a><span class="fu">ProjectionPlot</span>(query_sce, ref_sce)</span></code></pre></div>
 </div>
 <div id="run-singler-with-sclet" class="section level3 hasAnchor" number="8.3.2">
 <h3><span class="header-section-number">8.3.2</span> Run SingleR with sclet<a href="reference-mapping.html#run-singler-with-sclet" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb245"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb245-1"><a href="reference-mapping.html#cb245-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb245-2"><a href="reference-mapping.html#cb245-2" tabindex="-1"></a>hpca <span class="ot">&lt;-</span> celldex<span class="sc">::</span><span class="fu">HumanPrimaryCellAtlasData</span>()</span>
-<span id="cb245-3"><a href="reference-mapping.html#cb245-3" tabindex="-1"></a></span>
-<span id="cb245-4"><a href="reference-mapping.html#cb245-4" tabindex="-1"></a>pbmc2 <span class="ot">&lt;-</span> <span class="fu">RunReferenceMapping</span>(</span>
-<span id="cb245-5"><a href="reference-mapping.html#cb245-5" tabindex="-1"></a>    pbmc,</span>
-<span id="cb245-6"><a href="reference-mapping.html#cb245-6" tabindex="-1"></a>    <span class="at">ref =</span> hpca,</span>
-<span id="cb245-7"><a href="reference-mapping.html#cb245-7" tabindex="-1"></a>    <span class="at">labels =</span> hpca<span class="sc">$</span>label.main,</span>
-<span id="cb245-8"><a href="reference-mapping.html#cb245-8" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;SingleR&quot;</span>,</span>
-<span id="cb245-9"><a href="reference-mapping.html#cb245-9" tabindex="-1"></a>    <span class="at">layer =</span> <span class="st">&quot;logcounts&quot;</span>,</span>
-<span id="cb245-10"><a href="reference-mapping.html#cb245-10" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;hpca_main&quot;</span></span>
-<span id="cb245-11"><a href="reference-mapping.html#cb245-11" tabindex="-1"></a>)</span></code></pre></div>
-<pre><code>## using unknown matrix fallback for &#39;HDF5ArraySeed&#39;</code></pre>
-<pre><code>## Annotation added to colData columns: &#39;hpca_main_labels&#39; and &#39;hpca_main_pruned.labels&#39;</code></pre>
-<div class="sourceCode" id="cb248"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb248-1"><a href="reference-mapping.html#cb248-1" tabindex="-1"></a><span class="co"># inspect the recorded annotation state</span></span>
-<span id="cb248-2"><a href="reference-mapping.html#cb248-2" tabindex="-1"></a><span class="fu">get_annotation</span>(pbmc2, <span class="at">id =</span> <span class="st">&quot;hpca_main&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb88"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb88-1"><a href="reference-mapping.html#cb88-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb88-2"><a href="reference-mapping.html#cb88-2" tabindex="-1"></a>hpca <span class="ot">&lt;-</span> celldex<span class="sc">::</span><span class="fu">HumanPrimaryCellAtlasData</span>()</span>
+<span id="cb88-3"><a href="reference-mapping.html#cb88-3" tabindex="-1"></a></span>
+<span id="cb88-4"><a href="reference-mapping.html#cb88-4" tabindex="-1"></a>pbmc2 <span class="ot">&lt;-</span> <span class="fu">RunReferenceMapping</span>(</span>
+<span id="cb88-5"><a href="reference-mapping.html#cb88-5" tabindex="-1"></a>    pbmc,</span>
+<span id="cb88-6"><a href="reference-mapping.html#cb88-6" tabindex="-1"></a>    <span class="at">ref =</span> hpca,</span>
+<span id="cb88-7"><a href="reference-mapping.html#cb88-7" tabindex="-1"></a>    <span class="at">labels =</span> hpca<span class="sc">$</span>label.main,</span>
+<span id="cb88-8"><a href="reference-mapping.html#cb88-8" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;SingleR&quot;</span>,</span>
+<span id="cb88-9"><a href="reference-mapping.html#cb88-9" tabindex="-1"></a>    <span class="at">layer =</span> <span class="st">&quot;logcounts&quot;</span>,</span>
+<span id="cb88-10"><a href="reference-mapping.html#cb88-10" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;hpca_main&quot;</span></span>
+<span id="cb88-11"><a href="reference-mapping.html#cb88-11" tabindex="-1"></a>)</span>
+<span id="cb88-12"><a href="reference-mapping.html#cb88-12" tabindex="-1"></a></span>
+<span id="cb88-13"><a href="reference-mapping.html#cb88-13" tabindex="-1"></a><span class="co"># inspect the recorded annotation state</span></span>
+<span id="cb88-14"><a href="reference-mapping.html#cb88-14" tabindex="-1"></a><span class="fu">get_annotation</span>(pbmc2, <span class="at">id =</span> <span class="st">&quot;hpca_main&quot;</span>)</span></code></pre></div>
 <pre><code>## $id
 ## [1] &quot;hpca_main&quot;
 ## 
@@ -530,9 +534,9 @@ div.csl-indent {
 ## 
 ## 
 ## $created_at
-## [1] &quot;2026-07-20 04:06:10 UTC&quot;</code></pre>
-<div class="sourceCode" id="cb250"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb250-1"><a href="reference-mapping.html#cb250-1" tabindex="-1"></a><span class="co"># inspect the recorded reference-mapping state</span></span>
-<span id="cb250-2"><a href="reference-mapping.html#cb250-2" tabindex="-1"></a><span class="fu">get_mapping</span>(pbmc2, <span class="at">id =</span> <span class="st">&quot;hpca_main&quot;</span>)</span></code></pre></div>
+## [1] &quot;2026-08-29 17:53:58 CST&quot;</code></pre>
+<div class="sourceCode" id="cb90"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb90-1"><a href="reference-mapping.html#cb90-1" tabindex="-1"></a><span class="co"># inspect the recorded reference-mapping state</span></span>
+<span id="cb90-2"><a href="reference-mapping.html#cb90-2" tabindex="-1"></a><span class="fu">get_mapping</span>(pbmc2, <span class="at">id =</span> <span class="st">&quot;hpca_main&quot;</span>)</span></code></pre></div>
 <pre><code>## $id
 ## [1] &quot;hpca_main&quot;
 ## 
@@ -588,83 +592,82 @@ div.csl-indent {
 ## 
 ## 
 ## $created_at
-## [1] &quot;2026-07-20 04:06:10 UTC&quot;</code></pre>
-<div class="sourceCode" id="cb252"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb252-1"><a href="reference-mapping.html#cb252-1" tabindex="-1"></a><span class="co"># check the stored label columns</span></span>
-<span id="cb252-2"><a href="reference-mapping.html#cb252-2" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">colnames</span>(SummarizedExperiment<span class="sc">::</span><span class="fu">colData</span>(pbmc2)))</span></code></pre></div>
+## [1] &quot;2026-08-29 17:53:58 CST&quot;</code></pre>
+<div class="sourceCode" id="cb92"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb92-1"><a href="reference-mapping.html#cb92-1" tabindex="-1"></a><span class="co"># check the stored label columns</span></span>
+<span id="cb92-2"><a href="reference-mapping.html#cb92-2" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">colnames</span>(SummarizedExperiment<span class="sc">::</span><span class="fu">colData</span>(pbmc2)))</span></code></pre></div>
 <pre><code>## [1] &quot;Sample&quot;              &quot;Barcode&quot;            
 ## [3] &quot;Sequence&quot;            &quot;Library&quot;            
 ## [5] &quot;Cell_ranger_version&quot; &quot;Tissue_status&quot;</code></pre>
-<div class="sourceCode" id="cb254"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb254-1"><a href="reference-mapping.html#cb254-1" tabindex="-1"></a><span class="co"># summarize transferred labels across query groups</span></span>
-<span id="cb254-2"><a href="reference-mapping.html#cb254-2" tabindex="-1"></a><span class="fu">plot_reference_label_transfer_heatmap</span>(</span>
-<span id="cb254-3"><a href="reference-mapping.html#cb254-3" tabindex="-1"></a>    pbmc2,</span>
-<span id="cb254-4"><a href="reference-mapping.html#cb254-4" tabindex="-1"></a>    <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
-<span id="cb254-5"><a href="reference-mapping.html#cb254-5" tabindex="-1"></a>    <span class="at">id =</span> <span class="st">&quot;hpca_main&quot;</span></span>
-<span id="cb254-6"><a href="reference-mapping.html#cb254-6" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb94"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb94-1"><a href="reference-mapping.html#cb94-1" tabindex="-1"></a><span class="co"># summarize transferred labels across query groups</span></span>
+<span id="cb94-2"><a href="reference-mapping.html#cb94-2" tabindex="-1"></a><span class="fu">plot_reference_label_transfer_heatmap</span>(</span>
+<span id="cb94-3"><a href="reference-mapping.html#cb94-3" tabindex="-1"></a>    pbmc2,</span>
+<span id="cb94-4"><a href="reference-mapping.html#cb94-4" tabindex="-1"></a>    <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
+<span id="cb94-5"><a href="reference-mapping.html#cb94-5" tabindex="-1"></a>    <span class="at">id =</span> <span class="st">&quot;hpca_main&quot;</span></span>
+<span id="cb94-6"><a href="reference-mapping.html#cb94-6" tabindex="-1"></a>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/run-singleR-sclet-1.png" alt="" width="672" /></p>
-<div class="sourceCode" id="cb255"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb255-1"><a href="reference-mapping.html#cb255-1" tabindex="-1"></a><span class="co"># inspect confidence / score distributions across transferred labels</span></span>
-<span id="cb255-2"><a href="reference-mapping.html#cb255-2" tabindex="-1"></a><span class="fu">plot_reference_label_confidence</span>(</span>
-<span id="cb255-3"><a href="reference-mapping.html#cb255-3" tabindex="-1"></a>    pbmc2,</span>
-<span id="cb255-4"><a href="reference-mapping.html#cb255-4" tabindex="-1"></a>    <span class="at">id =</span> <span class="st">&quot;hpca_main&quot;</span></span>
-<span id="cb255-5"><a href="reference-mapping.html#cb255-5" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb95"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb95-1"><a href="reference-mapping.html#cb95-1" tabindex="-1"></a><span class="co"># inspect confidence / score distributions across transferred labels</span></span>
+<span id="cb95-2"><a href="reference-mapping.html#cb95-2" tabindex="-1"></a><span class="fu">plot_reference_label_confidence</span>(</span>
+<span id="cb95-3"><a href="reference-mapping.html#cb95-3" tabindex="-1"></a>    pbmc2,</span>
+<span id="cb95-4"><a href="reference-mapping.html#cb95-4" tabindex="-1"></a>    <span class="at">id =</span> <span class="st">&quot;hpca_main&quot;</span></span>
+<span id="cb95-5"><a href="reference-mapping.html#cb95-5" tabindex="-1"></a>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/run-singleR-sclet-2.png" alt="" width="672" /></p>
 </div>
 <div id="reference-mapping-workflow" class="section level3 hasAnchor" number="8.3.3">
 <h3><span class="header-section-number">8.3.3</span> Reference mapping workflow<a href="reference-mapping.html#reference-mapping-workflow" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p><code>RunReferenceWorkflow()</code> is the higher-level entry point for the same mainline. It is still useful to show in the book, but if the dependency stack gets heavy we can move this example to a separate cache workflow and let the rendered chapter read the saved result instead of recomputing it every time.</p>
-<div class="sourceCode" id="cb256"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb256-1"><a href="reference-mapping.html#cb256-1" tabindex="-1"></a>pbmc_ref <span class="ot">&lt;-</span> <span class="fu">RunReferenceWorkflow</span>(</span>
-<span id="cb256-2"><a href="reference-mapping.html#cb256-2" tabindex="-1"></a>    pbmc,</span>
-<span id="cb256-3"><a href="reference-mapping.html#cb256-3" tabindex="-1"></a>    <span class="at">ref =</span> hpca,</span>
-<span id="cb256-4"><a href="reference-mapping.html#cb256-4" tabindex="-1"></a>    <span class="at">labels =</span> hpca<span class="sc">$</span>label.main,</span>
-<span id="cb256-5"><a href="reference-mapping.html#cb256-5" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;SingleR&quot;</span>,</span>
-<span id="cb256-6"><a href="reference-mapping.html#cb256-6" tabindex="-1"></a>    <span class="at">layer =</span> <span class="st">&quot;logcounts&quot;</span>,</span>
-<span id="cb256-7"><a href="reference-mapping.html#cb256-7" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;reference_main&quot;</span></span>
-<span id="cb256-8"><a href="reference-mapping.html#cb256-8" tabindex="-1"></a>)</span></code></pre></div>
-<pre><code>## using unknown matrix fallback for &#39;HDF5ArraySeed&#39;</code></pre>
-<pre><code>## Annotation added to colData columns: &#39;reference_main_mapping_labels&#39; and &#39;reference_main_mapping_pruned.labels&#39;</code></pre>
-<div class="sourceCode" id="cb259"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb259-1"><a href="reference-mapping.html#cb259-1" tabindex="-1"></a><span class="fu">plot_reference_label_transfer_heatmap</span>(</span>
-<span id="cb259-2"><a href="reference-mapping.html#cb259-2" tabindex="-1"></a>    pbmc_ref,</span>
-<span id="cb259-3"><a href="reference-mapping.html#cb259-3" tabindex="-1"></a>    <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
-<span id="cb259-4"><a href="reference-mapping.html#cb259-4" tabindex="-1"></a>    <span class="at">id =</span> <span class="st">&quot;reference_main_mapping&quot;</span></span>
-<span id="cb259-5"><a href="reference-mapping.html#cb259-5" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb96"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb96-1"><a href="reference-mapping.html#cb96-1" tabindex="-1"></a>pbmc_ref <span class="ot">&lt;-</span> <span class="fu">RunReferenceWorkflow</span>(</span>
+<span id="cb96-2"><a href="reference-mapping.html#cb96-2" tabindex="-1"></a>    pbmc,</span>
+<span id="cb96-3"><a href="reference-mapping.html#cb96-3" tabindex="-1"></a>    <span class="at">ref =</span> hpca,</span>
+<span id="cb96-4"><a href="reference-mapping.html#cb96-4" tabindex="-1"></a>    <span class="at">labels =</span> hpca<span class="sc">$</span>label.main,</span>
+<span id="cb96-5"><a href="reference-mapping.html#cb96-5" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;SingleR&quot;</span>,</span>
+<span id="cb96-6"><a href="reference-mapping.html#cb96-6" tabindex="-1"></a>    <span class="at">layer =</span> <span class="st">&quot;logcounts&quot;</span>,</span>
+<span id="cb96-7"><a href="reference-mapping.html#cb96-7" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;reference_main&quot;</span></span>
+<span id="cb96-8"><a href="reference-mapping.html#cb96-8" tabindex="-1"></a>)</span>
+<span id="cb96-9"><a href="reference-mapping.html#cb96-9" tabindex="-1"></a></span>
+<span id="cb96-10"><a href="reference-mapping.html#cb96-10" tabindex="-1"></a><span class="fu">plot_reference_label_transfer_heatmap</span>(</span>
+<span id="cb96-11"><a href="reference-mapping.html#cb96-11" tabindex="-1"></a>    pbmc_ref,</span>
+<span id="cb96-12"><a href="reference-mapping.html#cb96-12" tabindex="-1"></a>    <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
+<span id="cb96-13"><a href="reference-mapping.html#cb96-13" tabindex="-1"></a>    <span class="at">id =</span> <span class="st">&quot;reference_main_mapping&quot;</span></span>
+<span id="cb96-14"><a href="reference-mapping.html#cb96-14" tabindex="-1"></a>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/run-reference-workflow-1.png" alt="" width="672" /></p>
-<div class="sourceCode" id="cb260"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb260-1"><a href="reference-mapping.html#cb260-1" tabindex="-1"></a><span class="fu">plot_reference_label_confidence</span>(</span>
-<span id="cb260-2"><a href="reference-mapping.html#cb260-2" tabindex="-1"></a>    pbmc_ref,</span>
-<span id="cb260-3"><a href="reference-mapping.html#cb260-3" tabindex="-1"></a>    <span class="at">id =</span> <span class="st">&quot;reference_main_mapping&quot;</span></span>
-<span id="cb260-4"><a href="reference-mapping.html#cb260-4" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb97"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb97-1"><a href="reference-mapping.html#cb97-1" tabindex="-1"></a><span class="fu">plot_reference_label_confidence</span>(</span>
+<span id="cb97-2"><a href="reference-mapping.html#cb97-2" tabindex="-1"></a>    pbmc_ref,</span>
+<span id="cb97-3"><a href="reference-mapping.html#cb97-3" tabindex="-1"></a>    <span class="at">id =</span> <span class="st">&quot;reference_main_mapping&quot;</span></span>
+<span id="cb97-4"><a href="reference-mapping.html#cb97-4" tabindex="-1"></a>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/run-reference-workflow-2.png" alt="" width="672" /></p>
 </div>
 <div id="symphony-atlas-mapping" class="section level3 hasAnchor" number="8.3.4">
 <h3><span class="header-section-number">8.3.4</span> Symphony Atlas Mapping<a href="reference-mapping.html#symphony-atlas-mapping" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>Symphony builds a harmonized reference atlas that integrates multiple batches, then projects query cells into the same space for label prediction via k-NN. This is especially useful when the reference includes substantial batch structure that should be modeled during integration.</p>
-<div class="sourceCode" id="cb261"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb261-1"><a href="reference-mapping.html#cb261-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb261-2"><a href="reference-mapping.html#cb261-2" tabindex="-1"></a><span class="co"># object: your query SingleCellExperiment</span></span>
-<span id="cb261-3"><a href="reference-mapping.html#cb261-3" tabindex="-1"></a><span class="co"># ref: a reference SingleCellExperiment with cell type labels in colData</span></span>
-<span id="cb261-4"><a href="reference-mapping.html#cb261-4" tabindex="-1"></a></span>
-<span id="cb261-5"><a href="reference-mapping.html#cb261-5" tabindex="-1"></a>object <span class="ot">&lt;-</span> <span class="fu">RunReferenceMapping</span>(</span>
-<span id="cb261-6"><a href="reference-mapping.html#cb261-6" tabindex="-1"></a>    <span class="at">object =</span> object,</span>
-<span id="cb261-7"><a href="reference-mapping.html#cb261-7" tabindex="-1"></a>    <span class="at">ref =</span> ref,</span>
-<span id="cb261-8"><a href="reference-mapping.html#cb261-8" tabindex="-1"></a>    <span class="at">labels =</span> <span class="st">&quot;cell_type&quot;</span>,</span>
-<span id="cb261-9"><a href="reference-mapping.html#cb261-9" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;Symphony&quot;</span>,</span>
-<span id="cb261-10"><a href="reference-mapping.html#cb261-10" tabindex="-1"></a>    <span class="at">vars =</span> <span class="fu">c</span>(<span class="st">&quot;donor&quot;</span>),      <span class="co"># batch variables to integrate over</span></span>
-<span id="cb261-11"><a href="reference-mapping.html#cb261-11" tabindex="-1"></a>    <span class="at">k =</span> <span class="dv">5</span>,</span>
-<span id="cb261-12"><a href="reference-mapping.html#cb261-12" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;symphony_demo&quot;</span></span>
-<span id="cb261-13"><a href="reference-mapping.html#cb261-13" tabindex="-1"></a>)</span>
-<span id="cb261-14"><a href="reference-mapping.html#cb261-14" tabindex="-1"></a></span>
-<span id="cb261-15"><a href="reference-mapping.html#cb261-15" tabindex="-1"></a><span class="co"># Inspect predictions</span></span>
-<span id="cb261-16"><a href="reference-mapping.html#cb261-16" tabindex="-1"></a><span class="fu">table</span>(object<span class="sc">$</span>symphony_predicted)</span>
-<span id="cb261-17"><a href="reference-mapping.html#cb261-17" tabindex="-1"></a><span class="fu">head</span>(object<span class="sc">$</span>symphony_confidence)</span>
-<span id="cb261-18"><a href="reference-mapping.html#cb261-18" tabindex="-1"></a></span>
-<span id="cb261-19"><a href="reference-mapping.html#cb261-19" tabindex="-1"></a><span class="co"># Inspect the recorded mapping state</span></span>
-<span id="cb261-20"><a href="reference-mapping.html#cb261-20" tabindex="-1"></a><span class="fu">get_mapping</span>(object, <span class="at">id =</span> <span class="st">&quot;symphony_demo&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb98"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb98-1"><a href="reference-mapping.html#cb98-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb98-2"><a href="reference-mapping.html#cb98-2" tabindex="-1"></a><span class="co"># object: your query SingleCellExperiment</span></span>
+<span id="cb98-3"><a href="reference-mapping.html#cb98-3" tabindex="-1"></a><span class="co"># ref: a reference SingleCellExperiment with cell type labels in colData</span></span>
+<span id="cb98-4"><a href="reference-mapping.html#cb98-4" tabindex="-1"></a></span>
+<span id="cb98-5"><a href="reference-mapping.html#cb98-5" tabindex="-1"></a>object <span class="ot">&lt;-</span> <span class="fu">RunReferenceMapping</span>(</span>
+<span id="cb98-6"><a href="reference-mapping.html#cb98-6" tabindex="-1"></a>    <span class="at">object =</span> object,</span>
+<span id="cb98-7"><a href="reference-mapping.html#cb98-7" tabindex="-1"></a>    <span class="at">ref =</span> ref,</span>
+<span id="cb98-8"><a href="reference-mapping.html#cb98-8" tabindex="-1"></a>    <span class="at">labels =</span> <span class="st">&quot;cell_type&quot;</span>,</span>
+<span id="cb98-9"><a href="reference-mapping.html#cb98-9" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;Symphony&quot;</span>,</span>
+<span id="cb98-10"><a href="reference-mapping.html#cb98-10" tabindex="-1"></a>    <span class="at">vars =</span> <span class="fu">c</span>(<span class="st">&quot;donor&quot;</span>),      <span class="co"># batch variables to integrate over</span></span>
+<span id="cb98-11"><a href="reference-mapping.html#cb98-11" tabindex="-1"></a>    <span class="at">k =</span> <span class="dv">5</span>,</span>
+<span id="cb98-12"><a href="reference-mapping.html#cb98-12" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;symphony_demo&quot;</span></span>
+<span id="cb98-13"><a href="reference-mapping.html#cb98-13" tabindex="-1"></a>)</span>
+<span id="cb98-14"><a href="reference-mapping.html#cb98-14" tabindex="-1"></a></span>
+<span id="cb98-15"><a href="reference-mapping.html#cb98-15" tabindex="-1"></a><span class="co"># Inspect predictions</span></span>
+<span id="cb98-16"><a href="reference-mapping.html#cb98-16" tabindex="-1"></a><span class="fu">table</span>(object<span class="sc">$</span>symphony_predicted)</span>
+<span id="cb98-17"><a href="reference-mapping.html#cb98-17" tabindex="-1"></a><span class="fu">head</span>(object<span class="sc">$</span>symphony_confidence)</span>
+<span id="cb98-18"><a href="reference-mapping.html#cb98-18" tabindex="-1"></a></span>
+<span id="cb98-19"><a href="reference-mapping.html#cb98-19" tabindex="-1"></a><span class="co"># Inspect the recorded mapping state</span></span>
+<span id="cb98-20"><a href="reference-mapping.html#cb98-20" tabindex="-1"></a><span class="fu">get_mapping</span>(object, <span class="at">id =</span> <span class="st">&quot;symphony_demo&quot;</span>)</span></code></pre></div>
 <p>Symphony mapping also works through <code>RunReferenceWorkflow()</code>:</p>
-<div class="sourceCode" id="cb262"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb262-1"><a href="reference-mapping.html#cb262-1" tabindex="-1"></a>object <span class="ot">&lt;-</span> <span class="fu">RunReferenceWorkflow</span>(</span>
-<span id="cb262-2"><a href="reference-mapping.html#cb262-2" tabindex="-1"></a>    object,</span>
-<span id="cb262-3"><a href="reference-mapping.html#cb262-3" tabindex="-1"></a>    <span class="at">ref =</span> ref,</span>
-<span id="cb262-4"><a href="reference-mapping.html#cb262-4" tabindex="-1"></a>    <span class="at">labels =</span> <span class="st">&quot;cell_type&quot;</span>,</span>
-<span id="cb262-5"><a href="reference-mapping.html#cb262-5" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;Symphony&quot;</span>,</span>
-<span id="cb262-6"><a href="reference-mapping.html#cb262-6" tabindex="-1"></a>    <span class="at">vars =</span> <span class="st">&quot;donor&quot;</span>,</span>
-<span id="cb262-7"><a href="reference-mapping.html#cb262-7" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;sym_ref&quot;</span></span>
-<span id="cb262-8"><a href="reference-mapping.html#cb262-8" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb99"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb99-1"><a href="reference-mapping.html#cb99-1" tabindex="-1"></a>object <span class="ot">&lt;-</span> <span class="fu">RunReferenceWorkflow</span>(</span>
+<span id="cb99-2"><a href="reference-mapping.html#cb99-2" tabindex="-1"></a>    object,</span>
+<span id="cb99-3"><a href="reference-mapping.html#cb99-3" tabindex="-1"></a>    <span class="at">ref =</span> ref,</span>
+<span id="cb99-4"><a href="reference-mapping.html#cb99-4" tabindex="-1"></a>    <span class="at">labels =</span> <span class="st">&quot;cell_type&quot;</span>,</span>
+<span id="cb99-5"><a href="reference-mapping.html#cb99-5" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;Symphony&quot;</span>,</span>
+<span id="cb99-6"><a href="reference-mapping.html#cb99-6" tabindex="-1"></a>    <span class="at">vars =</span> <span class="st">&quot;donor&quot;</span>,</span>
+<span id="cb99-7"><a href="reference-mapping.html#cb99-7" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;sym_ref&quot;</span></span>
+<span id="cb99-8"><a href="reference-mapping.html#cb99-8" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div id="state-aware-singler-provenance" class="section level3 hasAnchor" number="8.3.5">
 <h3><span class="header-section-number">8.3.5</span> State-aware SingleR provenance<a href="reference-mapping.html#state-aware-singler-provenance" class="anchor-section" aria-label="Anchor link to header"></a></h3>
@@ -673,28 +676,28 @@ div.csl-indent {
 </div>
 <div id="annotate-with-singler-result" class="section level3 hasAnchor" number="8.3.6">
 <h3><span class="header-section-number">8.3.6</span> Annotate with SingleR result<a href="reference-mapping.html#annotate-with-singler-result" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb263"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb263-1"><a href="reference-mapping.html#cb263-1" tabindex="-1"></a>pbmc[[<span class="st">&#39;hpca_label&#39;</span>]] <span class="ot">&lt;-</span> res<span class="sc">$</span>labels</span>
-<span id="cb263-2"><a href="reference-mapping.html#cb263-2" tabindex="-1"></a></span>
-<span id="cb263-3"><a href="reference-mapping.html#cb263-3" tabindex="-1"></a>pbmc[[<span class="st">&#39;dice_label&#39;</span>]] <span class="ot">&lt;-</span> res2<span class="sc">$</span>labels</span></code></pre></div>
+<div class="sourceCode" id="cb100"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb100-1"><a href="reference-mapping.html#cb100-1" tabindex="-1"></a>pbmc[[<span class="st">&#39;hpca_label&#39;</span>]] <span class="ot">&lt;-</span> res<span class="sc">$</span>labels</span>
+<span id="cb100-2"><a href="reference-mapping.html#cb100-2" tabindex="-1"></a></span>
+<span id="cb100-3"><a href="reference-mapping.html#cb100-3" tabindex="-1"></a>pbmc[[<span class="st">&#39;dice_label&#39;</span>]] <span class="ot">&lt;-</span> res2<span class="sc">$</span>labels</span></code></pre></div>
 </div>
 <div id="comparison-with-manual-annotation-result" class="section level3 hasAnchor" number="8.3.7">
 <h3><span class="header-section-number">8.3.7</span> Comparison with manual annotation result<a href="reference-mapping.html#comparison-with-manual-annotation-result" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb264"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb264-1"><a href="reference-mapping.html#cb264-1" tabindex="-1"></a><span class="co"># Ensure manual labels are available in colData for comparison</span></span>
-<span id="cb264-2"><a href="reference-mapping.html#cb264-2" tabindex="-1"></a>pbmc<span class="sc">$</span>label <span class="ot">&lt;-</span> SingleCellExperiment<span class="sc">::</span><span class="fu">colLabels</span>(pbmc)</span>
-<span id="cb264-3"><a href="reference-mapping.html#cb264-3" tabindex="-1"></a></span>
-<span id="cb264-4"><a href="reference-mapping.html#cb264-4" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">colData</span>(pbmc)[, <span class="fu">c</span>(<span class="st">&quot;label&quot;</span>, <span class="st">&quot;hpca_label&quot;</span>, <span class="st">&quot;dice_label&quot;</span>)]</span>
-<span id="cb264-5"><a href="reference-mapping.html#cb264-5" tabindex="-1"></a></span>
-<span id="cb264-6"><a href="reference-mapping.html#cb264-6" tabindex="-1"></a><span class="fu">plot_list</span>(</span>
-<span id="cb264-7"><a href="reference-mapping.html#cb264-7" tabindex="-1"></a>    <span class="at">manual =</span> <span class="fu">sc_dim</span>(pbmc, <span class="at">reduction=</span><span class="st">&quot;UMAP&quot;</span>),    </span>
-<span id="cb264-8"><a href="reference-mapping.html#cb264-8" tabindex="-1"></a>    <span class="at">hpca =</span> <span class="fu">sc_dim</span>(pbmc, <span class="at">reduction=</span><span class="st">&quot;UMAP&quot;</span>, <span class="at">mapping=</span><span class="fu">aes</span>(<span class="at">color=</span>hpca_label)),</span>
-<span id="cb264-9"><a href="reference-mapping.html#cb264-9" tabindex="-1"></a>    <span class="at">dice =</span> <span class="fu">sc_dim</span>(pbmc, <span class="at">reduction=</span><span class="st">&quot;UMAP&quot;</span>, <span class="at">mapping=</span><span class="fu">aes</span>(<span class="at">color=</span>dice_label)),</span>
-<span id="cb264-10"><a href="reference-mapping.html#cb264-10" tabindex="-1"></a>    <span class="at">ncol =</span> <span class="dv">3</span>) <span class="sc">&amp;</span> </span>
-<span id="cb264-11"><a href="reference-mapping.html#cb264-11" tabindex="-1"></a><span class="fu">sc_dim_geom_label</span>(<span class="at">geom =</span> ggrepel<span class="sc">::</span>geom_text_repel) <span class="sc">&amp;</span> </span>
-<span id="cb264-12"><a href="reference-mapping.html#cb264-12" tabindex="-1"></a><span class="fu">theme</span>(<span class="at">legend.position=</span><span class="st">&#39;inside&#39;</span>)</span>
-<span id="cb264-13"><a href="reference-mapping.html#cb264-13" tabindex="-1"></a></span>
-<span id="cb264-14"><a href="reference-mapping.html#cb264-14" tabindex="-1"></a><span class="fu">table</span>(x[,<span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)])</span>
-<span id="cb264-15"><a href="reference-mapping.html#cb264-15" tabindex="-1"></a></span>
-<span id="cb264-16"><a href="reference-mapping.html#cb264-16" tabindex="-1"></a><span class="fu">table</span>(x[,<span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>)])</span></code></pre></div>
+<div class="sourceCode" id="cb101"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb101-1"><a href="reference-mapping.html#cb101-1" tabindex="-1"></a><span class="co"># Ensure manual labels are available in colData for comparison</span></span>
+<span id="cb101-2"><a href="reference-mapping.html#cb101-2" tabindex="-1"></a>pbmc<span class="sc">$</span>label <span class="ot">&lt;-</span> SingleCellExperiment<span class="sc">::</span><span class="fu">colLabels</span>(pbmc)</span>
+<span id="cb101-3"><a href="reference-mapping.html#cb101-3" tabindex="-1"></a></span>
+<span id="cb101-4"><a href="reference-mapping.html#cb101-4" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">colData</span>(pbmc)[, <span class="fu">c</span>(<span class="st">&quot;label&quot;</span>, <span class="st">&quot;hpca_label&quot;</span>, <span class="st">&quot;dice_label&quot;</span>)]</span>
+<span id="cb101-5"><a href="reference-mapping.html#cb101-5" tabindex="-1"></a></span>
+<span id="cb101-6"><a href="reference-mapping.html#cb101-6" tabindex="-1"></a><span class="fu">plot_list</span>(</span>
+<span id="cb101-7"><a href="reference-mapping.html#cb101-7" tabindex="-1"></a>    <span class="at">manual =</span> <span class="fu">sc_dim</span>(pbmc, <span class="at">reduction=</span><span class="st">&quot;UMAP&quot;</span>),    </span>
+<span id="cb101-8"><a href="reference-mapping.html#cb101-8" tabindex="-1"></a>    <span class="at">hpca =</span> <span class="fu">sc_dim</span>(pbmc, <span class="at">reduction=</span><span class="st">&quot;UMAP&quot;</span>, <span class="at">mapping=</span><span class="fu">aes</span>(<span class="at">color=</span>hpca_label)),</span>
+<span id="cb101-9"><a href="reference-mapping.html#cb101-9" tabindex="-1"></a>    <span class="at">dice =</span> <span class="fu">sc_dim</span>(pbmc, <span class="at">reduction=</span><span class="st">&quot;UMAP&quot;</span>, <span class="at">mapping=</span><span class="fu">aes</span>(<span class="at">color=</span>dice_label)),</span>
+<span id="cb101-10"><a href="reference-mapping.html#cb101-10" tabindex="-1"></a>    <span class="at">ncol =</span> <span class="dv">3</span>) <span class="sc">&amp;</span> </span>
+<span id="cb101-11"><a href="reference-mapping.html#cb101-11" tabindex="-1"></a><span class="fu">sc_dim_geom_label</span>(<span class="at">geom =</span> ggrepel<span class="sc">::</span>geom_text_repel) <span class="sc">&amp;</span> </span>
+<span id="cb101-12"><a href="reference-mapping.html#cb101-12" tabindex="-1"></a><span class="fu">theme</span>(<span class="at">legend.position=</span><span class="st">&#39;inside&#39;</span>)</span>
+<span id="cb101-13"><a href="reference-mapping.html#cb101-13" tabindex="-1"></a></span>
+<span id="cb101-14"><a href="reference-mapping.html#cb101-14" tabindex="-1"></a><span class="fu">table</span>(x[,<span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)])</span>
+<span id="cb101-15"><a href="reference-mapping.html#cb101-15" tabindex="-1"></a></span>
+<span id="cb101-16"><a href="reference-mapping.html#cb101-16" tabindex="-1"></a><span class="fu">table</span>(x[,<span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>)])</span></code></pre></div>
 
 </div>
 </div>

@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>20 Velocity latent time | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="20 Velocity latent time | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="20 Velocity latent time | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -439,30 +444,30 @@ plot_program_dotplot(sce, programs = c(&quot;T_cell&quot;, &quot;B_cell&quot;, &
 plot_scenic_activity(sce, regulon = &quot;STAT1(+)&quot;)</code></pre>
 <div id="perturbation-priority" class="section level3 hasAnchor" number="20.0.1">
 <h3><span class="header-section-number">20.0.1</span> Perturbation Priority<a href="velocity-latent-time-1.html#perturbation-priority" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb549"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb549-1"><a href="velocity-latent-time-1.html#cb549-1" tabindex="-1"></a><span class="co"># Ranked bar chart of perturbation AUC per cell type</span></span>
-<span id="cb549-2"><a href="velocity-latent-time-1.html#cb549-2" tabindex="-1"></a><span class="fu">plot_perturbation_ranking</span>(sce)</span></code></pre></div>
+<div class="sourceCode" id="cb231"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb231-1"><a href="velocity-latent-time-1.html#cb231-1" tabindex="-1"></a><span class="co"># Ranked bar chart of perturbation AUC per cell type</span></span>
+<span id="cb231-2"><a href="velocity-latent-time-1.html#cb231-2" tabindex="-1"></a><span class="fu">plot_perturbation_ranking</span>(sce)</span></code></pre></div>
 </div>
 <div id="spatial-analysis" class="section level3 hasAnchor" number="20.0.2">
 <h3><span class="header-section-number">20.0.2</span> Spatial Analysis<a href="velocity-latent-time-1.html#spatial-analysis" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb550"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb550-1"><a href="velocity-latent-time-1.html#cb550-1" tabindex="-1"></a><span class="co"># Deconvolution composition bar chart</span></span>
-<span id="cb550-2"><a href="velocity-latent-time-1.html#cb550-2" tabindex="-1"></a><span class="fu">plot_spatial_deconvolution</span>(sce)</span>
-<span id="cb550-3"><a href="velocity-latent-time-1.html#cb550-3" tabindex="-1"></a></span>
-<span id="cb550-4"><a href="velocity-latent-time-1.html#cb550-4" tabindex="-1"></a><span class="co"># Cell type × spot proportion heatmap</span></span>
-<span id="cb550-5"><a href="velocity-latent-time-1.html#cb550-5" tabindex="-1"></a><span class="fu">plot_spatial_composition</span>(sce, <span class="at">n =</span> <span class="dv">10</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb232"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb232-1"><a href="velocity-latent-time-1.html#cb232-1" tabindex="-1"></a><span class="co"># Deconvolution composition bar chart</span></span>
+<span id="cb232-2"><a href="velocity-latent-time-1.html#cb232-2" tabindex="-1"></a><span class="fu">plot_spatial_deconvolution</span>(sce)</span>
+<span id="cb232-3"><a href="velocity-latent-time-1.html#cb232-3" tabindex="-1"></a></span>
+<span id="cb232-4"><a href="velocity-latent-time-1.html#cb232-4" tabindex="-1"></a><span class="co"># Cell type × spot proportion heatmap</span></span>
+<span id="cb232-5"><a href="velocity-latent-time-1.html#cb232-5" tabindex="-1"></a><span class="fu">plot_spatial_composition</span>(sce, <span class="at">n =</span> <span class="dv">10</span>)</span></code></pre></div>
 </div>
 <div id="cell-cell-communication" class="section level3 hasAnchor" number="20.0.3">
 <h3><span class="header-section-number">20.0.3</span> Cell-Cell Communication<a href="velocity-latent-time-1.html#cell-cell-communication" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb551"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb551-1"><a href="velocity-latent-time-1.html#cb551-1" tabindex="-1"></a><span class="fu">plot_cci_bubble</span>(sce, <span class="at">type =</span> <span class="st">&quot;interaction&quot;</span>)</span>
-<span id="cb551-2"><a href="velocity-latent-time-1.html#cb551-2" tabindex="-1"></a><span class="fu">plot_cci_sigmoid</span>(sce)</span>
-<span id="cb551-3"><a href="velocity-latent-time-1.html#cb551-3" tabindex="-1"></a><span class="fu">plot_cci_network</span>(sce)</span></code></pre></div>
+<div class="sourceCode" id="cb233"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb233-1"><a href="velocity-latent-time-1.html#cb233-1" tabindex="-1"></a><span class="fu">plot_cci_bubble</span>(sce, <span class="at">type =</span> <span class="st">&quot;interaction&quot;</span>)</span>
+<span id="cb233-2"><a href="velocity-latent-time-1.html#cb233-2" tabindex="-1"></a><span class="fu">plot_cci_sigmoid</span>(sce)</span>
+<span id="cb233-3"><a href="velocity-latent-time-1.html#cb233-3" tabindex="-1"></a><span class="fu">plot_cci_network</span>(sce)</span></code></pre></div>
 </div>
 <div id="reference-mapping-1" class="section level3 hasAnchor" number="20.0.4">
 <h3><span class="header-section-number">20.0.4</span> Reference Mapping<a href="velocity-latent-time-1.html#reference-mapping-1" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb552"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb552-1"><a href="velocity-latent-time-1.html#cb552-1" tabindex="-1"></a><span class="co"># Label transfer summary heatmap</span></span>
-<span id="cb552-2"><a href="velocity-latent-time-1.html#cb552-2" tabindex="-1"></a><span class="fu">plot_reference_label_transfer_heatmap</span>(sce, <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span>)</span>
-<span id="cb552-3"><a href="velocity-latent-time-1.html#cb552-3" tabindex="-1"></a></span>
-<span id="cb552-4"><a href="velocity-latent-time-1.html#cb552-4" tabindex="-1"></a><span class="co"># Per-label confidence distribution</span></span>
-<span id="cb552-5"><a href="velocity-latent-time-1.html#cb552-5" tabindex="-1"></a><span class="fu">plot_reference_label_confidence</span>(sce)</span></code></pre></div>
+<div class="sourceCode" id="cb234"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb234-1"><a href="velocity-latent-time-1.html#cb234-1" tabindex="-1"></a><span class="co"># Label transfer summary heatmap</span></span>
+<span id="cb234-2"><a href="velocity-latent-time-1.html#cb234-2" tabindex="-1"></a><span class="fu">plot_reference_label_transfer_heatmap</span>(sce, <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span>)</span>
+<span id="cb234-3"><a href="velocity-latent-time-1.html#cb234-3" tabindex="-1"></a></span>
+<span id="cb234-4"><a href="velocity-latent-time-1.html#cb234-4" tabindex="-1"></a><span class="co"># Per-label confidence distribution</span></span>
+<span id="cb234-5"><a href="velocity-latent-time-1.html#cb234-5" tabindex="-1"></a><span class="fu">plot_reference_label_confidence</span>(sce)</span></code></pre></div>
 
 </div>
 </div>

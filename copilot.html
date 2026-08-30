@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>26 AI Copilot &amp; Evidence Governance | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="26 AI Copilot &amp; Evidence Governance | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="26 AI Copilot &amp; Evidence Governance | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -427,11 +432,11 @@ div.csl-indent {
 <h2><span class="header-section-number">26.1</span> <code>sclet_copilot</code>: An AI That Understands Your Objects<a href="copilot.html#sclet_copilot-an-ai-that-understands-your-objects" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Unlike shallow prompt-chaining tools that merely concatenate strings for an LLM, <code>sclet_copilot</code> genuinely reads and comprehends the complete operational bloodline of your <code>SingleCellExperiment</code> object.</p>
 <p>To reproduce these examples locally, you need <code>aisdk</code> installed and either a default model configured via <code>aisdk::get_model()</code> or a compatible fallback model configured in the environment.</p>
-<div class="sourceCode" id="cb591"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb591-1"><a href="copilot.html#cb591-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb591-2"><a href="copilot.html#cb591-2" tabindex="-1"></a></span>
-<span id="cb591-3"><a href="copilot.html#cb591-3" tabindex="-1"></a><span class="co"># Assume &#39;sce&#39; has just completed Integration, UMAP, and Clustering.</span></span>
-<span id="cb591-4"><a href="copilot.html#cb591-4" tabindex="-1"></a><span class="co"># We can ask the AI Copilot directly:</span></span>
-<span id="cb591-5"><a href="copilot.html#cb591-5" tabindex="-1"></a><span class="fu">sclet_copilot</span>(sce, <span class="st">&quot;I just finished scVI batch correction and clustering. Based on my records, please evaluate if the parameter settings are reasonable. Is there a potential risk of over-alignment?&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb268"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb268-1"><a href="copilot.html#cb268-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb268-2"><a href="copilot.html#cb268-2" tabindex="-1"></a></span>
+<span id="cb268-3"><a href="copilot.html#cb268-3" tabindex="-1"></a><span class="co"># Assume &#39;sce&#39; has just completed Integration, UMAP, and Clustering.</span></span>
+<span id="cb268-4"><a href="copilot.html#cb268-4" tabindex="-1"></a><span class="co"># We can ask the AI Copilot directly:</span></span>
+<span id="cb268-5"><a href="copilot.html#cb268-5" tabindex="-1"></a><span class="fu">sclet_copilot</span>(sce, <span class="st">&quot;I just finished scVI batch correction and clustering. Based on my records, please evaluate if the parameter settings are reasonable. Is there a potential risk of over-alignment?&quot;</span>)</span></code></pre></div>
 <p><strong>What happens behind the scenes?</strong>
 <code>sclet</code> instantly extracts the current cell count, gene count, active states, and most importantly, the <strong>Analysis Provenance (e.g., scVI integration (batch=Donor) -&gt; Louvain clustering)</strong>. It feeds this highly structured context to the LLM (like DeepSeek or GPT-4). The AI isn’t guessing blindly; it is diagnosing your data by reading its complete medical history.</p>
 </div>
@@ -439,19 +444,19 @@ div.csl-indent {
 <h2><span class="header-section-number">26.2</span> <code>AuditAnalysisChain</code>: Cross-Chain Error Control<a href="copilot.html#auditanalysischain-cross-chain-error-control" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Suppose you use <code>RunDEtest</code> and identify a fantastic set of marker genes. Before jumping to conclusions, you want to perform a “cross-examination.”</p>
 <p>It shouldn’t be hard. Call <code>AuditAnalysisChain</code>:</p>
-<div class="sourceCode" id="cb592"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb592-1"><a href="copilot.html#cb592-1" tabindex="-1"></a><span class="co"># Suppose &#39;top_markers&#39; are 5 candidate DE genes you just identified</span></span>
-<span id="cb592-2"><a href="copilot.html#cb592-2" tabindex="-1"></a>top_markers <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;CD3D&quot;</span>, <span class="st">&quot;NKG7&quot;</span>, <span class="st">&quot;MS4A1&quot;</span>, <span class="st">&quot;LYZ&quot;</span>, <span class="st">&quot;GNLY&quot;</span>)</span>
-<span id="cb592-3"><a href="copilot.html#cb592-3" tabindex="-1"></a></span>
-<span id="cb592-4"><a href="copilot.html#cb592-4" tabindex="-1"></a><span class="co"># Ask the AI to backtrack: Is the expression of these genes distorted by the algorithm </span></span>
-<span id="cb592-5"><a href="copilot.html#cb592-5" tabindex="-1"></a><span class="co"># when comparing the raw counts to the integrated layer?</span></span>
-<span id="cb592-6"><a href="copilot.html#cb592-6" tabindex="-1"></a>report <span class="ot">&lt;-</span> <span class="fu">AuditAnalysisChain</span>(</span>
-<span id="cb592-7"><a href="copilot.html#cb592-7" tabindex="-1"></a>  sce, </span>
-<span id="cb592-8"><a href="copilot.html#cb592-8" tabindex="-1"></a>  <span class="at">features =</span> top_markers, </span>
-<span id="cb592-9"><a href="copilot.html#cb592-9" tabindex="-1"></a>  <span class="at">raw_layer =</span> <span class="st">&quot;counts&quot;</span>, </span>
-<span id="cb592-10"><a href="copilot.html#cb592-10" tabindex="-1"></a>  <span class="at">integrated_layer =</span> <span class="st">&quot;corrected&quot;</span></span>
-<span id="cb592-11"><a href="copilot.html#cb592-11" tabindex="-1"></a>)</span>
-<span id="cb592-12"><a href="copilot.html#cb592-12" tabindex="-1"></a></span>
-<span id="cb592-13"><a href="copilot.html#cb592-13" tabindex="-1"></a><span class="fu">cat</span>(report)</span></code></pre></div>
+<div class="sourceCode" id="cb269"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb269-1"><a href="copilot.html#cb269-1" tabindex="-1"></a><span class="co"># Suppose &#39;top_markers&#39; are 5 candidate DE genes you just identified</span></span>
+<span id="cb269-2"><a href="copilot.html#cb269-2" tabindex="-1"></a>top_markers <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;CD3D&quot;</span>, <span class="st">&quot;NKG7&quot;</span>, <span class="st">&quot;MS4A1&quot;</span>, <span class="st">&quot;LYZ&quot;</span>, <span class="st">&quot;GNLY&quot;</span>)</span>
+<span id="cb269-3"><a href="copilot.html#cb269-3" tabindex="-1"></a></span>
+<span id="cb269-4"><a href="copilot.html#cb269-4" tabindex="-1"></a><span class="co"># Ask the AI to backtrack: Is the expression of these genes distorted by the algorithm </span></span>
+<span id="cb269-5"><a href="copilot.html#cb269-5" tabindex="-1"></a><span class="co"># when comparing the raw counts to the integrated layer?</span></span>
+<span id="cb269-6"><a href="copilot.html#cb269-6" tabindex="-1"></a>report <span class="ot">&lt;-</span> <span class="fu">AuditAnalysisChain</span>(</span>
+<span id="cb269-7"><a href="copilot.html#cb269-7" tabindex="-1"></a>  sce, </span>
+<span id="cb269-8"><a href="copilot.html#cb269-8" tabindex="-1"></a>  <span class="at">features =</span> top_markers, </span>
+<span id="cb269-9"><a href="copilot.html#cb269-9" tabindex="-1"></a>  <span class="at">raw_layer =</span> <span class="st">&quot;counts&quot;</span>, </span>
+<span id="cb269-10"><a href="copilot.html#cb269-10" tabindex="-1"></a>  <span class="at">integrated_layer =</span> <span class="st">&quot;corrected&quot;</span></span>
+<span id="cb269-11"><a href="copilot.html#cb269-11" tabindex="-1"></a>)</span>
+<span id="cb269-12"><a href="copilot.html#cb269-12" tabindex="-1"></a></span>
+<span id="cb269-13"><a href="copilot.html#cb269-13" tabindex="-1"></a><span class="fu">cat</span>(report)</span></code></pre></div>
 <p><strong>How will the AI respond?</strong>
 By tracing the DAG state machine and applying R.A. Fisher’s “design foresight” alongside G.E.P. Box’s “model humility,” the AI calculates a <strong>State-Dependency Confidence Score</strong> for this gene set.</p>
 <p>This type of audit is most meaningful when the active integration method exposes a corrected expression layer, such as <code>fastMNN</code>. If your workflow only produced a corrected reduction (for example <code>Harmony</code> or <code>scVI</code>), the expression-level comparison shown here is no longer the right abstraction and should be adapted accordingly.</p>

@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>14 Spatial Context and Niche Analysis | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="14 Spatial Context and Niche Analysis | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="14 Spatial Context and Niche Analysis | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -423,95 +428,94 @@ div.csl-indent {
 <div id="spatial-mainline-workflow" class="section level2 hasAnchor" number="14.1">
 <h2><span class="header-section-number">14.1</span> Spatial Mainline Workflow<a href="spatial-context.html#spatial-mainline-workflow" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>The simplest entry point is the workflow shell. It dispatches deconvolution through cell2location and reserves colocalization and niche slots.</p>
-<div class="sourceCode" id="cb529"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb529-1"><a href="spatial-context.html#cb529-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb529-2"><a href="spatial-context.html#cb529-2" tabindex="-1"></a><span class="co"># sce_spatial: spatial SingleCellExperiment with &#39;counts&#39; assay</span></span>
-<span id="cb529-3"><a href="spatial-context.html#cb529-3" tabindex="-1"></a><span class="co"># sce_ref: reference scRNA-seq SCE with cell type labels</span></span>
-<span id="cb529-4"><a href="spatial-context.html#cb529-4" tabindex="-1"></a></span>
-<span id="cb529-5"><a href="spatial-context.html#cb529-5" tabindex="-1"></a>sce_spatial <span class="ot">&lt;-</span> <span class="fu">RunSpatialWorkflow</span>(</span>
-<span id="cb529-6"><a href="spatial-context.html#cb529-6" tabindex="-1"></a>    sce_spatial,</span>
-<span id="cb529-7"><a href="spatial-context.html#cb529-7" tabindex="-1"></a>    <span class="at">sce_ref =</span> sce_ref,</span>
-<span id="cb529-8"><a href="spatial-context.html#cb529-8" tabindex="-1"></a>    <span class="at">ref_group_key =</span> <span class="st">&quot;cell_type&quot;</span>,</span>
-<span id="cb529-9"><a href="spatial-context.html#cb529-9" tabindex="-1"></a>    <span class="at">run_deconvolution =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb529-10"><a href="spatial-context.html#cb529-10" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;my_spatial_analysis&quot;</span></span>
-<span id="cb529-11"><a href="spatial-context.html#cb529-11" tabindex="-1"></a>)</span>
-<span id="cb529-12"><a href="spatial-context.html#cb529-12" tabindex="-1"></a></span>
-<span id="cb529-13"><a href="spatial-context.html#cb529-13" tabindex="-1"></a><span class="co"># Check the active spatial state</span></span>
-<span id="cb529-14"><a href="spatial-context.html#cb529-14" tabindex="-1"></a><span class="fu">has_spatial</span>(sce_spatial)</span>
-<span id="cb529-15"><a href="spatial-context.html#cb529-15" tabindex="-1"></a><span class="fu">get_spatial</span>(sce_spatial)</span></code></pre></div>
+<div class="sourceCode" id="cb213"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb213-1"><a href="spatial-context.html#cb213-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb213-2"><a href="spatial-context.html#cb213-2" tabindex="-1"></a><span class="co"># sce_spatial: spatial SingleCellExperiment with &#39;counts&#39; assay</span></span>
+<span id="cb213-3"><a href="spatial-context.html#cb213-3" tabindex="-1"></a><span class="co"># sce_ref: reference scRNA-seq SCE with cell type labels</span></span>
+<span id="cb213-4"><a href="spatial-context.html#cb213-4" tabindex="-1"></a></span>
+<span id="cb213-5"><a href="spatial-context.html#cb213-5" tabindex="-1"></a>sce_spatial <span class="ot">&lt;-</span> <span class="fu">RunSpatialWorkflow</span>(</span>
+<span id="cb213-6"><a href="spatial-context.html#cb213-6" tabindex="-1"></a>    sce_spatial,</span>
+<span id="cb213-7"><a href="spatial-context.html#cb213-7" tabindex="-1"></a>    <span class="at">sce_ref =</span> sce_ref,</span>
+<span id="cb213-8"><a href="spatial-context.html#cb213-8" tabindex="-1"></a>    <span class="at">ref_group_key =</span> <span class="st">&quot;cell_type&quot;</span>,</span>
+<span id="cb213-9"><a href="spatial-context.html#cb213-9" tabindex="-1"></a>    <span class="at">run_deconvolution =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb213-10"><a href="spatial-context.html#cb213-10" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;my_spatial_analysis&quot;</span></span>
+<span id="cb213-11"><a href="spatial-context.html#cb213-11" tabindex="-1"></a>)</span>
+<span id="cb213-12"><a href="spatial-context.html#cb213-12" tabindex="-1"></a></span>
+<span id="cb213-13"><a href="spatial-context.html#cb213-13" tabindex="-1"></a><span class="co"># Check the active spatial state</span></span>
+<span id="cb213-14"><a href="spatial-context.html#cb213-14" tabindex="-1"></a><span class="fu">has_spatial</span>(sce_spatial)</span>
+<span id="cb213-15"><a href="spatial-context.html#cb213-15" tabindex="-1"></a><span class="fu">get_spatial</span>(sce_spatial)</span></code></pre></div>
 </div>
 <div id="high-resolution-spatial-deconvolution-cell2location" class="section level2 hasAnchor" number="14.2">
 <h2><span class="header-section-number">14.2</span> High-Resolution Spatial Deconvolution: Cell2location<a href="spatial-context.html#high-resolution-spatial-deconvolution-cell2location" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p><code>cell2location</code> is widely recognized as the “gold standard” for spatial deconvolution. It uses a negative binomial regression model to map scRNA-seq reference data onto spatial spots, inferring the true absolute abundance of each cell type within a given location.</p>
 <p>In <code>sclet</code>, this complex Bayesian inference is simplified into a single line of code:</p>
 <p>To run this locally, the minimum prerequisites are a spatial object with a <code>counts</code> assay, a reference <code>SCE</code> with the same gene space, and a biologically meaningful cell-type column in <code>colData(sce_ref)</code>. The <code>name</code> parameter lets you tag each run so that multiple deconvolution results can coexist in the same object.</p>
-<div class="sourceCode" id="cb530"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb530-1"><a href="spatial-context.html#cb530-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb530-2"><a href="spatial-context.html#cb530-2" tabindex="-1"></a><span class="co"># Assume &#39;sce_spatial&#39; is your spatial transcriptomics object, </span></span>
-<span id="cb530-3"><a href="spatial-context.html#cb530-3" tabindex="-1"></a><span class="co"># and &#39;sce_ref&#39; is your single-cell reference object with a &quot;cell_type&quot; column.</span></span>
-<span id="cb530-4"><a href="spatial-context.html#cb530-4" tabindex="-1"></a></span>
-<span id="cb530-5"><a href="spatial-context.html#cb530-5" tabindex="-1"></a>sce_spatial <span class="ot">&lt;-</span> <span class="fu">RunSpatialDeconvolution</span>(</span>
-<span id="cb530-6"><a href="spatial-context.html#cb530-6" tabindex="-1"></a>  sce_spatial, </span>
-<span id="cb530-7"><a href="spatial-context.html#cb530-7" tabindex="-1"></a>  sce_ref, </span>
-<span id="cb530-8"><a href="spatial-context.html#cb530-8" tabindex="-1"></a>  <span class="at">ref_group_key =</span> <span class="st">&quot;cell_type&quot;</span>,</span>
-<span id="cb530-9"><a href="spatial-context.html#cb530-9" tabindex="-1"></a>  <span class="at">max_epochs =</span> <span class="dv">50</span>,</span>
-<span id="cb530-10"><a href="spatial-context.html#cb530-10" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;my_deconv&quot;</span></span>
-<span id="cb530-11"><a href="spatial-context.html#cb530-11" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb214"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb214-1"><a href="spatial-context.html#cb214-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb214-2"><a href="spatial-context.html#cb214-2" tabindex="-1"></a><span class="co"># Assume &#39;sce_spatial&#39; is your spatial transcriptomics object, </span></span>
+<span id="cb214-3"><a href="spatial-context.html#cb214-3" tabindex="-1"></a><span class="co"># and &#39;sce_ref&#39; is your single-cell reference object with a &quot;cell_type&quot; column.</span></span>
+<span id="cb214-4"><a href="spatial-context.html#cb214-4" tabindex="-1"></a></span>
+<span id="cb214-5"><a href="spatial-context.html#cb214-5" tabindex="-1"></a>sce_spatial <span class="ot">&lt;-</span> <span class="fu">RunSpatialDeconvolution</span>(</span>
+<span id="cb214-6"><a href="spatial-context.html#cb214-6" tabindex="-1"></a>  sce_spatial, </span>
+<span id="cb214-7"><a href="spatial-context.html#cb214-7" tabindex="-1"></a>  sce_ref, </span>
+<span id="cb214-8"><a href="spatial-context.html#cb214-8" tabindex="-1"></a>  <span class="at">ref_group_key =</span> <span class="st">&quot;cell_type&quot;</span>,</span>
+<span id="cb214-9"><a href="spatial-context.html#cb214-9" tabindex="-1"></a>  <span class="at">max_epochs =</span> <span class="dv">50</span>,</span>
+<span id="cb214-10"><a href="spatial-context.html#cb214-10" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;my_deconv&quot;</span></span>
+<span id="cb214-11"><a href="spatial-context.html#cb214-11" tabindex="-1"></a>)</span></code></pre></div>
 <p><strong>Under the Hood:</strong>
 The function invokes the GPU (if available) via the <code>basilisk</code> environment to train the model. Once complete, the predicted abundances for each cell type are directly appended to <code>colData(sce_spatial)</code>, and the <code>spatial</code> state is activated through <code>sclet_set_analysis_state()</code>. Each run is also logged via <code>sclet_log_command()</code>, so <code>CommandLog(sce_spatial)</code> will show the parameters and timestamp. You can immediately use spatial plotting functions to visualize the distribution of specific cell types across the tissue slice.</p>
 </div>
 <div id="spatial-colocalization-with-svp" class="section level2 hasAnchor" number="14.3">
 <h2><span class="header-section-number">14.3</span> Spatial Colocalization with SVP<a href="spatial-context.html#spatial-colocalization-with-svp" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p><code>RunSpatialColocalization()</code> uses the SVP package’s global bivariate spatial autocorrelation (<code>runGLOBALBV()</code>) to test whether pairs of features tend to co-occur in the same spatial regions. The cached object below already contains the precomputed result, so bookdown only reads the saved object.</p>
-<div class="sourceCode" id="cb531"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb531-1"><a href="spatial-context.html#cb531-1" tabindex="-1"></a>spe <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;data/visium-dlpfc-sub.rds&quot;</span>)</span>
-<span id="cb531-2"><a href="spatial-context.html#cb531-2" tabindex="-1"></a>top_features <span class="ot">&lt;-</span> S4Vectors<span class="sc">::</span><span class="fu">metadata</span>(spe)<span class="sc">$</span>sclet_bookdown_cache<span class="sc">$</span>top_features</span></code></pre></div>
-<pre><code>## Loading required namespace: SpatialExperiment</code></pre>
-<div class="sourceCode" id="cb533"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb533-1"><a href="spatial-context.html#cb533-1" tabindex="-1"></a>top_features</span></code></pre></div>
+<div class="sourceCode" id="cb215"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb215-1"><a href="spatial-context.html#cb215-1" tabindex="-1"></a>spe <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;data/visium-dlpfc-sub.rds&quot;</span>)</span>
+<span id="cb215-2"><a href="spatial-context.html#cb215-2" tabindex="-1"></a>top_features <span class="ot">&lt;-</span> S4Vectors<span class="sc">::</span><span class="fu">metadata</span>(spe)<span class="sc">$</span>sclet_bookdown_cache<span class="sc">$</span>top_features</span>
+<span id="cb215-3"><a href="spatial-context.html#cb215-3" tabindex="-1"></a>top_features</span></code></pre></div>
 <pre><code>## [1] &quot;ENSG00000186468&quot; &quot;ENSG00000228253&quot; &quot;ENSG00000157152&quot;
 ## [4] &quot;ENSG00000133083&quot; &quot;ENSG00000058404&quot;</code></pre>
-<div class="sourceCode" id="cb535"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb535-1"><a href="spatial-context.html#cb535-1" tabindex="-1"></a><span class="fu">has_colocalization</span>(spe)</span></code></pre></div>
+<div class="sourceCode" id="cb217"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb217-1"><a href="spatial-context.html#cb217-1" tabindex="-1"></a><span class="fu">has_colocalization</span>(spe)</span></code></pre></div>
 <pre><code>## [1] FALSE</code></pre>
 </div>
 <div id="spatial-niche-detection-with-svp-lisa" class="section level2 hasAnchor" number="14.4">
 <h2><span class="header-section-number">14.4</span> Spatial Niche Detection with SVP LISA<a href="spatial-context.html#spatial-niche-detection-with-svp-lisa" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p><code>RunSpatialNiche()</code> uses SVP’s Local Indicators of Spatial Association (LISA). The cached object below already contains the precomputed LISA result.</p>
-<div class="sourceCode" id="cb537"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb537-1"><a href="spatial-context.html#cb537-1" tabindex="-1"></a><span class="fu">has_spatial_niche</span>(spe)</span></code></pre></div>
+<div class="sourceCode" id="cb219"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb219-1"><a href="spatial-context.html#cb219-1" tabindex="-1"></a><span class="fu">has_spatial_niche</span>(spe)</span></code></pre></div>
 <pre><code>## [1] FALSE</code></pre>
 </div>
 <div id="inspecting-spatial-results-across-layers" class="section level2 hasAnchor" number="14.5">
 <h2><span class="header-section-number">14.5</span> Inspecting Spatial Results Across Layers<a href="spatial-context.html#inspecting-spatial-results-across-layers" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Because all spatial functions now register through the unified state layer, a single accessor pattern works for deconvolution, colocalization, and niche results alike. When you keep multiple spatial records, use <code>id</code> to address a specific one.</p>
-<div class="sourceCode" id="cb539"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb539-1"><a href="spatial-context.html#cb539-1" tabindex="-1"></a><span class="co"># The default spatial record (active state)</span></span>
-<span id="cb539-2"><a href="spatial-context.html#cb539-2" tabindex="-1"></a><span class="fu">has_spatial</span>(sce)</span>
-<span id="cb539-3"><a href="spatial-context.html#cb539-3" tabindex="-1"></a><span class="fu">get_spatial</span>(sce, <span class="at">element =</span> <span class="st">&quot;columns&quot;</span>)</span>
-<span id="cb539-4"><a href="spatial-context.html#cb539-4" tabindex="-1"></a></span>
-<span id="cb539-5"><a href="spatial-context.html#cb539-5" tabindex="-1"></a><span class="co"># A specific spatial record by id</span></span>
-<span id="cb539-6"><a href="spatial-context.html#cb539-6" tabindex="-1"></a><span class="fu">get_spatial</span>(sce, <span class="at">id =</span> <span class="st">&quot;my_deconv&quot;</span>)</span>
-<span id="cb539-7"><a href="spatial-context.html#cb539-7" tabindex="-1"></a></span>
-<span id="cb539-8"><a href="spatial-context.html#cb539-8" tabindex="-1"></a><span class="co"># Colocalization and niche records have their own accessors</span></span>
-<span id="cb539-9"><a href="spatial-context.html#cb539-9" tabindex="-1"></a><span class="fu">has_colocalization</span>(sce)</span>
-<span id="cb539-10"><a href="spatial-context.html#cb539-10" tabindex="-1"></a><span class="fu">get_colocalization</span>(sce, <span class="at">element =</span> <span class="st">&quot;status&quot;</span>)</span>
-<span id="cb539-11"><a href="spatial-context.html#cb539-11" tabindex="-1"></a></span>
-<span id="cb539-12"><a href="spatial-context.html#cb539-12" tabindex="-1"></a><span class="fu">has_spatial_niche</span>(sce)</span></code></pre></div>
+<div class="sourceCode" id="cb221"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb221-1"><a href="spatial-context.html#cb221-1" tabindex="-1"></a><span class="co"># The default spatial record (active state)</span></span>
+<span id="cb221-2"><a href="spatial-context.html#cb221-2" tabindex="-1"></a><span class="fu">has_spatial</span>(sce)</span>
+<span id="cb221-3"><a href="spatial-context.html#cb221-3" tabindex="-1"></a><span class="fu">get_spatial</span>(sce, <span class="at">element =</span> <span class="st">&quot;columns&quot;</span>)</span>
+<span id="cb221-4"><a href="spatial-context.html#cb221-4" tabindex="-1"></a></span>
+<span id="cb221-5"><a href="spatial-context.html#cb221-5" tabindex="-1"></a><span class="co"># A specific spatial record by id</span></span>
+<span id="cb221-6"><a href="spatial-context.html#cb221-6" tabindex="-1"></a><span class="fu">get_spatial</span>(sce, <span class="at">id =</span> <span class="st">&quot;my_deconv&quot;</span>)</span>
+<span id="cb221-7"><a href="spatial-context.html#cb221-7" tabindex="-1"></a></span>
+<span id="cb221-8"><a href="spatial-context.html#cb221-8" tabindex="-1"></a><span class="co"># Colocalization and niche records have their own accessors</span></span>
+<span id="cb221-9"><a href="spatial-context.html#cb221-9" tabindex="-1"></a><span class="fu">has_colocalization</span>(sce)</span>
+<span id="cb221-10"><a href="spatial-context.html#cb221-10" tabindex="-1"></a><span class="fu">get_colocalization</span>(sce, <span class="at">element =</span> <span class="st">&quot;status&quot;</span>)</span>
+<span id="cb221-11"><a href="spatial-context.html#cb221-11" tabindex="-1"></a></span>
+<span id="cb221-12"><a href="spatial-context.html#cb221-12" tabindex="-1"></a><span class="fu">has_spatial_niche</span>(sce)</span></code></pre></div>
 </div>
 <div id="in-silico-gene-perturbation-celloracle" class="section level2 hasAnchor" number="14.6">
 <h2><span class="header-section-number">14.6</span> In-Silico Gene Perturbation: CellOracle<a href="spatial-context.html#in-silico-gene-perturbation-celloracle" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Differential expression tells you “what changed,” SCENIC tells you “who is controlling,” but <strong>CellOracle</strong> allows you to conduct <strong>thought experiments (In-silico Perturbation)</strong>.</p>
 <p>Imagine asking: <em>If I knockout the GATA2 gene in hematopoietic stem cells, how will their developmental trajectory shift?</em> Performing this in vitro is costly and time-consuming. In <code>sclet</code>, it takes only a few minutes of simulation.</p>
 <p>This simulation only makes sense after you have already constructed a compatible GRN prior and a dimensional representation that captures the state manifold you want to perturb.</p>
-<div class="sourceCode" id="cb540"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb540-1"><a href="spatial-context.html#cb540-1" tabindex="-1"></a><span class="co"># Assume &#39;sce&#39; has already been processed through SCENIC (to obtain a GRN), </span></span>
-<span id="cb540-2"><a href="spatial-context.html#cb540-2" tabindex="-1"></a><span class="co"># has an active dimensional reduction space, and you have exported a base GRN file.</span></span>
-<span id="cb540-3"><a href="spatial-context.html#cb540-3" tabindex="-1"></a>base_grn_path <span class="ot">&lt;-</span> <span class="st">&quot;path/to/celloracle_base_grn.csv&quot;</span></span>
-<span id="cb540-4"><a href="spatial-context.html#cb540-4" tabindex="-1"></a></span>
-<span id="cb540-5"><a href="spatial-context.html#cb540-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunInSilicoPerturbation</span>(</span>
-<span id="cb540-6"><a href="spatial-context.html#cb540-6" tabindex="-1"></a>  sce, </span>
-<span id="cb540-7"><a href="spatial-context.html#cb540-7" tabindex="-1"></a>  <span class="at">target_gene =</span> <span class="st">&quot;GATA2&quot;</span>, </span>
-<span id="cb540-8"><a href="spatial-context.html#cb540-8" tabindex="-1"></a>  <span class="at">perturbation_value =</span> <span class="fl">0.0</span>, <span class="co"># Simulate a full knockout</span></span>
-<span id="cb540-9"><a href="spatial-context.html#cb540-9" tabindex="-1"></a>  <span class="at">base_grn_path =</span> base_grn_path,</span>
-<span id="cb540-10"><a href="spatial-context.html#cb540-10" tabindex="-1"></a>  <span class="at">cluster_key =</span> <span class="st">&quot;cell_type&quot;</span>,</span>
-<span id="cb540-11"><a href="spatial-context.html#cb540-11" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span></span>
-<span id="cb540-12"><a href="spatial-context.html#cb540-12" tabindex="-1"></a>)</span>
-<span id="cb540-13"><a href="spatial-context.html#cb540-13" tabindex="-1"></a></span>
-<span id="cb540-14"><a href="spatial-context.html#cb540-14" tabindex="-1"></a><span class="co"># Inspect the perturbation state</span></span>
-<span id="cb540-15"><a href="spatial-context.html#cb540-15" tabindex="-1"></a><span class="fu">get_perturbation</span>(sce)</span></code></pre></div>
+<div class="sourceCode" id="cb222"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb222-1"><a href="spatial-context.html#cb222-1" tabindex="-1"></a><span class="co"># Assume &#39;sce&#39; has already been processed through SCENIC (to obtain a GRN), </span></span>
+<span id="cb222-2"><a href="spatial-context.html#cb222-2" tabindex="-1"></a><span class="co"># has an active dimensional reduction space, and you have exported a base GRN file.</span></span>
+<span id="cb222-3"><a href="spatial-context.html#cb222-3" tabindex="-1"></a>base_grn_path <span class="ot">&lt;-</span> <span class="st">&quot;path/to/celloracle_base_grn.csv&quot;</span></span>
+<span id="cb222-4"><a href="spatial-context.html#cb222-4" tabindex="-1"></a></span>
+<span id="cb222-5"><a href="spatial-context.html#cb222-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunInSilicoPerturbation</span>(</span>
+<span id="cb222-6"><a href="spatial-context.html#cb222-6" tabindex="-1"></a>  sce, </span>
+<span id="cb222-7"><a href="spatial-context.html#cb222-7" tabindex="-1"></a>  <span class="at">target_gene =</span> <span class="st">&quot;GATA2&quot;</span>, </span>
+<span id="cb222-8"><a href="spatial-context.html#cb222-8" tabindex="-1"></a>  <span class="at">perturbation_value =</span> <span class="fl">0.0</span>, <span class="co"># Simulate a full knockout</span></span>
+<span id="cb222-9"><a href="spatial-context.html#cb222-9" tabindex="-1"></a>  <span class="at">base_grn_path =</span> base_grn_path,</span>
+<span id="cb222-10"><a href="spatial-context.html#cb222-10" tabindex="-1"></a>  <span class="at">cluster_key =</span> <span class="st">&quot;cell_type&quot;</span>,</span>
+<span id="cb222-11"><a href="spatial-context.html#cb222-11" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span></span>
+<span id="cb222-12"><a href="spatial-context.html#cb222-12" tabindex="-1"></a>)</span>
+<span id="cb222-13"><a href="spatial-context.html#cb222-13" tabindex="-1"></a></span>
+<span id="cb222-14"><a href="spatial-context.html#cb222-14" tabindex="-1"></a><span class="co"># Inspect the perturbation state</span></span>
+<span id="cb222-15"><a href="spatial-context.html#cb222-15" tabindex="-1"></a><span class="fu">get_perturbation</span>(sce)</span></code></pre></div>
 <p><strong>The Impact:</strong>
 The inferred cellular shift vectors are carefully recorded. When combined with streamplots or vector field visualizations, you can intuitively observe on the UMAP space: in a parallel universe without <em>GATA2</em>, which terminal state are these cells “fleeing” from, and which incorrect lineage are they “rushing” toward?</p>
 

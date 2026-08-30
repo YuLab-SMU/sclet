@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>16 Enhanced Visualization | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="16 Enhanced Visualization | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="16 Enhanced Visualization | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -422,7 +427,7 @@ div.csl-indent {
 <p><code>sclet</code> provides an enhanced visualization ecosystem tightly integrated with the <code>ggsc</code> package. It offers high-level plotting functions that operate directly on <code>SingleCellExperiment</code> objects while still returning standard <code>ggplot2</code> objects, so you keep both convenience and full downstream customizability.</p>
 <div id="loading-data" class="section level2 hasAnchor" number="16.1">
 <h2><span class="header-section-number">16.1</span> Loading data<a href="enhanced-visualization.html#loading-data" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<div class="sourceCode" id="cb543"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb543-1"><a href="enhanced-visualization.html#cb543-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span></code></pre></div>
+<div class="sourceCode" id="cb225"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb225-1"><a href="enhanced-visualization.html#cb225-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span></code></pre></div>
 </div>
 <div id="dimensionality-reduction-plots" class="section level2 hasAnchor" number="16.2">
 <h2><span class="header-section-number">16.2</span> Dimensionality Reduction Plots<a href="enhanced-visualization.html#dimensionality-reduction-plots" class="anchor-section" aria-label="Anchor link to header"></a></h2>
@@ -430,53 +435,53 @@ div.csl-indent {
 <div id="celldimplot" class="section level3 hasAnchor" number="16.2.1">
 <h3><span class="header-section-number">16.2.1</span> CellDimPlot<a href="enhanced-visualization.html#celldimplot" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p><code>CellDimPlot</code> is used to visualize categorical cell metadata on a reduced dimensional space (e.g., UMAP, PCA).</p>
-<div class="sourceCode" id="cb544"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb544-1"><a href="enhanced-visualization.html#cb544-1" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
-<span id="cb544-2"><a href="enhanced-visualization.html#cb544-2" tabindex="-1"></a><span class="fu">library</span>(aplot)</span>
-<span id="cb544-3"><a href="enhanced-visualization.html#cb544-3" tabindex="-1"></a></span>
-<span id="cb544-4"><a href="enhanced-visualization.html#cb544-4" tabindex="-1"></a><span class="co"># Visualize clustering results</span></span>
-<span id="cb544-5"><a href="enhanced-visualization.html#cb544-5" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">CellDimPlot</span>(pbmc, <span class="at">group.by =</span> <span class="st">&quot;ident&quot;</span>) <span class="sc">+</span> <span class="fu">ggtitle</span>(<span class="st">&quot;Clusters&quot;</span>)</span>
-<span id="cb544-6"><a href="enhanced-visualization.html#cb544-6" tabindex="-1"></a></span>
-<span id="cb544-7"><a href="enhanced-visualization.html#cb544-7" tabindex="-1"></a><span class="co"># Visualize batch or other metadata</span></span>
-<span id="cb544-8"><a href="enhanced-visualization.html#cb544-8" tabindex="-1"></a><span class="co"># Assuming we have a &#39;label&#39; column in colData</span></span>
-<span id="cb544-9"><a href="enhanced-visualization.html#cb544-9" tabindex="-1"></a><span class="cf">if</span> (<span class="st">&quot;label&quot;</span> <span class="sc">%in%</span> <span class="fu">colnames</span>(<span class="fu">colData</span>(pbmc))) {</span>
-<span id="cb544-10"><a href="enhanced-visualization.html#cb544-10" tabindex="-1"></a>    p2 <span class="ot">&lt;-</span> <span class="fu">CellDimPlot</span>(pbmc, <span class="at">group.by =</span> <span class="st">&quot;label&quot;</span>) <span class="sc">+</span> <span class="fu">ggtitle</span>(<span class="st">&quot;Cell Types&quot;</span>)</span>
-<span id="cb544-11"><a href="enhanced-visualization.html#cb544-11" tabindex="-1"></a>    <span class="fu">plot_list</span>(p1, p2)</span>
-<span id="cb544-12"><a href="enhanced-visualization.html#cb544-12" tabindex="-1"></a>} <span class="cf">else</span> {</span>
-<span id="cb544-13"><a href="enhanced-visualization.html#cb544-13" tabindex="-1"></a>    p1</span>
-<span id="cb544-14"><a href="enhanced-visualization.html#cb544-14" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb226"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb226-1"><a href="enhanced-visualization.html#cb226-1" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb226-2"><a href="enhanced-visualization.html#cb226-2" tabindex="-1"></a><span class="fu">library</span>(aplot)</span>
+<span id="cb226-3"><a href="enhanced-visualization.html#cb226-3" tabindex="-1"></a></span>
+<span id="cb226-4"><a href="enhanced-visualization.html#cb226-4" tabindex="-1"></a><span class="co"># Visualize clustering results</span></span>
+<span id="cb226-5"><a href="enhanced-visualization.html#cb226-5" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">CellDimPlot</span>(pbmc, <span class="at">group.by =</span> <span class="st">&quot;ident&quot;</span>) <span class="sc">+</span> <span class="fu">ggtitle</span>(<span class="st">&quot;Clusters&quot;</span>)</span>
+<span id="cb226-6"><a href="enhanced-visualization.html#cb226-6" tabindex="-1"></a></span>
+<span id="cb226-7"><a href="enhanced-visualization.html#cb226-7" tabindex="-1"></a><span class="co"># Visualize batch or other metadata</span></span>
+<span id="cb226-8"><a href="enhanced-visualization.html#cb226-8" tabindex="-1"></a><span class="co"># Assuming we have a &#39;label&#39; column in colData</span></span>
+<span id="cb226-9"><a href="enhanced-visualization.html#cb226-9" tabindex="-1"></a><span class="cf">if</span> (<span class="st">&quot;label&quot;</span> <span class="sc">%in%</span> <span class="fu">colnames</span>(<span class="fu">colData</span>(pbmc))) {</span>
+<span id="cb226-10"><a href="enhanced-visualization.html#cb226-10" tabindex="-1"></a>    p2 <span class="ot">&lt;-</span> <span class="fu">CellDimPlot</span>(pbmc, <span class="at">group.by =</span> <span class="st">&quot;label&quot;</span>) <span class="sc">+</span> <span class="fu">ggtitle</span>(<span class="st">&quot;Cell Types&quot;</span>)</span>
+<span id="cb226-11"><a href="enhanced-visualization.html#cb226-11" tabindex="-1"></a>    <span class="fu">plot_list</span>(p1, p2)</span>
+<span id="cb226-12"><a href="enhanced-visualization.html#cb226-12" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb226-13"><a href="enhanced-visualization.html#cb226-13" tabindex="-1"></a>    p1</span>
+<span id="cb226-14"><a href="enhanced-visualization.html#cb226-14" tabindex="-1"></a>}</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cell-dim-plot-1.png" alt="" width="1152" /></p>
 </div>
 <div id="featuredimplot" class="section level3 hasAnchor" number="16.2.2">
 <h3><span class="header-section-number">16.2.2</span> FeatureDimPlot<a href="enhanced-visualization.html#featuredimplot" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p><code>FeatureDimPlot</code> is used to visualize continuous variables, such as gene expression levels, on the reduced dimensional space.</p>
-<div class="sourceCode" id="cb545"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb545-1"><a href="enhanced-visualization.html#cb545-1" tabindex="-1"></a><span class="co"># Visualize expression of specific marker genes</span></span>
-<span id="cb545-2"><a href="enhanced-visualization.html#cb545-2" tabindex="-1"></a><span class="fu">FeatureDimPlot</span>(pbmc, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">&quot;MS4A1&quot;</span>, <span class="st">&quot;CD8A&quot;</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb227"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb227-1"><a href="enhanced-visualization.html#cb227-1" tabindex="-1"></a><span class="co"># Visualize expression of specific marker genes</span></span>
+<span id="cb227-2"><a href="enhanced-visualization.html#cb227-2" tabindex="-1"></a><span class="fu">FeatureDimPlot</span>(pbmc, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">&quot;MS4A1&quot;</span>, <span class="st">&quot;CD8A&quot;</span>))</span></code></pre></div>
 <p><img src="sclet_files/figure-html/feature-dim-plot-1.png" alt="" width="1152" /></p>
 </div>
 </div>
 <div id="expression-heatmaps" class="section level2 hasAnchor" number="16.3">
 <h2><span class="header-section-number">16.3</span> Expression Heatmaps<a href="enhanced-visualization.html#expression-heatmaps" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p><code>GroupHeatmap</code> provides a convenient way to visualize the average expression of features across different cell groups using <code>scater::plotGroupedHeatmap</code>.</p>
-<div class="sourceCode" id="cb546"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb546-1"><a href="enhanced-visualization.html#cb546-1" tabindex="-1"></a><span class="co"># Define a set of marker genes</span></span>
-<span id="cb546-2"><a href="enhanced-visualization.html#cb546-2" tabindex="-1"></a>markers <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;IL7R&quot;</span>, <span class="st">&quot;CD14&quot;</span>, <span class="st">&quot;LYZ&quot;</span>, <span class="st">&quot;MS4A1&quot;</span>, <span class="st">&quot;CD8A&quot;</span>, <span class="st">&quot;FCGR3A&quot;</span>, <span class="st">&quot;MS4A7&quot;</span>)</span>
-<span id="cb546-3"><a href="enhanced-visualization.html#cb546-3" tabindex="-1"></a></span>
-<span id="cb546-4"><a href="enhanced-visualization.html#cb546-4" tabindex="-1"></a><span class="co"># Plot average expression by cluster</span></span>
-<span id="cb546-5"><a href="enhanced-visualization.html#cb546-5" tabindex="-1"></a><span class="fu">GroupHeatmap</span>(pbmc, <span class="at">features =</span> markers, <span class="at">group.by =</span> <span class="st">&quot;ident&quot;</span>, <span class="at">scale =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb228"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb228-1"><a href="enhanced-visualization.html#cb228-1" tabindex="-1"></a><span class="co"># Define a set of marker genes</span></span>
+<span id="cb228-2"><a href="enhanced-visualization.html#cb228-2" tabindex="-1"></a>markers <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;IL7R&quot;</span>, <span class="st">&quot;CD14&quot;</span>, <span class="st">&quot;LYZ&quot;</span>, <span class="st">&quot;MS4A1&quot;</span>, <span class="st">&quot;CD8A&quot;</span>, <span class="st">&quot;FCGR3A&quot;</span>, <span class="st">&quot;MS4A7&quot;</span>)</span>
+<span id="cb228-3"><a href="enhanced-visualization.html#cb228-3" tabindex="-1"></a></span>
+<span id="cb228-4"><a href="enhanced-visualization.html#cb228-4" tabindex="-1"></a><span class="co"># Plot average expression by cluster</span></span>
+<span id="cb228-5"><a href="enhanced-visualization.html#cb228-5" tabindex="-1"></a><span class="fu">GroupHeatmap</span>(pbmc, <span class="at">features =</span> markers, <span class="at">group.by =</span> <span class="st">&quot;ident&quot;</span>, <span class="at">scale =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/group-heatmap-1.png" alt="" width="768" /></p>
 </div>
 <div id="cell-statistics" class="section level2 hasAnchor" number="16.4">
 <h2><span class="header-section-number">16.4</span> Cell Statistics<a href="enhanced-visualization.html#cell-statistics" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p><code>CellStatPlot</code> is useful for visualizing the composition of cell groups (e.g., cell type proportions across different conditions).</p>
-<div class="sourceCode" id="cb547"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb547-1"><a href="enhanced-visualization.html#cb547-1" tabindex="-1"></a><span class="co"># If we have multiple samples or batches, we can plot the proportion of each cluster</span></span>
-<span id="cb547-2"><a href="enhanced-visualization.html#cb547-2" tabindex="-1"></a><span class="co"># Here we just use a simulated &#39;batch&#39; column for demonstration if one doesn&#39;t exist</span></span>
-<span id="cb547-3"><a href="enhanced-visualization.html#cb547-3" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="st">&quot;batch&quot;</span> <span class="sc">%in%</span> <span class="fu">colnames</span>(<span class="fu">colData</span>(pbmc))) {</span>
-<span id="cb547-4"><a href="enhanced-visualization.html#cb547-4" tabindex="-1"></a>    <span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
-<span id="cb547-5"><a href="enhanced-visualization.html#cb547-5" tabindex="-1"></a>    pbmc<span class="sc">$</span>batch <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="fu">c</span>(<span class="st">&quot;Sample1&quot;</span>, <span class="st">&quot;Sample2&quot;</span>), <span class="fu">ncol</span>(pbmc), <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb547-6"><a href="enhanced-visualization.html#cb547-6" tabindex="-1"></a>}</span>
-<span id="cb547-7"><a href="enhanced-visualization.html#cb547-7" tabindex="-1"></a></span>
-<span id="cb547-8"><a href="enhanced-visualization.html#cb547-8" tabindex="-1"></a><span class="fu">CellStatPlot</span>(pbmc, <span class="at">stat.by =</span> <span class="st">&quot;ident&quot;</span>, <span class="at">group.by =</span> <span class="st">&quot;batch&quot;</span>, <span class="at">position =</span> <span class="st">&quot;fill&quot;</span>) <span class="sc">+</span></span>
-<span id="cb547-9"><a href="enhanced-visualization.html#cb547-9" tabindex="-1"></a>    <span class="fu">ylab</span>(<span class="st">&quot;Proportion&quot;</span>) <span class="sc">+</span></span>
-<span id="cb547-10"><a href="enhanced-visualization.html#cb547-10" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb229"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb229-1"><a href="enhanced-visualization.html#cb229-1" tabindex="-1"></a><span class="co"># If we have multiple samples or batches, we can plot the proportion of each cluster</span></span>
+<span id="cb229-2"><a href="enhanced-visualization.html#cb229-2" tabindex="-1"></a><span class="co"># Here we just use a simulated &#39;batch&#39; column for demonstration if one doesn&#39;t exist</span></span>
+<span id="cb229-3"><a href="enhanced-visualization.html#cb229-3" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="st">&quot;batch&quot;</span> <span class="sc">%in%</span> <span class="fu">colnames</span>(<span class="fu">colData</span>(pbmc))) {</span>
+<span id="cb229-4"><a href="enhanced-visualization.html#cb229-4" tabindex="-1"></a>    <span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb229-5"><a href="enhanced-visualization.html#cb229-5" tabindex="-1"></a>    pbmc<span class="sc">$</span>batch <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="fu">c</span>(<span class="st">&quot;Sample1&quot;</span>, <span class="st">&quot;Sample2&quot;</span>), <span class="fu">ncol</span>(pbmc), <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb229-6"><a href="enhanced-visualization.html#cb229-6" tabindex="-1"></a>}</span>
+<span id="cb229-7"><a href="enhanced-visualization.html#cb229-7" tabindex="-1"></a></span>
+<span id="cb229-8"><a href="enhanced-visualization.html#cb229-8" tabindex="-1"></a><span class="fu">CellStatPlot</span>(pbmc, <span class="at">stat.by =</span> <span class="st">&quot;ident&quot;</span>, <span class="at">group.by =</span> <span class="st">&quot;batch&quot;</span>, <span class="at">position =</span> <span class="st">&quot;fill&quot;</span>) <span class="sc">+</span></span>
+<span id="cb229-9"><a href="enhanced-visualization.html#cb229-9" tabindex="-1"></a>    <span class="fu">ylab</span>(<span class="st">&quot;Proportion&quot;</span>) <span class="sc">+</span></span>
+<span id="cb229-10"><a href="enhanced-visualization.html#cb229-10" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cell-stat-plot-1.png" alt="" width="768" /></p>
 <p>These visualization functions are designed to minimize boilerplate code while remaining fully compatible with <code>ggplot2</code> grammar (<code>+ theme()</code>, <code>+ scale_color_manual()</code>, etc.).</p>
 </div>

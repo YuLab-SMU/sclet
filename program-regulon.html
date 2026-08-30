@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>10 Program, Regulon, and Mechanistic Interpretation | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="10 Program, Regulon, and Mechanistic Interpretation | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="10 Program, Regulon, and Mechanistic Interpretation | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -430,32 +435,28 @@ div.csl-indent {
 <div id="multi-backend-scoring-in-one-click" class="section level2 hasAnchor" number="10.2">
 <h2><span class="header-section-number">10.2</span> Multi-Backend Scoring in One Click<a href="program-regulon.html#multi-backend-scoring-in-one-click" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Let’s define a few gene sets of interest and run the scoring on our PBMC dataset.</p>
-<div class="sourceCode" id="cb419"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb419-1"><a href="program-regulon.html#cb419-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb419-2"><a href="program-regulon.html#cb419-2" tabindex="-1"></a></span>
-<span id="cb419-3"><a href="program-regulon.html#cb419-3" tabindex="-1"></a><span class="co"># Define signatures</span></span>
-<span id="cb419-4"><a href="program-regulon.html#cb419-4" tabindex="-1"></a>my_signatures <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb419-5"><a href="program-regulon.html#cb419-5" tabindex="-1"></a>  <span class="at">T_cell =</span> <span class="fu">c</span>(<span class="st">&quot;CD3D&quot;</span>, <span class="st">&quot;CD3E&quot;</span>, <span class="st">&quot;CD8A&quot;</span>, <span class="st">&quot;CD4&quot;</span>),</span>
-<span id="cb419-6"><a href="program-regulon.html#cb419-6" tabindex="-1"></a>  <span class="at">B_cell =</span> <span class="fu">c</span>(<span class="st">&quot;CD79A&quot;</span>, <span class="st">&quot;MS4A1&quot;</span>),</span>
-<span id="cb419-7"><a href="program-regulon.html#cb419-7" tabindex="-1"></a>  <span class="at">Myeloid =</span> <span class="fu">c</span>(<span class="st">&quot;LYZ&quot;</span>, <span class="st">&quot;CD14&quot;</span>, <span class="st">&quot;FCGR3A&quot;</span>)</span>
-<span id="cb419-8"><a href="program-regulon.html#cb419-8" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb152"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb152-1"><a href="program-regulon.html#cb152-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb152-2"><a href="program-regulon.html#cb152-2" tabindex="-1"></a></span>
+<span id="cb152-3"><a href="program-regulon.html#cb152-3" tabindex="-1"></a><span class="co"># Define signatures</span></span>
+<span id="cb152-4"><a href="program-regulon.html#cb152-4" tabindex="-1"></a>my_signatures <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb152-5"><a href="program-regulon.html#cb152-5" tabindex="-1"></a>  <span class="at">T_cell =</span> <span class="fu">c</span>(<span class="st">&quot;CD3D&quot;</span>, <span class="st">&quot;CD3E&quot;</span>, <span class="st">&quot;CD8A&quot;</span>, <span class="st">&quot;CD4&quot;</span>),</span>
+<span id="cb152-6"><a href="program-regulon.html#cb152-6" tabindex="-1"></a>  <span class="at">B_cell =</span> <span class="fu">c</span>(<span class="st">&quot;CD79A&quot;</span>, <span class="st">&quot;MS4A1&quot;</span>),</span>
+<span id="cb152-7"><a href="program-regulon.html#cb152-7" tabindex="-1"></a>  <span class="at">Myeloid =</span> <span class="fu">c</span>(<span class="st">&quot;LYZ&quot;</span>, <span class="st">&quot;CD14&quot;</span>, <span class="st">&quot;FCGR3A&quot;</span>)</span>
+<span id="cb152-8"><a href="program-regulon.html#cb152-8" tabindex="-1"></a>)</span></code></pre></div>
 <p>You can decisively choose the backend that best fits your needs. <code>UCell</code> is rank-based, extremely fast, and highly suitable for single-cell data.</p>
-<div class="sourceCode" id="cb420"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb420-1"><a href="program-regulon.html#cb420-1" tabindex="-1"></a><span class="co"># Use UCell backend</span></span>
-<span id="cb420-2"><a href="program-regulon.html#cb420-2" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RunGeneSetScoring</span>(pbmc, <span class="at">gene_sets =</span> my_signatures, <span class="at">method =</span> <span class="st">&quot;UCell&quot;</span>, <span class="at">name =</span> <span class="st">&quot;UCellScore&quot;</span>)</span></code></pre></div>
-<pre><code>## Running UCell scoring...</code></pre>
-<pre><code>## Gene set scoring completed using UCell. Added 3 columns to colData.</code></pre>
+<div class="sourceCode" id="cb153"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb153-1"><a href="program-regulon.html#cb153-1" tabindex="-1"></a><span class="co"># Use UCell backend</span></span>
+<span id="cb153-2"><a href="program-regulon.html#cb153-2" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RunGeneSetScoring</span>(pbmc, <span class="at">gene_sets =</span> my_signatures, <span class="at">method =</span> <span class="st">&quot;UCell&quot;</span>, <span class="at">name =</span> <span class="st">&quot;UCellScore&quot;</span>)</span></code></pre></div>
 </div>
 <div id="program-mainline-workflow" class="section level2 hasAnchor" number="10.3">
 <h2><span class="header-section-number">10.3</span> Program mainline workflow<a href="program-regulon.html#program-mainline-workflow" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>If you want to organize pathway scoring and regulon activity as one coherent interpretation mainline, use <code>RunProgramWorkflow()</code> as the semantic entry point. It keeps the analysis story centered on “which programs are active” instead of “which backend did I call”.</p>
-<div class="sourceCode" id="cb423"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb423-1"><a href="program-regulon.html#cb423-1" tabindex="-1"></a>pbmc_program <span class="ot">&lt;-</span> pbmc</span>
-<span id="cb423-2"><a href="program-regulon.html#cb423-2" tabindex="-1"></a>pbmc_program <span class="ot">&lt;-</span> <span class="fu">RunProgramWorkflow</span>(</span>
-<span id="cb423-3"><a href="program-regulon.html#cb423-3" tabindex="-1"></a>  pbmc_program,</span>
-<span id="cb423-4"><a href="program-regulon.html#cb423-4" tabindex="-1"></a>  <span class="at">gene_sets =</span> my_signatures,</span>
-<span id="cb423-5"><a href="program-regulon.html#cb423-5" tabindex="-1"></a>  <span class="at">scoring_method =</span> <span class="st">&quot;UCell&quot;</span>,</span>
-<span id="cb423-6"><a href="program-regulon.html#cb423-6" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;program_main&quot;</span></span>
-<span id="cb423-7"><a href="program-regulon.html#cb423-7" tabindex="-1"></a>)</span></code></pre></div>
-<pre><code>## Running UCell scoring...</code></pre>
-<pre><code>## Gene set scoring completed using UCell. Added 3 columns to colData.</code></pre>
+<div class="sourceCode" id="cb154"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb154-1"><a href="program-regulon.html#cb154-1" tabindex="-1"></a>pbmc_program <span class="ot">&lt;-</span> pbmc</span>
+<span id="cb154-2"><a href="program-regulon.html#cb154-2" tabindex="-1"></a>pbmc_program <span class="ot">&lt;-</span> <span class="fu">RunProgramWorkflow</span>(</span>
+<span id="cb154-3"><a href="program-regulon.html#cb154-3" tabindex="-1"></a>  pbmc_program,</span>
+<span id="cb154-4"><a href="program-regulon.html#cb154-4" tabindex="-1"></a>  <span class="at">gene_sets =</span> my_signatures,</span>
+<span id="cb154-5"><a href="program-regulon.html#cb154-5" tabindex="-1"></a>  <span class="at">scoring_method =</span> <span class="st">&quot;UCell&quot;</span>,</span>
+<span id="cb154-6"><a href="program-regulon.html#cb154-6" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;program_main&quot;</span></span>
+<span id="cb154-7"><a href="program-regulon.html#cb154-7" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div id="reading-and-visualizing-results" class="section level2 hasAnchor" number="10.4">
 <h2><span class="header-section-number">10.4</span> Reading and Visualizing Results<a href="program-regulon.html#reading-and-visualizing-results" class="anchor-section" aria-label="Anchor link to header"></a></h2>
@@ -463,8 +464,8 @@ div.csl-indent {
 1. By default, they are added as columns in the cellular metadata (<code>colData</code>).
 2. The action is recorded in the <code>geneset_scoring</code> state machine.</p>
 <p>Because the scores are now registered as a state-aware analysis result, we can inspect their provenance and directly plot a single program through a unified activity consumer:</p>
-<div class="sourceCode" id="cb426"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb426-1"><a href="program-regulon.html#cb426-1" tabindex="-1"></a><span class="co"># Inspect the scoring state provenance</span></span>
-<span id="cb426-2"><a href="program-regulon.html#cb426-2" tabindex="-1"></a><span class="fu">get_geneset_scoring</span>(pbmc, <span class="at">id =</span> <span class="st">&quot;UCellScore&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb155"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb155-1"><a href="program-regulon.html#cb155-1" tabindex="-1"></a><span class="co"># Inspect the scoring state provenance</span></span>
+<span id="cb155-2"><a href="program-regulon.html#cb155-2" tabindex="-1"></a><span class="fu">get_geneset_scoring</span>(pbmc, <span class="at">id =</span> <span class="st">&quot;UCellScore&quot;</span>)</span></code></pre></div>
 <pre><code>## $id
 ## [1] &quot;UCellScore&quot;
 ## 
@@ -511,7 +512,7 @@ div.csl-indent {
 ## 
 ## 
 ## $created_at
-## [1] &quot;2026-07-20 04:21:27 UTC&quot;
+## [1] &quot;2026-08-29 18:13:27 CST&quot;
 ## 
 ## $assay_use
 ## [1] &quot;counts&quot;
@@ -523,60 +524,52 @@ div.csl-indent {
 ## [1] FALSE
 ## 
 ## $timestamp
-## [1] &quot;2026-07-20 04:21:27 UTC&quot;</code></pre>
-<div class="sourceCode" id="cb428"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb428-1"><a href="program-regulon.html#cb428-1" tabindex="-1"></a><span class="co"># Visualize the T_cell score distribution on the UMAP space</span></span>
-<span id="cb428-2"><a href="program-regulon.html#cb428-2" tabindex="-1"></a><span class="fu">plot_program_activity</span>(pbmc, <span class="at">program =</span> <span class="st">&quot;T_cell&quot;</span>, <span class="at">source =</span> <span class="st">&quot;geneset_scoring&quot;</span>, <span class="at">id =</span> <span class="st">&quot;UCellScore&quot;</span>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
+## [1] &quot;2026-08-29 18:13:27 CST&quot;</code></pre>
+<div class="sourceCode" id="cb157"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb157-1"><a href="program-regulon.html#cb157-1" tabindex="-1"></a><span class="co"># Visualize the T_cell score distribution on the UMAP space</span></span>
+<span id="cb157-2"><a href="program-regulon.html#cb157-2" tabindex="-1"></a><span class="fu">plot_program_activity</span>(pbmc, <span class="at">program =</span> <span class="st">&quot;T_cell&quot;</span>, <span class="at">source =</span> <span class="st">&quot;geneset_scoring&quot;</span>, <span class="at">id =</span> <span class="st">&quot;UCellScore&quot;</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/geneset-plot-1.png" alt="" width="1152" /></p>
-<div class="sourceCode" id="cb433"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb433-1"><a href="program-regulon.html#cb433-1" tabindex="-1"></a><span class="co"># Summarize multiple programs across groups</span></span>
-<span id="cb433-2"><a href="program-regulon.html#cb433-2" tabindex="-1"></a><span class="fu">plot_program_heatmap</span>(</span>
-<span id="cb433-3"><a href="program-regulon.html#cb433-3" tabindex="-1"></a>  pbmc,</span>
-<span id="cb433-4"><a href="program-regulon.html#cb433-4" tabindex="-1"></a>  <span class="at">programs =</span> <span class="fu">c</span>(<span class="st">&quot;T_cell&quot;</span>, <span class="st">&quot;B_cell&quot;</span>, <span class="st">&quot;Myeloid&quot;</span>),</span>
-<span id="cb433-5"><a href="program-regulon.html#cb433-5" tabindex="-1"></a>  <span class="at">source =</span> <span class="st">&quot;geneset_scoring&quot;</span>,</span>
-<span id="cb433-6"><a href="program-regulon.html#cb433-6" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
-<span id="cb433-7"><a href="program-regulon.html#cb433-7" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;UCellScore&quot;</span></span>
-<span id="cb433-8"><a href="program-regulon.html#cb433-8" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb158"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb158-1"><a href="program-regulon.html#cb158-1" tabindex="-1"></a><span class="co"># Summarize multiple programs across groups</span></span>
+<span id="cb158-2"><a href="program-regulon.html#cb158-2" tabindex="-1"></a><span class="fu">plot_program_heatmap</span>(</span>
+<span id="cb158-3"><a href="program-regulon.html#cb158-3" tabindex="-1"></a>  pbmc,</span>
+<span id="cb158-4"><a href="program-regulon.html#cb158-4" tabindex="-1"></a>  <span class="at">programs =</span> <span class="fu">c</span>(<span class="st">&quot;T_cell&quot;</span>, <span class="st">&quot;B_cell&quot;</span>, <span class="st">&quot;Myeloid&quot;</span>),</span>
+<span id="cb158-5"><a href="program-regulon.html#cb158-5" tabindex="-1"></a>  <span class="at">source =</span> <span class="st">&quot;geneset_scoring&quot;</span>,</span>
+<span id="cb158-6"><a href="program-regulon.html#cb158-6" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
+<span id="cb158-7"><a href="program-regulon.html#cb158-7" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;UCellScore&quot;</span></span>
+<span id="cb158-8"><a href="program-regulon.html#cb158-8" tabindex="-1"></a>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/geneset-plot-2.png" alt="" width="1152" /></p>
-<div class="sourceCode" id="cb434"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb434-1"><a href="program-regulon.html#cb434-1" tabindex="-1"></a><span class="fu">plot_program_activity</span>(</span>
-<span id="cb434-2"><a href="program-regulon.html#cb434-2" tabindex="-1"></a>  pbmc_program,</span>
-<span id="cb434-3"><a href="program-regulon.html#cb434-3" tabindex="-1"></a>  <span class="at">program =</span> <span class="st">&quot;T_cell&quot;</span>,</span>
-<span id="cb434-4"><a href="program-regulon.html#cb434-4" tabindex="-1"></a>  <span class="at">source =</span> <span class="st">&quot;geneset_scoring&quot;</span>,</span>
-<span id="cb434-5"><a href="program-regulon.html#cb434-5" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;program_main_scores&quot;</span></span>
-<span id="cb434-6"><a href="program-regulon.html#cb434-6" tabindex="-1"></a>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
+<div class="sourceCode" id="cb159"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb159-1"><a href="program-regulon.html#cb159-1" tabindex="-1"></a><span class="fu">plot_program_activity</span>(</span>
+<span id="cb159-2"><a href="program-regulon.html#cb159-2" tabindex="-1"></a>  pbmc_program,</span>
+<span id="cb159-3"><a href="program-regulon.html#cb159-3" tabindex="-1"></a>  <span class="at">program =</span> <span class="st">&quot;T_cell&quot;</span>,</span>
+<span id="cb159-4"><a href="program-regulon.html#cb159-4" tabindex="-1"></a>  <span class="at">source =</span> <span class="st">&quot;geneset_scoring&quot;</span>,</span>
+<span id="cb159-5"><a href="program-regulon.html#cb159-5" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;program_main_scores&quot;</span></span>
+<span id="cb159-6"><a href="program-regulon.html#cb159-6" tabindex="-1"></a>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/geneset-workflow-plot-1.png" alt="" width="1152" /></p>
-<div class="sourceCode" id="cb439"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb439-1"><a href="program-regulon.html#cb439-1" tabindex="-1"></a><span class="fu">plot_program_heatmap</span>(</span>
-<span id="cb439-2"><a href="program-regulon.html#cb439-2" tabindex="-1"></a>  pbmc_program,</span>
-<span id="cb439-3"><a href="program-regulon.html#cb439-3" tabindex="-1"></a>  <span class="at">programs =</span> <span class="fu">c</span>(<span class="st">&quot;T_cell&quot;</span>, <span class="st">&quot;B_cell&quot;</span>, <span class="st">&quot;Myeloid&quot;</span>),</span>
-<span id="cb439-4"><a href="program-regulon.html#cb439-4" tabindex="-1"></a>  <span class="at">source =</span> <span class="st">&quot;geneset_scoring&quot;</span>,</span>
-<span id="cb439-5"><a href="program-regulon.html#cb439-5" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
-<span id="cb439-6"><a href="program-regulon.html#cb439-6" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;program_main_scores&quot;</span></span>
-<span id="cb439-7"><a href="program-regulon.html#cb439-7" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb160"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb160-1"><a href="program-regulon.html#cb160-1" tabindex="-1"></a><span class="fu">plot_program_heatmap</span>(</span>
+<span id="cb160-2"><a href="program-regulon.html#cb160-2" tabindex="-1"></a>  pbmc_program,</span>
+<span id="cb160-3"><a href="program-regulon.html#cb160-3" tabindex="-1"></a>  <span class="at">programs =</span> <span class="fu">c</span>(<span class="st">&quot;T_cell&quot;</span>, <span class="st">&quot;B_cell&quot;</span>, <span class="st">&quot;Myeloid&quot;</span>),</span>
+<span id="cb160-4"><a href="program-regulon.html#cb160-4" tabindex="-1"></a>  <span class="at">source =</span> <span class="st">&quot;geneset_scoring&quot;</span>,</span>
+<span id="cb160-5"><a href="program-regulon.html#cb160-5" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
+<span id="cb160-6"><a href="program-regulon.html#cb160-6" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;program_main_scores&quot;</span></span>
+<span id="cb160-7"><a href="program-regulon.html#cb160-7" tabindex="-1"></a>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/geneset-workflow-plot-2.png" alt="" width="1152" /></p>
 </div>
 <div id="advanced-pathway-discovery-altexp-and-runkegg" class="section level2 hasAnchor" number="10.5">
 <h2><span class="header-section-number">10.5</span> Advanced Pathway Discovery (altExp and RunKEGG)<a href="program-regulon.html#advanced-pathway-discovery-altexp-and-runkegg" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>When dealing with hundreds of pathways (like the entire KEGG database), dumping all scores into <code>colData</code> is messy. Instead, <code>sclet</code> allows storing these massive score matrices as an alternative experiment (<code>altExp</code>). This keeps your metadata clean while retaining perfect alignment with your cells.</p>
 <p>Furthermore, <code>sclet</code> provides <code>RunKEGG()</code> as a one-stop wrapper. It automatically downloads pathways via <code>clusterProfiler</code>, scores the cells using <code>UCell</code>, stores the matrix in an <code>altExp</code>, and even identifies cell-type specific marker pathways using robust Wilcoxon rank-sum tests via <code>FindMarkerPathways()</code>.</p>
-<div class="sourceCode" id="cb440"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb440-1"><a href="program-regulon.html#cb440-1" tabindex="-1"></a><span class="co"># Run the complete KEGG workflow</span></span>
-<span id="cb440-2"><a href="program-regulon.html#cb440-2" tabindex="-1"></a><span class="co"># Note: Requires org.Hs.eg.db for human data</span></span>
-<span id="cb440-3"><a href="program-regulon.html#cb440-3" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">RunKEGG</span>(pbmc, <span class="at">species =</span> <span class="st">&quot;hsa&quot;</span>, <span class="at">method =</span> <span class="st">&quot;UCell&quot;</span>, <span class="at">group.by =</span> <span class="st">&quot;seurat_annotations&quot;</span>)</span>
-<span id="cb440-4"><a href="program-regulon.html#cb440-4" tabindex="-1"></a></span>
-<span id="cb440-5"><a href="program-regulon.html#cb440-5" tabindex="-1"></a><span class="co"># The updated SCE object with the KEGG altExp</span></span>
-<span id="cb440-6"><a href="program-regulon.html#cb440-6" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> res<span class="sc">$</span>sce</span>
-<span id="cb440-7"><a href="program-regulon.html#cb440-7" tabindex="-1"></a></span>
-<span id="cb440-8"><a href="program-regulon.html#cb440-8" tabindex="-1"></a><span class="co"># The marker pathways data.frame</span></span>
-<span id="cb440-9"><a href="program-regulon.html#cb440-9" tabindex="-1"></a>kegg_markers <span class="ot">&lt;-</span> res<span class="sc">$</span>markers</span>
-<span id="cb440-10"><a href="program-regulon.html#cb440-10" tabindex="-1"></a><span class="fu">head</span>(kegg_markers)</span></code></pre></div>
+<div class="sourceCode" id="cb161"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb161-1"><a href="program-regulon.html#cb161-1" tabindex="-1"></a><span class="co"># Run the complete KEGG workflow</span></span>
+<span id="cb161-2"><a href="program-regulon.html#cb161-2" tabindex="-1"></a><span class="co"># Note: Requires org.Hs.eg.db for human data</span></span>
+<span id="cb161-3"><a href="program-regulon.html#cb161-3" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">RunKEGG</span>(pbmc, <span class="at">species =</span> <span class="st">&quot;hsa&quot;</span>, <span class="at">method =</span> <span class="st">&quot;UCell&quot;</span>, <span class="at">group.by =</span> <span class="st">&quot;seurat_annotations&quot;</span>)</span>
+<span id="cb161-4"><a href="program-regulon.html#cb161-4" tabindex="-1"></a></span>
+<span id="cb161-5"><a href="program-regulon.html#cb161-5" tabindex="-1"></a><span class="co"># The updated SCE object with the KEGG altExp</span></span>
+<span id="cb161-6"><a href="program-regulon.html#cb161-6" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> res<span class="sc">$</span>sce</span>
+<span id="cb161-7"><a href="program-regulon.html#cb161-7" tabindex="-1"></a></span>
+<span id="cb161-8"><a href="program-regulon.html#cb161-8" tabindex="-1"></a><span class="co"># The marker pathways data.frame</span></span>
+<span id="cb161-9"><a href="program-regulon.html#cb161-9" tabindex="-1"></a>kegg_markers <span class="ot">&lt;-</span> res<span class="sc">$</span>markers</span>
+<span id="cb161-10"><a href="program-regulon.html#cb161-10" tabindex="-1"></a><span class="fu">head</span>(kegg_markers)</span></code></pre></div>
 <p>You can also manually run differential testing on any pathway scores stored in an <code>altExp</code>:</p>
-<div class="sourceCode" id="cb441"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb441-1"><a href="program-regulon.html#cb441-1" tabindex="-1"></a><span class="co"># If you ran RunGeneSetScoring with as_altExp = TRUE and name = &quot;MyScores&quot;</span></span>
-<span id="cb441-2"><a href="program-regulon.html#cb441-2" tabindex="-1"></a>markers <span class="ot">&lt;-</span> <span class="fu">FindMarkerPathways</span>(pbmc, <span class="at">altExp_name =</span> <span class="st">&quot;MyScores&quot;</span>, <span class="at">group.by =</span> <span class="st">&quot;seurat_annotations&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb162"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb162-1"><a href="program-regulon.html#cb162-1" tabindex="-1"></a><span class="co"># If you ran RunGeneSetScoring with as_altExp = TRUE and name = &quot;MyScores&quot;</span></span>
+<span id="cb162-2"><a href="program-regulon.html#cb162-2" tabindex="-1"></a>markers <span class="ot">&lt;-</span> <span class="fu">FindMarkerPathways</span>(pbmc, <span class="at">altExp_name =</span> <span class="st">&quot;MyScores&quot;</span>, <span class="at">group.by =</span> <span class="st">&quot;seurat_annotations&quot;</span>)</span></code></pre></div>
 <p><strong>Bottom Line:</strong>
 Regardless of whether the underlying engine is <code>UCell</code> or <code>AUCell</code>, you can immediately plot the results with <code>FeatureDimPlot</code> or seamlessly run differential analysis. Life is too short to wrangle metadata formats.</p>
 </div>
@@ -594,103 +587,103 @@ Regardless of whether the underlying engine is <code>UCell</code> or <code>AUCel
 2. A list of transcription factors (<code>.txt</code>)
 3. The Motif database file (in <code>Feather</code> format)</p>
 <p>For most human or mouse analyses, this also means checking that your TF list, motif annotation table, and cisTarget ranking database all come from the same release family before you start the run.</p>
-<div class="sourceCode" id="cb442"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb442-1"><a href="program-regulon.html#cb442-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb442-2"><a href="program-regulon.html#cb442-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> pbmc</span>
-<span id="cb442-3"><a href="program-regulon.html#cb442-3" tabindex="-1"></a></span>
-<span id="cb442-4"><a href="program-regulon.html#cb442-4" tabindex="-1"></a><span class="co"># Cached small SCENIC reference files</span></span>
-<span id="cb442-5"><a href="program-regulon.html#cb442-5" tabindex="-1"></a>tfs_path <span class="ot">&lt;-</span> <span class="st">&quot;data/allTFs_hg38.txt&quot;</span></span>
-<span id="cb442-6"><a href="program-regulon.html#cb442-6" tabindex="-1"></a>motif_annotations_path <span class="ot">&lt;-</span> <span class="st">&quot;data/motifs-v9-nr.hgnc.tbl&quot;</span></span>
-<span id="cb442-7"><a href="program-regulon.html#cb442-7" tabindex="-1"></a></span>
-<span id="cb442-8"><a href="program-regulon.html#cb442-8" tabindex="-1"></a><span class="co"># The large cisTarget ranking database is optional in the book build.</span></span>
-<span id="cb442-9"><a href="program-regulon.html#cb442-9" tabindex="-1"></a>database_paths <span class="ot">&lt;-</span> <span class="st">&quot;data/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather&quot;</span></span>
-<span id="cb442-10"><a href="program-regulon.html#cb442-10" tabindex="-1"></a>env_database_paths <span class="ot">&lt;-</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;SCLET_SCENIC_DB&quot;</span>, <span class="at">unset =</span> <span class="st">&quot;&quot;</span>)</span>
-<span id="cb442-11"><a href="program-regulon.html#cb442-11" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">nzchar</span>(env_database_paths)) {</span>
-<span id="cb442-12"><a href="program-regulon.html#cb442-12" tabindex="-1"></a>    database_paths <span class="ot">&lt;-</span> <span class="fu">strsplit</span>(env_database_paths, .Platform<span class="sc">$</span>path.sep, <span class="at">fixed =</span> <span class="cn">TRUE</span>)[[<span class="dv">1</span>]]</span>
-<span id="cb442-13"><a href="program-regulon.html#cb442-13" tabindex="-1"></a>}</span>
-<span id="cb442-14"><a href="program-regulon.html#cb442-14" tabindex="-1"></a>scenic_db_ready <span class="ot">&lt;-</span> <span class="fu">length</span>(database_paths) <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">&amp;&amp;</span> <span class="fu">all</span>(<span class="fu">file.exists</span>(database_paths))</span>
-<span id="cb442-15"><a href="program-regulon.html#cb442-15" tabindex="-1"></a>scenic_db_ready</span></code></pre></div>
+<div class="sourceCode" id="cb163"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb163-1"><a href="program-regulon.html#cb163-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb163-2"><a href="program-regulon.html#cb163-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> pbmc</span>
+<span id="cb163-3"><a href="program-regulon.html#cb163-3" tabindex="-1"></a></span>
+<span id="cb163-4"><a href="program-regulon.html#cb163-4" tabindex="-1"></a><span class="co"># Cached small SCENIC reference files</span></span>
+<span id="cb163-5"><a href="program-regulon.html#cb163-5" tabindex="-1"></a>tfs_path <span class="ot">&lt;-</span> <span class="st">&quot;data/allTFs_hg38.txt&quot;</span></span>
+<span id="cb163-6"><a href="program-regulon.html#cb163-6" tabindex="-1"></a>motif_annotations_path <span class="ot">&lt;-</span> <span class="st">&quot;data/motifs-v9-nr.hgnc.tbl&quot;</span></span>
+<span id="cb163-7"><a href="program-regulon.html#cb163-7" tabindex="-1"></a></span>
+<span id="cb163-8"><a href="program-regulon.html#cb163-8" tabindex="-1"></a><span class="co"># The large cisTarget ranking database is optional in the book build.</span></span>
+<span id="cb163-9"><a href="program-regulon.html#cb163-9" tabindex="-1"></a>database_paths <span class="ot">&lt;-</span> <span class="st">&quot;data/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather&quot;</span></span>
+<span id="cb163-10"><a href="program-regulon.html#cb163-10" tabindex="-1"></a>env_database_paths <span class="ot">&lt;-</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;SCLET_SCENIC_DB&quot;</span>, <span class="at">unset =</span> <span class="st">&quot;&quot;</span>)</span>
+<span id="cb163-11"><a href="program-regulon.html#cb163-11" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">nzchar</span>(env_database_paths)) {</span>
+<span id="cb163-12"><a href="program-regulon.html#cb163-12" tabindex="-1"></a>    database_paths <span class="ot">&lt;-</span> <span class="fu">strsplit</span>(env_database_paths, .Platform<span class="sc">$</span>path.sep, <span class="at">fixed =</span> <span class="cn">TRUE</span>)[[<span class="dv">1</span>]]</span>
+<span id="cb163-13"><a href="program-regulon.html#cb163-13" tabindex="-1"></a>}</span>
+<span id="cb163-14"><a href="program-regulon.html#cb163-14" tabindex="-1"></a>scenic_db_ready <span class="ot">&lt;-</span> <span class="fu">length</span>(database_paths) <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">&amp;&amp;</span> <span class="fu">all</span>(<span class="fu">file.exists</span>(database_paths))</span>
+<span id="cb163-15"><a href="program-regulon.html#cb163-15" tabindex="-1"></a>scenic_db_ready</span></code></pre></div>
 <pre><code>## [1] FALSE</code></pre>
 </div>
 <div id="one-click-inference-and-scoring" class="section level2 hasAnchor" number="10.8">
 <h2><span class="header-section-number">10.8</span> One-Click Inference and Scoring<a href="program-regulon.html#one-click-inference-and-scoring" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Next, call <code>RunSCENIC()</code>. All heavy lifting—GRNBoost2 inference, Motif pruning, and AUCell scoring—will be executed blazingly fast in the Python backend.</p>
-<div class="sourceCode" id="cb444"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb444-1"><a href="program-regulon.html#cb444-1" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunSCENIC</span>(</span>
-<span id="cb444-2"><a href="program-regulon.html#cb444-2" tabindex="-1"></a>  sce,</span>
-<span id="cb444-3"><a href="program-regulon.html#cb444-3" tabindex="-1"></a>  <span class="at">tfs_path =</span> tfs_path,</span>
-<span id="cb444-4"><a href="program-regulon.html#cb444-4" tabindex="-1"></a>  <span class="at">motif_annotations_path =</span> motif_annotations_path,</span>
-<span id="cb444-5"><a href="program-regulon.html#cb444-5" tabindex="-1"></a>  <span class="at">database_paths =</span> database_paths,</span>
-<span id="cb444-6"><a href="program-regulon.html#cb444-6" tabindex="-1"></a>  <span class="at">assay_use =</span> <span class="st">&quot;counts&quot;</span>,</span>
-<span id="cb444-7"><a href="program-regulon.html#cb444-7" tabindex="-1"></a>  <span class="at">num_workers =</span> <span class="dv">8</span>,</span>
-<span id="cb444-8"><a href="program-regulon.html#cb444-8" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;scenic_main&quot;</span></span>
-<span id="cb444-9"><a href="program-regulon.html#cb444-9" tabindex="-1"></a>) <span class="co"># Supports multi-threading</span></span></code></pre></div>
+<div class="sourceCode" id="cb165"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb165-1"><a href="program-regulon.html#cb165-1" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunSCENIC</span>(</span>
+<span id="cb165-2"><a href="program-regulon.html#cb165-2" tabindex="-1"></a>  sce,</span>
+<span id="cb165-3"><a href="program-regulon.html#cb165-3" tabindex="-1"></a>  <span class="at">tfs_path =</span> tfs_path,</span>
+<span id="cb165-4"><a href="program-regulon.html#cb165-4" tabindex="-1"></a>  <span class="at">motif_annotations_path =</span> motif_annotations_path,</span>
+<span id="cb165-5"><a href="program-regulon.html#cb165-5" tabindex="-1"></a>  <span class="at">database_paths =</span> database_paths,</span>
+<span id="cb165-6"><a href="program-regulon.html#cb165-6" tabindex="-1"></a>  <span class="at">assay_use =</span> <span class="st">&quot;counts&quot;</span>,</span>
+<span id="cb165-7"><a href="program-regulon.html#cb165-7" tabindex="-1"></a>  <span class="at">num_workers =</span> <span class="dv">8</span>,</span>
+<span id="cb165-8"><a href="program-regulon.html#cb165-8" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;scenic_main&quot;</span></span>
+<span id="cb165-9"><a href="program-regulon.html#cb165-9" tabindex="-1"></a>) <span class="co"># Supports multi-threading</span></span></code></pre></div>
 </div>
 <div id="result-retrieval-and-state-awareness" class="section level2 hasAnchor" number="10.9">
 <h2><span class="header-section-number">10.9</span> Result Retrieval and State Awareness<a href="program-regulon.html#result-retrieval-and-state-awareness" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>After the run, where does the massive AUCell scoring matrix (tens of thousands of cells by hundreds of regulons) go?</p>
 <p>To keep the main SCE object clean and performant, <code>sclet</code> mounts this large scoring matrix as an <code>altExp</code> (Alternative Experiment) and records it in the <code>scenic</code> state. This means you can retrieve either the active SCENIC run or a specific run by <code>id</code>, instead of manually digging through <code>metadata()</code>.</p>
-<div class="sourceCode" id="cb445"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb445-1"><a href="program-regulon.html#cb445-1" tabindex="-1"></a><span class="co"># Check the currently active SCENIC state provenance</span></span>
-<span id="cb445-2"><a href="program-regulon.html#cb445-2" tabindex="-1"></a><span class="fu">get_scenic</span>(sce)</span>
-<span id="cb445-3"><a href="program-regulon.html#cb445-3" tabindex="-1"></a></span>
-<span id="cb445-4"><a href="program-regulon.html#cb445-4" tabindex="-1"></a><span class="co"># Retrieve a specific SCENIC run by id</span></span>
-<span id="cb445-5"><a href="program-regulon.html#cb445-5" tabindex="-1"></a><span class="fu">get_scenic</span>(sce, <span class="at">id =</span> <span class="st">&quot;scenic_main&quot;</span>)</span>
-<span id="cb445-6"><a href="program-regulon.html#cb445-6" tabindex="-1"></a></span>
-<span id="cb445-7"><a href="program-regulon.html#cb445-7" tabindex="-1"></a><span class="co"># Extract the AUCell matrix for downstream analysis</span></span>
-<span id="cb445-8"><a href="program-regulon.html#cb445-8" tabindex="-1"></a>auc_sce <span class="ot">&lt;-</span> SingleCellExperiment<span class="sc">::</span><span class="fu">altExp</span>(sce, <span class="st">&quot;SCENIC_AUC&quot;</span>)</span>
-<span id="cb445-9"><a href="program-regulon.html#cb445-9" tabindex="-1"></a>auc_matrix <span class="ot">&lt;-</span> SummarizedExperiment<span class="sc">::</span><span class="fu">assay</span>(auc_sce, <span class="st">&quot;AUC&quot;</span>)</span>
-<span id="cb445-10"><a href="program-regulon.html#cb445-10" tabindex="-1"></a></span>
-<span id="cb445-11"><a href="program-regulon.html#cb445-11" tabindex="-1"></a><span class="co"># Inspect available regulons</span></span>
-<span id="cb445-12"><a href="program-regulon.html#cb445-12" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">rownames</span>(auc_matrix))</span></code></pre></div>
+<div class="sourceCode" id="cb166"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb166-1"><a href="program-regulon.html#cb166-1" tabindex="-1"></a><span class="co"># Check the currently active SCENIC state provenance</span></span>
+<span id="cb166-2"><a href="program-regulon.html#cb166-2" tabindex="-1"></a><span class="fu">get_scenic</span>(sce)</span>
+<span id="cb166-3"><a href="program-regulon.html#cb166-3" tabindex="-1"></a></span>
+<span id="cb166-4"><a href="program-regulon.html#cb166-4" tabindex="-1"></a><span class="co"># Retrieve a specific SCENIC run by id</span></span>
+<span id="cb166-5"><a href="program-regulon.html#cb166-5" tabindex="-1"></a><span class="fu">get_scenic</span>(sce, <span class="at">id =</span> <span class="st">&quot;scenic_main&quot;</span>)</span>
+<span id="cb166-6"><a href="program-regulon.html#cb166-6" tabindex="-1"></a></span>
+<span id="cb166-7"><a href="program-regulon.html#cb166-7" tabindex="-1"></a><span class="co"># Extract the AUCell matrix for downstream analysis</span></span>
+<span id="cb166-8"><a href="program-regulon.html#cb166-8" tabindex="-1"></a>auc_sce <span class="ot">&lt;-</span> SingleCellExperiment<span class="sc">::</span><span class="fu">altExp</span>(sce, <span class="st">&quot;SCENIC_AUC&quot;</span>)</span>
+<span id="cb166-9"><a href="program-regulon.html#cb166-9" tabindex="-1"></a>auc_matrix <span class="ot">&lt;-</span> SummarizedExperiment<span class="sc">::</span><span class="fu">assay</span>(auc_sce, <span class="st">&quot;AUC&quot;</span>)</span>
+<span id="cb166-10"><a href="program-regulon.html#cb166-10" tabindex="-1"></a></span>
+<span id="cb166-11"><a href="program-regulon.html#cb166-11" tabindex="-1"></a><span class="co"># Inspect available regulons</span></span>
+<span id="cb166-12"><a href="program-regulon.html#cb166-12" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">rownames</span>(auc_matrix))</span></code></pre></div>
 </div>
 <div id="visualizing-regulon-activity" class="section level2 hasAnchor" number="10.10">
 <h2><span class="header-section-number">10.10</span> Visualizing Regulon Activity<a href="program-regulon.html#visualizing-regulon-activity" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Once the AUC matrix is stored, the next question is not “where is the result?”, but “can I directly visualize a regulon on my embedding?” That is exactly what <code>plot_scenic_activity()</code> is for.</p>
-<div class="sourceCode" id="cb446"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb446-1"><a href="program-regulon.html#cb446-1" tabindex="-1"></a><span class="co"># Make sure you already have a reduction such as UMAP</span></span>
-<span id="cb446-2"><a href="program-regulon.html#cb446-2" tabindex="-1"></a><span class="fu">DefaultReduction</span>(sce) <span class="ot">&lt;-</span> <span class="st">&quot;UMAP&quot;</span></span>
-<span id="cb446-3"><a href="program-regulon.html#cb446-3" tabindex="-1"></a></span>
-<span id="cb446-4"><a href="program-regulon.html#cb446-4" tabindex="-1"></a><span class="co"># Plot a single regulon on the active embedding</span></span>
-<span id="cb446-5"><a href="program-regulon.html#cb446-5" tabindex="-1"></a><span class="fu">plot_scenic_activity</span>(</span>
-<span id="cb446-6"><a href="program-regulon.html#cb446-6" tabindex="-1"></a>  sce,</span>
-<span id="cb446-7"><a href="program-regulon.html#cb446-7" tabindex="-1"></a>  <span class="at">regulon =</span> <span class="st">&quot;STAT1(+)&quot;</span>,</span>
-<span id="cb446-8"><a href="program-regulon.html#cb446-8" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;scenic_main&quot;</span></span>
-<span id="cb446-9"><a href="program-regulon.html#cb446-9" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb167"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb167-1"><a href="program-regulon.html#cb167-1" tabindex="-1"></a><span class="co"># Make sure you already have a reduction such as UMAP</span></span>
+<span id="cb167-2"><a href="program-regulon.html#cb167-2" tabindex="-1"></a><span class="fu">DefaultReduction</span>(sce) <span class="ot">&lt;-</span> <span class="st">&quot;UMAP&quot;</span></span>
+<span id="cb167-3"><a href="program-regulon.html#cb167-3" tabindex="-1"></a></span>
+<span id="cb167-4"><a href="program-regulon.html#cb167-4" tabindex="-1"></a><span class="co"># Plot a single regulon on the active embedding</span></span>
+<span id="cb167-5"><a href="program-regulon.html#cb167-5" tabindex="-1"></a><span class="fu">plot_scenic_activity</span>(</span>
+<span id="cb167-6"><a href="program-regulon.html#cb167-6" tabindex="-1"></a>  sce,</span>
+<span id="cb167-7"><a href="program-regulon.html#cb167-7" tabindex="-1"></a>  <span class="at">regulon =</span> <span class="st">&quot;STAT1(+)&quot;</span>,</span>
+<span id="cb167-8"><a href="program-regulon.html#cb167-8" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;scenic_main&quot;</span></span>
+<span id="cb167-9"><a href="program-regulon.html#cb167-9" tabindex="-1"></a>)</span></code></pre></div>
 <p><strong>Bottom Line:</strong>
 You can now treat SCENIC as a proper state-aware module: run it with a named record, retrieve it via <code>get_scenic(id = ...)</code>, and visualize a regulon directly with <code>plot_scenic_activity()</code>. From there, you can further perform dimensionality reduction and clustering on the <code>auc_matrix</code> to see whether cells group together based on “regulatory network activity” rather than only “gene expression levels”.</p>
 </div>
 <div id="unified-grn-entry-rungrn" class="section level2 hasAnchor" number="10.11">
 <h2><span class="header-section-number">10.11</span> Unified GRN Entry: <code>RunGRN()</code><a href="program-regulon.html#unified-grn-entry-rungrn" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>If your question is simply “what gene regulatory networks are active in my cells?”, the implementation detail of which backend you used should not matter. <code>RunGRN()</code> wraps <code>RunSCENIC()</code> as the default backend while leaving room for future methods (decoupleR, FigR, SCENIC+) through the same interface.</p>
-<div class="sourceCode" id="cb447"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb447-1"><a href="program-regulon.html#cb447-1" tabindex="-1"></a><span class="co"># Same parameters as RunSCENIC, different semantic framing</span></span>
-<span id="cb447-2"><a href="program-regulon.html#cb447-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunGRN</span>(</span>
-<span id="cb447-3"><a href="program-regulon.html#cb447-3" tabindex="-1"></a>    sce,</span>
-<span id="cb447-4"><a href="program-regulon.html#cb447-4" tabindex="-1"></a>    <span class="at">tfs_path =</span> tfs_path,</span>
-<span id="cb447-5"><a href="program-regulon.html#cb447-5" tabindex="-1"></a>    <span class="at">motif_annotations_path =</span> motif_annotations_path,</span>
-<span id="cb447-6"><a href="program-regulon.html#cb447-6" tabindex="-1"></a>    <span class="at">database_paths =</span> database_paths,</span>
-<span id="cb447-7"><a href="program-regulon.html#cb447-7" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;grn_main&quot;</span></span>
-<span id="cb447-8"><a href="program-regulon.html#cb447-8" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb168"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb168-1"><a href="program-regulon.html#cb168-1" tabindex="-1"></a><span class="co"># Same parameters as RunSCENIC, different semantic framing</span></span>
+<span id="cb168-2"><a href="program-regulon.html#cb168-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunGRN</span>(</span>
+<span id="cb168-3"><a href="program-regulon.html#cb168-3" tabindex="-1"></a>    sce,</span>
+<span id="cb168-4"><a href="program-regulon.html#cb168-4" tabindex="-1"></a>    <span class="at">tfs_path =</span> tfs_path,</span>
+<span id="cb168-5"><a href="program-regulon.html#cb168-5" tabindex="-1"></a>    <span class="at">motif_annotations_path =</span> motif_annotations_path,</span>
+<span id="cb168-6"><a href="program-regulon.html#cb168-6" tabindex="-1"></a>    <span class="at">database_paths =</span> database_paths,</span>
+<span id="cb168-7"><a href="program-regulon.html#cb168-7" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;grn_main&quot;</span></span>
+<span id="cb168-8"><a href="program-regulon.html#cb168-8" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div id="unified-program-access-get_program-has_program" class="section level2 hasAnchor" number="10.12">
 <h2><span class="header-section-number">10.12</span> Unified Program Access: <code>get_program()</code> / <code>has_program()</code><a href="program-regulon.html#unified-program-access-get_program-has_program" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Once you have signature scores and regulon activities in your object, you should not need to remember which source they came from. <code>get_program()</code> transparently resolves a program name from either gene set scoring or SCENIC, returning a per-cell activity vector. <code>has_program()</code> is the corresponding boolean guard.</p>
-<div class="sourceCode" id="cb448"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb448-1"><a href="program-regulon.html#cb448-1" tabindex="-1"></a><span class="co"># Check if a program exists</span></span>
-<span id="cb448-2"><a href="program-regulon.html#cb448-2" tabindex="-1"></a><span class="fu">has_program</span>(sce, <span class="st">&quot;T_cell&quot;</span>)</span>
-<span id="cb448-3"><a href="program-regulon.html#cb448-3" tabindex="-1"></a></span>
-<span id="cb448-4"><a href="program-regulon.html#cb448-4" tabindex="-1"></a><span class="co"># Get activity vector</span></span>
-<span id="cb448-5"><a href="program-regulon.html#cb448-5" tabindex="-1"></a>t_activity <span class="ot">&lt;-</span> <span class="fu">get_program</span>(sce, <span class="st">&quot;T_cell&quot;</span>, <span class="at">source =</span> <span class="st">&quot;auto&quot;</span>)</span>
-<span id="cb448-6"><a href="program-regulon.html#cb448-6" tabindex="-1"></a><span class="fu">head</span>(t_activity)</span>
-<span id="cb448-7"><a href="program-regulon.html#cb448-7" tabindex="-1"></a></span>
-<span id="cb448-8"><a href="program-regulon.html#cb448-8" tabindex="-1"></a><span class="co"># Same interface works for regulons</span></span>
-<span id="cb448-9"><a href="program-regulon.html#cb448-9" tabindex="-1"></a><span class="fu">has_program</span>(sce, <span class="st">&quot;STAT1(+)&quot;</span>, <span class="at">source =</span> <span class="st">&quot;scenic&quot;</span>)</span>
-<span id="cb448-10"><a href="program-regulon.html#cb448-10" tabindex="-1"></a>stat1 <span class="ot">&lt;-</span> <span class="fu">get_program</span>(sce, <span class="st">&quot;STAT1(+)&quot;</span>, <span class="at">source =</span> <span class="st">&quot;scenic&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb169"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb169-1"><a href="program-regulon.html#cb169-1" tabindex="-1"></a><span class="co"># Check if a program exists</span></span>
+<span id="cb169-2"><a href="program-regulon.html#cb169-2" tabindex="-1"></a><span class="fu">has_program</span>(sce, <span class="st">&quot;T_cell&quot;</span>)</span>
+<span id="cb169-3"><a href="program-regulon.html#cb169-3" tabindex="-1"></a></span>
+<span id="cb169-4"><a href="program-regulon.html#cb169-4" tabindex="-1"></a><span class="co"># Get activity vector</span></span>
+<span id="cb169-5"><a href="program-regulon.html#cb169-5" tabindex="-1"></a>t_activity <span class="ot">&lt;-</span> <span class="fu">get_program</span>(sce, <span class="st">&quot;T_cell&quot;</span>, <span class="at">source =</span> <span class="st">&quot;auto&quot;</span>)</span>
+<span id="cb169-6"><a href="program-regulon.html#cb169-6" tabindex="-1"></a><span class="fu">head</span>(t_activity)</span>
+<span id="cb169-7"><a href="program-regulon.html#cb169-7" tabindex="-1"></a></span>
+<span id="cb169-8"><a href="program-regulon.html#cb169-8" tabindex="-1"></a><span class="co"># Same interface works for regulons</span></span>
+<span id="cb169-9"><a href="program-regulon.html#cb169-9" tabindex="-1"></a><span class="fu">has_program</span>(sce, <span class="st">&quot;STAT1(+)&quot;</span>, <span class="at">source =</span> <span class="st">&quot;scenic&quot;</span>)</span>
+<span id="cb169-10"><a href="program-regulon.html#cb169-10" tabindex="-1"></a>stat1 <span class="ot">&lt;-</span> <span class="fu">get_program</span>(sce, <span class="st">&quot;STAT1(+)&quot;</span>, <span class="at">source =</span> <span class="st">&quot;scenic&quot;</span>)</span></code></pre></div>
 </div>
 <div id="program-activity-dotplot-plot_program_dotplot" class="section level2 hasAnchor" number="10.13">
 <h2><span class="header-section-number">10.13</span> Program Activity Dotplot: <code>plot_program_dotplot()</code><a href="program-regulon.html#program-activity-dotplot-plot_program_dotplot" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>When you want a single overview of multiple programs across cell groups, <code>plot_program_dotplot()</code> summarizes each program per group with dot size reflecting the fraction of expressing cells and color reflecting mean activity. This is the program-level equivalent of Seurat’s DotPlot, consuming the same typed state records as <code>get_program()</code>.</p>
-<div class="sourceCode" id="cb449"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb449-1"><a href="program-regulon.html#cb449-1" tabindex="-1"></a><span class="fu">plot_program_dotplot</span>(</span>
-<span id="cb449-2"><a href="program-regulon.html#cb449-2" tabindex="-1"></a>    sce,</span>
-<span id="cb449-3"><a href="program-regulon.html#cb449-3" tabindex="-1"></a>    <span class="at">programs =</span> <span class="fu">c</span>(<span class="st">&quot;T_cell&quot;</span>, <span class="st">&quot;B_cell&quot;</span>, <span class="st">&quot;Myeloid&quot;</span>, <span class="st">&quot;STAT1(+)&quot;</span>),</span>
-<span id="cb449-4"><a href="program-regulon.html#cb449-4" tabindex="-1"></a>    <span class="at">source =</span> <span class="st">&quot;auto&quot;</span>,</span>
-<span id="cb449-5"><a href="program-regulon.html#cb449-5" tabindex="-1"></a>    <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span></span>
-<span id="cb449-6"><a href="program-regulon.html#cb449-6" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb170"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb170-1"><a href="program-regulon.html#cb170-1" tabindex="-1"></a><span class="fu">plot_program_dotplot</span>(</span>
+<span id="cb170-2"><a href="program-regulon.html#cb170-2" tabindex="-1"></a>    sce,</span>
+<span id="cb170-3"><a href="program-regulon.html#cb170-3" tabindex="-1"></a>    <span class="at">programs =</span> <span class="fu">c</span>(<span class="st">&quot;T_cell&quot;</span>, <span class="st">&quot;B_cell&quot;</span>, <span class="st">&quot;Myeloid&quot;</span>, <span class="st">&quot;STAT1(+)&quot;</span>),</span>
+<span id="cb170-4"><a href="program-regulon.html#cb170-4" tabindex="-1"></a>    <span class="at">source =</span> <span class="st">&quot;auto&quot;</span>,</span>
+<span id="cb170-5"><a href="program-regulon.html#cb170-5" tabindex="-1"></a>    <span class="at">group.by =</span> <span class="st">&quot;colLabels&quot;</span></span>
+<span id="cb170-6"><a href="program-regulon.html#cb170-6" tabindex="-1"></a>)</span></code></pre></div>
 
 </div>
 </div>

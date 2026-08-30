@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>1 State-Aware Analysis Contract | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="1 State-Aware Analysis Contract | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="1 State-Aware Analysis Contract | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -430,11 +435,11 @@ div.csl-indent {
 <div id="macro-view-status" class="section level2 hasAnchor" number="1.2">
 <h2><span class="header-section-number">1.2</span> Macro View: <code>Status()</code><a href="state-aware.html#macro-view-status" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Let’s look at a minimal runnable example. By simply calling <code>Status()</code>, <code>sclet</code> provides a comprehensive health report of your object:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="state-aware.html#cb3-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb3-2"><a href="state-aware.html#cb3-2" tabindex="-1"></a><span class="co"># Use the PBMC object created above</span></span>
-<span id="cb3-3"><a href="state-aware.html#cb3-3" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="state-aware.html#cb3-4" tabindex="-1"></a><span class="co"># Check the current status of the object</span></span>
-<span id="cb3-5"><a href="state-aware.html#cb3-5" tabindex="-1"></a><span class="fu">Status</span>(pbmc)</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="state-aware.html#cb2-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb2-2"><a href="state-aware.html#cb2-2" tabindex="-1"></a><span class="co"># Use the PBMC object created above</span></span>
+<span id="cb2-3"><a href="state-aware.html#cb2-3" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="state-aware.html#cb2-4" tabindex="-1"></a><span class="co"># Check the current status of the object</span></span>
+<span id="cb2-5"><a href="state-aware.html#cb2-5" tabindex="-1"></a><span class="fu">Status</span>(pbmc)</span></code></pre></div>
 <pre><code>## $active
 ## $active$assay
 ## [1] &quot;scaled&quot;
@@ -479,12 +484,12 @@ div.csl-indent {
 <div id="digging-deeper-get_analysis_context" class="section level2 hasAnchor" number="1.3">
 <h2><span class="header-section-number">1.3</span> Digging Deeper: <code>get_analysis_context()</code><a href="state-aware.html#digging-deeper-get_analysis_context" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>If you need to inspect the details of a specific state, <code>sclet</code> provides a family of <code>get_*()</code> and <code>has_*()</code> macros.</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="state-aware.html#cb5-1" tabindex="-1"></a><span class="co"># Get the full DAG provenance tree</span></span>
-<span id="cb5-2"><a href="state-aware.html#cb5-2" tabindex="-1"></a><span class="co"># This highly structured context is perfect for feeding into an AI Copilot</span></span>
-<span id="cb5-3"><a href="state-aware.html#cb5-3" tabindex="-1"></a>ctx <span class="ot">&lt;-</span> <span class="fu">get_analysis_context</span>(pbmc)</span>
-<span id="cb5-4"><a href="state-aware.html#cb5-4" tabindex="-1"></a></span>
-<span id="cb5-5"><a href="state-aware.html#cb5-5" tabindex="-1"></a><span class="co"># List all recorded advanced analysis records</span></span>
-<span id="cb5-6"><a href="state-aware.html#cb5-6" tabindex="-1"></a><span class="fu">names</span>(ctx<span class="sc">$</span>records)</span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="state-aware.html#cb4-1" tabindex="-1"></a><span class="co"># Get the full DAG provenance tree</span></span>
+<span id="cb4-2"><a href="state-aware.html#cb4-2" tabindex="-1"></a><span class="co"># This highly structured context is perfect for feeding into an AI Copilot</span></span>
+<span id="cb4-3"><a href="state-aware.html#cb4-3" tabindex="-1"></a>ctx <span class="ot">&lt;-</span> <span class="fu">get_analysis_context</span>(pbmc)</span>
+<span id="cb4-4"><a href="state-aware.html#cb4-4" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="state-aware.html#cb4-5" tabindex="-1"></a><span class="co"># List all recorded advanced analysis records</span></span>
+<span id="cb4-6"><a href="state-aware.html#cb4-6" tabindex="-1"></a><span class="fu">names</span>(ctx<span class="sc">$</span>records)</span></code></pre></div>
 <pre><code>## character(0)</code></pre>
 <p><strong>Bottom Line:</strong>
 Stop wrestling with <code>reducedDims</code> and <code>colData</code> variable names. Go with the flow, let the <code>sclet</code> state machine remember the details, and focus on the actual biology.</p>
@@ -516,24 +521,24 @@ Stop wrestling with <code>reducedDims</code> and <code>colData</code> variable n
 <h2><span class="header-section-number">1.6</span> Manual Overrides: Layers and Default APIs<a href="state-aware.html#manual-overrides-layers-and-default-apis" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>While the state machine handles 99% of routing automatically, there are times when you want manual control. For example, maybe you want to switch the default visualization from UMAP back to t-SNE, or you want to temporarily access the raw, uncorrected counts instead of the integrated layer.</p>
 <p><code>sclet</code> provides a suite of intuitive setter/getter macros:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="state-aware.html#cb7-1" tabindex="-1"></a><span class="co"># Check available layers</span></span>
-<span id="cb7-2"><a href="state-aware.html#cb7-2" tabindex="-1"></a><span class="fu">Layers</span>(pbmc)</span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="state-aware.html#cb6-1" tabindex="-1"></a><span class="co"># Check available layers</span></span>
+<span id="cb6-2"><a href="state-aware.html#cb6-2" tabindex="-1"></a><span class="fu">Layers</span>(pbmc)</span></code></pre></div>
 <pre><code>## [1] &quot;counts&quot;    &quot;logcounts&quot; &quot;scaled&quot;</code></pre>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="state-aware.html#cb9-1" tabindex="-1"></a><span class="co"># Get the data for a specific layer</span></span>
-<span id="cb9-2"><a href="state-aware.html#cb9-2" tabindex="-1"></a>raw_data <span class="ot">&lt;-</span> <span class="fu">LayerData</span>(pbmc, <span class="at">layer =</span> <span class="fu">DefaultLayer</span>(pbmc))</span>
-<span id="cb9-3"><a href="state-aware.html#cb9-3" tabindex="-1"></a><span class="fu">dim</span>(raw_data)</span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="state-aware.html#cb8-1" tabindex="-1"></a><span class="co"># Get the data for a specific layer</span></span>
+<span id="cb8-2"><a href="state-aware.html#cb8-2" tabindex="-1"></a>raw_data <span class="ot">&lt;-</span> <span class="fu">LayerData</span>(pbmc, <span class="at">layer =</span> <span class="fu">DefaultLayer</span>(pbmc))</span>
+<span id="cb8-3"><a href="state-aware.html#cb8-3" tabindex="-1"></a><span class="fu">dim</span>(raw_data)</span></code></pre></div>
 <pre><code>## [1] 13714  2638</code></pre>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="state-aware.html#cb11-1" tabindex="-1"></a><span class="co"># Change the default reduction used by DimPlot, if available</span></span>
-<span id="cb11-2"><a href="state-aware.html#cb11-2" tabindex="-1"></a><span class="cf">if</span> (<span class="st">&quot;PCA&quot;</span> <span class="sc">%in%</span> SingleCellExperiment<span class="sc">::</span><span class="fu">reducedDimNames</span>(pbmc)) {</span>
-<span id="cb11-3"><a href="state-aware.html#cb11-3" tabindex="-1"></a>    <span class="fu">DefaultReduction</span>(pbmc) <span class="ot">&lt;-</span> <span class="st">&quot;PCA&quot;</span></span>
-<span id="cb11-4"><a href="state-aware.html#cb11-4" tabindex="-1"></a>}</span>
-<span id="cb11-5"><a href="state-aware.html#cb11-5" tabindex="-1"></a><span class="fu">DefaultReduction</span>(pbmc)</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="state-aware.html#cb10-1" tabindex="-1"></a><span class="co"># Change the default reduction used by DimPlot, if available</span></span>
+<span id="cb10-2"><a href="state-aware.html#cb10-2" tabindex="-1"></a><span class="cf">if</span> (<span class="st">&quot;PCA&quot;</span> <span class="sc">%in%</span> SingleCellExperiment<span class="sc">::</span><span class="fu">reducedDimNames</span>(pbmc)) {</span>
+<span id="cb10-3"><a href="state-aware.html#cb10-3" tabindex="-1"></a>    <span class="fu">DefaultReduction</span>(pbmc) <span class="ot">&lt;-</span> <span class="st">&quot;PCA&quot;</span></span>
+<span id="cb10-4"><a href="state-aware.html#cb10-4" tabindex="-1"></a>}</span>
+<span id="cb10-5"><a href="state-aware.html#cb10-5" tabindex="-1"></a><span class="fu">DefaultReduction</span>(pbmc)</span></code></pre></div>
 <pre><code>## [1] &quot;PCA&quot;</code></pre>
-<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="state-aware.html#cb13-1" tabindex="-1"></a><span class="co"># Change the default assay to a concrete assay stored in the object</span></span>
-<span id="cb13-2"><a href="state-aware.html#cb13-2" tabindex="-1"></a><span class="cf">if</span> (<span class="st">&quot;logcounts&quot;</span> <span class="sc">%in%</span> SummarizedExperiment<span class="sc">::</span><span class="fu">assayNames</span>(pbmc)) {</span>
-<span id="cb13-3"><a href="state-aware.html#cb13-3" tabindex="-1"></a>    <span class="fu">DefaultAssay</span>(pbmc) <span class="ot">&lt;-</span> <span class="st">&quot;logcounts&quot;</span></span>
-<span id="cb13-4"><a href="state-aware.html#cb13-4" tabindex="-1"></a>}</span>
-<span id="cb13-5"><a href="state-aware.html#cb13-5" tabindex="-1"></a><span class="fu">DefaultAssay</span>(pbmc)</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="state-aware.html#cb12-1" tabindex="-1"></a><span class="co"># Change the default assay to a concrete assay stored in the object</span></span>
+<span id="cb12-2"><a href="state-aware.html#cb12-2" tabindex="-1"></a><span class="cf">if</span> (<span class="st">&quot;logcounts&quot;</span> <span class="sc">%in%</span> SummarizedExperiment<span class="sc">::</span><span class="fu">assayNames</span>(pbmc)) {</span>
+<span id="cb12-3"><a href="state-aware.html#cb12-3" tabindex="-1"></a>    <span class="fu">DefaultAssay</span>(pbmc) <span class="ot">&lt;-</span> <span class="st">&quot;logcounts&quot;</span></span>
+<span id="cb12-4"><a href="state-aware.html#cb12-4" tabindex="-1"></a>}</span>
+<span id="cb12-5"><a href="state-aware.html#cb12-5" tabindex="-1"></a><span class="fu">DefaultAssay</span>(pbmc)</span></code></pre></div>
 <pre><code>## [1] &quot;logcounts&quot;</code></pre>
 <p>These macros mimic the Seurat API perfectly, ensuring that users migrating to <code>SingleCellExperiment</code> feel right at home while retaining the robust Bioconductor data structure under the hood.</p>
 

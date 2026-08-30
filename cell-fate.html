@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>9 Cell Fate and Dynamic Processes | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="9 Cell Fate and Dynamic Processes | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="9 Cell Fate and Dynamic Processes | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -420,160 +425,121 @@ div.csl-indent {
 <h1><span class="header-section-number">9</span> Cell Fate and Dynamic Processes<a href="cell-fate.html#cell-fate" class="anchor-section" aria-label="Anchor link to header"></a></h1>
 <p>This mainline shifts the analysis story from static identity to directional biology. Once cells have been placed in a baseline manifold, the next question is often whether they lie along a continuum, where terminal states sit, and which transitions are supported by the data.</p>
 <p><code>sclet</code> gathers diffusion-based embeddings, lineage inference, velocity, and fate-oriented methods under the same workflow umbrella. The point is not just to expose more algorithms, but to make the dynamics route readable and reusable as one coherent chapter of analysis.</p>
+<p>In practice this chapter answers three questions, in the order you are most likely to hit them:</p>
+<ol style="list-style-type: decimal">
+<li><em>“I have spliced/unspliced assays — how do I get all the way to fate probabilities?”</em> Start with the <a href="cell-fate.html#trajectory-mainline-workflow">trajectory mainline workflow</a>, pass through <a href="cell-fate.html#run-velocity-analysis">RNA velocity</a>, then let <a href="cell-fate.html#cellrank">CellRank</a> convert direction into terminal states and fate probabilities. The <a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><code>RunTrajectoryWorkflow()</code></a> section shows the whole chain as one call.</li>
+<li><em>“I already have RegVelo results on a GPU server — how do they connect to CellRank?”</em> Jump to <a href="cell-fate.html#regvelo-cellrank">wiring RegVelo into CellRank</a>.</li>
+<li><em>“How do I tell whether the result is real or a smoke screen?”</em> Read <a href="cell-fate.html#velocity-diagnostics">diagnosing the velocity-fate chain</a>. This section makes the diagnostic helpers (<code>CellRankSummary()</code>, <code>VelocityFateCorrelation()</code>, and their plots) part of the main narrative instead of an afterthought.</li>
+</ol>
+<p>All runs along the way write into the same state layer described in <a href="state-aware.html#state-aware">state-aware analysis</a>, so every intermediate result can be inspected by id and replayed without recomputation.</p>
 <div id="trajectory-mainline-workflow" class="section level2 hasAnchor" number="9.1">
 <h2><span class="header-section-number">9.1</span> Trajectory mainline workflow<a href="cell-fate.html#trajectory-mainline-workflow" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>If you do not want to stitch together <code>RunDiffusionMap()</code>, <code>RunSlingshot()</code>, <code>RunVelocity()</code>, and <code>RunCellFate()</code> by hand every time, <code>sclet</code> now provides <code>RunTrajectoryWorkflow()</code> as the semantic entry point for this entire analysis mainline.</p>
 <p>The point of this wrapper is not to hide the underlying methods. The point is to make the recommended analysis path easier to follow, easier to document, and easier to rerun later.</p>
-<div class="sourceCode" id="cb265"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb265-1"><a href="cell-fate.html#cb265-1" tabindex="-1"></a>panc_main <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;data/pancreas_sub_sce.rds&quot;</span>)</span>
-<span id="cb265-2"><a href="cell-fate.html#cb265-2" tabindex="-1"></a>panc_main <span class="ot">&lt;-</span> <span class="fu">RunTrajectoryWorkflow</span>(</span>
-<span id="cb265-3"><a href="cell-fate.html#cb265-3" tabindex="-1"></a>  panc_main,</span>
-<span id="cb265-4"><a href="cell-fate.html#cb265-4" tabindex="-1"></a>  <span class="at">group =</span> <span class="st">&quot;SubCellType&quot;</span>,</span>
-<span id="cb265-5"><a href="cell-fate.html#cb265-5" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>,</span>
-<span id="cb265-6"><a href="cell-fate.html#cb265-6" tabindex="-1"></a>  <span class="at">run_diffusion_map =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb265-7"><a href="cell-fate.html#cb265-7" tabindex="-1"></a>  <span class="at">run_slingshot =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb265-8"><a href="cell-fate.html#cb265-8" tabindex="-1"></a>  <span class="at">run_velocity =</span> <span class="st">&quot;never&quot;</span>,</span>
-<span id="cb265-9"><a href="cell-fate.html#cb265-9" tabindex="-1"></a>  <span class="at">run_fate =</span> <span class="st">&quot;never&quot;</span>,</span>
-<span id="cb265-10"><a href="cell-fate.html#cb265-10" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;pancreas_main&quot;</span></span>
-<span id="cb265-11"><a href="cell-fate.html#cb265-11" tabindex="-1"></a>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## &#39;as(&lt;dsCMatrix&gt;, &quot;dgTMatrix&quot;)&#39; is deprecated.
-## Use &#39;as(as(., &quot;generalMatrix&quot;), &quot;TsparseMatrix&quot;)&#39; instead.
-## See help(&quot;Deprecated&quot;) and help(&quot;Matrix-deprecated&quot;).</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<div class="sourceCode" id="cb279"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb279-1"><a href="cell-fate.html#cb279-1" tabindex="-1"></a><span class="fu">plot_trajectory_overview</span>(</span>
-<span id="cb279-2"><a href="cell-fate.html#cb279-2" tabindex="-1"></a>  panc_main,</span>
-<span id="cb279-3"><a href="cell-fate.html#cb279-3" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;pancreas_main&quot;</span>,</span>
-<span id="cb279-4"><a href="cell-fate.html#cb279-4" tabindex="-1"></a>  <span class="at">panels =</span> <span class="fu">c</span>(<span class="st">&quot;lineage&quot;</span>)</span>
-<span id="cb279-5"><a href="cell-fate.html#cb279-5" tabindex="-1"></a>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
+<div class="sourceCode" id="cb102"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb102-1"><a href="cell-fate.html#cb102-1" tabindex="-1"></a>panc_main <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;data/pancreas_sub_sce.rds&quot;</span>)</span>
+<span id="cb102-2"><a href="cell-fate.html#cb102-2" tabindex="-1"></a>panc_main <span class="ot">&lt;-</span> <span class="fu">RunTrajectoryWorkflow</span>(</span>
+<span id="cb102-3"><a href="cell-fate.html#cb102-3" tabindex="-1"></a>  panc_main,</span>
+<span id="cb102-4"><a href="cell-fate.html#cb102-4" tabindex="-1"></a>  <span class="at">group =</span> <span class="st">&quot;SubCellType&quot;</span>,</span>
+<span id="cb102-5"><a href="cell-fate.html#cb102-5" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>,</span>
+<span id="cb102-6"><a href="cell-fate.html#cb102-6" tabindex="-1"></a>  <span class="at">run_diffusion_map =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb102-7"><a href="cell-fate.html#cb102-7" tabindex="-1"></a>  <span class="at">run_slingshot =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb102-8"><a href="cell-fate.html#cb102-8" tabindex="-1"></a>  <span class="at">run_velocity =</span> <span class="st">&quot;never&quot;</span>,</span>
+<span id="cb102-9"><a href="cell-fate.html#cb102-9" tabindex="-1"></a>  <span class="at">run_fate =</span> <span class="st">&quot;never&quot;</span>,</span>
+<span id="cb102-10"><a href="cell-fate.html#cb102-10" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;pancreas_main&quot;</span></span>
+<span id="cb102-11"><a href="cell-fate.html#cb102-11" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb103"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb103-1"><a href="cell-fate.html#cb103-1" tabindex="-1"></a><span class="fu">plot_trajectory_overview</span>(</span>
+<span id="cb103-2"><a href="cell-fate.html#cb103-2" tabindex="-1"></a>  panc_main,</span>
+<span id="cb103-3"><a href="cell-fate.html#cb103-3" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;pancreas_main&quot;</span>,</span>
+<span id="cb103-4"><a href="cell-fate.html#cb103-4" tabindex="-1"></a>  <span class="at">panels =</span> <span class="fu">c</span>(<span class="st">&quot;lineage&quot;</span>)</span>
+<span id="cb103-5"><a href="cell-fate.html#cb103-5" tabindex="-1"></a>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/trajectory-mainline-overview-1.png" alt="" width="1056" /></p>
-<div class="sourceCode" id="cb284"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb284-1"><a href="cell-fate.html#cb284-1" tabindex="-1"></a>panc <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;data/pancreas_sub_sce.rds&quot;</span>)</span>
-<span id="cb284-2"><a href="cell-fate.html#cb284-2" tabindex="-1"></a></span>
-<span id="cb284-3"><a href="cell-fate.html#cb284-3" tabindex="-1"></a>panc <span class="ot">&lt;-</span> <span class="fu">RunSlingshot</span>(<span class="at">sce =</span> panc, <span class="at">group =</span> <span class="st">&quot;SubCellType&quot;</span>, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
+<div class="sourceCode" id="cb104"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb104-1"><a href="cell-fate.html#cb104-1" tabindex="-1"></a>panc <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;data/pancreas_sub_sce.rds&quot;</span>)</span>
+<span id="cb104-2"><a href="cell-fate.html#cb104-2" tabindex="-1"></a></span>
+<span id="cb104-3"><a href="cell-fate.html#cb104-3" tabindex="-1"></a>panc <span class="ot">&lt;-</span> <span class="fu">RunSlingshot</span>(<span class="at">sce =</span> panc, <span class="at">group =</span> <span class="st">&quot;SubCellType&quot;</span>, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>)</span></code></pre></div>
 <p><code>RunSlingshot()</code> writes its result back into the unified state layer, so downstream helpers such as <code>plot_lineage()</code> and <code>plot_pseudotime()</code> can consume the recorded trajectory object directly. If needed, you can also check <code>has_trajectory(panc)</code> or inspect <code>get_trajectory(panc)</code>.</p>
 <p>If you keep multiple trajectory runs in the same object, give them different <code>name</code> values and inspect them explicitly with <code>get_trajectory(panc, id = "your_id")</code>.</p>
 <div id="lineage-plot" class="section level3 hasAnchor" number="9.1.1">
 <h3><span class="header-section-number">9.1.1</span> Lineage plot<a href="cell-fate.html#lineage-plot" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb291"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb291-1"><a href="cell-fate.html#cb291-1" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">plot_lineage</span>(panc, <span class="at">group =</span> <span class="st">&quot;SubCellType&quot;</span>) <span class="sc">+</span> </span>
-<span id="cb291-2"><a href="cell-fate.html#cb291-2" tabindex="-1"></a>  <span class="fu">sc_dim_geom_label</span>(</span>
-<span id="cb291-3"><a href="cell-fate.html#cb291-3" tabindex="-1"></a>    <span class="at">geom =</span> shadowtext<span class="sc">::</span>geom_shadowtext,</span>
-<span id="cb291-4"><a href="cell-fate.html#cb291-4" tabindex="-1"></a>    <span class="at">color=</span><span class="st">&#39;black&#39;</span>, </span>
-<span id="cb291-5"><a href="cell-fate.html#cb291-5" tabindex="-1"></a>    <span class="at">bg.color=</span><span class="st">&#39;white&#39;</span></span>
-<span id="cb291-6"><a href="cell-fate.html#cb291-6" tabindex="-1"></a>  )</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<div class="sourceCode" id="cb296"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb296-1"><a href="cell-fate.html#cb296-1" tabindex="-1"></a><span class="do">## displayed selected lineages</span></span>
-<span id="cb296-2"><a href="cell-fate.html#cb296-2" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">plot_lineage</span>(panc, <span class="at">group =</span> <span class="st">&quot;SubCellType&quot;</span>, <span class="at">lineages =</span> <span class="fu">c</span>(<span class="st">&quot;Lineage1&quot;</span>, <span class="st">&quot;Lineage2&quot;</span>))  <span class="sc">+</span> </span>
-<span id="cb296-3"><a href="cell-fate.html#cb296-3" tabindex="-1"></a>  <span class="fu">sc_dim_geom_label</span>(</span>
-<span id="cb296-4"><a href="cell-fate.html#cb296-4" tabindex="-1"></a>    <span class="at">geom =</span> shadowtext<span class="sc">::</span>geom_shadowtext,</span>
-<span id="cb296-5"><a href="cell-fate.html#cb296-5" tabindex="-1"></a>    <span class="at">color=</span><span class="st">&#39;black&#39;</span>, </span>
-<span id="cb296-6"><a href="cell-fate.html#cb296-6" tabindex="-1"></a>    <span class="at">bg.color=</span><span class="st">&#39;white&#39;</span></span>
-<span id="cb296-7"><a href="cell-fate.html#cb296-7" tabindex="-1"></a>  )</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;
-## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<div class="sourceCode" id="cb300"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb300-1"><a href="cell-fate.html#cb300-1" tabindex="-1"></a><span class="fu">plot_list</span>(<span class="st">`</span><span class="at">All Lineages</span><span class="st">`</span> <span class="ot">=</span> p1, <span class="st">`</span><span class="at">Selected Lineages</span><span class="st">`</span> <span class="ot">=</span> p2, <span class="at">ncol=</span><span class="dv">1</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb105"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb105-1"><a href="cell-fate.html#cb105-1" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">plot_lineage</span>(panc, <span class="at">group =</span> <span class="st">&quot;SubCellType&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb105-2"><a href="cell-fate.html#cb105-2" tabindex="-1"></a>  <span class="fu">sc_dim_geom_label</span>(</span>
+<span id="cb105-3"><a href="cell-fate.html#cb105-3" tabindex="-1"></a>    <span class="at">geom =</span> shadowtext<span class="sc">::</span>geom_shadowtext,</span>
+<span id="cb105-4"><a href="cell-fate.html#cb105-4" tabindex="-1"></a>    <span class="at">color=</span><span class="st">&#39;black&#39;</span>, </span>
+<span id="cb105-5"><a href="cell-fate.html#cb105-5" tabindex="-1"></a>    <span class="at">bg.color=</span><span class="st">&#39;white&#39;</span></span>
+<span id="cb105-6"><a href="cell-fate.html#cb105-6" tabindex="-1"></a>  )</span>
+<span id="cb105-7"><a href="cell-fate.html#cb105-7" tabindex="-1"></a></span>
+<span id="cb105-8"><a href="cell-fate.html#cb105-8" tabindex="-1"></a></span>
+<span id="cb105-9"><a href="cell-fate.html#cb105-9" tabindex="-1"></a><span class="do">## displayed selected lineages</span></span>
+<span id="cb105-10"><a href="cell-fate.html#cb105-10" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">plot_lineage</span>(panc, <span class="at">group =</span> <span class="st">&quot;SubCellType&quot;</span>, <span class="at">lineages =</span> <span class="fu">c</span>(<span class="st">&quot;Lineage1&quot;</span>, <span class="st">&quot;Lineage2&quot;</span>))  <span class="sc">+</span> </span>
+<span id="cb105-11"><a href="cell-fate.html#cb105-11" tabindex="-1"></a>  <span class="fu">sc_dim_geom_label</span>(</span>
+<span id="cb105-12"><a href="cell-fate.html#cb105-12" tabindex="-1"></a>    <span class="at">geom =</span> shadowtext<span class="sc">::</span>geom_shadowtext,</span>
+<span id="cb105-13"><a href="cell-fate.html#cb105-13" tabindex="-1"></a>    <span class="at">color=</span><span class="st">&#39;black&#39;</span>, </span>
+<span id="cb105-14"><a href="cell-fate.html#cb105-14" tabindex="-1"></a>    <span class="at">bg.color=</span><span class="st">&#39;white&#39;</span></span>
+<span id="cb105-15"><a href="cell-fate.html#cb105-15" tabindex="-1"></a>  )</span>
+<span id="cb105-16"><a href="cell-fate.html#cb105-16" tabindex="-1"></a></span>
+<span id="cb105-17"><a href="cell-fate.html#cb105-17" tabindex="-1"></a><span class="fu">plot_list</span>(<span class="st">`</span><span class="at">All Lineages</span><span class="st">`</span> <span class="ot">=</span> p1, <span class="st">`</span><span class="at">Selected Lineages</span><span class="st">`</span> <span class="ot">=</span> p2, <span class="at">ncol=</span><span class="dv">1</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/lineage_plot-1.png" alt="" width="672" /></p>
 </div>
 <div id="pseudotime-plot" class="section level3 hasAnchor" number="9.1.2">
 <h3><span class="header-section-number">9.1.2</span> Pseudotime plot<a href="cell-fate.html#pseudotime-plot" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb301"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb301-1"><a href="cell-fate.html#cb301-1" tabindex="-1"></a>pp1 <span class="ot">&lt;-</span> <span class="fu">plot_pseudotime</span>(panc, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>, <span class="at">lineage =</span> <span class="st">&quot;Lineage1&quot;</span>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<div class="sourceCode" id="cb304"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb304-1"><a href="cell-fate.html#cb304-1" tabindex="-1"></a>pp2 <span class="ot">&lt;-</span> <span class="fu">plot_pseudotime</span>(panc, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>, <span class="at">lineage =</span> <span class="st">&quot;Lineage2&quot;</span>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;
-## Also defined by &#39;alabaster.base&#39;</code></pre>
-<div class="sourceCode" id="cb306"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb306-1"><a href="cell-fate.html#cb306-1" tabindex="-1"></a>pp_all <span class="ot">&lt;-</span> <span class="fu">plot_pseudotime</span>(panc, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;
-## Also defined by &#39;alabaster.base&#39;</code></pre>
-<div class="sourceCode" id="cb308"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb308-1"><a href="cell-fate.html#cb308-1" tabindex="-1"></a><span class="fu">plot_list</span>(pp1, pp2, pp_all, <span class="at">design=</span><span class="st">&quot;AABB</span><span class="sc">\n</span><span class="st">CCCC&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb106"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb106-1"><a href="cell-fate.html#cb106-1" tabindex="-1"></a>pp1 <span class="ot">&lt;-</span> <span class="fu">plot_pseudotime</span>(panc, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>, <span class="at">lineage =</span> <span class="st">&quot;Lineage1&quot;</span>)</span>
+<span id="cb106-2"><a href="cell-fate.html#cb106-2" tabindex="-1"></a>pp2 <span class="ot">&lt;-</span> <span class="fu">plot_pseudotime</span>(panc, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>, <span class="at">lineage =</span> <span class="st">&quot;Lineage2&quot;</span>)</span>
+<span id="cb106-3"><a href="cell-fate.html#cb106-3" tabindex="-1"></a>pp_all <span class="ot">&lt;-</span> <span class="fu">plot_pseudotime</span>(panc, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>)</span>
+<span id="cb106-4"><a href="cell-fate.html#cb106-4" tabindex="-1"></a></span>
+<span id="cb106-5"><a href="cell-fate.html#cb106-5" tabindex="-1"></a><span class="fu">plot_list</span>(pp1, pp2, pp_all, <span class="at">design=</span><span class="st">&quot;AABB</span><span class="sc">\n</span><span class="st">CCCC&quot;</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/pseudotimeplot-1.png" alt="" width="1152" /></p>
 </div>
 <div id="expression-trends-in-different-cell-trajectories" class="section level3 hasAnchor" number="9.1.3">
 <h3><span class="header-section-number">9.1.3</span> Expression trends in different cell trajectories<a href="cell-fate.html#expression-trends-in-different-cell-trajectories" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb309"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb309-1"><a href="cell-fate.html#cb309-1" tabindex="-1"></a>curve_genes <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Mrpl15&quot;</span>, <span class="st">&quot;Tram1&quot;</span>, <span class="st">&quot;Ncoa2&quot;</span>)</span>
-<span id="cb309-2"><a href="cell-fate.html#cb309-2" tabindex="-1"></a></span>
-<span id="cb309-3"><a href="cell-fate.html#cb309-3" tabindex="-1"></a><span class="do">## 默认选取smooth方法直接拟合得到的基因表达值结果来画图</span></span>
-<span id="cb309-4"><a href="cell-fate.html#cb309-4" tabindex="-1"></a>p_curve <span class="ot">&lt;-</span> <span class="fu">plot_genecurve</span>(panc, <span class="at">features =</span> curve_genes, <span class="at">method =</span> <span class="st">&quot;smooth&quot;</span>)</span>
-<span id="cb309-5"><a href="cell-fate.html#cb309-5" tabindex="-1"></a></span>
-<span id="cb309-6"><a href="cell-fate.html#cb309-6" tabindex="-1"></a><span class="do">## 也可以用GAM计算预测的基因表达值来画图</span></span>
-<span id="cb309-7"><a href="cell-fate.html#cb309-7" tabindex="-1"></a>p_curve1 <span class="ot">&lt;-</span> <span class="fu">plot_genecurve</span>(panc, <span class="at">features =</span> curve_genes, <span class="at">method =</span> <span class="st">&quot;gam&quot;</span>)</span>
-<span id="cb309-8"><a href="cell-fate.html#cb309-8" tabindex="-1"></a></span>
-<span id="cb309-9"><a href="cell-fate.html#cb309-9" tabindex="-1"></a><span class="fu">plot_list</span>(p_curve, p_curve1, <span class="at">ncol=</span><span class="dv">1</span>)</span></code></pre></div>
-<pre><code>## `geom_smooth()` using method = &#39;loess&#39; and formula = &#39;y ~
-## x&#39;</code></pre>
+<div class="sourceCode" id="cb107"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb107-1"><a href="cell-fate.html#cb107-1" tabindex="-1"></a>curve_genes <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Mrpl15&quot;</span>, <span class="st">&quot;Tram1&quot;</span>, <span class="st">&quot;Ncoa2&quot;</span>)</span>
+<span id="cb107-2"><a href="cell-fate.html#cb107-2" tabindex="-1"></a></span>
+<span id="cb107-3"><a href="cell-fate.html#cb107-3" tabindex="-1"></a><span class="do">## 默认选取smooth方法直接拟合得到的基因表达值结果来画图</span></span>
+<span id="cb107-4"><a href="cell-fate.html#cb107-4" tabindex="-1"></a>p_curve <span class="ot">&lt;-</span> <span class="fu">plot_genecurve</span>(panc, <span class="at">features =</span> curve_genes, <span class="at">method =</span> <span class="st">&quot;smooth&quot;</span>)</span>
+<span id="cb107-5"><a href="cell-fate.html#cb107-5" tabindex="-1"></a></span>
+<span id="cb107-6"><a href="cell-fate.html#cb107-6" tabindex="-1"></a><span class="do">## 也可以用GAM计算预测的基因表达值来画图</span></span>
+<span id="cb107-7"><a href="cell-fate.html#cb107-7" tabindex="-1"></a>p_curve1 <span class="ot">&lt;-</span> <span class="fu">plot_genecurve</span>(panc, <span class="at">features =</span> curve_genes, <span class="at">method =</span> <span class="st">&quot;gam&quot;</span>)</span>
+<span id="cb107-8"><a href="cell-fate.html#cb107-8" tabindex="-1"></a></span>
+<span id="cb107-9"><a href="cell-fate.html#cb107-9" tabindex="-1"></a><span class="fu">plot_list</span>(p_curve, p_curve1, <span class="at">ncol=</span><span class="dv">1</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/genecurve-1.png" alt="" width="1344" /></p>
 </div>
 <div id="heatmap" class="section level3 hasAnchor" number="9.1.4">
 <h3><span class="header-section-number">9.1.4</span> Heatmap<a href="cell-fate.html#heatmap" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb311"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb311-1"><a href="cell-fate.html#cb311-1" tabindex="-1"></a>heatmap_genes <span class="ot">&lt;-</span> <span class="fu">head</span>(<span class="fu">unique</span>(<span class="fu">rownames</span>(panc)), <span class="dv">10</span>)</span>
-<span id="cb311-2"><a href="cell-fate.html#cb311-2" tabindex="-1"></a></span>
-<span id="cb311-3"><a href="cell-fate.html#cb311-3" tabindex="-1"></a><span class="do">## 默认按照拟时间排序</span></span>
-<span id="cb311-4"><a href="cell-fate.html#cb311-4" tabindex="-1"></a>hmp1 <span class="ot">&lt;-</span> <span class="fu">plot_pseudo_heatmap</span>(panc, <span class="at">features =</span> heatmap_genes, <span class="at">lineage =</span> <span class="st">&quot;Lineage2&quot;</span>)</span>
-<span id="cb311-5"><a href="cell-fate.html#cb311-5" tabindex="-1"></a></span>
-<span id="cb311-6"><a href="cell-fate.html#cb311-6" tabindex="-1"></a><span class="do">## 可以手动对基因或细胞设置聚类(cluster = TRUE)，此时会打乱pseudotime的排序</span></span>
-<span id="cb311-7"><a href="cell-fate.html#cb311-7" tabindex="-1"></a>hmp2 <span class="ot">&lt;-</span> <span class="fu">plot_pseudo_heatmap</span>(panc, <span class="at">features =</span> heatmap_genes, <span class="at">lineage =</span> <span class="st">&quot;Lineage2&quot;</span>, <span class="at">cluster_columns =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb311-8"><a href="cell-fate.html#cb311-8" tabindex="-1"></a></span>
-<span id="cb311-9"><a href="cell-fate.html#cb311-9" tabindex="-1"></a><span class="do">## 对基因聚类</span></span>
-<span id="cb311-10"><a href="cell-fate.html#cb311-10" tabindex="-1"></a>hmp3 <span class="ot">&lt;-</span> <span class="fu">plot_pseudo_heatmap</span>(panc, <span class="at">features =</span> heatmap_genes, <span class="at">lineage =</span> <span class="st">&quot;Lineage2&quot;</span>, <span class="at">cluster_rows =</span> <span class="cn">TRUE</span>, <span class="at">sort =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb311-11"><a href="cell-fate.html#cb311-11" tabindex="-1"></a></span>
-<span id="cb311-12"><a href="cell-fate.html#cb311-12" tabindex="-1"></a><span class="do">## 默认排序</span></span>
-<span id="cb311-13"><a href="cell-fate.html#cb311-13" tabindex="-1"></a>hmp4 <span class="ot">&lt;-</span> <span class="fu">plot_pseudo_heatmap</span>(panc, <span class="at">features =</span> heatmap_genes, <span class="at">lineage =</span> <span class="st">&quot;Lineage2&quot;</span>, <span class="at">cluster_rows =</span> <span class="cn">FALSE</span>, <span class="at">sort =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb311-14"><a href="cell-fate.html#cb311-14" tabindex="-1"></a></span>
-<span id="cb311-15"><a href="cell-fate.html#cb311-15" tabindex="-1"></a><span class="do">## 组合起来看就能看到两个参数的设定对行顺序的影响</span></span>
-<span id="cb311-16"><a href="cell-fate.html#cb311-16" tabindex="-1"></a><span class="fu">plot_list</span>(hmp1, hmp2, hmp3, hmp4, <span class="at">ncol=</span><span class="dv">1</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb108"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb108-1"><a href="cell-fate.html#cb108-1" tabindex="-1"></a>heatmap_genes <span class="ot">&lt;-</span> <span class="fu">head</span>(<span class="fu">unique</span>(<span class="fu">rownames</span>(panc)), <span class="dv">10</span>)</span>
+<span id="cb108-2"><a href="cell-fate.html#cb108-2" tabindex="-1"></a></span>
+<span id="cb108-3"><a href="cell-fate.html#cb108-3" tabindex="-1"></a><span class="do">## 默认按照拟时间排序</span></span>
+<span id="cb108-4"><a href="cell-fate.html#cb108-4" tabindex="-1"></a>hmp1 <span class="ot">&lt;-</span> <span class="fu">plot_pseudo_heatmap</span>(panc, <span class="at">features =</span> heatmap_genes, <span class="at">lineage =</span> <span class="st">&quot;Lineage2&quot;</span>)</span>
+<span id="cb108-5"><a href="cell-fate.html#cb108-5" tabindex="-1"></a></span>
+<span id="cb108-6"><a href="cell-fate.html#cb108-6" tabindex="-1"></a><span class="do">## 可以手动对基因或细胞设置聚类(cluster = TRUE)，此时会打乱pseudotime的排序</span></span>
+<span id="cb108-7"><a href="cell-fate.html#cb108-7" tabindex="-1"></a>hmp2 <span class="ot">&lt;-</span> <span class="fu">plot_pseudo_heatmap</span>(panc, <span class="at">features =</span> heatmap_genes, <span class="at">lineage =</span> <span class="st">&quot;Lineage2&quot;</span>, <span class="at">cluster_columns =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb108-8"><a href="cell-fate.html#cb108-8" tabindex="-1"></a></span>
+<span id="cb108-9"><a href="cell-fate.html#cb108-9" tabindex="-1"></a><span class="do">## 对基因聚类</span></span>
+<span id="cb108-10"><a href="cell-fate.html#cb108-10" tabindex="-1"></a>hmp3 <span class="ot">&lt;-</span> <span class="fu">plot_pseudo_heatmap</span>(panc, <span class="at">features =</span> heatmap_genes, <span class="at">lineage =</span> <span class="st">&quot;Lineage2&quot;</span>, <span class="at">cluster_rows =</span> <span class="cn">TRUE</span>, <span class="at">sort =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb108-11"><a href="cell-fate.html#cb108-11" tabindex="-1"></a></span>
+<span id="cb108-12"><a href="cell-fate.html#cb108-12" tabindex="-1"></a><span class="do">## 默认排序</span></span>
+<span id="cb108-13"><a href="cell-fate.html#cb108-13" tabindex="-1"></a>hmp4 <span class="ot">&lt;-</span> <span class="fu">plot_pseudo_heatmap</span>(panc, <span class="at">features =</span> heatmap_genes, <span class="at">lineage =</span> <span class="st">&quot;Lineage2&quot;</span>, <span class="at">cluster_rows =</span> <span class="cn">FALSE</span>, <span class="at">sort =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb108-14"><a href="cell-fate.html#cb108-14" tabindex="-1"></a></span>
+<span id="cb108-15"><a href="cell-fate.html#cb108-15" tabindex="-1"></a><span class="do">## 组合起来看就能看到两个参数的设定对行顺序的影响</span></span>
+<span id="cb108-16"><a href="cell-fate.html#cb108-16" tabindex="-1"></a><span class="fu">plot_list</span>(hmp1, hmp2, hmp3, hmp4, <span class="at">ncol=</span><span class="dv">1</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/pseudoheatmap-1.png" alt="" width="960" /></p>
 </div>
 </div>
 <div id="diffusion-map" class="section level2 hasAnchor" number="9.2">
 <h2><span class="header-section-number">9.2</span> Diffusion Map for complex trajectories<a href="cell-fate.html#diffusion-map" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>For very continuous developmental systems, PCA and UMAP are often convenient but not always topology-faithful. <code>RunDiffusionMap()</code> adds a diffusion-based representation that can be tracked like any other reduction in <code>sclet</code>, which is useful when you want a more trajectory-aware geometry before moving on to downstream lineage tools.</p>
-<div class="sourceCode" id="cb312"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb312-1"><a href="cell-fate.html#cb312-1" tabindex="-1"></a>panc_dm <span class="ot">&lt;-</span> panc</span>
-<span id="cb312-2"><a href="cell-fate.html#cb312-2" tabindex="-1"></a></span>
-<span id="cb312-3"><a href="cell-fate.html#cb312-3" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="st">&quot;logcounts&quot;</span> <span class="sc">%in%</span> SummarizedExperiment<span class="sc">::</span><span class="fu">assayNames</span>(panc_dm) <span class="sc">&amp;&amp;</span></span>
-<span id="cb312-4"><a href="cell-fate.html#cb312-4" tabindex="-1"></a>    <span class="st">&quot;counts&quot;</span> <span class="sc">%in%</span> SummarizedExperiment<span class="sc">::</span><span class="fu">assayNames</span>(panc_dm)) {</span>
-<span id="cb312-5"><a href="cell-fate.html#cb312-5" tabindex="-1"></a>  panc_dm <span class="ot">&lt;-</span> <span class="fu">NormalizeData</span>(panc_dm)</span>
-<span id="cb312-6"><a href="cell-fate.html#cb312-6" tabindex="-1"></a>}</span>
-<span id="cb312-7"><a href="cell-fate.html#cb312-7" tabindex="-1"></a></span>
-<span id="cb312-8"><a href="cell-fate.html#cb312-8" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="st">&quot;PCA&quot;</span> <span class="sc">%in%</span> SingleCellExperiment<span class="sc">::</span><span class="fu">reducedDimNames</span>(panc_dm)) {</span>
-<span id="cb312-9"><a href="cell-fate.html#cb312-9" tabindex="-1"></a>  dm_features <span class="ot">&lt;-</span> <span class="fu">rownames</span>(panc_dm)[<span class="fu">seq_len</span>(<span class="fu">min</span>(<span class="dv">500</span>, <span class="fu">nrow</span>(panc_dm)))]</span>
-<span id="cb312-10"><a href="cell-fate.html#cb312-10" tabindex="-1"></a>  dm_layer <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="st">&quot;logcounts&quot;</span> <span class="sc">%in%</span> SummarizedExperiment<span class="sc">::</span><span class="fu">assayNames</span>(panc_dm)) <span class="st">&quot;logcounts&quot;</span> <span class="cf">else</span> <span class="st">&quot;counts&quot;</span></span>
-<span id="cb312-11"><a href="cell-fate.html#cb312-11" tabindex="-1"></a>  panc_dm <span class="ot">&lt;-</span> <span class="fu">RunPCA</span>(panc_dm, <span class="at">subset_row =</span> dm_features, <span class="at">layer =</span> dm_layer)</span>
-<span id="cb312-12"><a href="cell-fate.html#cb312-12" tabindex="-1"></a>}</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<div class="sourceCode" id="cb315"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb315-1"><a href="cell-fate.html#cb315-1" tabindex="-1"></a>panc_dm <span class="ot">&lt;-</span> <span class="fu">RunDiffusionMap</span>(panc_dm, <span class="at">n_components =</span> <span class="dv">10</span>, <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;
-## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<div class="sourceCode" id="cb321"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb321-1"><a href="cell-fate.html#cb321-1" tabindex="-1"></a><span class="fu">head</span>(SingleCellExperiment<span class="sc">::</span><span class="fu">reducedDim</span>(panc_dm, <span class="st">&quot;DM&quot;</span>)[, <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>])</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;
-## Also defined by &#39;alabaster.base&#39;</code></pre>
+<div class="sourceCode" id="cb109"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb109-1"><a href="cell-fate.html#cb109-1" tabindex="-1"></a>panc_dm <span class="ot">&lt;-</span> panc</span>
+<span id="cb109-2"><a href="cell-fate.html#cb109-2" tabindex="-1"></a></span>
+<span id="cb109-3"><a href="cell-fate.html#cb109-3" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="st">&quot;logcounts&quot;</span> <span class="sc">%in%</span> SummarizedExperiment<span class="sc">::</span><span class="fu">assayNames</span>(panc_dm) <span class="sc">&amp;&amp;</span></span>
+<span id="cb109-4"><a href="cell-fate.html#cb109-4" tabindex="-1"></a>    <span class="st">&quot;counts&quot;</span> <span class="sc">%in%</span> SummarizedExperiment<span class="sc">::</span><span class="fu">assayNames</span>(panc_dm)) {</span>
+<span id="cb109-5"><a href="cell-fate.html#cb109-5" tabindex="-1"></a>  panc_dm <span class="ot">&lt;-</span> <span class="fu">NormalizeData</span>(panc_dm)</span>
+<span id="cb109-6"><a href="cell-fate.html#cb109-6" tabindex="-1"></a>}</span>
+<span id="cb109-7"><a href="cell-fate.html#cb109-7" tabindex="-1"></a></span>
+<span id="cb109-8"><a href="cell-fate.html#cb109-8" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="st">&quot;PCA&quot;</span> <span class="sc">%in%</span> SingleCellExperiment<span class="sc">::</span><span class="fu">reducedDimNames</span>(panc_dm)) {</span>
+<span id="cb109-9"><a href="cell-fate.html#cb109-9" tabindex="-1"></a>  dm_features <span class="ot">&lt;-</span> <span class="fu">rownames</span>(panc_dm)[<span class="fu">seq_len</span>(<span class="fu">min</span>(<span class="dv">500</span>, <span class="fu">nrow</span>(panc_dm)))]</span>
+<span id="cb109-10"><a href="cell-fate.html#cb109-10" tabindex="-1"></a>  dm_layer <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="st">&quot;logcounts&quot;</span> <span class="sc">%in%</span> SummarizedExperiment<span class="sc">::</span><span class="fu">assayNames</span>(panc_dm)) <span class="st">&quot;logcounts&quot;</span> <span class="cf">else</span> <span class="st">&quot;counts&quot;</span></span>
+<span id="cb109-11"><a href="cell-fate.html#cb109-11" tabindex="-1"></a>  panc_dm <span class="ot">&lt;-</span> <span class="fu">RunPCA</span>(panc_dm, <span class="at">subset_row =</span> dm_features, <span class="at">layer =</span> dm_layer)</span>
+<span id="cb109-12"><a href="cell-fate.html#cb109-12" tabindex="-1"></a>}</span>
+<span id="cb109-13"><a href="cell-fate.html#cb109-13" tabindex="-1"></a></span>
+<span id="cb109-14"><a href="cell-fate.html#cb109-14" tabindex="-1"></a>panc_dm <span class="ot">&lt;-</span> <span class="fu">RunDiffusionMap</span>(panc_dm, <span class="at">n_components =</span> <span class="dv">10</span>, <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span>)</span>
+<span id="cb109-15"><a href="cell-fate.html#cb109-15" tabindex="-1"></a><span class="fu">head</span>(SingleCellExperiment<span class="sc">::</span><span class="fu">reducedDim</span>(panc_dm, <span class="st">&quot;DM&quot;</span>)[, <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>])</span></code></pre></div>
 <pre><code>##                         DC_1        DC_2         DC_3
 ## CAGCCGAAGCGATATA -0.04762849 -0.02534582 0.0127494749
 ## AGTGTCATCGCCGTGA  0.01191557  0.05261432 0.0003914782
@@ -581,11 +547,7 @@ div.csl-indent {
 ## CACAGTACATCCGTGG  0.02733252 -0.01166796 0.0152364853
 ## CGGAGCTCATTGGGCC -0.04534807 -0.01974909 0.0065963459
 ## AGAGCTTGTGTGACCC -0.03782034 -0.01332305 0.0002428841</code></pre>
-<div class="sourceCode" id="cb324"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb324-1"><a href="cell-fate.html#cb324-1" tabindex="-1"></a><span class="fu">DimPlot</span>(panc_dm, <span class="at">reduction =</span> <span class="st">&quot;DM&quot;</span>, <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">color =</span> SubCellType))</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
+<div class="sourceCode" id="cb111"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb111-1"><a href="cell-fate.html#cb111-1" tabindex="-1"></a><span class="fu">DimPlot</span>(panc_dm, <span class="at">reduction =</span> <span class="st">&quot;DM&quot;</span>, <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">color =</span> SubCellType))</span></code></pre></div>
 <p><img src="sclet_files/figure-html/diffusion-map-plot-1.png" alt="" width="768" /></p>
 <p>The velocity and CellRank examples in this section use cached objects generated by the <code>update-data-velocity-fate</code> GitHub Actions workflow. This keeps the book render lightweight: Python-backed <code>basilisk</code>, <code>velociraptor</code>, and CellRank work is done in the data-update workflow, while the book only reads the resulting RDS files.</p>
 <p>RNA metabolic process:</p>
@@ -597,14 +559,14 @@ div.csl-indent {
 <p>The disruption of the equilibrium between unspliced and spliced RNA indicates whether a gene is in an induced or repressed state.</p>
 <p>With RNA-seq, especially the Poly-A enrichment method, the propotion of unspliced RNA obtained is relatively small. Currently, there are also some techinques capable of enriching nascent RNA in single cells, such as <a href="https://www.nature.com/articles/s41586-019-1369-y">scSLAM-seq</a> and s<a href="https://www.nature.com/articles/s41592-020-0935-4">cNT-seq</a>.</p>
 <p>Although some researchers are skeptical about RNA velocity, it has received significant attention because it can automatically detect the direction of trajectories.</p>
-<p><a href="https://scvelo.readthedocs.io/">scVelo</a> supports a full dynamical model and various of utility functions <span class="citation">(<a href="#ref-bergen_generalizing_2020">Bergen et al. 2020</a>)</span>. It only supports Python and can be run in R using <a href="http://bioconductor.org/packages/velociraptor">velociraptor</a>.</p>
+<p><a href="https://scvelo.readthedocs.io/">scVelo</a> supports a full dynamical model and various of utility functions <span class="citation">(<a href="#ref-bergen_generalizing_2020">Bergen et al. 2020</a>)</span>. It only supports Python and can be run in R using <a href="https://bioconductor.org/packages/velociraptor">velociraptor</a>.</p>
 <div id="example-data" class="section level3 hasAnchor" number="9.2.1">
 <h3><span class="header-section-number">9.2.1</span> Example data<a href="cell-fate.html#example-data" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <blockquote>
 <p>This example is adopted from <a href="https://www.bioconductor.org/packages/devel/bioc/vignettes/velociraptor/inst/doc/velociraptor.html" class="uri">https://www.bioconductor.org/packages/devel/bioc/vignettes/velociraptor/inst/doc/velociraptor.html</a>.</p>
 </blockquote>
-<div class="sourceCode" id="cb329"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb329-1"><a href="cell-fate.html#cb329-1" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;data/hermann-sperm-dynamics.rds&quot;</span>)</span>
-<span id="cb329-2"><a href="cell-fate.html#cb329-2" tabindex="-1"></a>sce</span></code></pre></div>
+<div class="sourceCode" id="cb112"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb112-1"><a href="cell-fate.html#cb112-1" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;data/hermann-sperm-dynamics.rds&quot;</span>)</span>
+<span id="cb112-2"><a href="cell-fate.html#cb112-2" tabindex="-1"></a>sce</span></code></pre></div>
 <pre><code>## class: SingleCellExperiment 
 ## dim: 2000 300 
 ## metadata(2): sclet sclet_bookdown_cache
@@ -617,15 +579,11 @@ div.csl-indent {
 ##   GCGCGATAGGCTCATT CTAAGACTCACTATTC
 ## colData names(11): celltype sizeFactor ...
 ##   cellrank_fate_X0 cellrank_fate_X1</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
 <pre><code>## reducedDimNames(3): PCA .dimred UMAP
 ## mainExpName: NULL</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;
-## Also defined by &#39;alabaster.base&#39;</code></pre>
 <pre><code>## altExpNames(0):</code></pre>
-<div class="sourceCode" id="cb336"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb336-1"><a href="cell-fate.html#cb336-1" tabindex="-1"></a>top_genes <span class="ot">&lt;-</span> S4Vectors<span class="sc">::</span><span class="fu">metadata</span>(sce)<span class="sc">$</span>sclet_bookdown_cache<span class="sc">$</span>top_genes</span>
-<span id="cb336-2"><a href="cell-fate.html#cb336-2" tabindex="-1"></a><span class="fu">head</span>(top_genes)</span></code></pre></div>
+<div class="sourceCode" id="cb116"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb116-1"><a href="cell-fate.html#cb116-1" tabindex="-1"></a>top_genes <span class="ot">&lt;-</span> S4Vectors<span class="sc">::</span><span class="fu">metadata</span>(sce)<span class="sc">$</span>sclet_bookdown_cache<span class="sc">$</span>top_genes</span>
+<span id="cb116-2"><a href="cell-fate.html#cb116-2" tabindex="-1"></a><span class="fu">head</span>(top_genes)</span></code></pre></div>
 <pre><code>## [1] &quot;ENSMUSG00000117819.1&quot; &quot;ENSMUSG00000081984.3&quot;
 ## [3] &quot;ENSMUSG00000047995.7&quot; &quot;ENSMUSG00000060860.8&quot;
 ## [5] &quot;ENSMUSG00000100153.2&quot; &quot;ENSMUSG00000090137.8&quot;</code></pre>
@@ -633,7 +591,7 @@ div.csl-indent {
 <div id="run-velocity-analysis" class="section level3 hasAnchor" number="9.2.2">
 <h3><span class="header-section-number">9.2.2</span> Run velocity analysis<a href="cell-fate.html#run-velocity-analysis" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p><code>sclet</code> wraps the RNA velocity inference via <code>RunVelocity()</code>. Under the hood, it delegates the heavy lifting to <code>scVelo</code> (managed safely via the <code>basilisk</code>/<code>velociraptor</code> Python sandbox) and smoothly registers the outputs to the <code>velocity</code> analysis state.</p>
-<div class="sourceCode" id="cb338"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb338-1"><a href="cell-fate.html#cb338-1" tabindex="-1"></a><span class="fu">get_velocity</span>(sce)</span></code></pre></div>
+<div class="sourceCode" id="cb118"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb118-1"><a href="cell-fate.html#cb118-1" tabindex="-1"></a><span class="fu">get_velocity</span>(sce)</span></code></pre></div>
 <pre><code>## $id
 ## [1] &quot;velocity&quot;
 ## 
@@ -1697,12 +1655,8 @@ div.csl-indent {
 ## colData names(7): velocity_self_transition root_cells
 ##   ... velocity_confidence
 ##   velocity_confidence_transition</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
 <pre><code>## reducedDimNames(1): X_pca
 ## mainExpName: NULL</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;
-## Also defined by &#39;alabaster.base&#39;</code></pre>
 <pre><code>## altExpNames(0):
 ## 
 ## $reductions
@@ -1713,7 +1667,7 @@ div.csl-indent {
 ## [3] &quot;root_cells&quot;          &quot;end_points&quot;         
 ## 
 ## $created_at
-## [1] &quot;2026-07-05 20:46:46 UTC&quot;
+## [1] &quot;2026-07-06 04:46:46 CST&quot;
 ## 
 ## $mode
 ## [1] &quot;deterministic&quot;
@@ -2724,52 +2678,19 @@ div.csl-indent {
 ## [1999] &quot;ENSMUSG00000087185.1&quot;  &quot;ENSMUSG00000086732.1&quot; 
 ## 
 ## $timestamp
-## [1] &quot;2026-07-05 20:46:46 UTC&quot;</code></pre>
+## [1] &quot;2026-07-06 04:46:46 CST&quot;</code></pre>
 </div>
 <div id="visualize-velocity-based-trajectory" class="section level3 hasAnchor" number="9.2.3">
 <h3><span class="header-section-number">9.2.3</span> Visualize velocity-based trajectory<a href="cell-fate.html#visualize-velocity-based-trajectory" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>Once the <code>velocity</code> state is recorded, visualizing it is a breeze. You can use <code>VelocityPlot()</code> to draw the dynamic stream or arrows over any active dimensionality reduction space (like UMAP or t-SNE).</p>
-<div class="sourceCode" id="cb345"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb345-1"><a href="cell-fate.html#cb345-1" tabindex="-1"></a><span class="co"># Project the cached velocity stream onto the UMAP embedding</span></span>
-<span id="cb345-2"><a href="cell-fate.html#cb345-2" tabindex="-1"></a><span class="fu">VelocityPlot</span>(sce, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Installing pyenv ...
-## Done! pyenv has been installed to &#39;/home/runner/.local/share/r-reticulate/pyenv/bin/pyenv&#39;.
-## Using Python: /home/runner/.pyenv/versions/3.12.10/bin/python3.12
-## Creating virtual environment &#39;/home/runner/.cache/R/basilisk/1.24.0/velociraptor/1.22.0/env&#39; ...</code></pre>
-<pre><code>## + /home/runner/.pyenv/versions/3.12.10/bin/python3.12 -m venv /home/runner/.cache/R/basilisk/1.24.0/velociraptor/1.22.0/env</code></pre>
+<div class="sourceCode" id="cb122"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb122-1"><a href="cell-fate.html#cb122-1" tabindex="-1"></a><span class="co"># Project the cached velocity stream onto the UMAP embedding</span></span>
+<span id="cb122-2"><a href="cell-fate.html#cb122-2" tabindex="-1"></a><span class="fu">VelocityPlot</span>(sce, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>)</span></code></pre></div>
+<pre><code>## Using Python: /home/wang/.pyenv/versions/3.12.10/bin/python3.12
+## Creating virtual environment &#39;/home/wang/.cache/R/basilisk/1.24.0/velociraptor/1.22.0/env&#39; ...</code></pre>
 <pre><code>## Done!
 ## Installing packages: pip, wheel, setuptools</code></pre>
-<pre><code>## + /home/runner/.cache/R/basilisk/1.24.0/velociraptor/1.22.0/env/bin/python -m pip install --upgrade pip wheel setuptools</code></pre>
 <pre><code>## Installing packages: &#39;anndata==0.11.4&#39;, &#39;array-api-compat==1.12.0&#39;, &#39;click==8.2.1&#39;, &#39;contourpy==1.3.2&#39;, &#39;cycler==0.12.1&#39;, &#39;fonttools==4.58.5&#39;, &#39;h5py==3.14.0&#39;, &#39;joblib==1.5.1&#39;, &#39;kiwisolver==1.4.8&#39;, &#39;legacy-api-wrap==1.4.1&#39;, &#39;llvmlite==0.44.0&#39;, &#39;loompy==3.0.8&#39;, &#39;matplotlib==3.10.3&#39;, &#39;natsort==8.4.0&#39;, &#39;networkx==3.5&#39;, &#39;numba==0.61.2&#39;, &#39;numpy==2.2.6&#39;, &#39;numpy-groupies==0.11.3&#39;, &#39;packaging==25.0&#39;, &#39;pandas==2.3.1&#39;, &#39;patsy==1.0.1&#39;, &#39;pillow==11.3.0&#39;, &#39;pip==25.1.1&#39;, &#39;pynndescent==0.5.13&#39;, &#39;pyparsing==3.2.3&#39;, &#39;python-dateutil==2.9.0.post0&#39;, &#39;pytz==2025.2&#39;, &#39;scanpy==1.11.3&#39;, &#39;scikit-learn==1.7.0&#39;, &#39;scipy==1.15.3&#39;, &#39;scvelo==0.3.3&#39;, &#39;seaborn==0.13.2&#39;, &#39;session-info2==0.1.2&#39;, &#39;setuptools==80.9.0&#39;, &#39;six==1.17.0&#39;, &#39;statsmodels==0.14.5&#39;, &#39;threadpoolctl==3.6.0&#39;, &#39;tqdm==4.67.1&#39;, &#39;typing_extensions==4.14.1&#39;, &#39;tzdata==2025.2&#39;, &#39;umap-learn==0.5.9.post2&#39;, &#39;wheel==0.45.1&#39;</code></pre>
-<pre><code>## + /home/runner/.cache/R/basilisk/1.24.0/velociraptor/1.22.0/env/bin/python -m pip install --upgrade --no-user &#39;anndata==0.11.4&#39; &#39;array-api-compat==1.12.0&#39; &#39;click==8.2.1&#39; &#39;contourpy==1.3.2&#39; &#39;cycler==0.12.1&#39; &#39;fonttools==4.58.5&#39; &#39;h5py==3.14.0&#39; &#39;joblib==1.5.1&#39; &#39;kiwisolver==1.4.8&#39; &#39;legacy-api-wrap==1.4.1&#39; &#39;llvmlite==0.44.0&#39; &#39;loompy==3.0.8&#39; &#39;matplotlib==3.10.3&#39; &#39;natsort==8.4.0&#39; &#39;networkx==3.5&#39; &#39;numba==0.61.2&#39; &#39;numpy==2.2.6&#39; &#39;numpy-groupies==0.11.3&#39; &#39;packaging==25.0&#39; &#39;pandas==2.3.1&#39; &#39;patsy==1.0.1&#39; &#39;pillow==11.3.0&#39; &#39;pip==25.1.1&#39; &#39;pynndescent==0.5.13&#39; &#39;pyparsing==3.2.3&#39; &#39;python-dateutil==2.9.0.post0&#39; &#39;pytz==2025.2&#39; &#39;scanpy==1.11.3&#39; &#39;scikit-learn==1.7.0&#39; &#39;scipy==1.15.3&#39; &#39;scvelo==0.3.3&#39; &#39;seaborn==0.13.2&#39; &#39;session-info2==0.1.2&#39; &#39;setuptools==80.9.0&#39; &#39;six==1.17.0&#39; &#39;statsmodels==0.14.5&#39; &#39;threadpoolctl==3.6.0&#39; &#39;tqdm==4.67.1&#39; &#39;typing_extensions==4.14.1&#39; &#39;tzdata==2025.2&#39; &#39;umap-learn==0.5.9.post2&#39; &#39;wheel==0.45.1&#39;</code></pre>
-<pre><code>## Virtual environment &#39;/home/runner/.cache/R/basilisk/1.24.0/velociraptor/1.22.0/env&#39; successfully created.</code></pre>
-<pre><code>## For native R and reading and writing of H5AD files, an R
-## &lt;AnnData&gt; object, and conversion to &lt;SingleCellExperiment&gt;
-## or &lt;Seurat&gt; objects, check out the anndataR package:
-## ℹ Install it from Bioconductor with
-##   `BiocManager::install(&quot;anndataR&quot;)`
-## ℹ See more at &lt;https://bioconductor.org/packages/anndataR/&gt;
-## This message is displayed once per session.</code></pre>
-<pre><code>## ℹ Using the &#39;X&#39; assay as the X matrix</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
+<pre><code>## Virtual environment &#39;/home/wang/.cache/R/basilisk/1.24.0/velociraptor/1.22.0/env&#39; successfully created.</code></pre>
 <pre><code>## computing velocity embedding
 ##     finished (0:00:00) --&gt; added
 ##     &#39;velocity_target&#39;, embedded velocity vectors (adata.obsm)</code></pre>
@@ -2783,8 +2704,8 @@ div.csl-indent {
 <div id="run-cellrank" class="section level3 hasAnchor" number="9.3.1">
 <h3><span class="header-section-number">9.3.1</span> Run CellRank<a href="cell-fate.html#run-cellrank" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p><code>RunCellFate()</code> is the user-facing entry point for fate mapping in <code>sclet</code>. At the moment it dispatches to <code>CellRank</code>, automatically senses the upstream velocity run, and records the resulting terminal states, named fate probabilities, and lineage drivers in the shared state contract.</p>
-<div class="sourceCode" id="cb376"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb376-1"><a href="cell-fate.html#cb376-1" tabindex="-1"></a><span class="co"># Inspect the cached CellRank analysis state</span></span>
-<span id="cb376-2"><a href="cell-fate.html#cb376-2" tabindex="-1"></a><span class="fu">get_cellrank</span>(sce, <span class="at">id =</span> <span class="st">&quot;cellrank&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb128"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb128-1"><a href="cell-fate.html#cb128-1" tabindex="-1"></a><span class="co"># Inspect the cached CellRank analysis state</span></span>
+<span id="cb128-2"><a href="cell-fate.html#cb128-2" tabindex="-1"></a><span class="fu">get_cellrank</span>(sce, <span class="at">id =</span> <span class="st">&quot;cellrank&quot;</span>)</span></code></pre></div>
 <pre><code>## $id
 ## [1] &quot;cellrank&quot;
 ## 
@@ -3200,64 +3121,57 @@ div.csl-indent {
 ## # ℹ 3,990 more rows
 ## 
 ## $created_at
-## [1] &quot;2026-07-05 21:01:26 UTC&quot;
+## [1] &quot;2026-07-06 05:01:26 CST&quot;
 ## 
 ## $timestamp
-## [1] &quot;2026-07-05 21:01:26 UTC&quot;</code></pre>
+## [1] &quot;2026-07-06 05:01:26 CST&quot;</code></pre>
 <p>The resulting terminal state assignments and directional fate probabilities are written directly into <code>colData(sce)</code>. In addition, <code>sclet</code> now provides fate-specific plotting helpers following the <code>plot_&lt;module&gt;_&lt;type&gt;</code> convention, so you do not need to manually reconstruct the plotting data frame after every run.</p>
-<div class="sourceCode" id="cb378"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb378-1"><a href="cell-fate.html#cb378-1" tabindex="-1"></a>p_prob <span class="ot">&lt;-</span> <span class="fu">plot_fate_probability</span>(sce, <span class="at">fate =</span> <span class="dv">1</span>, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>, <span class="at">id =</span> <span class="st">&quot;cellrank&quot;</span>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<div class="sourceCode" id="cb383"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb383-1"><a href="cell-fate.html#cb383-1" tabindex="-1"></a>p_term <span class="ot">&lt;-</span> <span class="fu">plot_fate_terminal_states</span>(sce, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>, <span class="at">id =</span> <span class="st">&quot;cellrank&quot;</span>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;
-## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<div class="sourceCode" id="cb387"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb387-1"><a href="cell-fate.html#cb387-1" tabindex="-1"></a><span class="fu">plot_list</span>(<span class="st">`</span><span class="at">Fate Probability</span><span class="st">`</span> <span class="ot">=</span> p_prob, <span class="st">`</span><span class="at">Terminal States</span><span class="st">`</span> <span class="ot">=</span> p_term)</span></code></pre></div>
+<div class="sourceCode" id="cb130"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb130-1"><a href="cell-fate.html#cb130-1" tabindex="-1"></a>p_prob <span class="ot">&lt;-</span> <span class="fu">plot_fate_probability</span>(sce, <span class="at">fate =</span> <span class="dv">1</span>, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>, <span class="at">id =</span> <span class="st">&quot;cellrank&quot;</span>)</span>
+<span id="cb130-2"><a href="cell-fate.html#cb130-2" tabindex="-1"></a>p_term <span class="ot">&lt;-</span> <span class="fu">plot_fate_terminal_states</span>(sce, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>, <span class="at">id =</span> <span class="st">&quot;cellrank&quot;</span>)</span>
+<span id="cb130-3"><a href="cell-fate.html#cb130-3" tabindex="-1"></a></span>
+<span id="cb130-4"><a href="cell-fate.html#cb130-4" tabindex="-1"></a><span class="fu">plot_list</span>(<span class="st">`</span><span class="at">Fate Probability</span><span class="st">`</span> <span class="ot">=</span> p_prob, <span class="st">`</span><span class="at">Terminal States</span><span class="st">`</span> <span class="ot">=</span> p_term)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cellrank-plot-1.png" alt="" width="1152" /></p>
-<div class="sourceCode" id="cb388"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb388-1"><a href="cell-fate.html#cb388-1" tabindex="-1"></a>cr <span class="ot">&lt;-</span> <span class="fu">get_cellrank</span>(sce, <span class="at">id =</span> <span class="st">&quot;cellrank&quot;</span>)</span>
-<span id="cb388-2"><a href="cell-fate.html#cb388-2" tabindex="-1"></a>driver_lineage <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="sc">!</span><span class="fu">is.null</span>(cr<span class="sc">$</span>artifacts<span class="sc">$</span>fate_probability_names)) {</span>
-<span id="cb388-3"><a href="cell-fate.html#cb388-3" tabindex="-1"></a>  cr<span class="sc">$</span>artifacts<span class="sc">$</span>fate_probability_names[[<span class="dv">1</span>]]</span>
-<span id="cb388-4"><a href="cell-fate.html#cb388-4" tabindex="-1"></a>} <span class="cf">else</span> {</span>
-<span id="cb388-5"><a href="cell-fate.html#cb388-5" tabindex="-1"></a>  cr<span class="sc">$</span>fate_probability_names[[<span class="dv">1</span>]]</span>
-<span id="cb388-6"><a href="cell-fate.html#cb388-6" tabindex="-1"></a>}</span>
-<span id="cb388-7"><a href="cell-fate.html#cb388-7" tabindex="-1"></a></span>
-<span id="cb388-8"><a href="cell-fate.html#cb388-8" tabindex="-1"></a><span class="fu">plot_fate_driver_trends</span>(sce, <span class="at">lineage =</span> driver_lineage, <span class="at">top_n =</span> <span class="dv">4</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb131"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb131-1"><a href="cell-fate.html#cb131-1" tabindex="-1"></a>cr <span class="ot">&lt;-</span> <span class="fu">get_cellrank</span>(sce, <span class="at">id =</span> <span class="st">&quot;cellrank&quot;</span>)</span>
+<span id="cb131-2"><a href="cell-fate.html#cb131-2" tabindex="-1"></a>driver_lineage <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="sc">!</span><span class="fu">is.null</span>(cr<span class="sc">$</span>artifacts<span class="sc">$</span>fate_probability_names)) {</span>
+<span id="cb131-3"><a href="cell-fate.html#cb131-3" tabindex="-1"></a>  cr<span class="sc">$</span>artifacts<span class="sc">$</span>fate_probability_names[[<span class="dv">1</span>]]</span>
+<span id="cb131-4"><a href="cell-fate.html#cb131-4" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb131-5"><a href="cell-fate.html#cb131-5" tabindex="-1"></a>  cr<span class="sc">$</span>fate_probability_names[[<span class="dv">1</span>]]</span>
+<span id="cb131-6"><a href="cell-fate.html#cb131-6" tabindex="-1"></a>}</span>
+<span id="cb131-7"><a href="cell-fate.html#cb131-7" tabindex="-1"></a></span>
+<span id="cb131-8"><a href="cell-fate.html#cb131-8" tabindex="-1"></a><span class="fu">plot_fate_driver_trends</span>(sce, <span class="at">lineage =</span> driver_lineage, <span class="at">top_n =</span> <span class="dv">4</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cellrank-driver-trends-1.png" alt="" width="1056" /></p>
 </div>
 </div>
 <div id="regvelo-cellrank" class="section level2 hasAnchor" number="9.4">
-<h2><span class="header-section-number">9.4</span> RegVelo with CellRank diagnostics<a href="cell-fate.html#regvelo-cellrank" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>RegVelo extends RNA velocity inference by using a prior gene regulatory network, and in practice it is most useful when run on a GPU-enabled Python environment. The book build does not provision GPU resources, so this section follows the same cache-first pattern as the heavier CellRank examples above: the GPU step is shown as runnable user code, but the rendered book reads a precomputed <code>SingleCellExperiment</code> from <code>bookdown/data</code>.</p>
+<h2><span class="header-section-number">9.4</span> Already have RegVelo results? Wiring them into CellRank<a href="cell-fate.html#regvelo-cellrank" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>RegVelo extends RNA velocity inference by using a prior gene regulatory network, and in practice it is most useful when run on a GPU-enabled Python environment. If that is your situation, this section answers the immediate follow-up question: the GPU step produced a velocity result — how does it get consumed by CellRank without leaving the <code>sclet</code> state layer? The book build does not provision GPU resources, so this section follows the same cache-first pattern as the heavier CellRank examples above: the GPU step is shown as runnable user code, but the rendered book reads a precomputed <code>SingleCellExperiment</code> from <code>bookdown/data</code>.</p>
 <p>The upstream run uses spliced and unspliced assays plus a prior GRN, writes the inferred velocity matrix back into the object as a named assay, and then hands that stored velocity result to CellRank. This code is intentionally not executed during book rendering.</p>
-<div class="sourceCode" id="cb389"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb389-1"><a href="cell-fate.html#cb389-1" tabindex="-1"></a><span class="co"># Run this on a GPU server, not during book rendering.</span></span>
-<span id="cb389-2"><a href="cell-fate.html#cb389-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunRegVelo</span>(</span>
-<span id="cb389-3"><a href="cell-fate.html#cb389-3" tabindex="-1"></a>  sce,</span>
-<span id="cb389-4"><a href="cell-fate.html#cb389-4" tabindex="-1"></a>  <span class="at">grn =</span> prior_grn,</span>
-<span id="cb389-5"><a href="cell-fate.html#cb389-5" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span>,</span>
-<span id="cb389-6"><a href="cell-fate.html#cb389-6" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;regvelo_smoke&quot;</span>,</span>
-<span id="cb389-7"><a href="cell-fate.html#cb389-7" tabindex="-1"></a>  <span class="at">backend =</span> <span class="st">&quot;reticulate&quot;</span>,</span>
-<span id="cb389-8"><a href="cell-fate.html#cb389-8" tabindex="-1"></a>  <span class="at">python =</span> <span class="st">&quot;/path/to/gpu/venv/bin/python&quot;</span>,</span>
-<span id="cb389-9"><a href="cell-fate.html#cb389-9" tabindex="-1"></a>  <span class="at">max_epochs =</span> <span class="dv">20</span>,</span>
-<span id="cb389-10"><a href="cell-fate.html#cb389-10" tabindex="-1"></a>  <span class="at">batch_size =</span> <span class="dv">128</span></span>
-<span id="cb389-11"><a href="cell-fate.html#cb389-11" tabindex="-1"></a>)</span>
-<span id="cb389-12"><a href="cell-fate.html#cb389-12" tabindex="-1"></a></span>
-<span id="cb389-13"><a href="cell-fate.html#cb389-13" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunCellRank</span>(</span>
-<span id="cb389-14"><a href="cell-fate.html#cb389-14" tabindex="-1"></a>  sce,</span>
-<span id="cb389-15"><a href="cell-fate.html#cb389-15" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span>,</span>
-<span id="cb389-16"><a href="cell-fate.html#cb389-16" tabindex="-1"></a>  <span class="at">cluster_key =</span> <span class="st">&quot;celltype_or_cluster&quot;</span>,</span>
-<span id="cb389-17"><a href="cell-fate.html#cb389-17" tabindex="-1"></a>  <span class="at">velocity_id =</span> <span class="st">&quot;regvelo_smoke&quot;</span>,</span>
-<span id="cb389-18"><a href="cell-fate.html#cb389-18" tabindex="-1"></a>  <span class="at">backend =</span> <span class="st">&quot;reticulate&quot;</span>,</span>
-<span id="cb389-19"><a href="cell-fate.html#cb389-19" tabindex="-1"></a>  <span class="at">python =</span> <span class="st">&quot;/path/to/gpu/venv/bin/python&quot;</span>,</span>
-<span id="cb389-20"><a href="cell-fate.html#cb389-20" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;cellrank_regvelo_smoke&quot;</span></span>
-<span id="cb389-21"><a href="cell-fate.html#cb389-21" tabindex="-1"></a>)</span>
-<span id="cb389-22"><a href="cell-fate.html#cb389-22" tabindex="-1"></a></span>
-<span id="cb389-23"><a href="cell-fate.html#cb389-23" tabindex="-1"></a><span class="fu">saveRDS</span>(sce, <span class="st">&quot;bookdown/data/regvelo-smoke-cellrank.rds&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb132"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb132-1"><a href="cell-fate.html#cb132-1" tabindex="-1"></a><span class="co"># Run this on a GPU server, not during book rendering.</span></span>
+<span id="cb132-2"><a href="cell-fate.html#cb132-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunRegVelo</span>(</span>
+<span id="cb132-3"><a href="cell-fate.html#cb132-3" tabindex="-1"></a>  sce,</span>
+<span id="cb132-4"><a href="cell-fate.html#cb132-4" tabindex="-1"></a>  <span class="at">grn =</span> prior_grn,</span>
+<span id="cb132-5"><a href="cell-fate.html#cb132-5" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span>,</span>
+<span id="cb132-6"><a href="cell-fate.html#cb132-6" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;regvelo_smoke&quot;</span>,</span>
+<span id="cb132-7"><a href="cell-fate.html#cb132-7" tabindex="-1"></a>  <span class="at">backend =</span> <span class="st">&quot;reticulate&quot;</span>,</span>
+<span id="cb132-8"><a href="cell-fate.html#cb132-8" tabindex="-1"></a>  <span class="at">python =</span> <span class="st">&quot;/path/to/gpu/venv/bin/python&quot;</span>,</span>
+<span id="cb132-9"><a href="cell-fate.html#cb132-9" tabindex="-1"></a>  <span class="at">max_epochs =</span> <span class="dv">20</span>,</span>
+<span id="cb132-10"><a href="cell-fate.html#cb132-10" tabindex="-1"></a>  <span class="at">batch_size =</span> <span class="dv">128</span></span>
+<span id="cb132-11"><a href="cell-fate.html#cb132-11" tabindex="-1"></a>)</span>
+<span id="cb132-12"><a href="cell-fate.html#cb132-12" tabindex="-1"></a></span>
+<span id="cb132-13"><a href="cell-fate.html#cb132-13" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunCellRank</span>(</span>
+<span id="cb132-14"><a href="cell-fate.html#cb132-14" tabindex="-1"></a>  sce,</span>
+<span id="cb132-15"><a href="cell-fate.html#cb132-15" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span>,</span>
+<span id="cb132-16"><a href="cell-fate.html#cb132-16" tabindex="-1"></a>  <span class="at">cluster_key =</span> <span class="st">&quot;celltype_or_cluster&quot;</span>,</span>
+<span id="cb132-17"><a href="cell-fate.html#cb132-17" tabindex="-1"></a>  <span class="at">velocity_id =</span> <span class="st">&quot;regvelo_smoke&quot;</span>,</span>
+<span id="cb132-18"><a href="cell-fate.html#cb132-18" tabindex="-1"></a>  <span class="at">backend =</span> <span class="st">&quot;reticulate&quot;</span>,</span>
+<span id="cb132-19"><a href="cell-fate.html#cb132-19" tabindex="-1"></a>  <span class="at">python =</span> <span class="st">&quot;/path/to/gpu/venv/bin/python&quot;</span>,</span>
+<span id="cb132-20"><a href="cell-fate.html#cb132-20" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;cellrank_regvelo_smoke&quot;</span></span>
+<span id="cb132-21"><a href="cell-fate.html#cb132-21" tabindex="-1"></a>)</span>
+<span id="cb132-22"><a href="cell-fate.html#cb132-22" tabindex="-1"></a></span>
+<span id="cb132-23"><a href="cell-fate.html#cb132-23" tabindex="-1"></a><span class="fu">saveRDS</span>(sce, <span class="st">&quot;bookdown/data/regvelo-smoke-cellrank.rds&quot;</span>)</span></code></pre></div>
 <p>The cached object below was generated outside the book render. It lets the documentation demonstrate downstream inspection and plotting without rerunning PyTorch, RegVelo, or CellRank on the GitHub Actions worker.</p>
-<div class="sourceCode" id="cb390"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb390-1"><a href="cell-fate.html#cb390-1" tabindex="-1"></a>regvelo_sce <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;data/regvelo-smoke-cellrank.rds&quot;</span>)</span>
-<span id="cb390-2"><a href="cell-fate.html#cb390-2" tabindex="-1"></a><span class="fu">get_velocity</span>(regvelo_sce, <span class="at">id =</span> <span class="st">&quot;regvelo_smoke&quot;</span>)<span class="sc">$</span>artifacts</span></code></pre></div>
+<div class="sourceCode" id="cb133"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb133-1"><a href="cell-fate.html#cb133-1" tabindex="-1"></a>regvelo_sce <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;data/regvelo-smoke-cellrank.rds&quot;</span>)</span>
+<span id="cb133-2"><a href="cell-fate.html#cb133-2" tabindex="-1"></a><span class="fu">get_velocity</span>(regvelo_sce, <span class="at">id =</span> <span class="st">&quot;regvelo_smoke&quot;</span>)<span class="sc">$</span>artifacts</span></code></pre></div>
 <pre><code>## $velocity_assay
 ## [1] &quot;regvelo_smoke_velocity&quot;
 ## 
@@ -3269,8 +3183,8 @@ div.csl-indent {
 ## 
 ## $analysis_key
 ## [1] &quot;regvelo_smoke&quot;</code></pre>
-<div class="sourceCode" id="cb392"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb392-1"><a href="cell-fate.html#cb392-1" tabindex="-1"></a>regvelo_diag <span class="ot">&lt;-</span> <span class="fu">CellRankSummary</span>(regvelo_sce, <span class="at">id =</span> <span class="st">&quot;cellrank_regvelo_smoke&quot;</span>)</span>
-<span id="cb392-2"><a href="cell-fate.html#cb392-2" tabindex="-1"></a>regvelo_diag<span class="sc">$</span>summary</span></code></pre></div>
+<div class="sourceCode" id="cb135"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb135-1"><a href="cell-fate.html#cb135-1" tabindex="-1"></a>regvelo_diag <span class="ot">&lt;-</span> <span class="fu">CellRankSummary</span>(regvelo_sce, <span class="at">id =</span> <span class="st">&quot;cellrank_regvelo_smoke&quot;</span>)</span>
+<span id="cb135-2"><a href="cell-fate.html#cb135-2" tabindex="-1"></a>regvelo_diag<span class="sc">$</span>summary</span></code></pre></div>
 <pre><code>##                  metric                    value
 ## 1               n_cells                      300
 ## 2     n_terminal_states                        1
@@ -3278,91 +3192,126 @@ div.csl-indent {
 ## 4   has_lineage_drivers                    FALSE
 ## 5    terminal_state_col cellrank_terminal_states
 ## 6 fate_probability_cols         cellrank_fate_X0</code></pre>
-<div class="sourceCode" id="cb394"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb394-1"><a href="cell-fate.html#cb394-1" tabindex="-1"></a>regvelo_diag<span class="sc">$</span>terminal_states</span></code></pre></div>
+<div class="sourceCode" id="cb137"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb137-1"><a href="cell-fate.html#cb137-1" tabindex="-1"></a>regvelo_diag<span class="sc">$</span>terminal_states</span></code></pre></div>
 <pre><code>##   terminal_state n_cells
 ## 1              0      30
 ## 2     Unassigned     270</code></pre>
-<div class="sourceCode" id="cb396"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb396-1"><a href="cell-fate.html#cb396-1" tabindex="-1"></a>regvelo_diag<span class="sc">$</span>fate_probabilities</span></code></pre></div>
+<div class="sourceCode" id="cb139"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb139-1"><a href="cell-fate.html#cb139-1" tabindex="-1"></a>regvelo_diag<span class="sc">$</span>fate_probabilities</span></code></pre></div>
 <pre><code>##   fate_probability_col       min median      max
 ## 1     cellrank_fate_X0 0.9999995      1 1.000001
 ##             sd
 ## 1 2.458258e-07</code></pre>
-<div class="sourceCode" id="cb398"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb398-1"><a href="cell-fate.html#cb398-1" tabindex="-1"></a>p_mag <span class="ot">&lt;-</span> <span class="fu">plot_velocity_magnitude</span>(regvelo_sce, <span class="at">id =</span> <span class="st">&quot;regvelo_smoke&quot;</span>, <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<div class="sourceCode" id="cb403"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb403-1"><a href="cell-fate.html#cb403-1" tabindex="-1"></a>p_genes <span class="ot">&lt;-</span> <span class="fu">plot_top_velocity_genes</span>(regvelo_sce, <span class="at">id =</span> <span class="st">&quot;regvelo_smoke&quot;</span>, <span class="at">n =</span> <span class="dv">15</span>)</span>
-<span id="cb403-2"><a href="cell-fate.html#cb403-2" tabindex="-1"></a></span>
-<span id="cb403-3"><a href="cell-fate.html#cb403-3" tabindex="-1"></a><span class="fu">plot_list</span>(<span class="st">`</span><span class="at">Velocity Magnitude</span><span class="st">`</span> <span class="ot">=</span> p_mag, <span class="st">`</span><span class="at">Top Velocity Genes</span><span class="st">`</span> <span class="ot">=</span> p_genes)</span></code></pre></div>
+<div class="sourceCode" id="cb141"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb141-1"><a href="cell-fate.html#cb141-1" tabindex="-1"></a>p_mag <span class="ot">&lt;-</span> <span class="fu">plot_velocity_magnitude</span>(regvelo_sce, <span class="at">id =</span> <span class="st">&quot;regvelo_smoke&quot;</span>, <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span>)</span>
+<span id="cb141-2"><a href="cell-fate.html#cb141-2" tabindex="-1"></a>p_genes <span class="ot">&lt;-</span> <span class="fu">plot_top_velocity_genes</span>(regvelo_sce, <span class="at">id =</span> <span class="st">&quot;regvelo_smoke&quot;</span>, <span class="at">n =</span> <span class="dv">15</span>)</span>
+<span id="cb141-3"><a href="cell-fate.html#cb141-3" tabindex="-1"></a></span>
+<span id="cb141-4"><a href="cell-fate.html#cb141-4" tabindex="-1"></a><span class="fu">plot_list</span>(<span class="st">`</span><span class="at">Velocity Magnitude</span><span class="st">`</span> <span class="ot">=</span> p_mag, <span class="st">`</span><span class="at">Top Velocity Genes</span><span class="st">`</span> <span class="ot">=</span> p_genes)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/regvelo-velocity-plots-1.png" alt="" width="1152" /></p>
-<div class="sourceCode" id="cb404"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb404-1"><a href="cell-fate.html#cb404-1" tabindex="-1"></a>p_regvelo_term <span class="ot">&lt;-</span> <span class="fu">plot_fate_terminal_states</span>(</span>
-<span id="cb404-2"><a href="cell-fate.html#cb404-2" tabindex="-1"></a>  regvelo_sce,</span>
-<span id="cb404-3"><a href="cell-fate.html#cb404-3" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;cellrank_regvelo_smoke&quot;</span>,</span>
-<span id="cb404-4"><a href="cell-fate.html#cb404-4" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span></span>
-<span id="cb404-5"><a href="cell-fate.html#cb404-5" tabindex="-1"></a>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<div class="sourceCode" id="cb409"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb409-1"><a href="cell-fate.html#cb409-1" tabindex="-1"></a>p_regvelo_fate <span class="ot">&lt;-</span> <span class="fu">plot_fate_probability</span>(</span>
-<span id="cb409-2"><a href="cell-fate.html#cb409-2" tabindex="-1"></a>  regvelo_sce,</span>
-<span id="cb409-3"><a href="cell-fate.html#cb409-3" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;cellrank_regvelo_smoke&quot;</span>,</span>
-<span id="cb409-4"><a href="cell-fate.html#cb409-4" tabindex="-1"></a>  <span class="at">fate =</span> <span class="dv">1</span>,</span>
-<span id="cb409-5"><a href="cell-fate.html#cb409-5" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span></span>
-<span id="cb409-6"><a href="cell-fate.html#cb409-6" tabindex="-1"></a>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;
-## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<div class="sourceCode" id="cb413"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb413-1"><a href="cell-fate.html#cb413-1" tabindex="-1"></a><span class="fu">plot_list</span>(<span class="st">`</span><span class="at">Terminal States</span><span class="st">`</span> <span class="ot">=</span> p_regvelo_term, <span class="st">`</span><span class="at">Fate Probability</span><span class="st">`</span> <span class="ot">=</span> p_regvelo_fate)</span></code></pre></div>
+<div class="sourceCode" id="cb142"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb142-1"><a href="cell-fate.html#cb142-1" tabindex="-1"></a>p_regvelo_term <span class="ot">&lt;-</span> <span class="fu">plot_fate_terminal_states</span>(</span>
+<span id="cb142-2"><a href="cell-fate.html#cb142-2" tabindex="-1"></a>  regvelo_sce,</span>
+<span id="cb142-3"><a href="cell-fate.html#cb142-3" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;cellrank_regvelo_smoke&quot;</span>,</span>
+<span id="cb142-4"><a href="cell-fate.html#cb142-4" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span></span>
+<span id="cb142-5"><a href="cell-fate.html#cb142-5" tabindex="-1"></a>)</span>
+<span id="cb142-6"><a href="cell-fate.html#cb142-6" tabindex="-1"></a>p_regvelo_fate <span class="ot">&lt;-</span> <span class="fu">plot_fate_probability</span>(</span>
+<span id="cb142-7"><a href="cell-fate.html#cb142-7" tabindex="-1"></a>  regvelo_sce,</span>
+<span id="cb142-8"><a href="cell-fate.html#cb142-8" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;cellrank_regvelo_smoke&quot;</span>,</span>
+<span id="cb142-9"><a href="cell-fate.html#cb142-9" tabindex="-1"></a>  <span class="at">fate =</span> <span class="dv">1</span>,</span>
+<span id="cb142-10"><a href="cell-fate.html#cb142-10" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span></span>
+<span id="cb142-11"><a href="cell-fate.html#cb142-11" tabindex="-1"></a>)</span>
+<span id="cb142-12"><a href="cell-fate.html#cb142-12" tabindex="-1"></a></span>
+<span id="cb142-13"><a href="cell-fate.html#cb142-13" tabindex="-1"></a><span class="fu">plot_list</span>(<span class="st">`</span><span class="at">Terminal States</span><span class="st">`</span> <span class="ot">=</span> p_regvelo_term, <span class="st">`</span><span class="at">Fate Probability</span><span class="st">`</span> <span class="ot">=</span> p_regvelo_fate)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/regvelo-cellrank-plots-1.png" alt="" width="1152" /></p>
-<div class="sourceCode" id="cb414"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb414-1"><a href="cell-fate.html#cb414-1" tabindex="-1"></a><span class="fu">VelocityFateCorrelation</span>(</span>
-<span id="cb414-2"><a href="cell-fate.html#cb414-2" tabindex="-1"></a>  regvelo_sce,</span>
-<span id="cb414-3"><a href="cell-fate.html#cb414-3" tabindex="-1"></a>  <span class="at">velocity_id =</span> <span class="st">&quot;regvelo_smoke&quot;</span>,</span>
-<span id="cb414-4"><a href="cell-fate.html#cb414-4" tabindex="-1"></a>  <span class="at">trajectory_id =</span> <span class="st">&quot;cellrank_regvelo_smoke&quot;</span></span>
-<span id="cb414-5"><a href="cell-fate.html#cb414-5" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb143"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb143-1"><a href="cell-fate.html#cb143-1" tabindex="-1"></a><span class="fu">VelocityFateCorrelation</span>(</span>
+<span id="cb143-2"><a href="cell-fate.html#cb143-2" tabindex="-1"></a>  regvelo_sce,</span>
+<span id="cb143-3"><a href="cell-fate.html#cb143-3" tabindex="-1"></a>  <span class="at">velocity_id =</span> <span class="st">&quot;regvelo_smoke&quot;</span>,</span>
+<span id="cb143-4"><a href="cell-fate.html#cb143-4" tabindex="-1"></a>  <span class="at">trajectory_id =</span> <span class="st">&quot;cellrank_regvelo_smoke&quot;</span></span>
+<span id="cb143-5"><a href="cell-fate.html#cb143-5" tabindex="-1"></a>)</span></code></pre></div>
 <pre><code>##   fate_probability_col         velocity_assay   method
 ## 1     cellrank_fate_X0 regvelo_smoke_velocity spearman
 ##   n_cells  estimate      p_value
 ## 1     300 0.3538271 2.824656e-10</code></pre>
-<div class="sourceCode" id="cb416"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb416-1"><a href="cell-fate.html#cb416-1" tabindex="-1"></a><span class="fu">plot_velocity_fate_correlation</span>(</span>
-<span id="cb416-2"><a href="cell-fate.html#cb416-2" tabindex="-1"></a>  regvelo_sce,</span>
-<span id="cb416-3"><a href="cell-fate.html#cb416-3" tabindex="-1"></a>  <span class="at">velocity_id =</span> <span class="st">&quot;regvelo_smoke&quot;</span>,</span>
-<span id="cb416-4"><a href="cell-fate.html#cb416-4" tabindex="-1"></a>  <span class="at">trajectory_id =</span> <span class="st">&quot;cellrank_regvelo_smoke&quot;</span></span>
-<span id="cb416-5"><a href="cell-fate.html#cb416-5" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb145"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb145-1"><a href="cell-fate.html#cb145-1" tabindex="-1"></a><span class="fu">plot_velocity_fate_correlation</span>(</span>
+<span id="cb145-2"><a href="cell-fate.html#cb145-2" tabindex="-1"></a>  regvelo_sce,</span>
+<span id="cb145-3"><a href="cell-fate.html#cb145-3" tabindex="-1"></a>  <span class="at">velocity_id =</span> <span class="st">&quot;regvelo_smoke&quot;</span>,</span>
+<span id="cb145-4"><a href="cell-fate.html#cb145-4" tabindex="-1"></a>  <span class="at">trajectory_id =</span> <span class="st">&quot;cellrank_regvelo_smoke&quot;</span></span>
+<span id="cb145-5"><a href="cell-fate.html#cb145-5" tabindex="-1"></a>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/regvelo-fate-correlation-1.png" alt="" width="672" /></p>
 <p>In this small smoke-test object, CellRank detects only one terminal state and the single fate probability is effectively constant. That is still useful as a workflow check: it confirms that the RegVelo velocity assay can be consumed by the CellRank wrapper and downstream visualization. For biological interpretation, a real dataset should usually show multiple terminal states or nontrivial fate probability gradients.</p>
 </div>
 <div id="workflow-shell-for-velocity-and-fate" class="section level2 hasAnchor" number="9.5">
 <h2><span class="header-section-number">9.5</span> Workflow shell for velocity and fate<a href="cell-fate.html#workflow-shell-for-velocity-and-fate" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>When spliced/unspliced assays are available, the same trajectory mainline can extend from lineage inference to velocity and fate mapping:</p>
-<div class="sourceCode" id="cb417"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb417-1"><a href="cell-fate.html#cb417-1" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunTrajectoryWorkflow</span>(</span>
-<span id="cb417-2"><a href="cell-fate.html#cb417-2" tabindex="-1"></a>  sce,</span>
-<span id="cb417-3"><a href="cell-fate.html#cb417-3" tabindex="-1"></a>  <span class="at">group =</span> <span class="st">&quot;cluster&quot;</span>,</span>
-<span id="cb417-4"><a href="cell-fate.html#cb417-4" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span>,</span>
-<span id="cb417-5"><a href="cell-fate.html#cb417-5" tabindex="-1"></a>  <span class="at">run_diffusion_map =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb417-6"><a href="cell-fate.html#cb417-6" tabindex="-1"></a>  <span class="at">run_slingshot =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb417-7"><a href="cell-fate.html#cb417-7" tabindex="-1"></a>  <span class="at">run_velocity =</span> <span class="st">&quot;auto&quot;</span>,</span>
-<span id="cb417-8"><a href="cell-fate.html#cb417-8" tabindex="-1"></a>  <span class="at">run_fate =</span> <span class="st">&quot;auto&quot;</span>,</span>
-<span id="cb417-9"><a href="cell-fate.html#cb417-9" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;germline_main&quot;</span></span>
-<span id="cb417-10"><a href="cell-fate.html#cb417-10" tabindex="-1"></a>)</span>
-<span id="cb417-11"><a href="cell-fate.html#cb417-11" tabindex="-1"></a></span>
-<span id="cb417-12"><a href="cell-fate.html#cb417-12" tabindex="-1"></a><span class="fu">plot_trajectory_overview</span>(</span>
-<span id="cb417-13"><a href="cell-fate.html#cb417-13" tabindex="-1"></a>  sce,</span>
-<span id="cb417-14"><a href="cell-fate.html#cb417-14" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;germline_main&quot;</span>,</span>
-<span id="cb417-15"><a href="cell-fate.html#cb417-15" tabindex="-1"></a>  <span class="at">panels =</span> <span class="fu">c</span>(<span class="st">&quot;velocity&quot;</span>, <span class="st">&quot;terminal_states&quot;</span>, <span class="st">&quot;fate_probability&quot;</span>)</span>
-<span id="cb417-16"><a href="cell-fate.html#cb417-16" tabindex="-1"></a>)</span></code></pre></div>
+<p>This closes the loop on question 1: when spliced/unspliced assays are available, the same trajectory mainline can extend from lineage inference to velocity and fate mapping in a single call — every stage still lands in the state layer under one workflow record:</p>
+<div class="sourceCode" id="cb146"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb146-1"><a href="cell-fate.html#cb146-1" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunTrajectoryWorkflow</span>(</span>
+<span id="cb146-2"><a href="cell-fate.html#cb146-2" tabindex="-1"></a>  sce,</span>
+<span id="cb146-3"><a href="cell-fate.html#cb146-3" tabindex="-1"></a>  <span class="at">group =</span> <span class="st">&quot;cluster&quot;</span>,</span>
+<span id="cb146-4"><a href="cell-fate.html#cb146-4" tabindex="-1"></a>  <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span>,</span>
+<span id="cb146-5"><a href="cell-fate.html#cb146-5" tabindex="-1"></a>  <span class="at">run_diffusion_map =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb146-6"><a href="cell-fate.html#cb146-6" tabindex="-1"></a>  <span class="at">run_slingshot =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb146-7"><a href="cell-fate.html#cb146-7" tabindex="-1"></a>  <span class="at">run_velocity =</span> <span class="st">&quot;auto&quot;</span>,</span>
+<span id="cb146-8"><a href="cell-fate.html#cb146-8" tabindex="-1"></a>  <span class="at">run_fate =</span> <span class="st">&quot;auto&quot;</span>,</span>
+<span id="cb146-9"><a href="cell-fate.html#cb146-9" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">&quot;germline_main&quot;</span></span>
+<span id="cb146-10"><a href="cell-fate.html#cb146-10" tabindex="-1"></a>)</span>
+<span id="cb146-11"><a href="cell-fate.html#cb146-11" tabindex="-1"></a></span>
+<span id="cb146-12"><a href="cell-fate.html#cb146-12" tabindex="-1"></a><span class="fu">plot_trajectory_overview</span>(</span>
+<span id="cb146-13"><a href="cell-fate.html#cb146-13" tabindex="-1"></a>  sce,</span>
+<span id="cb146-14"><a href="cell-fate.html#cb146-14" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;germline_main&quot;</span>,</span>
+<span id="cb146-15"><a href="cell-fate.html#cb146-15" tabindex="-1"></a>  <span class="at">panels =</span> <span class="fu">c</span>(<span class="st">&quot;velocity&quot;</span>, <span class="st">&quot;terminal_states&quot;</span>, <span class="st">&quot;fate_probability&quot;</span>)</span>
+<span id="cb146-16"><a href="cell-fate.html#cb146-16" tabindex="-1"></a>)</span></code></pre></div>
 </div>
-<div id="velocity-latent-time" class="section level2 hasAnchor" number="9.6">
-<h2><span class="header-section-number">9.6</span> Velocity Latent Time<a href="cell-fate.html#velocity-latent-time" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<div id="velocity-diagnostics" class="section level2 hasAnchor" number="9.6">
+<h2><span class="header-section-number">9.6</span> Is it real or a smoke screen? Diagnosing the velocity-fate chain<a href="cell-fate.html#velocity-diagnostics" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>This is question 3, and answering it well is what makes the other two questions worth asking. A velocity-fate chain can execute cleanly from end to end and still be biologically empty: a degenerate velocity field will happily produce one dominant terminal state backed by an essentially constant fate probability. The trick is that none of this requires rerunning Python — because <code>RunCellRank()</code> and <code>RunVelocity()</code> write their results into the state layer, every diagnostic below reads cached records directly.</p>
+<p>The helpers shown here (<code>CellRankSummary()</code>, <code>VelocityFateCorrelation()</code>, <code>plot_velocity_magnitude()</code>, <code>plot_top_velocity_genes()</code>) were all demonstrated on the RegVelo cache above; this section explains how to read them.</p>
+<div id="reading-the-cellrank-summary" class="section level3 hasAnchor" number="9.6.1">
+<h3><span class="header-section-number">9.6.1</span> Reading the CellRank summary<a href="cell-fate.html#reading-the-cellrank-summary" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>Three things in the <code>CellRankSummary()</code> output deserve attention before you interpret anything else:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Number of terminal states.</strong> One terminal state on a development-style dataset usually means the transition matrix collapsed — either the velocity field is too weak, or the neighborhood graph is dominated by one cluster. Treat it as a workflow smoke check, not biology.</li>
+<li><strong>Size balance of terminal states</strong> (<code>terminal_states</code> table). A “terminal” state holding a handful of cells is more likely an artifact of the kNN graph than a genuine sink.</li>
+<li><strong>Shape of the fate probabilities</strong> (<code>fate_probabilities</code> table). Compare min/median/max per fate column: if max - median is near zero, fate probability carries no cell-to-cell information and downstream gene drivers inherit that flatness.</li>
+</ol>
+<p>That is exactly the situation in the smoke-test object above: single terminal state, effectively constant fate probability. Useful as proof that the RegVelo assay was consumed correctly; useless as a developmental claim. A publishable result needs multiple terminal states or a nontrivial fate gradient.</p>
+</div>
+<div id="does-velocity-actually-explain-fate" class="section level3 hasAnchor" number="9.6.2">
+<h3><span class="header-section-number">9.6.2</span> Does velocity actually explain fate?<a href="cell-fate.html#does-velocity-actually-explain-fate" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p><code>VelocityFateCorrelation()</code> pairs per-cell velocity magnitude against fate probability, and <code>plot_velocity_fate_correlation()</code> renders the scatter. How to read it:</p>
+<ul>
+<li><strong>Positive correlation</strong>: cells moving fast also have committed fates — consistent with the velocity field actively driving absorption.</li>
+<li><strong>Near-zero correlation</strong>: fate probabilities exist but appear decoupled from velocity. Common causes include over-smoothed the diffusion kernel, a prior GRN (RegVelo) that regularized away most of the signal, or simply few genes with informative unspliced counts.</li>
+<li><strong>Inversion</strong> (strongly negative): rare, but usually points at sign errors or a mismatch between the reduction used for velocity projection and the one used for fate computation.</li>
+</ul>
+<p>Also glance at <code>plot_velocity_magnitude()</code> and <code>plot_top_velocity_genes()</code>: if the top-gene list is full of low-count noise instead of biology you recognize, the kinetic estimate itself is the weak link — fix that before tuning CellRank parameters.</p>
+</div>
+<div id="auditing-the-whole-chain-in-one-place" class="section level3 hasAnchor" number="9.6.3">
+<h3><span class="header-section-number">9.6.3</span> Auditing the whole chain in one place<a href="cell-fate.html#auditing-the-whole-chain-in-one-place" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>Because each stage logs a command record, the full provenance of a (possibly suspicious) result is inspectable without recomputation:</p>
+<div class="sourceCode" id="cb147"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb147-1"><a href="cell-fate.html#cb147-1" tabindex="-1"></a><span class="fu">tail</span>(<span class="fu">CommandLog</span>(regvelo_sce), <span class="dv">4</span>)</span></code></pre></div>
+<pre><code>##       command           timestamp
+## 1  RunRegVelo 2026-07-01 15:21:23
+## 2 RunCellRank 2026-07-02 09:11:07
+##                                                                                                                                                                                                                    params_summary
+## 1 spliced_assay=spliced; unspliced_assay=unspliced; reduction=PCA; name=regvelo_smoke; max_epochs=20; lam=1; lam2=0; batch_size=128; seed=1; backend=reticulate; python=/biostack/home/guangchuang/sclet/.venv-regvelo/bin/python
+## 2                                  reduction=PCA; cluster_key=regvelo_smoke_cluster; velocity_id=regvelo_smoke; backend=reticulate; python=/biostack/home/guangchuang/sclet/.venv-regvelo/bin/python; name=cellrank_regvelo_smoke
+##                                                           outputs_summary
+## 1 analysis=velocity; velocity=regvelo_smoke; assay=regvelo_smoke_velocity
+## 2                    analysis=cellrank; trajectory=cellrank_regvelo_smoke</code></pre>
+<div class="sourceCode" id="cb149"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb149-1"><a href="cell-fate.html#cb149-1" tabindex="-1"></a><span class="fu">c</span>(</span>
+<span id="cb149-2"><a href="cell-fate.html#cb149-2" tabindex="-1"></a>  <span class="at">velocity =</span> <span class="fu">has_velocity</span>(regvelo_sce),</span>
+<span id="cb149-3"><a href="cell-fate.html#cb149-3" tabindex="-1"></a>  <span class="at">trajectory =</span> <span class="fu">has_trajectory</span>(regvelo_sce)</span>
+<span id="cb149-4"><a href="cell-fate.html#cb149-4" tabindex="-1"></a>)</span></code></pre></div>
+<pre><code>##   velocity trajectory 
+##       TRUE       TRUE</code></pre>
+<p>If a figure looks wrong, read the command log backwards: which id produced it, with which parameters, fed by which upstream state. Nine times out of ten the problem is visible there before you touch any plot.</p>
+</div>
+</div>
+<div id="velocity-latent-time" class="section level2 hasAnchor" number="9.7">
+<h2><span class="header-section-number">9.7</span> Velocity Latent Time<a href="cell-fate.html#velocity-latent-time" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>When scVelo is run in dynamical mode, it infers a latent time for each cell — a pseudotime ordering derived from the RNA velocity field itself, not from a separate trajectory method. <code>plot_velocity_latent_time()</code> colors cells on an embedding by this inferred temporal progression.</p>
-<div class="sourceCode" id="cb418"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb418-1"><a href="cell-fate.html#cb418-1" tabindex="-1"></a><span class="co"># requires scVelo dynamical mode latent time</span></span>
-<span id="cb418-2"><a href="cell-fate.html#cb418-2" tabindex="-1"></a><span class="fu">plot_velocity_latent_time</span>(</span>
-<span id="cb418-3"><a href="cell-fate.html#cb418-3" tabindex="-1"></a>    sce,</span>
-<span id="cb418-4"><a href="cell-fate.html#cb418-4" tabindex="-1"></a>    <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>,</span>
-<span id="cb418-5"><a href="cell-fate.html#cb418-5" tabindex="-1"></a>    <span class="at">id =</span> <span class="st">&quot;germline_main_velocity&quot;</span></span>
-<span id="cb418-6"><a href="cell-fate.html#cb418-6" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb151"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb151-1"><a href="cell-fate.html#cb151-1" tabindex="-1"></a><span class="co"># requires scVelo dynamical mode latent time</span></span>
+<span id="cb151-2"><a href="cell-fate.html#cb151-2" tabindex="-1"></a><span class="fu">plot_velocity_latent_time</span>(</span>
+<span id="cb151-3"><a href="cell-fate.html#cb151-3" tabindex="-1"></a>    sce,</span>
+<span id="cb151-4"><a href="cell-fate.html#cb151-4" tabindex="-1"></a>    <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>,</span>
+<span id="cb151-5"><a href="cell-fate.html#cb151-5" tabindex="-1"></a>    <span class="at">id =</span> <span class="st">&quot;germline_main_velocity&quot;</span></span>
+<span id="cb151-6"><a href="cell-fate.html#cb151-6" tabindex="-1"></a>)</span></code></pre></div>
 
 </div>
 </div>

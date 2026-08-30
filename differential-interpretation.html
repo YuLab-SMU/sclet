@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>11 Differential Analysis and Functional Interpretation | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="11 Differential Analysis and Functional Interpretation | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="11 Differential Analysis and Functional Interpretation | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -429,40 +434,33 @@ div.csl-indent {
 <div id="standard-single-cell-de" class="section level2 hasAnchor" number="11.2">
 <h2><span class="header-section-number">11.2</span> Standard Single-Cell DE<a href="differential-interpretation.html#standard-single-cell-de" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>You can find markers for all clusters using <code>RunDEtest()</code>, which wraps <code>FindMarkers</code> or <code>FindAllMarkers</code>. Importantly, <code>RunDEtest()</code> saves the result as an <code>analysis-state</code> inside the <code>SingleCellExperiment</code> object.</p>
-<div class="sourceCode" id="cb450"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb450-1"><a href="differential-interpretation.html#cb450-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb450-2"><a href="differential-interpretation.html#cb450-2" tabindex="-1"></a><span class="co"># Assuming &#39;sce&#39; has been processed and clustered</span></span>
-<span id="cb450-3"><a href="differential-interpretation.html#cb450-3" tabindex="-1"></a>sce <span class="ot">&lt;-</span> pbmc</span>
-<span id="cb450-4"><a href="differential-interpretation.html#cb450-4" tabindex="-1"></a></span>
-<span id="cb450-5"><a href="differential-interpretation.html#cb450-5" tabindex="-1"></a><span class="co"># Run differential expression test and record the state</span></span>
-<span id="cb450-6"><a href="differential-interpretation.html#cb450-6" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunDEtest</span>(sce, <span class="at">only.pos =</span> <span class="cn">TRUE</span>, <span class="at">min.pct =</span> <span class="fl">0.25</span>, <span class="at">logfc.threshold =</span> <span class="fl">0.25</span>)</span>
-<span id="cb450-7"><a href="differential-interpretation.html#cb450-7" tabindex="-1"></a></span>
-<span id="cb450-8"><a href="differential-interpretation.html#cb450-8" tabindex="-1"></a><span class="co"># Visualize the DE results using a Volcano plot</span></span>
-<span id="cb450-9"><a href="differential-interpretation.html#cb450-9" tabindex="-1"></a><span class="fu">DEtestPlot</span>(sce)</span></code></pre></div>
+<div class="sourceCode" id="cb171"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb171-1"><a href="differential-interpretation.html#cb171-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb171-2"><a href="differential-interpretation.html#cb171-2" tabindex="-1"></a><span class="co"># Assuming &#39;sce&#39; has been processed and clustered</span></span>
+<span id="cb171-3"><a href="differential-interpretation.html#cb171-3" tabindex="-1"></a>sce <span class="ot">&lt;-</span> pbmc</span>
+<span id="cb171-4"><a href="differential-interpretation.html#cb171-4" tabindex="-1"></a></span>
+<span id="cb171-5"><a href="differential-interpretation.html#cb171-5" tabindex="-1"></a><span class="co"># Run differential expression test and record the state</span></span>
+<span id="cb171-6"><a href="differential-interpretation.html#cb171-6" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunDEtest</span>(sce, <span class="at">only.pos =</span> <span class="cn">TRUE</span>, <span class="at">min.pct =</span> <span class="fl">0.25</span>, <span class="at">logfc.threshold =</span> <span class="fl">0.25</span>)</span>
+<span id="cb171-7"><a href="differential-interpretation.html#cb171-7" tabindex="-1"></a></span>
+<span id="cb171-8"><a href="differential-interpretation.html#cb171-8" tabindex="-1"></a><span class="co"># Visualize the DE results using a Volcano plot</span></span>
+<span id="cb171-9"><a href="differential-interpretation.html#cb171-9" tabindex="-1"></a><span class="fu">DEtestPlot</span>(sce)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/detest-1.png" alt="" width="960" /></p>
 <div id="the-what-does-this-gene-even-do-problem" class="section level3 hasAnchor" number="11.2.1">
 <h3><span class="header-section-number">11.2.1</span> The “What does this gene even do?” Problem<a href="differential-interpretation.html#the-what-does-this-gene-even-do-problem" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>When you get a list of marker genes, you’re often left staring at cryptic acronyms like <code>ZBTB16</code> or <code>KLRB1</code>. What do they actually do?</p>
 <p><code>sclet</code> provides a handy utility called <code>gene_summary_table()</code> that automatically fetches the full name and biological summary of the genes from the selected <code>orgDb</code> annotation package.</p>
-<div class="sourceCode" id="cb451"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb451-1"><a href="differential-interpretation.html#cb451-1" tabindex="-1"></a><span class="co"># Get the raw DE results from the state</span></span>
-<span id="cb451-2"><a href="differential-interpretation.html#cb451-2" tabindex="-1"></a>de_results <span class="ot">&lt;-</span> <span class="fu">get_detest</span>(sce)<span class="sc">$</span>results</span>
-<span id="cb451-3"><a href="differential-interpretation.html#cb451-3" tabindex="-1"></a></span>
-<span id="cb451-4"><a href="differential-interpretation.html#cb451-4" tabindex="-1"></a><span class="co"># Take the top 5 markers</span></span>
-<span id="cb451-5"><a href="differential-interpretation.html#cb451-5" tabindex="-1"></a>top_genes <span class="ot">&lt;-</span> <span class="fu">head</span>(de_results<span class="sc">$</span>gene, <span class="dv">5</span>)</span>
-<span id="cb451-6"><a href="differential-interpretation.html#cb451-6" tabindex="-1"></a></span>
-<span id="cb451-7"><a href="differential-interpretation.html#cb451-7" tabindex="-1"></a><span class="co"># Fetch their biological summaries!</span></span>
-<span id="cb451-8"><a href="differential-interpretation.html#cb451-8" tabindex="-1"></a>summary_df <span class="ot">&lt;-</span> <span class="fu">gene_summary_table</span>(</span>
-<span id="cb451-9"><a href="differential-interpretation.html#cb451-9" tabindex="-1"></a>    top_genes,</span>
-<span id="cb451-10"><a href="differential-interpretation.html#cb451-10" tabindex="-1"></a>    <span class="at">orgDb =</span> <span class="st">&quot;org.Hs.eg.db&quot;</span>,</span>
-<span id="cb451-11"><a href="differential-interpretation.html#cb451-11" tabindex="-1"></a>    <span class="at">output =</span> <span class="st">&quot;data.frame&quot;</span></span>
-<span id="cb451-12"><a href="differential-interpretation.html#cb451-12" tabindex="-1"></a>)</span></code></pre></div>
-<pre><code>## Please cite:
-## 
-## D Wang, G Chen, L Li, S Wen, Z Xie, X Luo, L
-## Zhan, S Xu, J Li, R Wang, Q Wang, G Yu. Reducing language
-## barriers, promoting information absorption, and
-## communication using fanyi. Chinese Medical Journal. 2024,
-## 137(16):1950-1956. doi: 10.1097/CM9.0000000000003242</code></pre>
-<div class="sourceCode" id="cb453"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb453-1"><a href="differential-interpretation.html#cb453-1" tabindex="-1"></a><span class="fu">print</span>(summary_df)</span></code></pre></div>
+<div class="sourceCode" id="cb172"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb172-1"><a href="differential-interpretation.html#cb172-1" tabindex="-1"></a><span class="co"># Get the raw DE results from the state</span></span>
+<span id="cb172-2"><a href="differential-interpretation.html#cb172-2" tabindex="-1"></a>de_results <span class="ot">&lt;-</span> <span class="fu">get_detest</span>(sce)<span class="sc">$</span>results</span>
+<span id="cb172-3"><a href="differential-interpretation.html#cb172-3" tabindex="-1"></a></span>
+<span id="cb172-4"><a href="differential-interpretation.html#cb172-4" tabindex="-1"></a><span class="co"># Take the top 5 markers</span></span>
+<span id="cb172-5"><a href="differential-interpretation.html#cb172-5" tabindex="-1"></a>top_genes <span class="ot">&lt;-</span> <span class="fu">head</span>(de_results<span class="sc">$</span>gene, <span class="dv">5</span>)</span>
+<span id="cb172-6"><a href="differential-interpretation.html#cb172-6" tabindex="-1"></a></span>
+<span id="cb172-7"><a href="differential-interpretation.html#cb172-7" tabindex="-1"></a><span class="co"># Fetch their biological summaries!</span></span>
+<span id="cb172-8"><a href="differential-interpretation.html#cb172-8" tabindex="-1"></a>summary_df <span class="ot">&lt;-</span> <span class="fu">gene_summary_table</span>(</span>
+<span id="cb172-9"><a href="differential-interpretation.html#cb172-9" tabindex="-1"></a>    top_genes,</span>
+<span id="cb172-10"><a href="differential-interpretation.html#cb172-10" tabindex="-1"></a>    <span class="at">orgDb =</span> <span class="st">&quot;org.Hs.eg.db&quot;</span>,</span>
+<span id="cb172-11"><a href="differential-interpretation.html#cb172-11" tabindex="-1"></a>    <span class="at">output =</span> <span class="st">&quot;data.frame&quot;</span></span>
+<span id="cb172-12"><a href="differential-interpretation.html#cb172-12" tabindex="-1"></a>)</span>
+<span id="cb172-13"><a href="differential-interpretation.html#cb172-13" tabindex="-1"></a><span class="fu">print</span>(summary_df)</span></code></pre></div>
 <pre><code>## [1] ENTREZID    gene        name        description
 ## [5] summary    
 ## &lt;0 rows&gt; (or 0-length row.names)</code></pre>
@@ -476,60 +474,41 @@ div.csl-indent {
 <div id="step-1-aggregate-expression" class="section level3 hasAnchor" number="11.3.1">
 <h3><span class="header-section-number">11.3.1</span> Step 1: Aggregate Expression<a href="differential-interpretation.html#step-1-aggregate-expression" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>In a real analysis, your <code>sce</code> object would usually already contain replicate metadata such as <code>donor_id</code> and <code>cell_type</code>. For a runnable book example, we create a simple donor column on the fly and reuse the current cluster labels as grouping labels.</p>
-<div class="sourceCode" id="cb455"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb455-1"><a href="differential-interpretation.html#cb455-1" tabindex="-1"></a><span class="co"># For a runnable example, we create a simple donor column.</span></span>
-<span id="cb455-2"><a href="differential-interpretation.html#cb455-2" tabindex="-1"></a>cluster_id <span class="ot">&lt;-</span> <span class="fu">as.character</span>(SingleCellExperiment<span class="sc">::</span><span class="fu">colLabels</span>(sce))</span>
-<span id="cb455-3"><a href="differential-interpretation.html#cb455-3" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(cluster_id) <span class="sc">==</span> <span class="dv">0</span>) {</span>
-<span id="cb455-4"><a href="differential-interpretation.html#cb455-4" tabindex="-1"></a>    cluster_id <span class="ot">&lt;-</span> <span class="fu">as.character</span>(<span class="fu">Idents</span>(sce))</span>
-<span id="cb455-5"><a href="differential-interpretation.html#cb455-5" tabindex="-1"></a>}</span>
-<span id="cb455-6"><a href="differential-interpretation.html#cb455-6" tabindex="-1"></a>sce<span class="sc">$</span>cluster_id <span class="ot">&lt;-</span> cluster_id</span>
-<span id="cb455-7"><a href="differential-interpretation.html#cb455-7" tabindex="-1"></a>sce<span class="sc">$</span>donor_id <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="fu">paste0</span>(<span class="st">&quot;donor&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>), <span class="at">length.out =</span> <span class="fu">ncol</span>(sce))</span>
-<span id="cb455-8"><a href="differential-interpretation.html#cb455-8" tabindex="-1"></a></span>
-<span id="cb455-9"><a href="differential-interpretation.html#cb455-9" tabindex="-1"></a><span class="co"># Aggregate counts by cluster and donor</span></span>
-<span id="cb455-10"><a href="differential-interpretation.html#cb455-10" tabindex="-1"></a>pb_sce <span class="ot">&lt;-</span> <span class="fu">AggregateExpression</span>(</span>
-<span id="cb455-11"><a href="differential-interpretation.html#cb455-11" tabindex="-1"></a>    sce, </span>
-<span id="cb455-12"><a href="differential-interpretation.html#cb455-12" tabindex="-1"></a>    <span class="at">group_by =</span> <span class="fu">c</span>(<span class="st">&quot;cluster_id&quot;</span>, <span class="st">&quot;donor_id&quot;</span>), </span>
-<span id="cb455-13"><a href="differential-interpretation.html#cb455-13" tabindex="-1"></a>    <span class="at">assay.type =</span> <span class="st">&quot;counts&quot;</span></span>
-<span id="cb455-14"><a href="differential-interpretation.html#cb455-14" tabindex="-1"></a>)</span></code></pre></div>
-<pre><code>## using unknown matrix fallback for &#39;HDF5ArraySeed&#39;</code></pre>
-<div class="sourceCode" id="cb457"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb457-1"><a href="differential-interpretation.html#cb457-1" tabindex="-1"></a><span class="co"># The result is a much smaller SummarizedExperiment</span></span>
-<span id="cb457-2"><a href="differential-interpretation.html#cb457-2" tabindex="-1"></a><span class="co"># where each column is a &quot;donor-cluster&quot; pseudobulk sample.</span></span>
-<span id="cb457-3"><a href="differential-interpretation.html#cb457-3" tabindex="-1"></a><span class="fu">dim</span>(pb_sce)</span></code></pre></div>
+<div class="sourceCode" id="cb174"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb174-1"><a href="differential-interpretation.html#cb174-1" tabindex="-1"></a><span class="co"># For a runnable example, we create a simple donor column.</span></span>
+<span id="cb174-2"><a href="differential-interpretation.html#cb174-2" tabindex="-1"></a>cluster_id <span class="ot">&lt;-</span> <span class="fu">as.character</span>(SingleCellExperiment<span class="sc">::</span><span class="fu">colLabels</span>(sce))</span>
+<span id="cb174-3"><a href="differential-interpretation.html#cb174-3" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(cluster_id) <span class="sc">==</span> <span class="dv">0</span>) {</span>
+<span id="cb174-4"><a href="differential-interpretation.html#cb174-4" tabindex="-1"></a>    cluster_id <span class="ot">&lt;-</span> <span class="fu">as.character</span>(<span class="fu">Idents</span>(sce))</span>
+<span id="cb174-5"><a href="differential-interpretation.html#cb174-5" tabindex="-1"></a>}</span>
+<span id="cb174-6"><a href="differential-interpretation.html#cb174-6" tabindex="-1"></a>sce<span class="sc">$</span>cluster_id <span class="ot">&lt;-</span> cluster_id</span>
+<span id="cb174-7"><a href="differential-interpretation.html#cb174-7" tabindex="-1"></a>sce<span class="sc">$</span>donor_id <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="fu">paste0</span>(<span class="st">&quot;donor&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>), <span class="at">length.out =</span> <span class="fu">ncol</span>(sce))</span>
+<span id="cb174-8"><a href="differential-interpretation.html#cb174-8" tabindex="-1"></a></span>
+<span id="cb174-9"><a href="differential-interpretation.html#cb174-9" tabindex="-1"></a><span class="co"># Aggregate counts by cluster and donor</span></span>
+<span id="cb174-10"><a href="differential-interpretation.html#cb174-10" tabindex="-1"></a>pb_sce <span class="ot">&lt;-</span> <span class="fu">AggregateExpression</span>(</span>
+<span id="cb174-11"><a href="differential-interpretation.html#cb174-11" tabindex="-1"></a>    sce, </span>
+<span id="cb174-12"><a href="differential-interpretation.html#cb174-12" tabindex="-1"></a>    <span class="at">group_by =</span> <span class="fu">c</span>(<span class="st">&quot;cluster_id&quot;</span>, <span class="st">&quot;donor_id&quot;</span>), </span>
+<span id="cb174-13"><a href="differential-interpretation.html#cb174-13" tabindex="-1"></a>    <span class="at">assay.type =</span> <span class="st">&quot;counts&quot;</span></span>
+<span id="cb174-14"><a href="differential-interpretation.html#cb174-14" tabindex="-1"></a>)</span>
+<span id="cb174-15"><a href="differential-interpretation.html#cb174-15" tabindex="-1"></a></span>
+<span id="cb174-16"><a href="differential-interpretation.html#cb174-16" tabindex="-1"></a><span class="co"># The result is a much smaller SummarizedExperiment</span></span>
+<span id="cb174-17"><a href="differential-interpretation.html#cb174-17" tabindex="-1"></a><span class="co"># where each column is a &quot;donor-cluster&quot; pseudobulk sample.</span></span>
+<span id="cb174-18"><a href="differential-interpretation.html#cb174-18" tabindex="-1"></a><span class="fu">dim</span>(pb_sce)</span></code></pre></div>
 <pre><code>## [1] 13656    36</code></pre>
 </div>
 <div id="step-2-pseudobulk-de-with-deseq2" class="section level3 hasAnchor" number="11.3.2">
 <h3><span class="header-section-number">11.3.2</span> Step 2: Pseudobulk DE with DESeq2<a href="differential-interpretation.html#step-2-pseudobulk-de-with-deseq2" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>Now, you can run <code>DESeq2</code> directly on this aggregated object to find markers robustly.</p>
-<div class="sourceCode" id="cb459"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb459-1"><a href="differential-interpretation.html#cb459-1" tabindex="-1"></a>cluster_tab <span class="ot">&lt;-</span> <span class="fu">table</span>(pb_sce<span class="sc">$</span>cluster_id)</span>
-<span id="cb459-2"><a href="differential-interpretation.html#cb459-2" tabindex="-1"></a>target_clusters <span class="ot">&lt;-</span> <span class="fu">names</span>(cluster_tab[cluster_tab <span class="sc">&gt;=</span> <span class="dv">2</span>])[<span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>]</span>
-<span id="cb459-3"><a href="differential-interpretation.html#cb459-3" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">length</span>(target_clusters) <span class="sc">==</span> <span class="dv">2</span>)</span>
-<span id="cb459-4"><a href="differential-interpretation.html#cb459-4" tabindex="-1"></a></span>
-<span id="cb459-5"><a href="differential-interpretation.html#cb459-5" tabindex="-1"></a>pb_subset <span class="ot">&lt;-</span> pb_sce[, pb_sce<span class="sc">$</span>cluster_id <span class="sc">%in%</span> target_clusters]</span>
-<span id="cb459-6"><a href="differential-interpretation.html#cb459-6" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">FindMarkers_pseudobulk</span>(</span>
-<span id="cb459-7"><a href="differential-interpretation.html#cb459-7" tabindex="-1"></a>    pb_subset,</span>
-<span id="cb459-8"><a href="differential-interpretation.html#cb459-8" tabindex="-1"></a>    <span class="at">design =</span> <span class="sc">~</span> cluster_id,</span>
-<span id="cb459-9"><a href="differential-interpretation.html#cb459-9" tabindex="-1"></a>    <span class="at">contrast =</span> <span class="fu">c</span>(<span class="st">&quot;cluster_id&quot;</span>, target_clusters[<span class="dv">1</span>], target_clusters[<span class="dv">2</span>])</span>
-<span id="cb459-10"><a href="differential-interpretation.html#cb459-10" tabindex="-1"></a>)</span></code></pre></div>
-<pre><code>## renaming the first element in assays to &#39;counts&#39;</code></pre>
-<pre><code>## converting counts to integer mode</code></pre>
-<pre><code>##   Note: levels of factors in the design contain characters other than
-##   letters, numbers, &#39;_&#39; and &#39;.&#39;. It is recommended (but not required) to use
-##   only letters, numbers, and delimiters &#39;_&#39; or &#39;.&#39;, as these are safe characters
-##   for column names in R. [This is a message, not a warning or an error]</code></pre>
-<pre><code>## estimating size factors</code></pre>
-<pre><code>##   Note: levels of factors in the design contain characters other than
-##   letters, numbers, &#39;_&#39; and &#39;.&#39;. It is recommended (but not required) to use
-##   only letters, numbers, and delimiters &#39;_&#39; or &#39;.&#39;, as these are safe characters
-##   for column names in R. [This is a message, not a warning or an error]</code></pre>
-<pre><code>## estimating dispersions</code></pre>
-<pre><code>## gene-wise dispersion estimates</code></pre>
-<pre><code>## mean-dispersion relationship</code></pre>
-<pre><code>##   Note: levels of factors in the design contain characters other than
-##   letters, numbers, &#39;_&#39; and &#39;.&#39;. It is recommended (but not required) to use
-##   only letters, numbers, and delimiters &#39;_&#39; or &#39;.&#39;, as these are safe characters
-##   for column names in R. [This is a message, not a warning or an error]</code></pre>
-<pre><code>## final dispersion estimates</code></pre>
-<pre><code>## fitting model and testing</code></pre>
-<div class="sourceCode" id="cb471"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb471-1"><a href="differential-interpretation.html#cb471-1" tabindex="-1"></a><span class="fu">head</span>(res[, <span class="fu">c</span>(<span class="st">&quot;log2FoldChange&quot;</span>, <span class="st">&quot;pvalue&quot;</span>, <span class="st">&quot;padj&quot;</span>)])</span></code></pre></div>
+<div class="sourceCode" id="cb176"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb176-1"><a href="differential-interpretation.html#cb176-1" tabindex="-1"></a>cluster_tab <span class="ot">&lt;-</span> <span class="fu">table</span>(pb_sce<span class="sc">$</span>cluster_id)</span>
+<span id="cb176-2"><a href="differential-interpretation.html#cb176-2" tabindex="-1"></a>target_clusters <span class="ot">&lt;-</span> <span class="fu">names</span>(cluster_tab[cluster_tab <span class="sc">&gt;=</span> <span class="dv">2</span>])[<span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>]</span>
+<span id="cb176-3"><a href="differential-interpretation.html#cb176-3" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">length</span>(target_clusters) <span class="sc">==</span> <span class="dv">2</span>)</span>
+<span id="cb176-4"><a href="differential-interpretation.html#cb176-4" tabindex="-1"></a></span>
+<span id="cb176-5"><a href="differential-interpretation.html#cb176-5" tabindex="-1"></a>pb_subset <span class="ot">&lt;-</span> pb_sce[, pb_sce<span class="sc">$</span>cluster_id <span class="sc">%in%</span> target_clusters]</span>
+<span id="cb176-6"><a href="differential-interpretation.html#cb176-6" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">FindMarkers_pseudobulk</span>(</span>
+<span id="cb176-7"><a href="differential-interpretation.html#cb176-7" tabindex="-1"></a>    pb_subset,</span>
+<span id="cb176-8"><a href="differential-interpretation.html#cb176-8" tabindex="-1"></a>    <span class="at">design =</span> <span class="sc">~</span> cluster_id,</span>
+<span id="cb176-9"><a href="differential-interpretation.html#cb176-9" tabindex="-1"></a>    <span class="at">contrast =</span> <span class="fu">c</span>(<span class="st">&quot;cluster_id&quot;</span>, target_clusters[<span class="dv">1</span>], target_clusters[<span class="dv">2</span>])</span>
+<span id="cb176-10"><a href="differential-interpretation.html#cb176-10" tabindex="-1"></a>)</span>
+<span id="cb176-11"><a href="differential-interpretation.html#cb176-11" tabindex="-1"></a></span>
+<span id="cb176-12"><a href="differential-interpretation.html#cb176-12" tabindex="-1"></a><span class="fu">head</span>(res[, <span class="fu">c</span>(<span class="st">&quot;log2FoldChange&quot;</span>, <span class="st">&quot;pvalue&quot;</span>, <span class="st">&quot;padj&quot;</span>)])</span></code></pre></div>
 <pre><code>##               log2FoldChange    pvalue      padj
 ## AL627309.1                NA        NA        NA
 ## AP006222.2                NA        NA        NA
@@ -549,44 +528,39 @@ div.csl-indent {
 <div id="go-enrichment" class="section level2 hasAnchor" number="11.5">
 <h2><span class="header-section-number">11.5</span> GO Enrichment<a href="differential-interpretation.html#go-enrichment" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>If you have already run <code>RunDEtest()</code>, <code>RunEnrichment()</code> is smart enough to automatically read the significant up-regulated markers from the active <code>detest</code> state. No need to manually extract gene lists!</p>
-<div class="sourceCode" id="cb473"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb473-1"><a href="differential-interpretation.html#cb473-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb473-2"><a href="differential-interpretation.html#cb473-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> pbmc</span>
-<span id="cb473-3"><a href="differential-interpretation.html#cb473-3" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunDEtest</span>(sce, <span class="at">only.pos =</span> <span class="cn">TRUE</span>, <span class="at">min.pct =</span> <span class="fl">0.25</span>, <span class="at">logfc.threshold =</span> <span class="fl">0.25</span>)</span></code></pre></div>
-<pre><code>## Using &#39;logcounts&#39; for marker testing instead of active layer &#39;scaled&#39;.</code></pre>
-<pre><code>## Calculating markers for all clusters using presto...</code></pre>
-<div class="sourceCode" id="cb476"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb476-1"><a href="differential-interpretation.html#cb476-1" tabindex="-1"></a><span class="co"># Ensure you have org.Mm.eg.db installed for Mouse data</span></span>
-<span id="cb476-2"><a href="differential-interpretation.html#cb476-2" tabindex="-1"></a><span class="co"># or org.Hs.eg.db for Human</span></span>
-<span id="cb476-3"><a href="differential-interpretation.html#cb476-3" tabindex="-1"></a><span class="fu">library</span>(org.Hs.eg.db) </span></code></pre></div>
-<pre><code>## Loading required package: AnnotationDbi</code></pre>
-<pre><code>## 
-## Attaching package: &#39;AnnotationDbi&#39;</code></pre>
-<pre><code>## The following object is masked from &#39;package:dplyr&#39;:
-## 
-##     select</code></pre>
-<div class="sourceCode" id="cb480"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb480-1"><a href="differential-interpretation.html#cb480-1" tabindex="-1"></a><span class="co"># Run enrichment analysis based on the DEtest state</span></span>
-<span id="cb480-2"><a href="differential-interpretation.html#cb480-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunEnrichment</span>(</span>
-<span id="cb480-3"><a href="differential-interpretation.html#cb480-3" tabindex="-1"></a>    sce, </span>
-<span id="cb480-4"><a href="differential-interpretation.html#cb480-4" tabindex="-1"></a>    <span class="at">db =</span> <span class="st">&quot;GO&quot;</span>, </span>
-<span id="cb480-5"><a href="differential-interpretation.html#cb480-5" tabindex="-1"></a>    <span class="at">orgDb =</span> <span class="st">&quot;org.Hs.eg.db&quot;</span>, </span>
-<span id="cb480-6"><a href="differential-interpretation.html#cb480-6" tabindex="-1"></a>    <span class="at">keyType =</span> <span class="st">&quot;SYMBOL&quot;</span>, </span>
-<span id="cb480-7"><a href="differential-interpretation.html#cb480-7" tabindex="-1"></a>    <span class="at">ont =</span> <span class="st">&quot;BP&quot;</span></span>
-<span id="cb480-8"><a href="differential-interpretation.html#cb480-8" tabindex="-1"></a>)</span>
-<span id="cb480-9"><a href="differential-interpretation.html#cb480-9" tabindex="-1"></a></span>
-<span id="cb480-10"><a href="differential-interpretation.html#cb480-10" tabindex="-1"></a><span class="co"># Visualize the enrichment results using EnrichmentPlot (wraps enrichplot::dotplot)</span></span>
-<span id="cb480-11"><a href="differential-interpretation.html#cb480-11" tabindex="-1"></a><span class="fu">EnrichmentPlot</span>(sce, <span class="at">showCategory=</span><span class="dv">5</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb178"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb178-1"><a href="differential-interpretation.html#cb178-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb178-2"><a href="differential-interpretation.html#cb178-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> pbmc</span>
+<span id="cb178-3"><a href="differential-interpretation.html#cb178-3" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunDEtest</span>(sce, <span class="at">only.pos =</span> <span class="cn">TRUE</span>, <span class="at">min.pct =</span> <span class="fl">0.25</span>, <span class="at">logfc.threshold =</span> <span class="fl">0.25</span>)</span>
+<span id="cb178-4"><a href="differential-interpretation.html#cb178-4" tabindex="-1"></a></span>
+<span id="cb178-5"><a href="differential-interpretation.html#cb178-5" tabindex="-1"></a></span>
+<span id="cb178-6"><a href="differential-interpretation.html#cb178-6" tabindex="-1"></a><span class="co"># Ensure you have org.Mm.eg.db installed for Mouse data</span></span>
+<span id="cb178-7"><a href="differential-interpretation.html#cb178-7" tabindex="-1"></a><span class="co"># or org.Hs.eg.db for Human</span></span>
+<span id="cb178-8"><a href="differential-interpretation.html#cb178-8" tabindex="-1"></a><span class="fu">library</span>(org.Hs.eg.db) </span>
+<span id="cb178-9"><a href="differential-interpretation.html#cb178-9" tabindex="-1"></a></span>
+<span id="cb178-10"><a href="differential-interpretation.html#cb178-10" tabindex="-1"></a><span class="co"># Run enrichment analysis based on the DEtest state</span></span>
+<span id="cb178-11"><a href="differential-interpretation.html#cb178-11" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunEnrichment</span>(</span>
+<span id="cb178-12"><a href="differential-interpretation.html#cb178-12" tabindex="-1"></a>    sce, </span>
+<span id="cb178-13"><a href="differential-interpretation.html#cb178-13" tabindex="-1"></a>    <span class="at">db =</span> <span class="st">&quot;GO&quot;</span>, </span>
+<span id="cb178-14"><a href="differential-interpretation.html#cb178-14" tabindex="-1"></a>    <span class="at">orgDb =</span> <span class="st">&quot;org.Hs.eg.db&quot;</span>, </span>
+<span id="cb178-15"><a href="differential-interpretation.html#cb178-15" tabindex="-1"></a>    <span class="at">keyType =</span> <span class="st">&quot;SYMBOL&quot;</span>, </span>
+<span id="cb178-16"><a href="differential-interpretation.html#cb178-16" tabindex="-1"></a>    <span class="at">ont =</span> <span class="st">&quot;BP&quot;</span></span>
+<span id="cb178-17"><a href="differential-interpretation.html#cb178-17" tabindex="-1"></a>)</span>
+<span id="cb178-18"><a href="differential-interpretation.html#cb178-18" tabindex="-1"></a></span>
+<span id="cb178-19"><a href="differential-interpretation.html#cb178-19" tabindex="-1"></a><span class="co"># Visualize the enrichment results using EnrichmentPlot (wraps enrichplot::dotplot)</span></span>
+<span id="cb178-20"><a href="differential-interpretation.html#cb178-20" tabindex="-1"></a><span class="fu">EnrichmentPlot</span>(sce, <span class="at">showCategory=</span><span class="dv">5</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/go_enrich-1.png" alt="" width="960" /></p>
 </div>
 <div id="kegg-enrichment" class="section level2 hasAnchor" number="11.6">
 <h2><span class="header-section-number">11.6</span> KEGG Enrichment<a href="differential-interpretation.html#kegg-enrichment" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>For KEGG pathway enrichment, it is highly recommended to convert gene symbols to Entrez IDs first, or provide a column with Entrez IDs if available. This example is intentionally left as a template rather than executed in CI, because KEGG runs are more sensitive to identifier hygiene and organism-specific setup than the GO workflow above.</p>
-<div class="sourceCode" id="cb481"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb481-1"><a href="differential-interpretation.html#cb481-1" tabindex="-1"></a><span class="co"># Example if markers had ENTREZID</span></span>
-<span id="cb481-2"><a href="differential-interpretation.html#cb481-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunEnrichment</span>(</span>
-<span id="cb481-3"><a href="differential-interpretation.html#cb481-3" tabindex="-1"></a>    sce, </span>
-<span id="cb481-4"><a href="differential-interpretation.html#cb481-4" tabindex="-1"></a>    <span class="at">db =</span> <span class="st">&quot;KEGG&quot;</span>, </span>
-<span id="cb481-5"><a href="differential-interpretation.html#cb481-5" tabindex="-1"></a>    <span class="at">organism =</span> <span class="st">&quot;hsa&quot;</span></span>
-<span id="cb481-6"><a href="differential-interpretation.html#cb481-6" tabindex="-1"></a>)</span>
-<span id="cb481-7"><a href="differential-interpretation.html#cb481-7" tabindex="-1"></a></span>
-<span id="cb481-8"><a href="differential-interpretation.html#cb481-8" tabindex="-1"></a><span class="fu">EnrichmentPlot</span>(sce)</span></code></pre></div>
+<div class="sourceCode" id="cb179"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb179-1"><a href="differential-interpretation.html#cb179-1" tabindex="-1"></a><span class="co"># Example if markers had ENTREZID</span></span>
+<span id="cb179-2"><a href="differential-interpretation.html#cb179-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunEnrichment</span>(</span>
+<span id="cb179-3"><a href="differential-interpretation.html#cb179-3" tabindex="-1"></a>    sce, </span>
+<span id="cb179-4"><a href="differential-interpretation.html#cb179-4" tabindex="-1"></a>    <span class="at">db =</span> <span class="st">&quot;KEGG&quot;</span>, </span>
+<span id="cb179-5"><a href="differential-interpretation.html#cb179-5" tabindex="-1"></a>    <span class="at">organism =</span> <span class="st">&quot;hsa&quot;</span></span>
+<span id="cb179-6"><a href="differential-interpretation.html#cb179-6" tabindex="-1"></a>)</span>
+<span id="cb179-7"><a href="differential-interpretation.html#cb179-7" tabindex="-1"></a></span>
+<span id="cb179-8"><a href="differential-interpretation.html#cb179-8" tabindex="-1"></a><span class="fu">EnrichmentPlot</span>(sce)</span></code></pre></div>
 
 </div>
 </div>

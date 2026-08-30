@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>13 State Priority and Perturbation Sensitivity | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="13 State Priority and Perturbation Sensitivity | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="13 State Priority and Perturbation Sensitivity | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -426,48 +431,47 @@ div.csl-indent {
 <div id="one-step-dispatch" class="section level3 hasAnchor" number="13.1.1">
 <h3><span class="header-section-number">13.1.1</span> One-Step Dispatch<a href="state-priority.html#one-step-dispatch" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>The simplest entry point is <code>RunStatePriorityWorkflow()</code>. It delegates to Augur behind the scenes and records the workflow as a structured analysis mainline record.</p>
-<div class="sourceCode" id="cb510"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb510-1"><a href="state-priority.html#cb510-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb510-2"><a href="state-priority.html#cb510-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> pbmc</span>
-<span id="cb510-3"><a href="state-priority.html#cb510-3" tabindex="-1"></a></span>
-<span id="cb510-4"><a href="state-priority.html#cb510-4" tabindex="-1"></a><span class="co"># The object must have condition labels and cluster labels in colData.</span></span>
-<span id="cb510-5"><a href="state-priority.html#cb510-5" tabindex="-1"></a>sce<span class="sc">$</span>condition <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">seq_len</span>(<span class="fu">ncol</span>(sce)) <span class="sc">%%</span> <span class="dv">2</span> <span class="sc">==</span> <span class="dv">0</span>, <span class="st">&quot;treated&quot;</span>, <span class="st">&quot;control&quot;</span>)</span>
-<span id="cb510-6"><a href="state-priority.html#cb510-6" tabindex="-1"></a></span>
-<span id="cb510-7"><a href="state-priority.html#cb510-7" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunStatePriorityWorkflow</span>(</span>
-<span id="cb510-8"><a href="state-priority.html#cb510-8" tabindex="-1"></a>    sce,</span>
-<span id="cb510-9"><a href="state-priority.html#cb510-9" tabindex="-1"></a>    <span class="at">condition_col =</span> <span class="st">&quot;condition&quot;</span>,</span>
-<span id="cb510-10"><a href="state-priority.html#cb510-10" tabindex="-1"></a>    <span class="at">group_col =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
-<span id="cb510-11"><a href="state-priority.html#cb510-11" tabindex="-1"></a>    <span class="at">run_perturbation_priority =</span> <span class="cn">TRUE</span></span>
-<span id="cb510-12"><a href="state-priority.html#cb510-12" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb204"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb204-1"><a href="state-priority.html#cb204-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb204-2"><a href="state-priority.html#cb204-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> pbmc</span>
+<span id="cb204-3"><a href="state-priority.html#cb204-3" tabindex="-1"></a></span>
+<span id="cb204-4"><a href="state-priority.html#cb204-4" tabindex="-1"></a><span class="co"># The object must have condition labels and cluster labels in colData.</span></span>
+<span id="cb204-5"><a href="state-priority.html#cb204-5" tabindex="-1"></a>sce<span class="sc">$</span>condition <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">seq_len</span>(<span class="fu">ncol</span>(sce)) <span class="sc">%%</span> <span class="dv">2</span> <span class="sc">==</span> <span class="dv">0</span>, <span class="st">&quot;treated&quot;</span>, <span class="st">&quot;control&quot;</span>)</span>
+<span id="cb204-6"><a href="state-priority.html#cb204-6" tabindex="-1"></a></span>
+<span id="cb204-7"><a href="state-priority.html#cb204-7" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunStatePriorityWorkflow</span>(</span>
+<span id="cb204-8"><a href="state-priority.html#cb204-8" tabindex="-1"></a>    sce,</span>
+<span id="cb204-9"><a href="state-priority.html#cb204-9" tabindex="-1"></a>    <span class="at">condition_col =</span> <span class="st">&quot;condition&quot;</span>,</span>
+<span id="cb204-10"><a href="state-priority.html#cb204-10" tabindex="-1"></a>    <span class="at">group_col =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
+<span id="cb204-11"><a href="state-priority.html#cb204-11" tabindex="-1"></a>    <span class="at">run_perturbation_priority =</span> <span class="cn">TRUE</span></span>
+<span id="cb204-12"><a href="state-priority.html#cb204-12" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div id="direct-augur-call" class="section level3 hasAnchor" number="13.1.2">
 <h3><span class="header-section-number">13.1.2</span> Direct Augur Call<a href="state-priority.html#direct-augur-call" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>If you prefer to work directly with the Augur backend without the workflow shell, use <code>RunPerturbationPriority()</code>.</p>
 <p>The real Augur run is not executed during book rendering because it requires the <code>Augur</code> package and involves a non-trivial cross-validation loop. The code below shows the intended usage pattern.</p>
-<div class="sourceCode" id="cb511"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb511-1"><a href="state-priority.html#cb511-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb511-2"><a href="state-priority.html#cb511-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> pbmc</span>
-<span id="cb511-3"><a href="state-priority.html#cb511-3" tabindex="-1"></a>sce<span class="sc">$</span>condition <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">seq_len</span>(<span class="fu">ncol</span>(sce)) <span class="sc">%%</span> <span class="dv">2</span> <span class="sc">==</span> <span class="dv">0</span>, <span class="st">&quot;treated&quot;</span>, <span class="st">&quot;control&quot;</span>)</span>
-<span id="cb511-4"><a href="state-priority.html#cb511-4" tabindex="-1"></a></span>
-<span id="cb511-5"><a href="state-priority.html#cb511-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunPerturbationPriority</span>(</span>
-<span id="cb511-6"><a href="state-priority.html#cb511-6" tabindex="-1"></a>    sce,</span>
-<span id="cb511-7"><a href="state-priority.html#cb511-7" tabindex="-1"></a>    <span class="at">condition_col =</span> <span class="st">&quot;condition&quot;</span>,</span>
-<span id="cb511-8"><a href="state-priority.html#cb511-8" tabindex="-1"></a>    <span class="at">group_col =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
-<span id="cb511-9"><a href="state-priority.html#cb511-9" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;my_augur_run&quot;</span></span>
-<span id="cb511-10"><a href="state-priority.html#cb511-10" tabindex="-1"></a>)</span>
-<span id="cb511-11"><a href="state-priority.html#cb511-11" tabindex="-1"></a></span>
-<span id="cb511-12"><a href="state-priority.html#cb511-12" tabindex="-1"></a><span class="co"># Inspect the AUC ranking</span></span>
-<span id="cb511-13"><a href="state-priority.html#cb511-13" tabindex="-1"></a>priority <span class="ot">&lt;-</span> <span class="fu">get_perturbation_priority</span>(sce)</span>
-<span id="cb511-14"><a href="state-priority.html#cb511-14" tabindex="-1"></a><span class="fu">print</span>(priority<span class="sc">$</span>AUC)</span></code></pre></div>
+<div class="sourceCode" id="cb205"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb205-1"><a href="state-priority.html#cb205-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb205-2"><a href="state-priority.html#cb205-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> pbmc</span>
+<span id="cb205-3"><a href="state-priority.html#cb205-3" tabindex="-1"></a>sce<span class="sc">$</span>condition <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">seq_len</span>(<span class="fu">ncol</span>(sce)) <span class="sc">%%</span> <span class="dv">2</span> <span class="sc">==</span> <span class="dv">0</span>, <span class="st">&quot;treated&quot;</span>, <span class="st">&quot;control&quot;</span>)</span>
+<span id="cb205-4"><a href="state-priority.html#cb205-4" tabindex="-1"></a></span>
+<span id="cb205-5"><a href="state-priority.html#cb205-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunPerturbationPriority</span>(</span>
+<span id="cb205-6"><a href="state-priority.html#cb205-6" tabindex="-1"></a>    sce,</span>
+<span id="cb205-7"><a href="state-priority.html#cb205-7" tabindex="-1"></a>    <span class="at">condition_col =</span> <span class="st">&quot;condition&quot;</span>,</span>
+<span id="cb205-8"><a href="state-priority.html#cb205-8" tabindex="-1"></a>    <span class="at">group_col =</span> <span class="st">&quot;colLabels&quot;</span>,</span>
+<span id="cb205-9"><a href="state-priority.html#cb205-9" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;my_augur_run&quot;</span></span>
+<span id="cb205-10"><a href="state-priority.html#cb205-10" tabindex="-1"></a>)</span>
+<span id="cb205-11"><a href="state-priority.html#cb205-11" tabindex="-1"></a></span>
+<span id="cb205-12"><a href="state-priority.html#cb205-12" tabindex="-1"></a><span class="co"># Inspect the AUC ranking</span></span>
+<span id="cb205-13"><a href="state-priority.html#cb205-13" tabindex="-1"></a>priority <span class="ot">&lt;-</span> <span class="fu">get_perturbation_priority</span>(sce)</span>
+<span id="cb205-14"><a href="state-priority.html#cb205-14" tabindex="-1"></a><span class="fu">print</span>(priority<span class="sc">$</span>AUC)</span></code></pre></div>
 </div>
 <div id="inspecting-results" class="section level3 hasAnchor" number="13.1.3">
 <h3><span class="header-section-number">13.1.3</span> Inspecting Results<a href="state-priority.html#inspecting-results" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>After the analysis, <code>sclet</code> stores the Augur output through two accessor layers. <code>get_perturbation_priority()</code> returns the complete priority record; <code>has_perturbation_priority()</code> checks whether the result is available.</p>
-<div class="sourceCode" id="cb512"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb512-1"><a href="state-priority.html#cb512-1" tabindex="-1"></a><span class="co"># Check whether priority results exist</span></span>
-<span id="cb512-2"><a href="state-priority.html#cb512-2" tabindex="-1"></a><span class="fu">has_perturbation_priority</span>(sce)</span></code></pre></div>
-<pre><code>## [1] FALSE</code></pre>
-<div class="sourceCode" id="cb514"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb514-1"><a href="state-priority.html#cb514-1" tabindex="-1"></a><span class="co"># Retrieve the AUC table</span></span>
-<span id="cb514-2"><a href="state-priority.html#cb514-2" tabindex="-1"></a>auc_table <span class="ot">&lt;-</span> <span class="fu">get_perturbation_priority</span>(sce, <span class="at">element =</span> <span class="st">&quot;AUC&quot;</span>)</span>
-<span id="cb514-3"><a href="state-priority.html#cb514-3" tabindex="-1"></a><span class="fu">head</span>(auc_table)</span></code></pre></div>
-<pre><code>## NULL</code></pre>
+<div class="sourceCode" id="cb206"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb206-1"><a href="state-priority.html#cb206-1" tabindex="-1"></a><span class="co"># Check whether priority results exist</span></span>
+<span id="cb206-2"><a href="state-priority.html#cb206-2" tabindex="-1"></a><span class="fu">has_perturbation_priority</span>(sce)</span>
+<span id="cb206-3"><a href="state-priority.html#cb206-3" tabindex="-1"></a></span>
+<span id="cb206-4"><a href="state-priority.html#cb206-4" tabindex="-1"></a><span class="co"># Retrieve the AUC table</span></span>
+<span id="cb206-5"><a href="state-priority.html#cb206-5" tabindex="-1"></a>auc_table <span class="ot">&lt;-</span> <span class="fu">get_perturbation_priority</span>(sce, <span class="at">element =</span> <span class="st">&quot;AUC&quot;</span>)</span>
+<span id="cb206-6"><a href="state-priority.html#cb206-6" tabindex="-1"></a><span class="fu">head</span>(auc_table)</span></code></pre></div>
 </div>
 </div>
 <div id="rare-cell-detection" class="section level2 hasAnchor" number="13.2">
@@ -478,27 +482,22 @@ div.csl-indent {
 <li><strong>Identify high-Q seeds</strong> — cells above <code>q_threshold</code> are local density maxima.</li>
 <li><strong>Label propagation</strong> — unlabeled cells adopt the label of their most frequent labeled neighbor over 5 iterations. Clusters ≤ <code>rare_threshold</code> cells are flagged as rare.</li>
 </ol>
-<div class="sourceCode" id="cb516"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb516-1"><a href="state-priority.html#cb516-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb516-2"><a href="state-priority.html#cb516-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> pbmc</span>
-<span id="cb516-3"><a href="state-priority.html#cb516-3" tabindex="-1"></a></span>
-<span id="cb516-4"><a href="state-priority.html#cb516-4" tabindex="-1"></a><span class="co"># Ensure PCA is in the object (already there from core workflow)</span></span>
-<span id="cb516-5"><a href="state-priority.html#cb516-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunRareCellDetection</span>(</span>
-<span id="cb516-6"><a href="state-priority.html#cb516-6" tabindex="-1"></a>    sce,</span>
-<span id="cb516-7"><a href="state-priority.html#cb516-7" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;density&quot;</span>,</span>
-<span id="cb516-8"><a href="state-priority.html#cb516-8" tabindex="-1"></a>    <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span>,</span>
-<span id="cb516-9"><a href="state-priority.html#cb516-9" tabindex="-1"></a>    <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>,</span>
-<span id="cb516-10"><a href="state-priority.html#cb516-10" tabindex="-1"></a>    <span class="at">k =</span> <span class="dv">20</span>,</span>
-<span id="cb516-11"><a href="state-priority.html#cb516-11" tabindex="-1"></a>    <span class="at">q_threshold =</span> <span class="fl">0.25</span>,</span>
-<span id="cb516-12"><a href="state-priority.html#cb516-12" tabindex="-1"></a>    <span class="at">rare_threshold =</span> <span class="dv">10</span>,</span>
-<span id="cb516-13"><a href="state-priority.html#cb516-13" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;density_demo&quot;</span></span>
-<span id="cb516-14"><a href="state-priority.html#cb516-14" tabindex="-1"></a>)</span></code></pre></div>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## Found more than one class &quot;package_version&quot; in cache; using the first, from namespace &#39;SeuratObject&#39;</code></pre>
-<pre><code>## Also defined by &#39;alabaster.base&#39;</code></pre>
-<pre><code>## ℹ Building kNN graph (k=20) on 10 dims</code></pre>
-<pre><code>## ℹ Found 2374 high-density seeds (Q &gt;= 0.25)</code></pre>
-<div class="sourceCode" id="cb523"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb523-1"><a href="state-priority.html#cb523-1" tabindex="-1"></a><span class="fu">table</span>(sce<span class="sc">$</span>rare_cluster)</span></code></pre></div>
+<div class="sourceCode" id="cb207"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb207-1"><a href="state-priority.html#cb207-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb207-2"><a href="state-priority.html#cb207-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> pbmc</span>
+<span id="cb207-3"><a href="state-priority.html#cb207-3" tabindex="-1"></a></span>
+<span id="cb207-4"><a href="state-priority.html#cb207-4" tabindex="-1"></a><span class="co"># Ensure PCA is in the object (already there from core workflow)</span></span>
+<span id="cb207-5"><a href="state-priority.html#cb207-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunRareCellDetection</span>(</span>
+<span id="cb207-6"><a href="state-priority.html#cb207-6" tabindex="-1"></a>    sce,</span>
+<span id="cb207-7"><a href="state-priority.html#cb207-7" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;density&quot;</span>,</span>
+<span id="cb207-8"><a href="state-priority.html#cb207-8" tabindex="-1"></a>    <span class="at">reduction =</span> <span class="st">&quot;PCA&quot;</span>,</span>
+<span id="cb207-9"><a href="state-priority.html#cb207-9" tabindex="-1"></a>    <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>,</span>
+<span id="cb207-10"><a href="state-priority.html#cb207-10" tabindex="-1"></a>    <span class="at">k =</span> <span class="dv">20</span>,</span>
+<span id="cb207-11"><a href="state-priority.html#cb207-11" tabindex="-1"></a>    <span class="at">q_threshold =</span> <span class="fl">0.25</span>,</span>
+<span id="cb207-12"><a href="state-priority.html#cb207-12" tabindex="-1"></a>    <span class="at">rare_threshold =</span> <span class="dv">10</span>,</span>
+<span id="cb207-13"><a href="state-priority.html#cb207-13" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;density_demo&quot;</span></span>
+<span id="cb207-14"><a href="state-priority.html#cb207-14" tabindex="-1"></a>)</span>
+<span id="cb207-15"><a href="state-priority.html#cb207-15" tabindex="-1"></a></span>
+<span id="cb207-16"><a href="state-priority.html#cb207-16" tabindex="-1"></a><span class="fu">table</span>(sce<span class="sc">$</span>rare_cluster)</span></code></pre></div>
 <pre><code>## 
 ##    1   10  100 1000 1001 1002 1003 1004 1005 1006 1007 1008 
 ##    1    6    1    1    1    1    1    1    1    1    1    1 
@@ -896,9 +895,9 @@ div.csl-indent {
 ##    3    1    1    1    1    1    1    1    1    1    1    7 
 ##  990  991  992  993  994  995  996  997  998  999 
 ##    1    1    1    1    1    1    1    1    1    1</code></pre>
-<div class="sourceCode" id="cb525"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb525-1"><a href="state-priority.html#cb525-1" tabindex="-1"></a><span class="co"># Inspect rare clusters</span></span>
-<span id="cb525-2"><a href="state-priority.html#cb525-2" tabindex="-1"></a>rare_info <span class="ot">&lt;-</span> <span class="fu">get_rare_cells</span>(sce)</span>
-<span id="cb525-3"><a href="state-priority.html#cb525-3" tabindex="-1"></a>rare_info<span class="sc">$</span>rare_clusters</span></code></pre></div>
+<div class="sourceCode" id="cb209"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb209-1"><a href="state-priority.html#cb209-1" tabindex="-1"></a><span class="co"># Inspect rare clusters</span></span>
+<span id="cb209-2"><a href="state-priority.html#cb209-2" tabindex="-1"></a>rare_info <span class="ot">&lt;-</span> <span class="fu">get_rare_cells</span>(sce)</span>
+<span id="cb209-3"><a href="state-priority.html#cb209-3" tabindex="-1"></a>rare_info<span class="sc">$</span>rare_clusters</span></code></pre></div>
 <pre><code>##    [1] &quot;1&quot;    &quot;100&quot;  &quot;1000&quot; &quot;1001&quot; &quot;1002&quot; &quot;1003&quot; &quot;1004&quot;
 ##    [8] &quot;1005&quot; &quot;1006&quot; &quot;1007&quot; &quot;1008&quot; &quot;1009&quot; &quot;1010&quot; &quot;1011&quot;
 ##   [15] &quot;1012&quot; &quot;1013&quot; &quot;1014&quot; &quot;1015&quot; &quot;1016&quot; &quot;1017&quot; &quot;1018&quot;
@@ -1238,7 +1237,7 @@ div.csl-indent {
 ## [2353] &quot;91&quot;   &quot;120&quot;  &quot;130&quot;  &quot;17&quot;   &quot;175&quot;  &quot;20&quot;   &quot;22&quot;  
 ## [2360] &quot;33&quot;   &quot;47&quot;   &quot;477&quot;  &quot;55&quot;   &quot;58&quot;   &quot;66&quot;   &quot;79&quot;  
 ## [2367] &quot;10&quot;   &quot;13&quot;   &quot;46&quot;   &quot;8&quot;    &quot;113&quot;  &quot;92&quot;   &quot;99&quot;</code></pre>
-<div class="sourceCode" id="cb527"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb527-1"><a href="state-priority.html#cb527-1" tabindex="-1"></a>rare_info<span class="sc">$</span>n_clusters</span></code></pre></div>
+<div class="sourceCode" id="cb211"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb211-1"><a href="state-priority.html#cb211-1" tabindex="-1"></a>rare_info<span class="sc">$</span>n_clusters</span></code></pre></div>
 <pre><code>## [1] 2374</code></pre>
 </div>
 <div id="what-fits-nearby" class="section level2 hasAnchor" number="13.3">

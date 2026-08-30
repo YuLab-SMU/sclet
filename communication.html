@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>12 Cell-Cell Communication and Microenvironment Interaction | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="12 Cell-Cell Communication and Microenvironment Interaction | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="12 Cell-Cell Communication and Microenvironment Interaction | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -426,33 +431,30 @@ div.csl-indent {
 <p>The <code>group</code> parameter should reference a variable within the <code>SingleCellExperiment</code> object that holds the clustering data.</p>
 <p><code>RunCCI()</code> follows the same layer contract as the rest of <code>sclet</code>. In most RNA workflows, <code>layer = "logcounts"</code> is the safest explicit choice. If you omit it, the function resolves from <code>DefaultLayer(sce)</code> and avoids scaled layers when necessary.</p>
 <p>Users can add their own clustering using the following commands:</p>
-<div class="sourceCode" id="cb482"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb482-1"><a href="communication.html#cb482-1" tabindex="-1"></a><span class="fu">colData</span>(sce)<span class="sc">$</span>group_name <span class="ot">&lt;-</span> group</span>
-<span id="cb482-2"><a href="communication.html#cb482-2" tabindex="-1"></a><span class="co"># OR</span></span>
-<span id="cb482-3"><a href="communication.html#cb482-3" tabindex="-1"></a>sce[[<span class="st">&quot;group_name&quot;</span>]] <span class="ot">&lt;-</span> group</span></code></pre></div>
+<div class="sourceCode" id="cb180"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb180-1"><a href="communication.html#cb180-1" tabindex="-1"></a><span class="fu">colData</span>(sce)<span class="sc">$</span>group_name <span class="ot">&lt;-</span> group</span>
+<span id="cb180-2"><a href="communication.html#cb180-2" tabindex="-1"></a><span class="co"># OR</span></span>
+<span id="cb180-3"><a href="communication.html#cb180-3" tabindex="-1"></a>sce[[<span class="st">&quot;group_name&quot;</span>]] <span class="ot">&lt;-</span> group</span></code></pre></div>
 </div>
 <div id="running-cci" class="section level2 hasAnchor" number="12.2">
 <h2><span class="header-section-number">12.2</span> Running CCI<a href="communication.html#running-cci" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Wrapper function for unified CCI analysis. Behind the scenes, it extracts standardized ligand-receptor interactions into the state tree. By default, <code>keep_object = FALSE</code> to prevent the <code>SingleCellExperiment</code> object from bloating with massive third-party objects.</p>
 <p>Here we set <code>keep_object = TRUE</code> purely because we want to demonstrate the legacy CellChat visualization in the final section of this chapter.</p>
-<div class="sourceCode" id="cb483"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb483-1"><a href="communication.html#cb483-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb483-2"><a href="communication.html#cb483-2" tabindex="-1"></a></span>
-<span id="cb483-3"><a href="communication.html#cb483-3" tabindex="-1"></a><span class="co"># use the bundled pancreas SCE demo object</span></span>
-<span id="cb483-4"><a href="communication.html#cb483-4" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;data/pancreas_sub_sce.rds&quot;</span>)</span>
-<span id="cb483-5"><a href="communication.html#cb483-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunCCI</span>(sce, <span class="at">method =</span> <span class="st">&quot;CellChat&quot;</span>, <span class="at">group =</span> <span class="st">&quot;CellType&quot;</span>, <span class="at">layer =</span> <span class="st">&quot;logcounts&quot;</span>, <span class="at">name =</span> <span class="st">&quot;cellchat_main&quot;</span>, <span class="at">species =</span> <span class="st">&quot;mouse&quot;</span>, <span class="at">keep_object =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
-<pre><code>## Registered S3 method overwritten by &#39;ggnetwork&#39;:
-##   method         from  
-##   fortify.igraph ggtree</code></pre>
+<div class="sourceCode" id="cb181"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb181-1"><a href="communication.html#cb181-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb181-2"><a href="communication.html#cb181-2" tabindex="-1"></a></span>
+<span id="cb181-3"><a href="communication.html#cb181-3" tabindex="-1"></a><span class="co"># use the bundled pancreas SCE demo object</span></span>
+<span id="cb181-4"><a href="communication.html#cb181-4" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;data/pancreas_sub_sce.rds&quot;</span>)</span>
+<span id="cb181-5"><a href="communication.html#cb181-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunCCI</span>(sce, <span class="at">method =</span> <span class="st">&quot;CellChat&quot;</span>, <span class="at">group =</span> <span class="st">&quot;CellType&quot;</span>, <span class="at">layer =</span> <span class="st">&quot;logcounts&quot;</span>, <span class="at">name =</span> <span class="st">&quot;cellchat_main&quot;</span>, <span class="at">species =</span> <span class="st">&quot;mouse&quot;</span>, <span class="at">keep_object =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
 <pre><code>## [1] &quot;Create a CellChat object from a data matrix&quot;</code></pre>
 <pre><code>## Set cell identities for the new CellChat object 
 ## The cell groups used for CellChat analysis are  Ductal, Ngn3 low EP, Ngn3 high EP, Pre-endocrine, Endocrine 
 ## The number of highly variable ligand-receptor pairs used for signaling inference is 342 
 ## triMean is used for calculating the average gene expression per cell group. 
-## [1] &quot;&gt;&gt;&gt; Run CellChat on sc/snRNA-seq data &lt;&lt;&lt; [2026-07-20 04:24:37.00877]&quot;
-## [1] &quot;&gt;&gt;&gt; CellChat inference is done. Parameter values are stored in `object@options$parameter` &lt;&lt;&lt; [2026-07-20 04:24:46.530679]&quot;</code></pre>
+## [1] &quot;&gt;&gt;&gt; Run CellChat on sc/snRNA-seq data &lt;&lt;&lt; [2026-08-29 22:44:04.515616]&quot;
+## [1] &quot;&gt;&gt;&gt; CellChat inference is done. Parameter values are stored in `object@options$parameter` &lt;&lt;&lt; [2026-08-29 22:44:16.232136]&quot;</code></pre>
 <p>After running <code>RunCCI()</code>, the updated SCE keeps a structured communication record. This is useful when you want downstream code to check <code>has_cci(sce)</code> or inspect the standardized interactions data frame through <code>get_cci(sce)</code>.</p>
-<div class="sourceCode" id="cb487"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb487-1"><a href="communication.html#cb487-1" tabindex="-1"></a><span class="co"># Extract the standardized interactions data.frame</span></span>
-<span id="cb487-2"><a href="communication.html#cb487-2" tabindex="-1"></a>cci_df <span class="ot">&lt;-</span> <span class="fu">get_cci</span>(sce)</span>
-<span id="cb487-3"><a href="communication.html#cb487-3" tabindex="-1"></a><span class="fu">head</span>(cci_df)</span></code></pre></div>
+<div class="sourceCode" id="cb184"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb184-1"><a href="communication.html#cb184-1" tabindex="-1"></a><span class="co"># Extract the standardized interactions data.frame</span></span>
+<span id="cb184-2"><a href="communication.html#cb184-2" tabindex="-1"></a>cci_df <span class="ot">&lt;-</span> <span class="fu">get_cci</span>(sce)</span>
+<span id="cb184-3"><a href="communication.html#cb184-3" tabindex="-1"></a><span class="fu">head</span>(cci_df)</span></code></pre></div>
 <pre><code>##   source_group target_group ligand receptor pathway
 ## 1       Ductal       Ductal   Igf2    Igf1r     IGF
 ## 2  Ngn3 low EP       Ductal   Igf2    Igf1r     IGF
@@ -475,104 +477,101 @@ div.csl-indent {
 <div id="cellphonedb" class="section level3 hasAnchor" number="12.3.1">
 <h3><span class="header-section-number">12.3.1</span> CellPhoneDB<a href="communication.html#cellphonedb" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>CellPhoneDB is an established method that relies on a curated database of ligands and receptors. Through <code>sclet</code>, it runs directly via Python integration (<code>basilisk</code>):</p>
-<div class="sourceCode" id="cb489"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb489-1"><a href="communication.html#cb489-1" tabindex="-1"></a><span class="co"># Run CellPhoneDB analysis</span></span>
-<span id="cb489-2"><a href="communication.html#cb489-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunCCI</span>(</span>
-<span id="cb489-3"><a href="communication.html#cb489-3" tabindex="-1"></a>    sce, </span>
-<span id="cb489-4"><a href="communication.html#cb489-4" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;CellPhoneDB&quot;</span>, </span>
-<span id="cb489-5"><a href="communication.html#cb489-5" tabindex="-1"></a>    <span class="at">group =</span> <span class="st">&quot;CellType&quot;</span>, </span>
-<span id="cb489-6"><a href="communication.html#cb489-6" tabindex="-1"></a>    <span class="at">species =</span> <span class="st">&quot;mouse&quot;</span>, <span class="co"># will attempt ortholog mapping internally</span></span>
-<span id="cb489-7"><a href="communication.html#cb489-7" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;cellphonedb_main&quot;</span>,</span>
-<span id="cb489-8"><a href="communication.html#cb489-8" tabindex="-1"></a>    <span class="at">threads =</span> <span class="dv">2</span></span>
-<span id="cb489-9"><a href="communication.html#cb489-9" tabindex="-1"></a>)</span>
-<span id="cb489-10"><a href="communication.html#cb489-10" tabindex="-1"></a></span>
-<span id="cb489-11"><a href="communication.html#cb489-11" tabindex="-1"></a><span class="co"># Extract standard results</span></span>
-<span id="cb489-12"><a href="communication.html#cb489-12" tabindex="-1"></a>cpdb_df <span class="ot">&lt;-</span> <span class="fu">get_cci</span>(sce, <span class="at">id =</span> <span class="st">&quot;cellphonedb_main&quot;</span>)</span>
-<span id="cb489-13"><a href="communication.html#cb489-13" tabindex="-1"></a><span class="fu">head</span>(cpdb_df)</span></code></pre></div>
+<div class="sourceCode" id="cb186"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb186-1"><a href="communication.html#cb186-1" tabindex="-1"></a><span class="co"># Run CellPhoneDB analysis</span></span>
+<span id="cb186-2"><a href="communication.html#cb186-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunCCI</span>(</span>
+<span id="cb186-3"><a href="communication.html#cb186-3" tabindex="-1"></a>    sce, </span>
+<span id="cb186-4"><a href="communication.html#cb186-4" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;CellPhoneDB&quot;</span>, </span>
+<span id="cb186-5"><a href="communication.html#cb186-5" tabindex="-1"></a>    <span class="at">group =</span> <span class="st">&quot;CellType&quot;</span>, </span>
+<span id="cb186-6"><a href="communication.html#cb186-6" tabindex="-1"></a>    <span class="at">species =</span> <span class="st">&quot;mouse&quot;</span>, <span class="co"># will attempt ortholog mapping internally</span></span>
+<span id="cb186-7"><a href="communication.html#cb186-7" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;cellphonedb_main&quot;</span>,</span>
+<span id="cb186-8"><a href="communication.html#cb186-8" tabindex="-1"></a>    <span class="at">threads =</span> <span class="dv">2</span></span>
+<span id="cb186-9"><a href="communication.html#cb186-9" tabindex="-1"></a>)</span>
+<span id="cb186-10"><a href="communication.html#cb186-10" tabindex="-1"></a></span>
+<span id="cb186-11"><a href="communication.html#cb186-11" tabindex="-1"></a><span class="co"># Extract standard results</span></span>
+<span id="cb186-12"><a href="communication.html#cb186-12" tabindex="-1"></a>cpdb_df <span class="ot">&lt;-</span> <span class="fu">get_cci</span>(sce, <span class="at">id =</span> <span class="st">&quot;cellphonedb_main&quot;</span>)</span>
+<span id="cb186-13"><a href="communication.html#cb186-13" tabindex="-1"></a><span class="fu">head</span>(cpdb_df)</span></code></pre></div>
 </div>
 <div id="nichenet" class="section level3 hasAnchor" number="12.3.2">
 <h3><span class="header-section-number">12.3.2</span> NicheNet<a href="communication.html#nichenet" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>While CellChat and CellPhoneDB focus on ligand-receptor pairs, NicheNet takes it a step further by predicting which ligands from sender cells regulate specific gene sets (e.g., DEGs) in receiver cells.</p>
 <p>NicheNet requires pre-downloaded prior models (ligand-target matrix, etc.).</p>
-<div class="sourceCode" id="cb490"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb490-1"><a href="communication.html#cb490-1" tabindex="-1"></a><span class="co"># Load NicheNet prior models (you must download these first)</span></span>
-<span id="cb490-2"><a href="communication.html#cb490-2" tabindex="-1"></a>ligand_target_matrix <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;ligand_target_matrix.rds&quot;</span>)</span>
-<span id="cb490-3"><a href="communication.html#cb490-3" tabindex="-1"></a>lr_network <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;lr_network.rds&quot;</span>)</span>
-<span id="cb490-4"><a href="communication.html#cb490-4" tabindex="-1"></a>weighted_networks <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;weighted_networks.rds&quot;</span>)</span>
-<span id="cb490-5"><a href="communication.html#cb490-5" tabindex="-1"></a></span>
-<span id="cb490-6"><a href="communication.html#cb490-6" tabindex="-1"></a><span class="co"># Run NicheNet to find ligands from Endocrine cells affecting Epithelial cells</span></span>
-<span id="cb490-7"><a href="communication.html#cb490-7" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunCCI</span>(</span>
-<span id="cb490-8"><a href="communication.html#cb490-8" tabindex="-1"></a>    sce,</span>
-<span id="cb490-9"><a href="communication.html#cb490-9" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;NicheNet&quot;</span>,</span>
-<span id="cb490-10"><a href="communication.html#cb490-10" tabindex="-1"></a>    <span class="at">group =</span> <span class="st">&quot;CellType&quot;</span>,</span>
-<span id="cb490-11"><a href="communication.html#cb490-11" tabindex="-1"></a>    <span class="at">receiver =</span> <span class="st">&quot;Epithelial&quot;</span>,</span>
-<span id="cb490-12"><a href="communication.html#cb490-12" tabindex="-1"></a>    <span class="at">sender =</span> <span class="st">&quot;Endocrine&quot;</span>,</span>
-<span id="cb490-13"><a href="communication.html#cb490-13" tabindex="-1"></a>    <span class="co"># If genes_oi is NULL, sclet automatically finds DEGs for the receiver cluster</span></span>
-<span id="cb490-14"><a href="communication.html#cb490-14" tabindex="-1"></a>    <span class="at">ligand_target_matrix =</span> ligand_target_matrix,</span>
-<span id="cb490-15"><a href="communication.html#cb490-15" tabindex="-1"></a>    <span class="at">lr_network =</span> lr_network,</span>
-<span id="cb490-16"><a href="communication.html#cb490-16" tabindex="-1"></a>    <span class="at">weighted_networks =</span> weighted_networks,</span>
-<span id="cb490-17"><a href="communication.html#cb490-17" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;nichenet_main&quot;</span>,</span>
-<span id="cb490-18"><a href="communication.html#cb490-18" tabindex="-1"></a>    <span class="at">top_n_ligands =</span> <span class="dv">20</span></span>
-<span id="cb490-19"><a href="communication.html#cb490-19" tabindex="-1"></a>)</span>
-<span id="cb490-20"><a href="communication.html#cb490-20" tabindex="-1"></a></span>
-<span id="cb490-21"><a href="communication.html#cb490-21" tabindex="-1"></a>nichenet_df <span class="ot">&lt;-</span> <span class="fu">get_cci</span>(sce, <span class="at">id =</span> <span class="st">&quot;nichenet_main&quot;</span>)</span>
-<span id="cb490-22"><a href="communication.html#cb490-22" tabindex="-1"></a><span class="fu">head</span>(nichenet_df)</span></code></pre></div>
+<div class="sourceCode" id="cb187"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb187-1"><a href="communication.html#cb187-1" tabindex="-1"></a><span class="co"># Load NicheNet prior models (you must download these first)</span></span>
+<span id="cb187-2"><a href="communication.html#cb187-2" tabindex="-1"></a>ligand_target_matrix <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;ligand_target_matrix.rds&quot;</span>)</span>
+<span id="cb187-3"><a href="communication.html#cb187-3" tabindex="-1"></a>lr_network <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;lr_network.rds&quot;</span>)</span>
+<span id="cb187-4"><a href="communication.html#cb187-4" tabindex="-1"></a>weighted_networks <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;weighted_networks.rds&quot;</span>)</span>
+<span id="cb187-5"><a href="communication.html#cb187-5" tabindex="-1"></a></span>
+<span id="cb187-6"><a href="communication.html#cb187-6" tabindex="-1"></a><span class="co"># Run NicheNet to find ligands from Endocrine cells affecting Epithelial cells</span></span>
+<span id="cb187-7"><a href="communication.html#cb187-7" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunCCI</span>(</span>
+<span id="cb187-8"><a href="communication.html#cb187-8" tabindex="-1"></a>    sce,</span>
+<span id="cb187-9"><a href="communication.html#cb187-9" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;NicheNet&quot;</span>,</span>
+<span id="cb187-10"><a href="communication.html#cb187-10" tabindex="-1"></a>    <span class="at">group =</span> <span class="st">&quot;CellType&quot;</span>,</span>
+<span id="cb187-11"><a href="communication.html#cb187-11" tabindex="-1"></a>    <span class="at">receiver =</span> <span class="st">&quot;Epithelial&quot;</span>,</span>
+<span id="cb187-12"><a href="communication.html#cb187-12" tabindex="-1"></a>    <span class="at">sender =</span> <span class="st">&quot;Endocrine&quot;</span>,</span>
+<span id="cb187-13"><a href="communication.html#cb187-13" tabindex="-1"></a>    <span class="co"># If genes_oi is NULL, sclet automatically finds DEGs for the receiver cluster</span></span>
+<span id="cb187-14"><a href="communication.html#cb187-14" tabindex="-1"></a>    <span class="at">ligand_target_matrix =</span> ligand_target_matrix,</span>
+<span id="cb187-15"><a href="communication.html#cb187-15" tabindex="-1"></a>    <span class="at">lr_network =</span> lr_network,</span>
+<span id="cb187-16"><a href="communication.html#cb187-16" tabindex="-1"></a>    <span class="at">weighted_networks =</span> weighted_networks,</span>
+<span id="cb187-17"><a href="communication.html#cb187-17" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">&quot;nichenet_main&quot;</span>,</span>
+<span id="cb187-18"><a href="communication.html#cb187-18" tabindex="-1"></a>    <span class="at">top_n_ligands =</span> <span class="dv">20</span></span>
+<span id="cb187-19"><a href="communication.html#cb187-19" tabindex="-1"></a>)</span>
+<span id="cb187-20"><a href="communication.html#cb187-20" tabindex="-1"></a></span>
+<span id="cb187-21"><a href="communication.html#cb187-21" tabindex="-1"></a>nichenet_df <span class="ot">&lt;-</span> <span class="fu">get_cci</span>(sce, <span class="at">id =</span> <span class="st">&quot;nichenet_main&quot;</span>)</span>
+<span id="cb187-22"><a href="communication.html#cb187-22" tabindex="-1"></a><span class="fu">head</span>(nichenet_df)</span></code></pre></div>
 </div>
 </div>
 <div id="visualization-1" class="section level2 hasAnchor" number="12.4">
 <h2><span class="header-section-number">12.4</span> Visualization<a href="communication.html#visualization-1" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Instead of relying heavily on third-party specific visualization functions, <code>sclet</code> provides native <code>ggplot2</code> and <code>circlize</code> based visualization functions that directly consume the standardized CCI data layer. This decouples your analysis from specific backend plotting idiosyncrasies.</p>
-<div class="sourceCode" id="cb491"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb491-1"><a href="communication.html#cb491-1" tabindex="-1"></a><span class="co"># Native Bubble plot for specific cell pairs</span></span>
-<span id="cb491-2"><a href="communication.html#cb491-2" tabindex="-1"></a><span class="fu">plot_cci_bubble</span>(sce, <span class="at">sources =</span> <span class="fu">c</span>(<span class="st">&quot;Ductal&quot;</span>, <span class="st">&quot;Endocrine&quot;</span>), <span class="at">targets =</span> <span class="fu">c</span>(<span class="st">&quot;Ductal&quot;</span>, <span class="st">&quot;Endocrine&quot;</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb188"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb188-1"><a href="communication.html#cb188-1" tabindex="-1"></a><span class="co"># Native Bubble plot for specific cell pairs</span></span>
+<span id="cb188-2"><a href="communication.html#cb188-2" tabindex="-1"></a><span class="fu">plot_cci_bubble</span>(sce, <span class="at">sources =</span> <span class="fu">c</span>(<span class="st">&quot;Ductal&quot;</span>, <span class="st">&quot;Endocrine&quot;</span>), <span class="at">targets =</span> <span class="fu">c</span>(<span class="st">&quot;Ductal&quot;</span>, <span class="st">&quot;Endocrine&quot;</span>))</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cci-bubble-1.png" alt="" width="576" /></p>
-<div class="sourceCode" id="cb492"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb492-1"><a href="communication.html#cb492-1" tabindex="-1"></a><span class="co"># Native Chord diagram for specific pathways</span></span>
-<span id="cb492-2"><a href="communication.html#cb492-2" tabindex="-1"></a><span class="fu">plot_cci_chord</span>(sce, <span class="at">signaling =</span> <span class="fu">c</span>(<span class="st">&quot;PTN&quot;</span>))</span></code></pre></div>
-<div class="sourceCode" id="cb493"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb493-1"><a href="communication.html#cb493-1" tabindex="-1"></a><span class="co"># Native Sigmoid plot for interactions</span></span>
-<span id="cb493-2"><a href="communication.html#cb493-2" tabindex="-1"></a><span class="fu">plot_cci_sigmoid</span>(sce, <span class="at">top_n =</span> <span class="dv">15</span>)</span></code></pre></div>
-<div class="sourceCode" id="cb494"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb494-1"><a href="communication.html#cb494-1" tabindex="-1"></a><span class="co"># Native Arrow plot between specific cell types</span></span>
-<span id="cb494-2"><a href="communication.html#cb494-2" tabindex="-1"></a><span class="fu">plot_cci_arrow</span>(sce, <span class="at">cell_a =</span> <span class="st">&quot;Ductal&quot;</span>, <span class="at">cell_b =</span> <span class="st">&quot;Endocrine&quot;</span>, <span class="at">group =</span> <span class="st">&quot;CellType&quot;</span>, <span class="at">top_n =</span> <span class="dv">10</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb189"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb189-1"><a href="communication.html#cb189-1" tabindex="-1"></a><span class="co"># Native Chord diagram for specific pathways</span></span>
+<span id="cb189-2"><a href="communication.html#cb189-2" tabindex="-1"></a><span class="fu">plot_cci_chord</span>(sce, <span class="at">signaling =</span> <span class="fu">c</span>(<span class="st">&quot;PTN&quot;</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb190"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb190-1"><a href="communication.html#cb190-1" tabindex="-1"></a><span class="co"># Native Sigmoid plot for interactions</span></span>
+<span id="cb190-2"><a href="communication.html#cb190-2" tabindex="-1"></a><span class="fu">plot_cci_sigmoid</span>(sce, <span class="at">top_n =</span> <span class="dv">15</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb191"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb191-1"><a href="communication.html#cb191-1" tabindex="-1"></a><span class="co"># Native Arrow plot between specific cell types</span></span>
+<span id="cb191-2"><a href="communication.html#cb191-2" tabindex="-1"></a><span class="fu">plot_cci_arrow</span>(sce, <span class="at">cell_a =</span> <span class="st">&quot;Ductal&quot;</span>, <span class="at">cell_b =</span> <span class="st">&quot;Endocrine&quot;</span>, <span class="at">group =</span> <span class="st">&quot;CellType&quot;</span>, <span class="at">top_n =</span> <span class="dv">10</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cci-arrow-1.png" alt="" width="768" /></p>
 <div id="legacy-cellchat-visualization" class="section level3 hasAnchor" number="12.4.1">
 <h3><span class="header-section-number">12.4.1</span> Legacy CellChat Visualization<a href="communication.html#legacy-cellchat-visualization" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>If you still need the full power of CellChat’s specific visualizations, you can retrieve the original <code>CellChat</code> object and use it directly.</p>
-<div class="sourceCode" id="cb495"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb495-1"><a href="communication.html#cb495-1" tabindex="-1"></a><span class="co"># Retrieve the original CellChat object if you need legacy plots</span></span>
-<span id="cb495-2"><a href="communication.html#cb495-2" tabindex="-1"></a>cci_obj <span class="ot">&lt;-</span> <span class="fu">get_cellchat</span>(sce, <span class="at">element =</span> <span class="st">&quot;object&quot;</span>)</span></code></pre></div>
-<div class="sourceCode" id="cb496"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb496-1"><a href="communication.html#cb496-1" tabindex="-1"></a><span class="fu">library</span>(aplot)</span>
-<span id="cb496-2"><a href="communication.html#cb496-2" tabindex="-1"></a>groupSize <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">table</span>(cci_obj<span class="sc">@</span>idents))</span>
-<span id="cb496-3"><a href="communication.html#cb496-3" tabindex="-1"></a><span class="fu">plot_list</span>(</span>
-<span id="cb496-4"><a href="communication.html#cb496-4" tabindex="-1"></a>    <span class="sc">~</span>CellChat<span class="sc">::</span><span class="fu">netVisual_circle</span>(cci_obj<span class="sc">@</span>net<span class="sc">$</span>count, </span>
-<span id="cb496-5"><a href="communication.html#cb496-5" tabindex="-1"></a>        <span class="at">vertex.weight =</span> groupSize, <span class="at">weight.scale =</span> T, </span>
-<span id="cb496-6"><a href="communication.html#cb496-6" tabindex="-1"></a>        <span class="at">label.edge=</span> F, <span class="at">title.name =</span> <span class="st">&quot;Number of interactions&quot;</span>),</span>
-<span id="cb496-7"><a href="communication.html#cb496-7" tabindex="-1"></a>    <span class="sc">~</span>CellChat<span class="sc">::</span><span class="fu">netVisual_circle</span>(cci_obj<span class="sc">@</span>net<span class="sc">$</span>weight, </span>
-<span id="cb496-8"><a href="communication.html#cb496-8" tabindex="-1"></a>        <span class="at">vertex.weight =</span> groupSize, <span class="at">weight.scale =</span> T, </span>
-<span id="cb496-9"><a href="communication.html#cb496-9" tabindex="-1"></a>        <span class="at">label.edge=</span> F, <span class="at">title.name =</span> <span class="st">&quot;Interaction weights/strength&quot;</span>)</span>
-<span id="cb496-10"><a href="communication.html#cb496-10" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb192"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb192-1"><a href="communication.html#cb192-1" tabindex="-1"></a><span class="co"># Retrieve the original CellChat object if you need legacy plots</span></span>
+<span id="cb192-2"><a href="communication.html#cb192-2" tabindex="-1"></a>cci_obj <span class="ot">&lt;-</span> <span class="fu">get_cellchat</span>(sce, <span class="at">element =</span> <span class="st">&quot;object&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb193"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb193-1"><a href="communication.html#cb193-1" tabindex="-1"></a><span class="fu">library</span>(aplot)</span>
+<span id="cb193-2"><a href="communication.html#cb193-2" tabindex="-1"></a>groupSize <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">table</span>(cci_obj<span class="sc">@</span>idents))</span>
+<span id="cb193-3"><a href="communication.html#cb193-3" tabindex="-1"></a><span class="fu">plot_list</span>(</span>
+<span id="cb193-4"><a href="communication.html#cb193-4" tabindex="-1"></a>    <span class="sc">~</span>CellChat<span class="sc">::</span><span class="fu">netVisual_circle</span>(cci_obj<span class="sc">@</span>net<span class="sc">$</span>count, </span>
+<span id="cb193-5"><a href="communication.html#cb193-5" tabindex="-1"></a>        <span class="at">vertex.weight =</span> groupSize, <span class="at">weight.scale =</span> T, </span>
+<span id="cb193-6"><a href="communication.html#cb193-6" tabindex="-1"></a>        <span class="at">label.edge=</span> F, <span class="at">title.name =</span> <span class="st">&quot;Number of interactions&quot;</span>),</span>
+<span id="cb193-7"><a href="communication.html#cb193-7" tabindex="-1"></a>    <span class="sc">~</span>CellChat<span class="sc">::</span><span class="fu">netVisual_circle</span>(cci_obj<span class="sc">@</span>net<span class="sc">$</span>weight, </span>
+<span id="cb193-8"><a href="communication.html#cb193-8" tabindex="-1"></a>        <span class="at">vertex.weight =</span> groupSize, <span class="at">weight.scale =</span> T, </span>
+<span id="cb193-9"><a href="communication.html#cb193-9" tabindex="-1"></a>        <span class="at">label.edge=</span> F, <span class="at">title.name =</span> <span class="st">&quot;Interaction weights/strength&quot;</span>)</span>
+<span id="cb193-10"><a href="communication.html#cb193-10" tabindex="-1"></a>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cci-1-1.png" alt="" width="1440" /></p>
-<div class="sourceCode" id="cb497"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb497-1"><a href="communication.html#cb497-1" tabindex="-1"></a>pathways.show <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;PTN&quot;</span>)</span>
-<span id="cb497-2"><a href="communication.html#cb497-2" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_aggregate</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">layout =</span> <span class="st">&quot;circle&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb194"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb194-1"><a href="communication.html#cb194-1" tabindex="-1"></a>pathways.show <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;PTN&quot;</span>)</span>
+<span id="cb194-2"><a href="communication.html#cb194-2" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_aggregate</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">layout =</span> <span class="st">&quot;circle&quot;</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cci-2-1.png" alt="" width="720" /></p>
-<div class="sourceCode" id="cb498"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb498-1"><a href="communication.html#cb498-1" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_aggregate</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">layout =</span> <span class="st">&quot;chord&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb195"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb195-1"><a href="communication.html#cb195-1" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_aggregate</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">layout =</span> <span class="st">&quot;chord&quot;</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cci-3-1.png" alt="" width="720" /></p>
-<div class="sourceCode" id="cb499"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb499-1"><a href="communication.html#cb499-1" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_heatmap</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">color.heatmap =</span> <span class="st">&quot;Reds&quot;</span>)</span></code></pre></div>
-<pre><code>## Do heatmap based on a single object</code></pre>
+<div class="sourceCode" id="cb196"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb196-1"><a href="communication.html#cb196-1" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_heatmap</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">color.heatmap =</span> <span class="st">&quot;Reds&quot;</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cci-4-1.png" alt="" width="576" /></p>
-<div class="sourceCode" id="cb501"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb501-1"><a href="communication.html#cb501-1" tabindex="-1"></a>group.cellType <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">rep</span>(<span class="st">&quot;Epithelial&quot;</span>, <span class="dv">3</span>), <span class="fu">rep</span>(<span class="st">&quot;Endocrine&quot;</span>, <span class="dv">2</span>)) <span class="co"># grouping cell clusters into Epithelial and Endocrine cells</span></span>
-<span id="cb501-2"><a href="communication.html#cb501-2" tabindex="-1"></a><span class="fu">names</span>(group.cellType) <span class="ot">&lt;-</span> <span class="fu">levels</span>(cci_obj<span class="sc">@</span>idents)</span>
-<span id="cb501-3"><a href="communication.html#cb501-3" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_chord_cell</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">group =</span> group.cellType, <span class="at">title.name =</span> <span class="fu">paste0</span>(pathways.show, <span class="st">&quot; signaling network&quot;</span>))</span></code></pre></div>
-<pre><code>## Plot the aggregated cell-cell communication network at the signaling pathway level</code></pre>
+<div class="sourceCode" id="cb197"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb197-1"><a href="communication.html#cb197-1" tabindex="-1"></a>group.cellType <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">rep</span>(<span class="st">&quot;Epithelial&quot;</span>, <span class="dv">3</span>), <span class="fu">rep</span>(<span class="st">&quot;Endocrine&quot;</span>, <span class="dv">2</span>)) <span class="co"># grouping cell clusters into Epithelial and Endocrine cells</span></span>
+<span id="cb197-2"><a href="communication.html#cb197-2" tabindex="-1"></a><span class="fu">names</span>(group.cellType) <span class="ot">&lt;-</span> <span class="fu">levels</span>(cci_obj<span class="sc">@</span>idents)</span>
+<span id="cb197-3"><a href="communication.html#cb197-3" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_chord_cell</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">group =</span> group.cellType, <span class="at">title.name =</span> <span class="fu">paste0</span>(pathways.show, <span class="st">&quot; signaling network&quot;</span>))</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cci-5-1.png" alt="" width="576" /></p>
-<div class="sourceCode" id="cb503"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb503-1"><a href="communication.html#cb503-1" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netAnalysis_contribution</span>(cci_obj, <span class="at">signaling =</span> pathways.show)</span></code></pre></div>
+<div class="sourceCode" id="cb198"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb198-1"><a href="communication.html#cb198-1" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netAnalysis_contribution</span>(cci_obj, <span class="at">signaling =</span> pathways.show)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cci-6-1.png" alt="" width="576" /></p>
-<div class="sourceCode" id="cb504"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb504-1"><a href="communication.html#cb504-1" tabindex="-1"></a>pairLR.pathway <span class="ot">&lt;-</span> CellChat<span class="sc">::</span><span class="fu">extractEnrichedLR</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">geneLR.return =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb504-2"><a href="communication.html#cb504-2" tabindex="-1"></a>LR.show <span class="ot">&lt;-</span> pairLR.pathway[<span class="dv">1</span>,]</span>
-<span id="cb504-3"><a href="communication.html#cb504-3" tabindex="-1"></a>vertex.receiver <span class="ot">=</span> <span class="fu">seq</span>(<span class="dv">1</span>,<span class="dv">4</span>)</span>
-<span id="cb504-4"><a href="communication.html#cb504-4" tabindex="-1"></a><span class="co"># CellChat::netVisual_individual(cci_obj, signaling = pathways.show,  pairLR.use = LR.show, vertex.receiver = vertex.receiver)</span></span>
-<span id="cb504-5"><a href="communication.html#cb504-5" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_individual</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">pairLR.use =</span> LR.show, <span class="at">layout =</span> <span class="st">&quot;circle&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb199"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb199-1"><a href="communication.html#cb199-1" tabindex="-1"></a>pairLR.pathway <span class="ot">&lt;-</span> CellChat<span class="sc">::</span><span class="fu">extractEnrichedLR</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">geneLR.return =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb199-2"><a href="communication.html#cb199-2" tabindex="-1"></a>LR.show <span class="ot">&lt;-</span> pairLR.pathway[<span class="dv">1</span>,]</span>
+<span id="cb199-3"><a href="communication.html#cb199-3" tabindex="-1"></a>vertex.receiver <span class="ot">=</span> <span class="fu">seq</span>(<span class="dv">1</span>,<span class="dv">4</span>)</span>
+<span id="cb199-4"><a href="communication.html#cb199-4" tabindex="-1"></a><span class="co"># CellChat::netVisual_individual(cci_obj, signaling = pathways.show,  pairLR.use = LR.show, vertex.receiver = vertex.receiver)</span></span>
+<span id="cb199-5"><a href="communication.html#cb199-5" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_individual</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">pairLR.use =</span> LR.show, <span class="at">layout =</span> <span class="st">&quot;circle&quot;</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cci-7-1.png" alt="" width="576" /></p>
 <pre><code>## [[1]]</code></pre>
-<div class="sourceCode" id="cb506"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb506-1"><a href="communication.html#cb506-1" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_individual</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">pairLR.use =</span> LR.show, <span class="at">layout =</span> <span class="st">&quot;chord&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb201"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb201-1"><a href="communication.html#cb201-1" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_individual</span>(cci_obj, <span class="at">signaling =</span> pathways.show, <span class="at">pairLR.use =</span> LR.show, <span class="at">layout =</span> <span class="st">&quot;chord&quot;</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cci-8-1.png" alt="" width="576" /></p>
 <pre><code>## [[1]]</code></pre>
-<div class="sourceCode" id="cb508"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb508-1"><a href="communication.html#cb508-1" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_bubble</span>(cci_obj, <span class="at">sources.use =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>, <span class="at">targets.use =</span> <span class="fu">c</span>(<span class="dv">3</span><span class="sc">:</span><span class="dv">5</span>), <span class="at">remove.isolate =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
-<pre><code>## Comparing communications on a single object</code></pre>
+<div class="sourceCode" id="cb203"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb203-1"><a href="communication.html#cb203-1" tabindex="-1"></a>CellChat<span class="sc">::</span><span class="fu">netVisual_bubble</span>(cci_obj, <span class="at">sources.use =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>, <span class="at">targets.use =</span> <span class="fu">c</span>(<span class="dv">3</span><span class="sc">:</span><span class="dv">5</span>), <span class="at">remove.isolate =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
 <p><img src="sclet_files/figure-html/cci-9-1.png" alt="" width="480" /></p>
 
 </div>

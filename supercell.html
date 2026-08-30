@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>21 Metacells with SuperCell | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="21 Metacells with SuperCell | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="21 Metacells with SuperCell | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -424,54 +429,37 @@ div.csl-indent {
 <div id="runsupercell" class="section level2 hasAnchor" number="21.1">
 <h2><span class="header-section-number">21.1</span> RunSuperCell<a href="supercell.html#runsupercell" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>The <code>RunSuperCell()</code> function provides the main entry point for metacell construction.</p>
-<div class="sourceCode" id="cb553"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb553-1"><a href="supercell.html#cb553-1" tabindex="-1"></a>sce_sc <span class="ot">&lt;-</span> <span class="fu">RunSuperCell</span>(pbmc4k, <span class="at">gamma =</span> <span class="dv">5</span>)</span>
-<span id="cb553-2"><a href="supercell.html#cb553-2" tabindex="-1"></a>sce_sc</span></code></pre></div>
-<pre><code>## class: SingleCellExperiment 
-## dim: 33694 746 
-## metadata(1): sclet
-## assays(2): counts logcounts
-## rownames(33694): RP11-34P13.3 FAM138A ... AC213203.1
-##   FAM231B
-## rowData names(9): ENSEMBL_ID Symbol_TENx ... p.value
-##   FDR
-## colnames: NULL
-## colData names(1): size</code></pre>
-<pre><code>## reducedDimNames(0):
-## mainExpName: NULL</code></pre>
-<pre><code>## altExpNames(0):</code></pre>
+<div class="sourceCode" id="cb235"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb235-1"><a href="supercell.html#cb235-1" tabindex="-1"></a>sce_sc <span class="ot">&lt;-</span> <span class="fu">RunSuperCell</span>(pbmc4k, <span class="at">gamma =</span> <span class="dv">5</span>)</span>
+<span id="cb235-2"><a href="supercell.html#cb235-2" tabindex="-1"></a>sce_sc</span></code></pre></div>
 <p>The output of <code>RunSuperCell()</code> is a <code>SingleCellExperiment</code> object whose columns now represent metacells rather than individual cells. From this point on, you can continue with a fairly standard downstream workflow.</p>
-<div class="sourceCode" id="cb557"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb557-1"><a href="supercell.html#cb557-1" tabindex="-1"></a>post_process <span class="ot">&lt;-</span> <span class="cf">function</span>(sce) {</span>
-<span id="cb557-2"><a href="supercell.html#cb557-2" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">NormalizeData</span>(sce)</span>
-<span id="cb557-3"><a href="supercell.html#cb557-3" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">FindVariableFeatures</span>(sce)</span>
-<span id="cb557-4"><a href="supercell.html#cb557-4" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">ScaleData</span>(sce)</span>
-<span id="cb557-5"><a href="supercell.html#cb557-5" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">RunPCA</span>(sce, <span class="at">subset_row =</span> <span class="fu">VariableFeatures</span>(sce), <span class="at">layer =</span> <span class="st">&quot;scaled&quot;</span>)</span>
-<span id="cb557-6"><a href="supercell.html#cb557-6" tabindex="-1"></a>    </span>
-<span id="cb557-7"><a href="supercell.html#cb557-7" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">FindNeighbors</span>(sce, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>)</span>
-<span id="cb557-8"><a href="supercell.html#cb557-8" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">FindClusters</span>(sce)</span>
-<span id="cb557-9"><a href="supercell.html#cb557-9" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">RunUMAP</span>(sce)</span>
-<span id="cb557-10"><a href="supercell.html#cb557-10" tabindex="-1"></a>    <span class="fu">return</span>(sce)</span>
-<span id="cb557-11"><a href="supercell.html#cb557-11" tabindex="-1"></a>}</span>
-<span id="cb557-12"><a href="supercell.html#cb557-12" tabindex="-1"></a></span>
-<span id="cb557-13"><a href="supercell.html#cb557-13" tabindex="-1"></a>sce_sc <span class="ot">&lt;-</span> <span class="fu">post_process</span>(sce_sc)</span>
-<span id="cb557-14"><a href="supercell.html#cb557-14" tabindex="-1"></a></span>
-<span id="cb557-15"><a href="supercell.html#cb557-15" tabindex="-1"></a><span class="fu">library</span>(ggsc)</span>
-<span id="cb557-16"><a href="supercell.html#cb557-16" tabindex="-1"></a><span class="fu">sc_dim</span>(sce_sc, <span class="at">reduction=</span><span class="st">&quot;UMAP&quot;</span>) <span class="sc">+</span> <span class="fu">sc_dim_geom_label</span>()</span></code></pre></div>
-<p><img src="sclet_files/figure-html/supercell-1.png" alt="" width="480" /></p>
+<div class="sourceCode" id="cb236"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb236-1"><a href="supercell.html#cb236-1" tabindex="-1"></a>post_process <span class="ot">&lt;-</span> <span class="cf">function</span>(sce) {</span>
+<span id="cb236-2"><a href="supercell.html#cb236-2" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">NormalizeData</span>(sce)</span>
+<span id="cb236-3"><a href="supercell.html#cb236-3" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">FindVariableFeatures</span>(sce)</span>
+<span id="cb236-4"><a href="supercell.html#cb236-4" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">ScaleData</span>(sce)</span>
+<span id="cb236-5"><a href="supercell.html#cb236-5" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">RunPCA</span>(sce, <span class="at">subset_row =</span> <span class="fu">VariableFeatures</span>(sce), <span class="at">layer =</span> <span class="st">&quot;scaled&quot;</span>)</span>
+<span id="cb236-6"><a href="supercell.html#cb236-6" tabindex="-1"></a>    </span>
+<span id="cb236-7"><a href="supercell.html#cb236-7" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">FindNeighbors</span>(sce, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>)</span>
+<span id="cb236-8"><a href="supercell.html#cb236-8" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">FindClusters</span>(sce)</span>
+<span id="cb236-9"><a href="supercell.html#cb236-9" tabindex="-1"></a>    sce <span class="ot">&lt;-</span> <span class="fu">RunUMAP</span>(sce)</span>
+<span id="cb236-10"><a href="supercell.html#cb236-10" tabindex="-1"></a>    <span class="fu">return</span>(sce)</span>
+<span id="cb236-11"><a href="supercell.html#cb236-11" tabindex="-1"></a>}</span>
+<span id="cb236-12"><a href="supercell.html#cb236-12" tabindex="-1"></a></span>
+<span id="cb236-13"><a href="supercell.html#cb236-13" tabindex="-1"></a>sce_sc <span class="ot">&lt;-</span> <span class="fu">post_process</span>(sce_sc)</span>
+<span id="cb236-14"><a href="supercell.html#cb236-14" tabindex="-1"></a></span>
+<span id="cb236-15"><a href="supercell.html#cb236-15" tabindex="-1"></a><span class="fu">library</span>(ggsc)</span>
+<span id="cb236-16"><a href="supercell.html#cb236-16" tabindex="-1"></a><span class="fu">sc_dim</span>(sce_sc, <span class="at">reduction=</span><span class="st">&quot;UMAP&quot;</span>) <span class="sc">+</span> <span class="fu">sc_dim_geom_label</span>()</span></code></pre></div>
 </div>
 <div id="estimate-supercell-purity" class="section level2 hasAnchor" number="21.2">
 <h2><span class="header-section-number">21.2</span> Estimate SuperCell Purity<a href="supercell.html#estimate-supercell-purity" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<div class="sourceCode" id="cb558"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb558-1"><a href="supercell.html#cb558-1" tabindex="-1"></a>pbmc4k2 <span class="ot">&lt;-</span> <span class="fu">post_process</span>(pbmc4k)</span>
-<span id="cb558-2"><a href="supercell.html#cb558-2" tabindex="-1"></a></span>
-<span id="cb558-3"><a href="supercell.html#cb558-3" tabindex="-1"></a>SC <span class="ot">&lt;-</span> <span class="fu">get_supercell</span>(sce_sc, <span class="at">element =</span> <span class="st">&quot;object&quot;</span>)</span>
-<span id="cb558-4"><a href="supercell.html#cb558-4" tabindex="-1"></a></span>
-<span id="cb558-5"><a href="supercell.html#cb558-5" tabindex="-1"></a>purity <span class="ot">&lt;-</span> SuperCell<span class="sc">::</span><span class="fu">supercell_purity</span>(<span class="fu">colLabels</span>(pbmc4k2), SC<span class="sc">$</span>membership, <span class="at">method =</span> <span class="st">&quot;entropy&quot;</span>)</span>
-<span id="cb558-6"><a href="supercell.html#cb558-6" tabindex="-1"></a></span>
-<span id="cb558-7"><a href="supercell.html#cb558-7" tabindex="-1"></a><span class="fu">head</span>(purity)</span></code></pre></div>
-<pre><code>## 1 2 3 4 5 6 
-## 0 0 0 0 0 0</code></pre>
-<div class="sourceCode" id="cb560"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb560-1"><a href="supercell.html#cb560-1" tabindex="-1"></a><span class="fu">summary</span>(purity)</span></code></pre></div>
-<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## 0.00000 0.00000 0.00000 0.03554 0.00000 1.03972</code></pre>
+<div class="sourceCode" id="cb237"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb237-1"><a href="supercell.html#cb237-1" tabindex="-1"></a>pbmc4k2 <span class="ot">&lt;-</span> <span class="fu">post_process</span>(pbmc4k)</span>
+<span id="cb237-2"><a href="supercell.html#cb237-2" tabindex="-1"></a></span>
+<span id="cb237-3"><a href="supercell.html#cb237-3" tabindex="-1"></a>SC <span class="ot">&lt;-</span> <span class="fu">get_supercell</span>(sce_sc, <span class="at">element =</span> <span class="st">&quot;object&quot;</span>)</span>
+<span id="cb237-4"><a href="supercell.html#cb237-4" tabindex="-1"></a></span>
+<span id="cb237-5"><a href="supercell.html#cb237-5" tabindex="-1"></a>purity <span class="ot">&lt;-</span> SuperCell<span class="sc">::</span><span class="fu">supercell_purity</span>(<span class="fu">colLabels</span>(pbmc4k2), SC<span class="sc">$</span>membership, <span class="at">method =</span> <span class="st">&quot;entropy&quot;</span>)</span>
+<span id="cb237-6"><a href="supercell.html#cb237-6" tabindex="-1"></a></span>
+<span id="cb237-7"><a href="supercell.html#cb237-7" tabindex="-1"></a><span class="fu">head</span>(purity)</span>
+<span id="cb237-8"><a href="supercell.html#cb237-8" tabindex="-1"></a></span>
+<span id="cb237-9"><a href="supercell.html#cb237-9" tabindex="-1"></a><span class="fu">summary</span>(purity)</span></code></pre></div>
 
 </div>
 </div>

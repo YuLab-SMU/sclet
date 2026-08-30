@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>2 Automation &amp; Provenance Logs | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="2 Automation &amp; Provenance Logs | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="2 Automation &amp; Provenance Logs | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -424,22 +429,22 @@ div.csl-indent {
 <div id="the-one-liner-pipeline" class="section level2 hasAnchor" number="2.1">
 <h2><span class="header-section-number">2.1</span> The One-Liner Pipeline<a href="pipeline-logs.html#the-one-liner-pipeline" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>If you just want to get from a raw count matrix to a UMAP plot as fast as possible without writing 10 lines of boilerplate code, <code>RunStandardPipeline()</code> is your best friend.</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="pipeline-logs.html#cb15-1" tabindex="-1"></a><span class="co"># In a real project you might start from:</span></span>
-<span id="cb15-2"><a href="pipeline-logs.html#cb15-2" tabindex="-1"></a><span class="co"># sce &lt;- Read10X(data.dir = &quot;filtered_feature_bc_matrix/&quot;)</span></span>
-<span id="cb15-3"><a href="pipeline-logs.html#cb15-3" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb15-4"><a href="pipeline-logs.html#cb15-4" tabindex="-1"></a><span class="co"># For a runnable documentation example we reuse a packaged PBMC object.</span></span>
-<span id="cb15-5"><a href="pipeline-logs.html#cb15-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> sce_pipeline_input</span>
-<span id="cb15-6"><a href="pipeline-logs.html#cb15-6" tabindex="-1"></a></span>
-<span id="cb15-7"><a href="pipeline-logs.html#cb15-7" tabindex="-1"></a><span class="co"># Run everything from normalization to UMAP in one line</span></span>
-<span id="cb15-8"><a href="pipeline-logs.html#cb15-8" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunStandardPipeline</span>(</span>
-<span id="cb15-9"><a href="pipeline-logs.html#cb15-9" tabindex="-1"></a>    sce, </span>
-<span id="cb15-10"><a href="pipeline-logs.html#cb15-10" tabindex="-1"></a>    <span class="at">nfeatures =</span> <span class="dv">2000</span>, </span>
-<span id="cb15-11"><a href="pipeline-logs.html#cb15-11" tabindex="-1"></a>    <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>, </span>
-<span id="cb15-12"><a href="pipeline-logs.html#cb15-12" tabindex="-1"></a>    <span class="at">resolution =</span> <span class="fl">0.8</span></span>
-<span id="cb15-13"><a href="pipeline-logs.html#cb15-13" tabindex="-1"></a>)</span>
-<span id="cb15-14"><a href="pipeline-logs.html#cb15-14" tabindex="-1"></a></span>
-<span id="cb15-15"><a href="pipeline-logs.html#cb15-15" tabindex="-1"></a><span class="co"># Boom. Ready to inspect.</span></span>
-<span id="cb15-16"><a href="pipeline-logs.html#cb15-16" tabindex="-1"></a>sce</span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="pipeline-logs.html#cb14-1" tabindex="-1"></a><span class="co"># In a real project you might start from:</span></span>
+<span id="cb14-2"><a href="pipeline-logs.html#cb14-2" tabindex="-1"></a><span class="co"># sce &lt;- Read10X(data.dir = &quot;filtered_feature_bc_matrix/&quot;)</span></span>
+<span id="cb14-3"><a href="pipeline-logs.html#cb14-3" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb14-4"><a href="pipeline-logs.html#cb14-4" tabindex="-1"></a><span class="co"># For a runnable documentation example we reuse a packaged PBMC object.</span></span>
+<span id="cb14-5"><a href="pipeline-logs.html#cb14-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> sce_pipeline_input</span>
+<span id="cb14-6"><a href="pipeline-logs.html#cb14-6" tabindex="-1"></a></span>
+<span id="cb14-7"><a href="pipeline-logs.html#cb14-7" tabindex="-1"></a><span class="co"># Run everything from normalization to UMAP in one line</span></span>
+<span id="cb14-8"><a href="pipeline-logs.html#cb14-8" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunStandardPipeline</span>(</span>
+<span id="cb14-9"><a href="pipeline-logs.html#cb14-9" tabindex="-1"></a>    sce, </span>
+<span id="cb14-10"><a href="pipeline-logs.html#cb14-10" tabindex="-1"></a>    <span class="at">nfeatures =</span> <span class="dv">2000</span>, </span>
+<span id="cb14-11"><a href="pipeline-logs.html#cb14-11" tabindex="-1"></a>    <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>, </span>
+<span id="cb14-12"><a href="pipeline-logs.html#cb14-12" tabindex="-1"></a>    <span class="at">resolution =</span> <span class="fl">0.8</span></span>
+<span id="cb14-13"><a href="pipeline-logs.html#cb14-13" tabindex="-1"></a>)</span>
+<span id="cb14-14"><a href="pipeline-logs.html#cb14-14" tabindex="-1"></a></span>
+<span id="cb14-15"><a href="pipeline-logs.html#cb14-15" tabindex="-1"></a><span class="co"># Boom. Ready to inspect.</span></span>
+<span id="cb14-16"><a href="pipeline-logs.html#cb14-16" tabindex="-1"></a>sce</span></code></pre></div>
 <pre><code>## class: SingleCellExperiment 
 ## dim: 13714 2638 
 ## metadata(1): sclet
@@ -466,23 +471,23 @@ div.csl-indent {
 <h2><span class="header-section-number">2.2</span> The Provenance Log (CommandLog)<a href="pipeline-logs.html#the-provenance-log-commandlog" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>The true magic happens <em>after</em> you run your analysis. Every major function in <code>sclet</code> (whether you use the pipeline or run them step-by-step) automatically records its exact parameters and timestamp into the object’s <code>CommandLog</code>.</p>
 <p>You can view the raw log anytime:</p>
-<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="pipeline-logs.html#cb17-1" tabindex="-1"></a><span class="co"># Peek at the raw command logs</span></span>
-<span id="cb17-2"><a href="pipeline-logs.html#cb17-2" tabindex="-1"></a><span class="fu">CommandLog</span>(sce, <span class="at">details =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="pipeline-logs.html#cb16-1" tabindex="-1"></a><span class="co"># Peek at the raw command logs</span></span>
+<span id="cb16-2"><a href="pipeline-logs.html#cb16-2" tabindex="-1"></a><span class="fu">CommandLog</span>(sce, <span class="at">details =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
 <pre><code>##                 command           timestamp
-## 1         NormalizeData 2026-07-20 03:59:54
-## 2  FindVariableFeatures 2026-07-20 03:59:55
-## 3             ScaleData 2026-07-20 04:00:00
-## 4                RunPCA 2026-07-20 04:00:08
-## 5         FindNeighbors 2026-07-20 04:00:09
-## 6          FindClusters 2026-07-20 04:00:09
-## 7               RunUMAP 2026-07-20 04:00:14
-## 8         NormalizeData 2026-07-20 04:00:16
-## 9  FindVariableFeatures 2026-07-20 04:00:17
-## 10            ScaleData 2026-07-20 04:00:21
-## 11               RunPCA 2026-07-20 04:00:25
-## 12        FindNeighbors 2026-07-20 04:00:25
-## 13         FindClusters 2026-07-20 04:00:26
-## 14              RunUMAP 2026-07-20 04:00:31
+## 1         NormalizeData 2026-08-29 17:29:55
+## 2  FindVariableFeatures 2026-08-29 17:29:57
+## 3             ScaleData 2026-08-29 17:30:01
+## 4                RunPCA 2026-08-29 17:30:18
+## 5         FindNeighbors 2026-08-29 17:30:18
+## 6          FindClusters 2026-08-29 17:30:18
+## 7               RunUMAP 2026-08-29 17:30:23
+## 8         NormalizeData 2026-08-29 17:30:25
+## 9  FindVariableFeatures 2026-08-29 17:30:27
+## 10            ScaleData 2026-08-29 17:30:30
+## 11               RunPCA 2026-08-29 17:30:39
+## 12        FindNeighbors 2026-08-29 17:30:39
+## 13         FindClusters 2026-08-29 17:30:39
+## 14              RunUMAP 2026-08-29 17:30:45
 ##                                                          params_summary
 ## 1                                      scale.factor=10000; assay=counts
 ## 2                                          nfeatures=2000; method=scran
@@ -517,29 +522,29 @@ div.csl-indent {
 <div id="writing-methods-for-you-pipelinesummary" class="section level2 hasAnchor" number="2.3">
 <h2><span class="header-section-number">2.3</span> Writing Methods for You: <code>PipelineSummary</code><a href="pipeline-logs.html#writing-methods-for-you-pipelinesummary" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Looking at a raw list of parameters is better than nothing, but it’s not exactly manuscript-ready. This is where <code>PipelineSummary()</code> shines. It reads the <code>CommandLog</code> and translates it into a human-readable English summary.</p>
-<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="pipeline-logs.html#cb19-1" tabindex="-1"></a><span class="co"># Generate a manuscript-ready methods summary</span></span>
-<span id="cb19-2"><a href="pipeline-logs.html#cb19-2" tabindex="-1"></a><span class="fu">PipelineSummary</span>(sce)</span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="pipeline-logs.html#cb18-1" tabindex="-1"></a><span class="co"># Generate a manuscript-ready methods summary</span></span>
+<span id="cb18-2"><a href="pipeline-logs.html#cb18-2" tabindex="-1"></a><span class="fu">PipelineSummary</span>(sce)</span></code></pre></div>
 <pre><code>## ========================================
 ## sclet Analysis Pipeline Summary
 ## ========================================
 ## 
 ## 1. Preprocessing &amp; Feature Selection:
-##   - [2026-07-20 03:59:54.226232] NormalizeData (scale.factor=10000; assay=counts)
-##   - [2026-07-20 03:59:55.89267] FindVariableFeatures (nfeatures=2000; method=scran)
-##   - [2026-07-20 04:00:00.003778] ScaleData (features=[13714]; assay=logcounts)
-##   - [2026-07-20 04:00:16.330003] NormalizeData (scale.factor=10000; assay=counts)
-##   - [2026-07-20 04:00:17.961887] FindVariableFeatures (nfeatures=2000; method=scran)
-##   - [2026-07-20 04:00:21.006887] ScaleData (features=[13714]; assay=logcounts)
+##   - [2026-08-29 17:29:55.685848] NormalizeData (scale.factor=10000; assay=counts)
+##   - [2026-08-29 17:29:57.481122] FindVariableFeatures (nfeatures=2000; method=scran)
+##   - [2026-08-29 17:30:01.776581] ScaleData (features=[13714]; assay=logcounts)
+##   - [2026-08-29 17:30:25.88934] NormalizeData (scale.factor=10000; assay=counts)
+##   - [2026-08-29 17:30:27.601684] FindVariableFeatures (nfeatures=2000; method=scran)
+##   - [2026-08-29 17:30:30.781911] ScaleData (features=[13714]; assay=logcounts)
 ## 
 ## 2. Dimensional Reduction &amp; Clustering:
-##   - [2026-07-20 04:00:08.948441] RunPCA (layer=scaled; subset_row=[2000]; exprs_values=scaled; ncomponents=50)
-##   - [2026-07-20 04:00:09.039155] FindNeighbors (dims=[10]; reduction=PCA; k=10)
-##   - [2026-07-20 04:00:09.170467] FindClusters (resolution=0.88)
-##   - [2026-07-20 04:00:14.065963] RunUMAP (dims=[10]; reduction=PCA; layer=scaled)
-##   - [2026-07-20 04:00:25.597728] RunPCA (layer=scaled; subset_row=[0]; exprs_values=scaled; ncomponents=50)
-##   - [2026-07-20 04:00:25.781679] FindNeighbors (dims=[20]; reduction=PCA; k=10)
-##   - [2026-07-20 04:00:26.101457] FindClusters (resolution=0.8)
-##   - [2026-07-20 04:00:31.514652] RunUMAP (dims=[20]; reduction=PCA; layer=scaled)
+##   - [2026-08-29 17:30:18.123049] RunPCA (layer=scaled; subset_row=[2000]; exprs_values=scaled; ncomponents=50)
+##   - [2026-08-29 17:30:18.206767] FindNeighbors (dims=[10]; reduction=PCA; k=10)
+##   - [2026-08-29 17:30:18.322041] FindClusters (resolution=0.88)
+##   - [2026-08-29 17:30:23.550953] RunUMAP (dims=[10]; reduction=PCA; layer=scaled)
+##   - [2026-08-29 17:30:39.086007] RunPCA (layer=scaled; subset_row=[0]; exprs_values=scaled; ncomponents=50)
+##   - [2026-08-29 17:30:39.267279] FindNeighbors (dims=[20]; reduction=PCA; k=10)
+##   - [2026-08-29 17:30:39.515959] FindClusters (resolution=0.8)
+##   - [2026-08-29 17:30:45.225017] RunUMAP (dims=[20]; reduction=PCA; layer=scaled)
 ## 
 ## 3. Downstream Analysis:
 ##   - Not recorded.

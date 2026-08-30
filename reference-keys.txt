@@ -69,6 +69,10 @@ cellrank
 run-cellrank
 regvelo-cellrank
 workflow-shell-for-velocity-and-fate
+velocity-diagnostics
+reading-the-cellrank-summary
+does-velocity-actually-explain-fate
+auditing-the-whole-chain-in-one-place
 velocity-latent-time
 program-regulon
 gene-set-scoring-and-pathway-activity

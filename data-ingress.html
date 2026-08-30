@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>3 Data Ingress and Object Interoperability | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="3 Data Ingress and Object Interoperability | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="3 Data Ingress and Object Interoperability | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -423,22 +428,22 @@ div.csl-indent {
 <div id="seurat-and-sce-conversion" class="section level2 hasAnchor" number="3.1">
 <h2><span class="header-section-number">3.1</span> Seurat and SCE Conversion<a href="data-ingress.html#seurat-and-sce-conversion" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p><code>sclet</code> provides simple conversion helpers between Seurat and SCE objects.</p>
-<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="data-ingress.html#cb21-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb21-2"><a href="data-ingress.html#cb21-2" tabindex="-1"></a></span>
-<span id="cb21-3"><a href="data-ingress.html#cb21-3" tabindex="-1"></a><span class="co"># SCE to Seurat</span></span>
-<span id="cb21-4"><a href="data-ingress.html#cb21-4" tabindex="-1"></a><span class="co"># seurat_obj &lt;- as.Seurat(sce_obj)</span></span>
-<span id="cb21-5"><a href="data-ingress.html#cb21-5" tabindex="-1"></a></span>
-<span id="cb21-6"><a href="data-ingress.html#cb21-6" tabindex="-1"></a><span class="co"># Seurat to SCE</span></span>
-<span id="cb21-7"><a href="data-ingress.html#cb21-7" tabindex="-1"></a><span class="co"># sce_obj &lt;- as.SCE(seurat_obj)</span></span></code></pre></div>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="data-ingress.html#cb20-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb20-2"><a href="data-ingress.html#cb20-2" tabindex="-1"></a></span>
+<span id="cb20-3"><a href="data-ingress.html#cb20-3" tabindex="-1"></a><span class="co"># SCE to Seurat</span></span>
+<span id="cb20-4"><a href="data-ingress.html#cb20-4" tabindex="-1"></a><span class="co"># seurat_obj &lt;- as.Seurat(sce_obj)</span></span>
+<span id="cb20-5"><a href="data-ingress.html#cb20-5" tabindex="-1"></a></span>
+<span id="cb20-6"><a href="data-ingress.html#cb20-6" tabindex="-1"></a><span class="co"># Seurat to SCE</span></span>
+<span id="cb20-7"><a href="data-ingress.html#cb20-7" tabindex="-1"></a><span class="co"># sce_obj &lt;- as.SCE(seurat_obj)</span></span></code></pre></div>
 </div>
 <div id="anndata-h5ad" class="section level2 hasAnchor" number="3.2">
 <h2><span class="header-section-number">3.2</span> AnnData (h5ad)<a href="data-ingress.html#anndata-h5ad" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Python’s AnnData format (.h5ad) is widely used. <code>sclet</code> uses <code>zellkonverter</code>-based helpers to provide easy read/write functions.</p>
-<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="data-ingress.html#cb22-1" tabindex="-1"></a><span class="co"># Read h5ad</span></span>
-<span id="cb22-2"><a href="data-ingress.html#cb22-2" tabindex="-1"></a><span class="co"># sce &lt;- ReadH5AD(&quot;path/to/data.h5ad&quot;)</span></span>
-<span id="cb22-3"><a href="data-ingress.html#cb22-3" tabindex="-1"></a></span>
-<span id="cb22-4"><a href="data-ingress.html#cb22-4" tabindex="-1"></a><span class="co"># Write h5ad</span></span>
-<span id="cb22-5"><a href="data-ingress.html#cb22-5" tabindex="-1"></a><span class="co"># WriteH5AD(sce, &quot;path/to/output.h5ad&quot;)</span></span></code></pre></div>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="data-ingress.html#cb21-1" tabindex="-1"></a><span class="co"># Read h5ad</span></span>
+<span id="cb21-2"><a href="data-ingress.html#cb21-2" tabindex="-1"></a><span class="co"># sce &lt;- ReadH5AD(&quot;path/to/data.h5ad&quot;)</span></span>
+<span id="cb21-3"><a href="data-ingress.html#cb21-3" tabindex="-1"></a></span>
+<span id="cb21-4"><a href="data-ingress.html#cb21-4" tabindex="-1"></a><span class="co"># Write h5ad</span></span>
+<span id="cb21-5"><a href="data-ingress.html#cb21-5" tabindex="-1"></a><span class="co"># WriteH5AD(sce, &quot;path/to/output.h5ad&quot;)</span></span></code></pre></div>
 <p>This allows you to easily move data between R and Python environments, leveraging the best tools from both ecosystems (e.g. <code>sclet</code>/Bioconductor in R and <code>scanpy</code> in Python).</p>
 </div>
 </div>

@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>4 Recommended usage | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
   <meta name="description" content="4 Recommended usage | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
-  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
 
   <meta property="og:title" content="4 Recommended usage | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
   <meta property="og:type" content="book" />
@@ -22,7 +22,7 @@
 
 
 
-<meta name="date" content="2026-07-20" />
+<meta name="date" content="2026-08-30" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -54,9 +54,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -259,9 +258,15 @@ div.csl-indent {
 <ul>
 <li class="chapter" data-level="9.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>9.3.1</b> Run CellRank</a></li>
 </ul></li>
-<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> RegVelo with CellRank diagnostics</a></li>
+<li class="chapter" data-level="9.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>9.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
 <li class="chapter" data-level="9.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>9.5</b> Workflow shell for velocity and fate</a></li>
-<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.6</b> Velocity Latent Time</a></li>
+<li class="chapter" data-level="9.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>9.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>9.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="9.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>9.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="9.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>9.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="9.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>9.7</b> Velocity Latent Time</a></li>
 </ul></li>
 <li class="chapter" data-level="10" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>10</b> Program, Regulon, and Mechanistic Interpretation</a>
 <ul>
@@ -422,21 +427,21 @@ div.csl-indent {
 <div id="for-end-users" class="section level2 hasAnchor" number="4.1">
 <h2><span class="header-section-number">4.1</span> For end users<a href="recommended-usage.html#for-end-users" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>The shortest recommended workflow is to use the standard pipeline entry point:</p>
-<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="recommended-usage.html#cb23-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
-<span id="cb23-2"><a href="recommended-usage.html#cb23-2" tabindex="-1"></a></span>
-<span id="cb23-3"><a href="recommended-usage.html#cb23-3" tabindex="-1"></a><span class="co"># Run the full standard pipeline</span></span>
-<span id="cb23-4"><a href="recommended-usage.html#cb23-4" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunStandardPipeline</span>(sce)</span>
-<span id="cb23-5"><a href="recommended-usage.html#cb23-5" tabindex="-1"></a></span>
-<span id="cb23-6"><a href="recommended-usage.html#cb23-6" tabindex="-1"></a><span class="co"># Print a structured summary of the analysis steps</span></span>
-<span id="cb23-7"><a href="recommended-usage.html#cb23-7" tabindex="-1"></a><span class="fu">PipelineSummary</span>(sce)</span></code></pre></div>
+<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="recommended-usage.html#cb22-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb22-2"><a href="recommended-usage.html#cb22-2" tabindex="-1"></a></span>
+<span id="cb22-3"><a href="recommended-usage.html#cb22-3" tabindex="-1"></a><span class="co"># Run the full standard pipeline</span></span>
+<span id="cb22-4"><a href="recommended-usage.html#cb22-4" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunStandardPipeline</span>(sce)</span>
+<span id="cb22-5"><a href="recommended-usage.html#cb22-5" tabindex="-1"></a></span>
+<span id="cb22-6"><a href="recommended-usage.html#cb22-6" tabindex="-1"></a><span class="co"># Print a structured summary of the analysis steps</span></span>
+<span id="cb22-7"><a href="recommended-usage.html#cb22-7" tabindex="-1"></a><span class="fu">PipelineSummary</span>(sce)</span></code></pre></div>
 <p>Under the hood, <code>RunStandardPipeline</code> sequentially calls:</p>
-<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="recommended-usage.html#cb24-1" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">NormalizeData</span>(sce)</span>
-<span id="cb24-2"><a href="recommended-usage.html#cb24-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">FindVariableFeatures</span>(sce)</span>
-<span id="cb24-3"><a href="recommended-usage.html#cb24-3" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">ScaleData</span>(sce)</span>
-<span id="cb24-4"><a href="recommended-usage.html#cb24-4" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunPCA</span>(sce)</span>
-<span id="cb24-5"><a href="recommended-usage.html#cb24-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">FindNeighbors</span>(sce)</span>
-<span id="cb24-6"><a href="recommended-usage.html#cb24-6" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">FindClusters</span>(sce)</span>
-<span id="cb24-7"><a href="recommended-usage.html#cb24-7" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunUMAP</span>(sce)</span></code></pre></div>
+<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="recommended-usage.html#cb23-1" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">NormalizeData</span>(sce)</span>
+<span id="cb23-2"><a href="recommended-usage.html#cb23-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">FindVariableFeatures</span>(sce)</span>
+<span id="cb23-3"><a href="recommended-usage.html#cb23-3" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">ScaleData</span>(sce)</span>
+<span id="cb23-4"><a href="recommended-usage.html#cb23-4" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunPCA</span>(sce)</span>
+<span id="cb23-5"><a href="recommended-usage.html#cb23-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">FindNeighbors</span>(sce)</span>
+<span id="cb23-6"><a href="recommended-usage.html#cb23-6" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">FindClusters</span>(sce)</span>
+<span id="cb23-7"><a href="recommended-usage.html#cb23-7" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunUMAP</span>(sce)</span></code></pre></div>
 <p>If <code>scrapper</code> is installed, <code>FindVariableFeatures(sce, method = "scrapper")</code> is also supported as an optional HVG backend. <code>sclet</code> still writes the result back into the same HVG state and <code>rowData</code>, so downstream code continues to use <code>VariableFeatures()</code> in the usual way.</p>
 <p>Because <code>scrapper</code> is an optional dependency, users need to install it explicitly if they want this backend instead of the default <code>scran</code> path.</p>
 <p>In current <code>sclet</code>, user-facing analysis verbs are standardized on the <code>Run*</code> style. Use <code>RunPCA()</code>, <code>RunMilo()</code>, and <code>RunCellChat()</code> as the recommended public API.</p>
@@ -464,26 +469,26 @@ div.csl-indent {
 <li><code>has_*()</code> helpers are the preferred way to check whether an analysis result is available.</li>
 </ul>
 <p>You can also use the integrated plotting functions that automatically consume the active state:</p>
-<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="recommended-usage.html#cb25-1" tabindex="-1"></a><span class="co"># Plot the active dimensional reduction colored by active identity</span></span>
-<span id="cb25-2"><a href="recommended-usage.html#cb25-2" tabindex="-1"></a><span class="fu">CellDimPlot</span>(sce)</span>
-<span id="cb25-3"><a href="recommended-usage.html#cb25-3" tabindex="-1"></a></span>
-<span id="cb25-4"><a href="recommended-usage.html#cb25-4" tabindex="-1"></a><span class="co"># Plot feature expression on the active dimensional reduction</span></span>
-<span id="cb25-5"><a href="recommended-usage.html#cb25-5" tabindex="-1"></a><span class="fu">FeatureDimPlot</span>(sce, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">&quot;GeneA&quot;</span>, <span class="st">&quot;GeneB&quot;</span>))</span>
-<span id="cb25-6"><a href="recommended-usage.html#cb25-6" tabindex="-1"></a></span>
-<span id="cb25-7"><a href="recommended-usage.html#cb25-7" tabindex="-1"></a><span class="co"># Plot a grouped heatmap of features across cell identities</span></span>
-<span id="cb25-8"><a href="recommended-usage.html#cb25-8" tabindex="-1"></a><span class="fu">GroupHeatmap</span>(sce, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">&quot;GeneA&quot;</span>, <span class="st">&quot;GeneB&quot;</span>, <span class="st">&quot;GeneC&quot;</span>))</span>
-<span id="cb25-9"><a href="recommended-usage.html#cb25-9" tabindex="-1"></a></span>
-<span id="cb25-10"><a href="recommended-usage.html#cb25-10" tabindex="-1"></a><span class="co"># Plot cell statistics (e.g., proportion of clusters across conditions)</span></span>
-<span id="cb25-11"><a href="recommended-usage.html#cb25-11" tabindex="-1"></a><span class="fu">CellStatPlot</span>(sce, <span class="at">split.by =</span> <span class="st">&quot;Condition&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="recommended-usage.html#cb24-1" tabindex="-1"></a><span class="co"># Plot the active dimensional reduction colored by active identity</span></span>
+<span id="cb24-2"><a href="recommended-usage.html#cb24-2" tabindex="-1"></a><span class="fu">CellDimPlot</span>(sce)</span>
+<span id="cb24-3"><a href="recommended-usage.html#cb24-3" tabindex="-1"></a></span>
+<span id="cb24-4"><a href="recommended-usage.html#cb24-4" tabindex="-1"></a><span class="co"># Plot feature expression on the active dimensional reduction</span></span>
+<span id="cb24-5"><a href="recommended-usage.html#cb24-5" tabindex="-1"></a><span class="fu">FeatureDimPlot</span>(sce, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">&quot;GeneA&quot;</span>, <span class="st">&quot;GeneB&quot;</span>))</span>
+<span id="cb24-6"><a href="recommended-usage.html#cb24-6" tabindex="-1"></a></span>
+<span id="cb24-7"><a href="recommended-usage.html#cb24-7" tabindex="-1"></a><span class="co"># Plot a grouped heatmap of features across cell identities</span></span>
+<span id="cb24-8"><a href="recommended-usage.html#cb24-8" tabindex="-1"></a><span class="fu">GroupHeatmap</span>(sce, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">&quot;GeneA&quot;</span>, <span class="st">&quot;GeneB&quot;</span>, <span class="st">&quot;GeneC&quot;</span>))</span>
+<span id="cb24-9"><a href="recommended-usage.html#cb24-9" tabindex="-1"></a></span>
+<span id="cb24-10"><a href="recommended-usage.html#cb24-10" tabindex="-1"></a><span class="co"># Plot cell statistics (e.g., proportion of clusters across conditions)</span></span>
+<span id="cb24-11"><a href="recommended-usage.html#cb24-11" tabindex="-1"></a><span class="fu">CellStatPlot</span>(sce, <span class="at">split.by =</span> <span class="st">&quot;Condition&quot;</span>)</span></code></pre></div>
 <p><code>sclet</code> supports robust annotation and reference mapping:</p>
-<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="recommended-usage.html#cb26-1" tabindex="-1"></a><span class="co"># Full annotation via SingleR</span></span>
-<span id="cb26-2"><a href="recommended-usage.html#cb26-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunSingleR</span>(sce, <span class="at">ref =</span> ref_dataset, <span class="at">labels =</span> ref_dataset<span class="sc">$</span>CellType)</span>
-<span id="cb26-3"><a href="recommended-usage.html#cb26-3" tabindex="-1"></a></span>
-<span id="cb26-4"><a href="recommended-usage.html#cb26-4" tabindex="-1"></a><span class="co"># Lightweight label transfer via KNN in shared feature space</span></span>
-<span id="cb26-5"><a href="recommended-usage.html#cb26-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunKNNPredict</span>(sce, <span class="at">ref =</span> ref_dataset, <span class="at">labels =</span> <span class="st">&quot;CellType&quot;</span>, <span class="at">k =</span> <span class="dv">5</span>)</span>
-<span id="cb26-6"><a href="recommended-usage.html#cb26-6" tabindex="-1"></a></span>
-<span id="cb26-7"><a href="recommended-usage.html#cb26-7" tabindex="-1"></a><span class="co"># Visualize query and reference cells in the same reduction space</span></span>
-<span id="cb26-8"><a href="recommended-usage.html#cb26-8" tabindex="-1"></a><span class="fu">ProjectionPlot</span>(<span class="at">query =</span> sce, <span class="at">ref =</span> ref_dataset, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="recommended-usage.html#cb25-1" tabindex="-1"></a><span class="co"># Full annotation via SingleR</span></span>
+<span id="cb25-2"><a href="recommended-usage.html#cb25-2" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunSingleR</span>(sce, <span class="at">ref =</span> ref_dataset, <span class="at">labels =</span> ref_dataset<span class="sc">$</span>CellType)</span>
+<span id="cb25-3"><a href="recommended-usage.html#cb25-3" tabindex="-1"></a></span>
+<span id="cb25-4"><a href="recommended-usage.html#cb25-4" tabindex="-1"></a><span class="co"># Lightweight label transfer via KNN in shared feature space</span></span>
+<span id="cb25-5"><a href="recommended-usage.html#cb25-5" tabindex="-1"></a>sce <span class="ot">&lt;-</span> <span class="fu">RunKNNPredict</span>(sce, <span class="at">ref =</span> ref_dataset, <span class="at">labels =</span> <span class="st">&quot;CellType&quot;</span>, <span class="at">k =</span> <span class="dv">5</span>)</span>
+<span id="cb25-6"><a href="recommended-usage.html#cb25-6" tabindex="-1"></a></span>
+<span id="cb25-7"><a href="recommended-usage.html#cb25-7" tabindex="-1"></a><span class="co"># Visualize query and reference cells in the same reduction space</span></span>
+<span id="cb25-8"><a href="recommended-usage.html#cb25-8" tabindex="-1"></a><span class="fu">ProjectionPlot</span>(<span class="at">query =</span> sce, <span class="at">ref =</span> ref_dataset, <span class="at">reduction =</span> <span class="st">&quot;UMAP&quot;</span>)</span></code></pre></div>
 <p>This means the recommended mental model is simple: keep one SCE object, run the <code>sclet</code> analysis functions in sequence, and inspect state through the exported accessors instead of through ad hoc metadata fields.</p>
 <p>In practical terms:</p>
 <ul>
