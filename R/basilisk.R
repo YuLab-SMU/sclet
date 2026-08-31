@@ -187,6 +187,22 @@ sclet_glibcxx_error <- function(env, e) {
     )
 }
 
+# pandas >= 2.2 dropped the legacy `get_values()` API on Series/Categorical/Index
+# (e.g. `'Categorical' object has no attribute 'get_values'`). Some dependency in the
+# sclet Python stack still calls it, so restore it as an alias for the modern
+# `to_numpy()` in the launched Python process. This runs before the user callback in
+# `sclet_basilisk_run()`, is a no-op where `get_values` already exists (older pandas),
+# and only affects the current process. It is package-scope (not a closure) so it
+# serializes to the basilisk worker without capturing any S4 object.
+sclet_pandas_compat <- function() {
+    reticulate::py_run_string(paste0(
+        "import pandas as pd\n",
+        "for _c in (pd.Series, pd.Categorical, pd.Index):\n",
+        "    if not hasattr(_c, 'get_values'):\n",
+        "        _c.get_values = _c.to_numpy\n"
+    ))
+}
+
 # Start a basilisk environment with its bundled libraries taking precedence
 # over system ones, run `fun`, and tear the environment down again. This is the
 # single entry point used for every sclet basilisk call.
@@ -224,6 +240,10 @@ sclet_basilisk_run <- function(
         shared = shared
     )
     on.exit(basilisk::basiliskStop(proc), add = TRUE)
+
+    # Restore the pandas `get_values()` API in the worker before any callback runs,
+    # so dependencies that still call it work on pandas >= 2.2 (no-op otherwise).
+    basilisk::basiliskRun(proc, sclet_pandas_compat)
 
     tryCatch(
         basilisk::basiliskRun(proc, fun = fun, ...),
