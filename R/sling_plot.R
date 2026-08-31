@@ -229,19 +229,19 @@ genecurve_plot <- function(
   fate_names <- colnames(pseudo) 
   
   ## extract gene expression data
-  gdf <- as.data.frame(t(assay(sce, assay_name)[features, , drop = FALSE]))
+  gdf <- as.data.frame(t(as.matrix(assay(sce, assay_name)[features, , drop = FALSE])))
   colnames(gdf) <- features
   df <- cbind(pseudo, gdf)
   
   ## reshape data
-  d2_gene <- reshape2::melt(df, id.vars = fate_names, 
-                            variable.name = "Gene", 
+  d2_gene <- reshape2::melt(df, id.vars = fate_names,
+                            variable.name = "Gene",
                             value.name = "Expression")
   
-  d2 <- reshape2::melt(d2_gene, 
-                       id.vars = c("Gene", "Expression"), 
-                       measure.vars = fate_names, 
-                       variable.name = "cell_fate", 
+  d2 <- reshape2::melt(d2_gene,
+                       id.vars = c("Gene", "Expression"),
+                       measure.vars = fate_names,
+                       variable.name = "cell_fate",
                        value.name = "Pseudotime")
   
   d2$Gene <- factor(d2$Gene, levels = unique(d2$Gene))

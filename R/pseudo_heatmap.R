@@ -68,7 +68,7 @@ pseudo_heatmap <- function(
   fate_names <- colnames(pseudo)
   
   ## extract gene expression data
-  gene_expression <- as.data.frame(t(assay(sce, assay_name)[features, , drop = FALSE]))
+  gene_expression <- as.data.frame(t(as.matrix(assay(sce, assay_name)[features, , drop = FALSE])))
   colnames(gene_expression) <- features
   
   ## prepare lineage input
