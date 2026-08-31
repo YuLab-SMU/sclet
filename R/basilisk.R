@@ -162,14 +162,14 @@ sclet_prepend_env_lib <- function(env) {
     invisible(libdir)
 }
 
-# Turn a cryptic `GLIBCXX_... not found` / `libstdc++.so.6` import failure into an
-# actionable error. The root cause is a host/toolchain mismatch (the system C++
-# runtime is too old for a compiled Python extension), which the package cannot
-# fix from inside R. We surface that clearly and point to the two real options
-# (a newer system C++ runtime, or a conda-backed basilisk env that bundles one).
+# Turn a cryptic `GLIBCXX_... not found` / `CXXABI_... not found` /
+# `libstdc++.so.6` import failure into an actionable error. The root cause is a
+# host/toolchain mismatch (the C++ runtime the process actually uses is too old
+# for a compiled Python extension). Detect both symbol families, since modern
+# wheels can demand a newer `CXXABI_` version even when `GLIBCXX_` is satisfied.
 sclet_glibcxx_error <- function(env, e) {
     msg <- conditionMessage(e)
-    is_glibcxx <- grepl("GLIBCXX_[0-9]+\\.[0-9]+\\.[0-9]+", msg) &&
+    is_glibcxx <- grepl("(GLIBCXX|CXXABI)_[0-9]+\\.[0-9]+\\.[0-9]+", msg) &&
         grepl("not found", msg)
     if (!is_glibcxx) {
         stop(e)
@@ -177,10 +177,10 @@ sclet_glibcxx_error <- function(env, e) {
     envname <- env@envname
     cli::cli_abort(
         c(
-            "The {.val {envname}} Python environment could not load a compiled C++ extension: the host C++ runtime is too old.",
-            "!" = "A Python extension was built against a newer {.file libstdc++} than this system provides (e.g. {.val GLIBCXX_3.4.31} not found in {.file libstdc++.so.6}).",
+            "The {.val {envname}} Python environment could not load a compiled C++ extension: the C++ runtime in use is too old.",
+            "!" = "A Python extension was built against a newer {.file libstdc++} than is currently being resolved (e.g. {.val GLIBCXX_3.4.31} or {.val CXXABI_1.3.15} not found in {.file libstdc++.so.6}).",
             "i" = "This is a host/toolchain limitation, not a sclet bug, and it cannot be fixed from inside R.",
-            "i" = "Either (a) provide a newer system C++ runtime (e.g. a newer {.pkg libstdc++6} / {.pkg gcc}; on Ubuntu that means >= 22.04 with GCC >= 12), or (b) use a conda-backed basilisk environment, which bundles its own newer {.file libstdc++}. See the sclet NEWS for the minimum host requirement.",
+            "i" = "Either (a) provide a newer system C++ runtime (e.g. a newer {.pkg libstdc++6} / {.pkg gcc}; on Ubuntu that means >= 22.04 with GCC >= 12), or (b) run the environment on a conda-backed basilisk backend so the environment's own newer {.file libstdc++} is used. See the sclet NEWS for the minimum host requirement.",
             "i" = "Original error: {msg}"
         ),
         class = "sclet_glibcxx_not_found"
@@ -190,11 +190,20 @@ sclet_glibcxx_error <- function(env, e) {
 # Start a basilisk environment with its bundled libraries taking precedence
 # over system ones, run `fun`, and tear the environment down again. This is the
 # single entry point used for every sclet basilisk call.
+#
+# `full.activation = TRUE` makes basilisk run the environment's own activation
+# (for a conda env that sources its `activate` script). This is what actually
+# puts the environment's bundled `lib` directory first in the runtime search
+# path of the worker that imports the Python extensions, so e.g. a conda env
+# that ships a newer `libstdc++.so.6` is used instead of an outdated system one
+# (the `GLIBCXX_/CXXABI_... not found` errors). It is a no-op for the default
+# pip/venv backend beyond what the explicit LD_LIBRARY_PATH prepending below
+# already does, so it is safe to leave on for every backend.
 sclet_basilisk_run <- function(
     env,
     fun,
     ...,
-    full.activation = NA,
+    full.activation = TRUE,
     fork = basilisk::getBasiliskFork(),
     shared = basilisk::getBasiliskShared()
 ) {
