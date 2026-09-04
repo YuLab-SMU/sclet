@@ -66,6 +66,37 @@ traps. These apply to the `devel` checkout (`R/`, `man/`, `NAMESPACE`, ...).
   name-based joins — it is roughly 20x slower than the positional `cbind` + `melt`
   pipeline on large cell counts.
 
+### Basilisk / Python backend
+
+- **Basilisk `packages` are pip-installed and `channels` is ignored (basilisk ≥ 1.24).**
+  `setupBasiliskEnv` only calls `virtualenv_create`: it rewrites `pkg=ver` →
+  `pkg==ver`, merges `packages` + `pip`, and pip-installs everything; conda/mamba is
+  never invoked and the `channels` argument is a no-op. Any package that isn't on PyPI,
+  or whose version doesn't exist on a conda channel, must go in the `pip = c(...)` field
+  of `BasiliskEnvironment` (confirmed: `pyscenic` is bioconda-only, `loompy=3.0.7` is PyPI-only).
+- **A basilisk error is raised by `clusterCall`; the real exception is wrapped inside.**
+  `basiliskStart` runs the callback in a fork/PSOCK cluster worker, so a Python failure
+  surfaces as `checkForRemoteErrors(lapply(cl, recvResult))` wrapping the actual error.
+  Read the inner `error:` message, and get the full Python traceback with `reticulate::py_last_error()`.
+- **Use `full.activation = TRUE` for conda-backed envs; keep callbacks package-scope and
+  call `basiliskRun` more than once on the same proc.** Partial activation doesn't source
+  the env's own activation, so a bundled newer `libstdc++.so.6` isn't first in the worker's
+  runtime search path; a module then loads the older system libstdc++ first and (glibc loads
+  one `libstdc++.so.6` per process) every C++ extension binds to it → `GLIBCXX_/CXXABI_... not found`.
+  `full.activation = TRUE` sources it and is a no-op on the pip/venv backend (which bundles no
+  libstdc++). Because `basiliskRun(proc, fun)` serializes `fun` to the worker, use package-scope
+  functions (closures capturing S4 objects break), and you can call `basiliskRun` repeatedly on
+  the same `proc` to run a setup/patch before the real callback.
+- **pandas ≥ 2.2 removed `get_values()` from `Series`/`Categorical`/`Index`** (error:
+  `'Categorical' object has no attribute 'get_values'`). If a dependency still calls it, restore
+  it as an alias for `to_numpy()` once in the shared basilisk wrapper (covers every backend):
+  `for _c in (pd.Series, pd.Categorical, pd.Index): _c.get_values = _c.to_numpy`, guarded by
+  `if not hasattr(_c, 'get_values')`.
+- **Wrap Python import failures once, in the shared wrapper, and raise an actionable condition.**
+  Detect `GLIBCXX_/CXXABI_... not found` (and similar) in `sclet_basilisk_run` and rethrow as a
+  typed `sclet_glibcxx_not_found` error that states it is a host/toolchain issue and lists the two
+  real options (newer system C++ runtime, or a conda-backed env) instead of a raw `ImportError`.
+
 ## Quick reference
 
 ```bash
