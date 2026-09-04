@@ -1,4 +1,22 @@
 #' @importFrom basilisk BasiliskEnvironment
+# SCENIC (pySCENIC) environment.
+#
+# pySCENIC 0.12.1 has known incompatibilities with newer transitive
+# dependencies, so this environment pins a full, tested lock instead of only the
+# top-level packages (#27):
+#   * setuptools==80.9.0  - keeps `pkg_resources` importable (setuptools >= 81
+#     removed it, breaking `import pkg_resources` in several pySCENIC deps).
+#   * dask/distributed 2024.2.1 + dask-expr 0.5.3 - the scheduler pair that
+#     avoids the `Nanny failed to start` / `diagnostics_port` regressions seen
+#     with newer Dask.
+#   * arboreto 0.1.6 - GRNBoost2 backend, pinned.
+#   * pyarrow 20.0.0 - required for the intermediate feather/parquet
+#     checkpointing used by `RunSCENIC(save_intermediate = TRUE)`.
+#   * numpy 1.26.4 - kept for the rest of the stack; `np.object` is restored at
+#     runtime by `sclet_numpy_compat()` because pySCENIC 0.12.1 still references
+#     it (removed in numpy >= 1.24).
+# `pyscenic` and `loompy` are PyPI-only, so they are installed via `pip` on both
+# the conda and the pip/venv basilisk backends (#23).
 sclet_scenic_env <- basilisk::BasiliskEnvironment(
     envname = "sclet_scenic_env",
     pkgname = "sclet",
@@ -10,8 +28,14 @@ sclet_scenic_env <- basilisk::BasiliskEnvironment(
         "pandas=2.2.2"
     ),
     pip = c(
+        "setuptools==80.9.0",
         "pyscenic==0.12.1",
-        "loompy==3.0.7"
+        "loompy==3.0.7",
+        "arboreto==0.1.6",
+        "dask==2024.2.1",
+        "distributed==2024.2.1",
+        "dask-expr==0.5.3",
+        "pyarrow==20.0.0"
     )
 )
 
@@ -203,6 +227,49 @@ sclet_pandas_compat <- function() {
     ))
 }
 
+# numpy >= 1.24 removed the deprecated `np.object` alias, but pySCENIC 0.12.1
+# still references it (e.g. `pyscenic/transform.py`), raising
+# `AttributeError: module 'numpy' has no attribute 'object'`. Restore it as an
+# alias for the Python builtin `object` in the launched process before any
+# sclet callback imports pySCENIC. This runs in `sclet_basilisk_run()` ahead of
+# the user callback; it is a no-op on numpy versions that still ship `np.object`
+# and only affects the current process.
+sclet_numpy_compat <- function() {
+    reticulate::py_run_string(paste0(
+        "try:\n",
+        "    import numpy as np\n",
+        "    if not hasattr(np, 'object'):\n",
+        "        np.object = object\n",
+        "except Exception:\n",
+        "    pass\n"
+    ))
+}
+
+# Turn a failure to create/activate an environment into an actionable error.
+# basilisk deletes a partially-created virtualenv/conda env on setup failure, so
+# a broken setup cannot be inspected in place — this points the user at the
+# documented external-Python repair path instead of a generic R-side message.
+sclet_env_setup_error <- function(env, e) {
+    msg <- conditionMessage(e)
+    is_glibcxx <- grepl("(GLIBCXX|CXXABI)_[0-9]+\\.[0-9]+\\.[0-9]+", msg) &&
+        grepl("not found", msg)
+    if (is_glibcxx) {
+        return(sclet_glibcxx_error(env, e))
+    }
+    envname <- env@envname
+    cli::cli_abort(
+        c(
+            "The {.val {envname}} Python environment could not be created or started.",
+            "!" = "sclet cannot reliably create/repair a basilisk environment from inside R: on failure basilisk deletes the partially-created environment, and the useful pip/build traceback only appears in the R/Jupyter session output rather than in the R-side error.",
+            "i" = "Original error: {msg}",
+            "i" = "To inspect or repair the environment, build it manually and point basilisk at it (see the sclet NEWS 'RunSCENIC' entry for the documented steps). The typical setup is:",
+            " " = "Sys.setenv(BASILISK_CUSTOM_PYTHON_3_10 = '<your-python-3.10>', BASILISK_EXTERNAL_DIR = '<your-env-root>', BASILISK_NO_PYENV = '1')",
+            "i" = "If the message instead concerns a missing C++ symbol (GLIBCXX_/CXXABI_... not found), that is a host-toolchain limitation; see the sclet host-requirement guidance."
+        ),
+        class = "sclet_env_setup_failed"
+    )
+}
+
 # Start a basilisk environment with its bundled libraries taking precedence
 # over system ones, run `fun`, and tear the environment down again. This is the
 # single entry point used for every sclet basilisk call.
@@ -224,7 +291,10 @@ sclet_basilisk_run <- function(
     shared = basilisk::getBasiliskShared()
 ) {
     old_ld <- Sys.getenv("LD_LIBRARY_PATH", unset = NA)
-    sclet_prepend_env_lib(env)
+    tryCatch(
+        sclet_prepend_env_lib(env),
+        error = function(e) sclet_env_setup_error(env, e)
+    )
     on.exit({
         if (is.na(old_ld)) {
             Sys.unsetenv("LD_LIBRARY_PATH")
@@ -233,17 +303,22 @@ sclet_basilisk_run <- function(
         }
     }, add = TRUE)
 
-    proc <- basilisk::basiliskStart(
-        env,
-        full.activation = full.activation,
-        fork = fork,
-        shared = shared
+    proc <- tryCatch(
+        basilisk::basiliskStart(
+            env,
+            full.activation = full.activation,
+            fork = fork,
+            shared = shared
+        ),
+        error = function(e) sclet_env_setup_error(env, e)
     )
     on.exit(basilisk::basiliskStop(proc), add = TRUE)
 
-    # Restore the pandas `get_values()` API in the worker before any callback runs,
-    # so dependencies that still call it work on pandas >= 2.2 (no-op otherwise).
+    # Restore the pandas `get_values()` API and the numpy `np.object` alias in the
+    # worker before any callback runs, so dependencies that still rely on them
+    # work on the pinned pandas/numpy versions (no-op otherwise).
     basilisk::basiliskRun(proc, sclet_pandas_compat)
+    basilisk::basiliskRun(proc, sclet_numpy_compat)
 
     tryCatch(
         basilisk::basiliskRun(proc, fun = fun, ...),

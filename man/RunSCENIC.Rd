@@ -12,7 +12,10 @@ RunSCENIC(
   assay_use = "counts",
   num_workers = 1L,
   seed = 123L,
-  name = "scenic"
+  name = "scenic",
+  output_dir = NULL,
+  save_intermediate = FALSE,
+  resume = FALSE
 )
 }
 \arguments{
@@ -31,6 +34,18 @@ RunSCENIC(
 \item{seed}{Integer. Random seed for reproducibility. Defaults to 123.}
 
 \item{name}{Character. Record id for this SCENIC run. Defaults to "scenic".}
+
+\item{output_dir}{Character. Directory for intermediate checkpoints. Required
+when \code{save_intermediate} or \code{resume} is \code{TRUE}. Defaults to \code{NULL}.}
+
+\item{save_intermediate}{Logical. Whether to persist intermediate steps to
+\code{output_dir} as parquet checkpoints (GRNBoost2 adjacency and the pruned
+motif data frame) so a failed downstream step does not force a full rerun.
+Defaults to \code{FALSE}.}
+
+\item{resume}{Logical. Whether to reuse checkpoints already present in
+\code{output_dir}, skipping any completed step (GRNBoost2 and/or motif pruning).
+AUCell is always recomputed from the SCE. Defaults to \code{FALSE}.}
 }
 \value{
 A SingleCellExperiment object with the SCENIC AUC matrix stored in \code{altExp(sce, "SCENIC_AUC")}

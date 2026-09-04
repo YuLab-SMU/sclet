@@ -13,6 +13,15 @@
 #' @param num_workers Integer. Number of workers for parallel processing. Defaults to 1.
 #' @param seed Integer. Random seed for reproducibility. Defaults to 123.
 #' @param name Character. Record id for this SCENIC run. Defaults to "scenic".
+#' @param output_dir Character. Directory for intermediate checkpoints. Required
+#'   when `save_intermediate` or `resume` is `TRUE`. Defaults to `NULL`.
+#' @param save_intermediate Logical. Whether to persist intermediate steps to
+#'   `output_dir` as parquet checkpoints (GRNBoost2 adjacency and the pruned
+#'   motif data frame) so a failed downstream step does not force a full rerun.
+#'   Defaults to `FALSE`.
+#' @param resume Logical. Whether to reuse checkpoints already present in
+#'   `output_dir`, skipping any completed step (GRNBoost2 and/or motif pruning).
+#'   AUCell is always recomputed from the SCE. Defaults to `FALSE`.
 #' 
 #' @return A SingleCellExperiment object with the SCENIC AUC matrix stored in `altExp(sce, "SCENIC_AUC")`
 #'   and the state registered in the analysis-state contract.
@@ -23,7 +32,8 @@
 #' @export
 RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths, 
                       assay_use = "counts", num_workers = 1L, seed = 123L,
-                      name = "scenic") {
+                      name = "scenic", output_dir = NULL,
+                      save_intermediate = FALSE, resume = FALSE) {
     if (!requireNamespace("basilisk", quietly = TRUE)) {
         cli::cli_abort(
             "Please install {.pkg basilisk} to run pySCENIC.",
@@ -31,7 +41,7 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
         )
     }
     
-    if (!assay_use %in% assayNames(sce)) {
+    if (!assay_use %in% SummarizedExperiment::assayNames(sce)) {
         cli::cli_abort(
             "Assay {.val {assay_use}} not found in the {.cls SingleCellExperiment} object.",
             class = "sclet_missing_assay"
@@ -58,6 +68,20 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
             )
         }
     }
+
+    if ((isTRUE(save_intermediate) || isTRUE(resume)) &&
+        (is.null(output_dir) || !nzchar(output_dir))) {
+        cli::cli_abort(
+            c(
+                "{.arg output_dir} must be supplied when {.arg save_intermediate} or {.arg resume} is {.val TRUE}.",
+                i = "Set {.arg output_dir} to a writable directory for SCENIC checkpoints."
+            ),
+            class = "sclet_missing_output_dir"
+        )
+    }
+    if (!is.null(output_dir) && nzchar(output_dir) && !dir.exists(output_dir)) {
+        dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+    }
     
     message("Extracting expression matrix...")
     # pySCENIC supports sparse inputs, so keep the matrix sparse across the R/Python boundary.
@@ -70,63 +94,150 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
     
     auc_matrix <- sclet_basilisk_run(
         sclet_scenic_env,
-        function(expr, genes, cells, tfs_f, motif_f, dbs, n_workers, s) {
-        # Import Python modules
-        pd <- reticulate::import("pandas")
-        sp <- reticulate::import("scipy.sparse")
-        grnboost2 <- reticulate::import("arboreto.algo")$grnboost2
-        pyscenic_prune <- reticulate::import("pyscenic.prune")
-        pyscenic_aucell <- reticulate::import("pyscenic.aucell")
-        
-        # 1. Prepare DataFrame
-        expr <- reticulate::r_to_py(expr)
-        if (sp$issparse(expr)) {
-            expr <- expr$tocsr()
-            ex_df <- pd$DataFrame$sparse$from_spmatrix(expr, index = cells, columns = genes)
-        } else {
-            ex_df <- pd$DataFrame(expr, index = cells, columns = genes)
+        function(expr, genes, cells, tfs_f, motif_f, db_paths, n_workers, s,
+                 out_dir, save_mid, resume) {
+        # Import Python modules. `convert = FALSE` keeps pandas/DataFrame objects
+        # as Python objects so we can pass lists (modules, ranking DBs) through
+        # the pySCENIC API without R auto-conversion mangling them.
+        builtins <- reticulate::import_builtins(convert = FALSE)
+        pd <- reticulate::import("pandas", convert = FALSE)
+        sp <- reticulate::import("scipy.sparse", convert = FALSE)
+        arboreto <- reticulate::import("arboreto.algo", convert = FALSE)
+        scenic_utils <- reticulate::import("pyscenic.utils", convert = FALSE)
+        scenic_prune <- reticulate::import("pyscenic.prune", convert = FALSE)
+        scenic_aucell <- reticulate::import("pyscenic.aucell", convert = FALSE)
+        rnkdb <- reticulate::import("ctxcore.rnkdb", convert = FALSE)
+        os <- reticulate::import("os", convert = FALSE)
+
+        # Build a thread-based dask client when num_workers > 1 so GRNBoost2 gets
+        # a real parallel backend without launching the Nanny subprocess that
+        # newer dask/distributed turns into `Nanny failed to start`. Fall back to
+        # arboreto's default `'local'` scheduler when dask.distributed is absent.
+        make_client <- function(nw) {
+            tryCatch({
+                ddist <- reticulate::import("dask.distributed", convert = FALSE)
+                cluster <- ddist$LocalCluster(
+                    n_workers = 1L,
+                    threads_per_worker = as.integer(nw),
+                    processes = FALSE,
+                    dashboard_address = NULL
+                )
+                ddist$Client(cluster)
+            }, error = function(e) NULL)
         }
-        
-        # Load TFs
+
+        # 1. Prepare a cells x genes DataFrame (sparse-aware)
+        expr <- reticulate::r_to_py(expr, convert = FALSE)
+        genes_py <- reticulate::r_to_py(genes, convert = FALSE)
+        cells_py <- reticulate::r_to_py(cells, convert = FALSE)
+        if (reticulate::py_to_r(sp$issparse(expr))) {
+            expr <- expr$tocsr()
+            ex_df <- pd$DataFrame$sparse$from_spmatrix(expr, index = cells_py, columns = genes_py)
+        } else {
+            ex_df <- pd$DataFrame(expr, index = cells_py, columns = genes_py)
+        }
+
+        # Load TFs and keep only those present in the expression matrix
         tfs <- readLines(tfs_f)
         tfs <- intersect(tfs, genes)
-        
-        # 2. GRN inference
-        message("Step 1: Inferring Gene Regulatory Networks (GRNBoost2)...")
-        adj <- grnboost2(expression_data = ex_df, tf_names = tfs, seed = as.integer(s))
-        
-        # 3. Motif enrichment
+        if (!length(tfs)) {
+            stop("No TFs overlap with the genes in the expression matrix.")
+        }
+
+        # Intermediate checkpoint paths (only valid when output_dir is supplied)
+        adj_path <- NULL
+        motif_path <- NULL
+        if (!is.null(out_dir) && nzchar(out_dir)) {
+            os$makedirs(out_dir, exist_ok = TRUE)
+            adj_path <- file.path(out_dir, "grn_adjacency.parquet")
+            motif_path <- file.path(out_dir, "motifs.parquet")
+        }
+
+        # 2. GRNBoost2 inference (resumable)
+        adj <- NULL
+        if (isTRUE(resume) && !is.null(adj_path) && file.exists(adj_path)) {
+            adj <- pd$read_parquet(adj_path)
+            message("Resuming SCENIC: reused cached GRNBoost2 adjacency from ", adj_path)
+        }
+        if (is.null(adj)) {
+            message("Step 1: Inferring Gene Regulatory Networks (GRNBoost2)...")
+            client <- make_client(n_workers)
+            if (is.null(client)) {
+                adj <- arboreto$grnboost2(
+                    expression_data = ex_df,
+                    tf_names = reticulate::r_to_py(tfs, convert = FALSE),
+                    seed = as.integer(s)
+                )
+            } else {
+                adj <- arboreto$grnboost2(
+                    expression_data = ex_df,
+                    tf_names = reticulate::r_to_py(tfs, convert = FALSE),
+                    seed = as.integer(s),
+                    client_or_address = client
+                )
+            }
+            if (isTRUE(save_mid) && !is.null(adj_path)) {
+                adj$to_parquet(adj_path)
+            }
+        }
+
+        # 3. Build co-expression modules from the adjacency, then (from scratch or
+        #    from a checkpoint) prune to regulons via the ranking databases.
         message("Step 2: Motif enrichment and regulon pruning...")
-        regulons <- pyscenic_prune$prune2df(
-            dbs, 
-            motif_f, 
-            adj, 
-            num_workers = as.integer(n_workers)
+        modules <- builtins$list(
+            scenic_utils$modules_from_adjacencies(adj, ex_df)
         )
-        
-        # Convert df to regulons
-        regs <- pyscenic_prune$df2regulons(regulons)
-        
-        # 4. AUCell scoring
+
+        motif_df <- NULL
+        if (isTRUE(resume) && !is.null(motif_path) && file.exists(motif_path)) {
+            motif_df <- pd$read_parquet(motif_path)
+            message("Resuming SCENIC: reused cached motif enrichment from ", motif_path)
+        }
+        if (is.null(motif_df)) {
+            # Wrap each feather cisTarget ranking database so prune2df() gets the
+            # ranking-database objects it expects (not raw file paths).
+            py_dbs <- builtins$list()
+            for (f in db_paths) {
+                db_name <- tools::file_path_sans_ext(basename(f))
+                py_dbs$append(rnkdb$FeatherRankingDatabase(fname = f, name = db_name))
+            }
+            motif_df <- scenic_prune$prune2df(
+                py_dbs,
+                modules,
+                motif_f,
+                num_workers = as.integer(n_workers),
+                client_or_address = "custom_multiprocessing"
+            )
+            if (isTRUE(save_mid) && !is.null(motif_path)) {
+                motif_df$to_parquet(motif_path)
+            }
+        }
+
+        # 4. Convert the pruned motif data frame into regulons.
+        regs <- scenic_prune$df2regulons(motif_df)
+
+        # 5. AUCell scoring
         message("Step 3: AUCell scoring...")
-        auc_mtx <- pyscenic_aucell$aucell(
-            ex_df, 
-            regs, 
+        auc_mtx <- scenic_aucell$aucell(
+            ex_df,
+            regs,
             num_workers = as.integer(n_workers),
             seed = as.integer(s)
         )
-        
-        return(auc_mtx)
-        
+
+        reticulate::py_to_r(auc_mtx)
     },
         expr = expr_mat,
         genes = gene_names,
         cells = cell_names,
         tfs_f = tfs_path,
         motif_f = motif_annotations_path,
-        dbs = database_paths,
+        db_paths = database_paths,
         n_workers = num_workers,
-        s = seed
+        s = seed,
+        out_dir = output_dir,
+        save_mid = save_intermediate,
+        resume = resume
     )
     
     # auc_matrix is a pandas DataFrame returned as R data.frame (cells x regulons)
@@ -144,7 +255,8 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
         num_workers = num_workers,
         seed = seed,
         artifacts = list(
-            altExp = "SCENIC_AUC"
+            altExp = "SCENIC_AUC",
+            output_dir = if (is.null(output_dir)) NULL else output_dir
         ),
         regulon_names = rownames(auc_mat),
         timestamp = Sys.time()
@@ -166,11 +278,14 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
             artifacts = list(
                 analysis_key = name,
                 altExp = "SCENIC_AUC",
-                assay = "AUC"
+                assay = "AUC",
+                output_dir = if (is.null(output_dir)) NULL else output_dir
             ),
             params = list(
                 num_workers = num_workers,
-                seed = seed
+                seed = seed,
+                save_intermediate = isTRUE(save_intermediate),
+                resume = isTRUE(resume)
             ),
             summary = list(
                 n_regulons = nrow(auc_mat),
