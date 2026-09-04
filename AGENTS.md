@@ -42,6 +42,30 @@ not pollute the R package repository's index.
 - When you `cd` into a directory, keep in mind it is now a **different branch** —
   this top directory is `devel`, not `docs`.
 
+## R package development notes
+
+Lessons captured from fixing real issues, so future maintenance avoids the same
+traps. These apply to the `devel` checkout (`R/`, `man/`, `NAMESPACE`, ...).
+
+- **Sparse assays break reshape/plot code.** The `logcounts` assay is a sparse
+  `dgCMatrix` by default for large datasets. `t()` on a sparse matrix dispatches to
+  `t.default()` and fails with `argument is not a matrix`; `as.data.frame()` on a
+  still-sparse transpose can also fail. When reshaping an assay, materialize *just
+  the requested features* with `as.matrix()` before transposing:
+  `as.data.frame(t(as.matrix(assay(sce, assay_name)[features, , drop = FALSE])))`.
+  Never transpose the full assay.
+- **Keep zero-expression cells in plot/fit data.** `geom_smooth` and GAM fit
+  `Expression ~ pseudotime`; cells with 0 expression anchor the low end of the
+  curve. Dropping them — e.g. by going straight from sparse `summary()` triplets,
+  which omit structural zeros — biases the curve upward (measured ~2x in a test
+  case). Densify (or otherwise include) the zeros; otherwise the fitted curves are
+  wrong.
+- **Prefer positional alignment over key joins for speed.** In an SCE, assay columns
+  and `colData` rows are guaranteed to be in the same order, so `cbind` +
+  `reshape2::melt` is both correct and fast. Reserve `merge(by = "cell")` for real
+  name-based joins — it is roughly 20x slower than the positional `cbind` + `melt`
+  pipeline on large cell counts.
+
 ## Quick reference
 
 ```bash
