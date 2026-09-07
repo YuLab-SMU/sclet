@@ -346,6 +346,27 @@ plot_program_heatmap <- function(object, programs, source = c("auto", "geneset_s
 }
 
 sclet_resolve_program_activity <- function(object, program, source, id = NULL, assay = NULL) {
+    if (identical(source, "auto")) {
+        # Auto-resolve by trying each available source in a stable order and
+        # returning the first one that can supply the requested program.
+        candidates <- c("geneset_scoring", "scenic")
+        errors <- character(0)
+        for (candidate in candidates) {
+            attempt <- tryCatch(
+                sclet_resolve_program_activity(object, program = program, source = candidate, id = id, assay = assay),
+                error = function(e) e
+            )
+            if (!inherits(attempt, "error")) {
+                return(attempt)
+            }
+            errors <- c(errors, sprintf("%s: %s", candidate, conditionMessage(attempt)))
+        }
+        stop(paste(c(
+            sprintf("Program '%s' could not be resolved from any available source.", program),
+            errors
+        ), collapse = "\n"))
+    }
+
     if (identical(source, "geneset_scoring")) {
         record <- get_geneset_scoring(object, id = id)
         if (is.null(record)) {
@@ -478,10 +499,17 @@ plot_program_dotplot <- function(object, programs, source = c("auto", "geneset_s
     }
     group_values <- as.character(group_values)
 
+    # Collect per-program resolution failures so the real cause (e.g. a missing
+    # SCENIC/geneset score, or an unsupported source) is surfaced instead of a
+    # blank generic error when every program fails.
+    errors <- character(0)
     dot_data <- lapply(programs, function(prog) {
         activity <- tryCatch(
             get_program(object, program = prog, source = source, id = id),
-            error = function(e) NULL
+            error = function(e) {
+                errors <<- c(errors, sprintf("'%s': %s", prog, conditionMessage(e)))
+                NULL
+            }
         )
         if (is.null(activity)) return(NULL)
         groups <- unique(group_values)
@@ -499,7 +527,10 @@ plot_program_dotplot <- function(object, programs, source = c("auto", "geneset_s
     })
     dot_data <- do.call(rbind, dot_data)
     if (is.null(dot_data) || nrow(dot_data) == 0) {
-        stop("No program activity data could be resolved.")
+        stop(paste(c(
+            "No program activity data could be resolved.",
+            errors
+        ), collapse = "\n"))
     }
     dot_data$program <- factor(dot_data$program, levels = programs)
     dot_data$group <- factor(dot_data$group)
