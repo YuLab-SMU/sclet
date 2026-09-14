@@ -710,6 +710,132 @@ test_that("Status handles objects without recorded analysis history", {
     expect_equal(status$available$assays, "counts")
 })
 
+test_that("Status surfaces priority and rare_cells availability", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 5, ncol = 4))
+    )
+
+    status <- Status(sce)
+    expect_false("priority" %in% status$available$analyses)
+    expect_false("rare_cells" %in% status$available$analyses)
+    expect_false(status$health$has_perturbation_priority)
+    expect_false(status$health$has_rare_cells)
+
+    sce <- sclet_set_analysis(
+        sce, "augur",
+        list(
+            id = "augur",
+            method = "Augur",
+            AUC = data.frame(cell_type = c("A", "B"), auc = c(0.8, 0.6))
+        )
+    )
+    sce <- sclet_set_analysis_state(
+        object = sce,
+        type = "priority",
+        id = "augur",
+        method = "Augur",
+        inputs = list(condition_col = "condition", group_col = "label"),
+        artifacts = list(analysis_key = "augur")
+    )
+    sce <- sclet_set_analysis(
+        sce, "rare_cells",
+        list(id = "rareq", method = "density", label_col = "rare_cluster")
+    )
+    sce <- sclet_set_analysis_state(
+        object = sce,
+        type = "rare_cells",
+        id = "rareq",
+        method = "density",
+        inputs = list(reduction = "PCA"),
+        artifacts = list(analysis_key = "rare_cells", label_col = "rare_cluster")
+    )
+
+    status <- Status(sce)
+    expect_true("priority" %in% status$available$analyses)
+    expect_true("rare_cells" %in% status$available$analyses)
+    expect_true(status$health$has_perturbation_priority)
+    expect_true(status$health$has_rare_cells)
+})
+
+test_that("Status health block summarizes mainline readiness", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(
+            counts = matrix(1, nrow = 5, ncol = 4),
+            spliced = matrix(1, nrow = 5, ncol = 4),
+            unspliced = matrix(1, nrow = 5, ncol = 4)
+        )
+    )
+
+    health <- Status(sce)$health
+    expect_true(health$has_spliced_assay)
+    expect_true(health$has_unspliced_assay)
+    expect_false(health$has_velocity)
+    expect_false(health$has_trajectory)
+    expect_false(health$has_cellrank)
+    expect_false(health$has_fate)
+    expect_false(health$has_perturbation)
+    expect_false(health$has_perturbation_priority)
+    expect_false(health$has_rare_cells)
+    expect_null(health$active_velocity)
+    expect_null(health$active_trajectory)
+    expect_null(health$active_perturbation)
+    expect_equal(health$mainline_missing, c("velocity", "fate", "perturbation"))
+
+    # Fate probability is detected from cellrank_fate_* colData columns
+    SummarizedExperiment::colData(sce)$cellrank_fate_1 <- rep(0.5, ncol(sce))
+    expect_true(Status(sce)$health$has_fate)
+    expect_equal(Status(sce)$health$mainline_missing, c("velocity", "perturbation"))
+
+    # Active velocity / perturbation records are surfaced by id
+    sce <- sclet_set_analysis_state(
+        object = sce,
+        type = "perturbation",
+        id = "celloracle_TF1",
+        method = "CellOracle",
+        inputs = list(gene = "TF1"),
+        artifacts = list(analysis_key = "celloracle")
+    )
+    sce <- sclet_set_analysis_state(
+        object = sce,
+        type = "velocity",
+        id = "regvelo",
+        method = "velociraptor::scvelo",
+        inputs = list(assay = "spliced"),
+        artifacts = list(analysis_key = "velocity")
+    )
+
+    health <- Status(sce)$health
+    expect_true(health$has_perturbation)
+    expect_true(health$has_velocity)
+    expect_equal(health$active_perturbation, "celloracle_TF1")
+    expect_equal(health$active_velocity, "regvelo")
+    expect_null(health$active_trajectory)
+    expect_length(health$mainline_missing, 0)
+})
+
+test_that("Status health flags missing velocity inputs when spliced/unspliced are absent", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 5, ncol = 4))
+    )
+    sce <- sclet_set_analysis_state(
+        object = sce,
+        type = "velocity",
+        id = "velociraptor",
+        method = "velociraptor::scvelo",
+        inputs = list(),
+        artifacts = list(analysis_key = "velocity")
+    )
+
+    health <- Status(sce)$health
+    expect_false(health$has_spliced_assay)
+    expect_false(health$has_unspliced_assay)
+    expect_true(health$has_velocity)
+    expect_equal(
+        health$mainline_missing,
+        c("velocity_inputs", "fate", "perturbation")
+    )
+})
+
 test_that("get_hvg, get_batch and get_graph expose unified records", {
     skip_if_not_installed("scuttle")
     skip_if_not_installed("scater")

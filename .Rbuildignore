@@ -21,4 +21,5 @@ regvelo_smoke_cellrank/
 regvelo_smoke_cellrank-local-check/
 inst/regvelo-smoke-test/__pycache__/
 ^\.scratch$
+^\.workbuddy-ai$
 AGENTS.md

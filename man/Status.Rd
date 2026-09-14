@@ -13,7 +13,12 @@ Status(object, details = FALSE)
 }
 \value{
 a structured summary of the current active view, available resources,
-and recorded analysis context
+and recorded analysis context. In addition to \code{available$analyses}, a light
+\code{health} block reports mainline readiness flags (velocity inputs, fate
+probability, perturbation priority / rare cells), the currently active
+velocity / trajectory / perturbation records, and \code{mainline_missing}, the
+ordered names of the velocity -> fate -> perturbation stages that are not
+yet satisfied.
 }
 \description{
 Inspect the current sclet object status
