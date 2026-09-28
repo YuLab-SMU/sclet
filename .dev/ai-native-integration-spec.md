@@ -1,6 +1,6 @@
 # sclet R-native AI 接入规划与实现 Spec
 
-- **状态**：Phase 0–2 read-only AI and dual-stage structured output implemented; analysis planning/execution remains future work
+- **状态**：Phase 0–2 and the Phase 3 planning/controlled-execution foundation implemented; broader built-in action catalog remains future work
 - **范围**：R 包内通过 `aisdk` 接入 AI，并将 AI 作为单细胞分析的审计、规划和解释层
 - **第一阶段原则**：用户不离开 R；外部 agent 作为第二阶段客户端，不参与第一阶段核心设计
 - **目标文件**：`R/ai-*.R`、`R/copilot.R`、`R/status.R`、`R/analysis-accessors.R`、`tests/testthat/`
@@ -856,7 +856,7 @@ tests/testthat/test-ai-copilot.R
 
 ---
 
-## Phase 3：分析规划和受控执行
+## Phase 3：分析规划和受控执行（基础版已实现）
 
 任务：
 
@@ -874,7 +874,18 @@ tests/testthat/test-ai-copilot.R
 - 用户确认前不会执行有副作用操作；
 - 每个结果都回到账本。
 
-### Phase 4：外部 agent 接入
+Phase 3 基础实现采用显式 allowlist，而不是从全局环境按字符串查找函数：
+
+- `AIAction()` 描述一个可执行 handler、参数、前置条件和返回类型；
+- `AIExecutionRegistry()` 只接受显式注册的 action，默认是空 registry；
+- `AIPlanAnalysis()` 只生成 `sclet_ai_plan`，不会执行任何 action；
+- `ValidateAIPlan()` 检查 action 是否注册、步骤依赖、当前 ledger fingerprint 和前置条件；
+- `ExecuteAIPlan()` 默认 `dry_run = TRUE`，非 dry-run 必须提供 validation 返回的 confirmation token；
+- 成功或失败执行都可以通过 `sclet_set_analysis()` 写入 `ai_execution_*` 记录，并写入 command log；
+- execution registry 不作为 AI tool 暴露，AI 不能自行触发有副作用的函数。
+
+Phase 3 基础实现暂不提供默认有副作用 action。具体分析函数必须由用户或上层 workflow 通过 `AIAction()` 显式包装并注册，后续可以在稳定的 registry contract 上增加经过审查的 sclet-native actions。
+
 
 只在 Phase 0–3 的 R API 稳定后进行：
 

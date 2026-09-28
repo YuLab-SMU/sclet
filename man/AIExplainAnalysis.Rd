@@ -21,6 +21,7 @@ AIExplainAnalysis(
 \item{id}{Optional analysis id filter.}
 
 \item{model}{Optional aisdk model.}
+
 \item{structured_output}{Logical. Use the tool-loop plus structured-output
 summary stage. Defaults to \code{TRUE}.}
 

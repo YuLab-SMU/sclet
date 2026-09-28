@@ -1,3 +1,7 @@
+# Development
+
++ **R-native AI integration — Phase 3 foundation**: Added `AIPlanAnalysis()` for non-executing structured plans, `ValidateAIPlan()` for registry, dependency, ledger-fingerprint, and prerequisite checks, and `ExecuteAIPlan()` with explicit `AIAction()`/`AIExecutionRegistry()` allowlisting. Execution defaults to dry-run, requires a validation confirmation token for side effects, and records successful or failed runs in the analysis ledger and command log. No default side-effecting actions are exposed yet.
+
 # sclet 1.0.2
 
 + **R-native AI integration — Phase 1**: Added a bounded, versioned `GetAnalysisLedger()` / `sclet_ai_context()` view for `SingleCellExperiment` analysis state, together with the provider-neutral `sclet_ai_call()` adapter and structured `sclet_ai_result` contract. AI responses now retain findings, evidence references, warnings, recommendations, and conservative claim levels; causal claims require explicit evidence references. The existing `sclet_copilot()` and `AuditAnalysisChain()` entry points remain available through the unified adapter.
