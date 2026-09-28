@@ -24,3 +24,4 @@ inst/regvelo-smoke-test/__pycache__/
 ^\.workbuddy-ai$
 ^\.dev($|/)
 AGENTS.md
+tests/testthat/_snaps
