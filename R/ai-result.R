@@ -6,9 +6,28 @@ sclet_ai_error <- function(class, message, parent = NULL) {
     stop(condition)
 }
 
+sclet_ai_normalize_list_field <- function(value) {
+    if (is.null(value)) return(list())
+    if (is.list(value)) return(value)
+    as.list(value)
+}
+
+sclet_ai_normalize_findings <- function(findings) {
+    findings <- sclet_ai_normalize_list_field(findings)
+    lapply(findings, function(finding) {
+        if (is.list(finding)) return(finding)
+        list(
+            statement = as.character(finding)[[1L]],
+            severity = "info",
+            claim_level = "hypothesis",
+            evidence_refs = character()
+        )
+    })
+}
+
+
 #' Construct a structured sclet AI result
 #'
-#' @param task Short task identifier.
 #' @param answer Optional natural-language answer.
 #' @param findings List of structured findings.
 #' @param evidence Evidence references or summaries.
@@ -32,6 +51,11 @@ new_sclet_ai_result <- function(
     if (!is.character(task) || length(task) != 1L || is.na(task) || !nzchar(task)) {
         stop("`task` must be a single non-empty character string.")
     }
+    findings <- sclet_ai_normalize_findings(findings)
+    evidence <- sclet_ai_normalize_list_field(evidence)
+    warnings <- sclet_ai_normalize_list_field(warnings)
+    recommendations <- sclet_ai_normalize_list_field(recommendations)
+    proposed_actions <- sclet_ai_normalize_list_field(proposed_actions)
     result <- list(
         task = task,
         answer = if (is.null(answer)) NULL else as.character(answer)[[1L]],

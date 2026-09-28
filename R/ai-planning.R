@@ -1,9 +1,87 @@
+sclet_ai_collect_plan_references <- function(value) {
+    if (is.character(value) && length(value) == 1L && grepl("^\\$\\{[^}]+\\}$", value)) {
+        token <- sub("^\\$\\{", "", sub("\\}$", "", value))
+        return(strsplit(token, "\\.", fixed = FALSE)[[1L]])
+    }
+    if (is.list(value)) {
+        return(unlist(lapply(value, sclet_ai_collect_plan_references), use.names = FALSE))
+    }
+    character()
+}
+
+sclet_ai_resolve_plan_value <- function(value, outputs) {
+    if (is.character(value) && length(value) == 1L && grepl("^\\$\\{[^}]+\\}$", value)) {
+        token <- sub("^\\$\\{", "", sub("\\}$", "", value))
+        path <- strsplit(token, "\\.", fixed = FALSE)[[1L]]
+        if (length(path) < 3L || !identical(path[[2L]], "output")) {
+            stop("Invalid plan output reference: ", value)
+        }
+        current <- outputs[[path[[1L]]]]
+        if (is.null(current)) stop("Plan output is not available: ", value)
+        for (field in path[-c(1L, 2L)]) {
+            if (!is.list(current) || is.null(current[[field]])) {
+                stop("Plan output field is not available: ", value)
+            }
+            current <- current[[field]]
+        }
+        return(current)
+    }
+    if (is.list(value)) {
+        return(lapply(value, sclet_ai_resolve_plan_value, outputs = outputs))
+    }
+    value
+}
 sclet_ai_plan_id <- function(task = "analysis_plan") {
     stamp <- format(Sys.time(), "%Y%m%d%H%M%S")
     suffix <- paste(sample(c(letters, 0:9), 8L, replace = TRUE), collapse = "")
     paste(c("plan", task, stamp, suffix), collapse = "_")
 }
 
+sclet_ai_plan_capabilities <- function(object) {
+    state <- sclet_get_state(object)
+    list(
+        assays = SummarizedExperiment::assayNames(object),
+        reductions = SingleCellExperiment::reducedDimNames(object),
+        reduction_dims = setNames(
+            lapply(SingleCellExperiment::reducedDimNames(object), function(name) {
+                ncol(SingleCellExperiment::reducedDim(object, name))
+            }),
+            SingleCellExperiment::reducedDimNames(object)
+        ),
+        graphs = names(state$graphs %||% list()),
+        hvg = !is.null(sclet_get_hvg_nfeatures(object)),
+        active_assay = sclet_get_active_assay(object),
+        active_reduction = tryCatch(DefaultReduction(object), error = function(e) NULL),
+        active_graph = tryCatch(DefaultGraph(object), error = function(e) NULL),
+        active_ident = tryCatch(ActiveIdent(object), error = function(e) NULL)
+    )
+}
+
+sclet_ai_apply_planned_output <- function(planned, descriptor, params) {
+    schema <- descriptor$output_schema %||% list()
+    planned$assays <- unique(c(planned$assays, as.character(schema$required_assays %||% character())))
+    planned$reductions <- unique(c(planned$reductions, as.character(schema$required_reductions %||% character())))
+    planned$graphs <- unique(c(planned$graphs, as.character(schema$required_graphs %||% character())))
+    if (isTRUE(schema$required_hvg)) planned$hvg <- TRUE
+    if (length(schema$active_assay)) planned$active_assay <- schema$active_assay
+    if (length(schema$active_reduction)) planned$active_reduction <- schema$active_reduction
+    if (length(schema$active_ident)) planned$active_ident <- schema$active_ident
+    if (length(schema$active_graph)) planned$active_graph <- schema$active_graph
+    if (identical(descriptor$name, "run_pca")) {
+        planned$reduction_dims$PCA <- as.integer(params$ncomponents %||% 50)
+        planned$active_reduction <- "PCA"
+    }
+    planned
+}
+
+sclet_ai_call_prerequisites <- function(descriptor, object, params, planned) {
+    fn <- descriptor$prerequisites
+    fn_names <- names(formals(fn))
+    if ("planned" %in% fn_names || "..." %in% fn_names) {
+        return(fn(object, params, planned = planned))
+    }
+    fn(object, params)
+}
 sclet_ai_normalize_plan_actions <- function(actions) {
     if (is.null(actions)) {
         return(list())
@@ -38,7 +116,9 @@ sclet_ai_normalize_plan_actions <- function(actions) {
             depends_on = as.character(depends_on),
             description = action$description %||% action$rationale %||% NULL,
             expected_outputs = action$expected_outputs %||% list(),
-            requires_confirmation = if (is.null(action$requires_confirmation)) TRUE else isTRUE(action$requires_confirmation)
+            requires_confirmation = if (is.null(action$requires_confirmation)) TRUE else isTRUE(action$requires_confirmation),
+            max_retries = as.integer(action$max_retries %||% 0L),
+            continue_on_error = if (is.null(action$continue_on_error)) FALSE else isTRUE(action$continue_on_error)
         )
     })
 }
@@ -144,6 +224,12 @@ ValidateAIPlan <- function(
                         paste(parameter_problems, collapse = "; ")
                     ))
                 }
+                if (is.na(step$max_retries) || step$max_retries < 0L || step$max_retries > 3L) {
+                    errors <- c(errors, paste0("action ", step$id, " max_retries must be an integer from 0 to 3"))
+                }
+                if (step$max_retries > 0L && !isTRUE(descriptor$idempotent)) {
+                    errors <- c(errors, paste0("action ", step$id, " is not idempotent and cannot be retried"))
+                }
                 if (isTRUE(descriptor$mutates_object) &&
                     !isTRUE(descriptor$requires_confirmation)) {
                     errors <- c(errors, paste0(
@@ -166,6 +252,24 @@ ValidateAIPlan <- function(
                     paste(forward_dependencies, collapse = ", ")
                 ))
             }
+            reference_path <- sclet_ai_collect_plan_references(step$params)
+            if (length(reference_path)) {
+                reference_steps <- unique(reference_path[seq(1L, length(reference_path), by = 3L)])
+                unknown_reference_steps <- setdiff(reference_steps, ids)
+                if (length(unknown_reference_steps)) {
+                    errors <- c(errors, paste0(
+                        "action ", step$id, " references unknown step(s): ",
+                        paste(unknown_reference_steps, collapse = ", ")
+                    ))
+                }
+                undeclared <- setdiff(reference_steps, step$depends_on)
+                if (length(undeclared)) {
+                    errors <- c(errors, paste0(
+                        "action ", step$id, " references undeclared dependency step(s): ",
+                        paste(undeclared, collapse = ", ")
+                    ))
+                }
+            }
             known_ids <- c(known_ids, step$id)
         }
     }
@@ -184,13 +288,14 @@ ValidateAIPlan <- function(
                 !identical(as.character(planned_fingerprint), as.character(current_fingerprint))) {
                 errors <- c(errors, "plan context fingerprint does not match the current object")
             }
+            planned <- sclet_ai_plan_capabilities(object)
             for (step in normalized) {
-                descriptor <- registry[[step$action]]
+                descriptor <- if (!is.null(step$action) && nzchar(step$action)) registry[[step$action]] else NULL
                 if (is.null(descriptor) || !is.function(descriptor$prerequisites)) {
                     next
                 }
                 check <- tryCatch(
-                    descriptor$prerequisites(object, step$params),
+                    sclet_ai_call_prerequisites(descriptor, object, step$params, planned),
                     error = function(e) e
                 )
                 if (inherits(check, "error")) {
@@ -200,6 +305,7 @@ ValidateAIPlan <- function(
                 } else if (is.character(check) && length(check)) {
                     errors <- c(errors, paste0("prerequisites not met for action ", step$id, ": ", paste(check, collapse = "; ")))
                 }
+                planned <- sclet_ai_apply_planned_output(planned, descriptor, step$params)
             }
         }
     } else if (length(normalized)) {

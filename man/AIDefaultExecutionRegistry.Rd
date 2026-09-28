@@ -2,17 +2,22 @@
 % Please edit documentation in R/ai-execution.R
 \name{AIDefaultExecutionRegistry}
 \alias{AIDefaultExecutionRegistry}
-\title{Build the safe built-in read-only action catalog}
+\title{Build the safe built-in action catalog}
 \usage{
-AIDefaultExecutionRegistry(object)
+AIDefaultExecutionRegistry(object, include = "read")
 }
 \arguments{
 \item{object}{A \code{SingleCellExperiment} object.}
+
+\item{include}{Character vector of action groups. Supported groups are
+\code{"read"}, \code{"preprocess"}, \code{"dimred"}, \code{"graph"},
+\code{"cluster"}, and \code{"all"}. Defaults to \code{"read"}.}
 }
 \value{
-A \code{sclet_ai_execution_registry} containing read-only actions.
+A \code{sclet_ai_execution_registry} containing the requested actions.
 }
 \description{
-The returned actions never mutate the supplied SCE and do not require a
-confirmation token. They expose only bounded, deterministic ledger views.
+The \code{read} group exposes bounded deterministic ledger views. The optional
+analysis groups wrap existing sclet functions and therefore require the normal
+plan validation and confirmation safeguards.
 }

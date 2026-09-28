@@ -1,5 +1,4 @@
-# Development
-
++ **R-native AI integration — Phase 3.2**: Expanded the explicitly opt-in `AIDefaultExecutionRegistry()` with reviewed sclet-native actions for normalization, highly variable features, scaling, PCA, UMAP, neighbor graphs, and Louvain clustering. Validation now projects declared outputs across sequential steps, supports dependency-bound parameters such as `${pca.output.reduction}`, and execution enforces output/state contracts after each action. Added `RunAIPlan()` as a validate/dry-run/confirm workflow, bounded retry/continue-on-error recovery for idempotent actions, and hardened structured aisdk result normalization for scalar findings/warnings returned by real providers.
 + **R-native AI integration — Phase 3.1**: Added `AIDefaultExecutionRegistry()` with bounded read-only `inspect_status`, `inspect_ledger`, and `check_qc` actions. `AIAction()` now carries parameter/output schema and safety metadata including mutation, state-scope, cost, and idempotency; plan validation rejects unknown or invalid action parameters. Read-only plans can execute without confirmation and remain ledger-recorded; no default side-effecting actions are exposed.
 
 # sclet 1.0.2

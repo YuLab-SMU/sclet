@@ -222,3 +222,133 @@ test_that("validation rejects unregistered actions and unmet prerequisites", {
         class = "sclet_ai_invalid_plan"
     )
 })
+
+test_that("built-in native analysis actions validate and execute sequential prerequisites", {
+    set.seed(1)
+    counts <- matrix(rpois(20 * 12, lambda = 5), nrow = 20, ncol = 12)
+    rownames(counts) <- paste0("g", seq_len(nrow(counts)))
+    colnames(counts) <- paste0("c", seq_len(ncol(counts)))
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = counts))
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "preprocess", "dimred", "graph", "cluster"))
+    expect_true(all(c("normalize_data", "find_variable_features", "scale_data", "run_pca", "run_umap", "find_neighbors", "find_clusters") %in% names(registry)))
+    plan <- new_sclet_ai_plan(
+        task = "native_chain",
+        context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+        actions = list(
+            list(id = "norm", action = "normalize_data", params = list(scale.factor = 10000)),
+            list(id = "hvg", action = "find_variable_features", params = list(nfeatures = 10), depends_on = "norm"),
+            list(id = "scale", action = "scale_data", params = list(features = rownames(sce)), depends_on = "hvg"),
+            list(id = "pca", action = "run_pca", params = list(ncomponents = 5), depends_on = "scale"),
+            list(id = "knn", action = "find_neighbors", params = list(dims = 1:5, k = 5), depends_on = "pca"),
+            list(id = "cluster", action = "find_clusters", depends_on = "knn")
+        )
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+    expect_true(isTRUE(validation$valid), paste(validation$errors, collapse = "; "))
+    executed <- ExecuteAIPlan(sce, plan, registry, validation = validation, dry_run = FALSE, confirmation = validation$confirmation_token)
+    expect_equal(executed$status, "completed")
+    expect_true(all(c("counts", "logcounts", "scaled") %in% SummarizedExperiment::assayNames(executed$object)))
+    expect_true("PCA" %in% SingleCellExperiment::reducedDimNames(executed$object))
+    expect_true(!is.null(sclet_get_graph(executed$object, "knn_graph")))
+    expect_true(!is.null(SingleCellExperiment::colLabels(executed$object)))
+})
+
+test_that("dependent actions can bind bounded outputs from prior steps", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, nrow = 3, ncol = 2)))
+    received <- NULL
+    registry <- AIExecutionRegistry(list(
+        produce = AIAction("produce", function(object, params) object, returns = "sce", mutates_object = FALSE, requires_confirmation = FALSE, output_schema = list(reduction = "PCA")),
+        consume = AIAction("consume", function(object, params) { received <<- params$reduction; TRUE }, returns = "value", mutates_object = FALSE, requires_confirmation = FALSE, input_schema = list(reduction = "character"))
+    ))
+    plan <- new_sclet_ai_plan(
+        task = "output_binding",
+        context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+        actions = list(
+            list(id = "first", action = "produce"),
+            list(id = "second", action = "consume", params = list(reduction = "${first.output.reduction}"), depends_on = "first")
+        )
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+    expect_true(isTRUE(validation$valid), paste(validation$errors, collapse = "; "))
+    executed <- ExecuteAIPlan(sce, plan, registry, validation = validation, dry_run = FALSE)
+    expect_equal(executed$status, "completed")
+    expect_equal(received, "PCA")
+})
+
+
+
+test_that("RunAIPlan provides the validate-and-dry-run workflow", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, nrow = 2, ncol = 2)))
+    registry <- AIDefaultExecutionRegistry(sce)
+    plan <- new_sclet_ai_plan(task = "workflow", context_fingerprint = GetAnalysisLedger(sce)$fingerprint, actions = list(list(id = "status", action = "inspect_status")))
+    result <- RunAIPlan(sce, plan, registry)
+    expect_equal(result$status, "dry_run")
+    expect_true(isTRUE(result$dry_run))
+})
+
+test_that("idempotent actions support bounded retry and continue-on-error isolation", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, nrow = 2, ncol = 2)))
+    attempts <- 0L
+    continued <- FALSE
+    registry <- AIExecutionRegistry(list(
+        flaky = AIAction(
+            "flaky",
+            function(object, params) {
+                attempts <<- attempts + 1L
+                if (attempts < 2L) stop("retry me")
+                object
+            },
+            returns = "sce",
+            requires_confirmation = FALSE,
+            mutates_object = FALSE,
+            idempotent = TRUE
+        ),
+        after_failure = AIAction(
+            "after_failure",
+            function(object, params) {
+                continued <<- TRUE
+                TRUE
+            },
+            returns = "value",
+            requires_confirmation = FALSE,
+            mutates_object = FALSE
+        )
+    ))
+    plan <- new_sclet_ai_plan(
+        task = "retry",
+        context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+        actions = list(
+            list(id = "flaky", action = "flaky", max_retries = 1),
+            list(id = "after", action = "after_failure", depends_on = "flaky")
+        )
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+    expect_true(isTRUE(validation$valid), paste(validation$errors, collapse = "; "))
+    executed <- ExecuteAIPlan(sce, plan, registry, validation = validation, dry_run = FALSE)
+    expect_equal(executed$status, "completed")
+    expect_equal(attempts, 2L)
+    expect_true(continued)
+
+    always_fail <- AIAction(
+        "always_fail",
+        function(object, params) stop("expected failure"),
+        returns = "value",
+        requires_confirmation = FALSE,
+        mutates_object = FALSE,
+        idempotent = TRUE
+    )
+    registry <- AIExecutionRegistry(list(always_fail = always_fail, after_failure = registry$after_failure))
+    plan <- new_sclet_ai_plan(
+        task = "isolation",
+        context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+        actions = list(
+            list(id = "bad", action = "always_fail", continue_on_error = TRUE),
+            list(id = "after", action = "after_failure")
+        )
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+    expect_true(isTRUE(validation$valid), paste(validation$errors, collapse = "; "))
+    executed <- ExecuteAIPlan(sce, plan, registry, validation = validation, dry_run = FALSE)
+    expect_equal(executed$status, "completed_with_errors")
+    expect_equal(executed$results[[1]]$attempts, 1L)
+})
