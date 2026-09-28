@@ -41,34 +41,31 @@ Rscript -e 'devtools::test(filter = "ai-phase3", reporter = "progress")'
 
 ## 3. 真实 DeepSeek aisdk smoke test
 
-`~/.Rprofile` 中的 key 只通过环境变量读取；以下命令不会输出 key：
+真实在线测试采用双重门控：必须同时配置 `DEEPSEEK_API_KEY`，并显式设置 `SCLET_RUN_ONLINE_TESTS=true`。因此普通 `make check` 即使用户环境中有 API key，也不会自动访问网络；没有 key 时测试会直接 skip。
+
+先检查 key（不会输出 key）：
 
 ```bash
 Rscript -e 'cat("DEEPSEEK_API_KEY configured:", nzchar(Sys.getenv("DEEPSEEK_API_KEY")), "\\n")'
 ```
 
-应输出 `TRUE`。真实调用示例：
+然后显式启用在线 testthat 测试：
 
 ```bash
-Rscript - <<'RS'
-pkgload::load_all('.', quiet = TRUE)
-sce <- SingleCellExperiment::SingleCellExperiment(
-    list(counts = matrix(c(1, 0, 3, 2, 0, 1, 4, 1, 0, 2, 1, 3), nrow = 4, ncol = 3))
-)
-res <- AIStatus(sce, model = "deepseek:deepseek-chat")
-cat("class:", paste(class(res), collapse = ","), "\\n")
-cat("task:", res$task, "\\n")
-cat("structured:", isTRUE(res$metadata$structured_output), "\\n")
-cat("findings:", length(res$findings), "\\n")
-RS
+SCLET_RUN_ONLINE_TESTS=true Rscript -e 'devtools::test(filter = "ai-online", reporter = "progress")'
 ```
 
-本轮真实调用结果：
+有 key 并显式开启时，本轮结果为：
 
 ```text
-class: sclet_ai_result,list
-structured: TRUE
-findings: 15
+[ FAIL 0 | WARN 0 | SKIP 0 | PASS 2 ]
+```
+
+在线测试内部实际返回的结构化结果为 `sclet_ai_result`，`structured_output = TRUE`，并返回了 15 条 findings。
+
+
+```text
+[ FAIL 0 | WARN 0 | SKIP 1 | PASS 0 ]
 ```
 
 不要把 `DEEPSEEK_API_KEY` 写入脚本、日志、commit 或报告。若 key 未配置或网络/模型暂时不可用，离线 package tests 仍应保持可重复；在线 smoke test 属于 opt-in 检查。
@@ -86,9 +83,10 @@ make check
 ```text
 Status: OK
 0 errors ✔ | 0 warnings ✔ | 0 notes ✔
-Duration: 6m 47s
+Duration: 6m 54.6s
 ```
 
+普通 package check 中在线测试保持 skip，不会访问 provider。
 可选清理：
 
 ```bash
