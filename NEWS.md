@@ -1,6 +1,6 @@
 # Development
 
-+ **R-native AI integration — Phase 3 foundation**: Added `AIPlanAnalysis()` for non-executing structured plans, `ValidateAIPlan()` for registry, dependency, ledger-fingerprint, and prerequisite checks, and `ExecuteAIPlan()` with explicit `AIAction()`/`AIExecutionRegistry()` allowlisting. Execution defaults to dry-run, requires a validation confirmation token for side effects, and records successful or failed runs in the analysis ledger and command log. No default side-effecting actions are exposed yet.
++ **R-native AI integration — Phase 3.1**: Added `AIDefaultExecutionRegistry()` with bounded read-only `inspect_status`, `inspect_ledger`, and `check_qc` actions. `AIAction()` now carries parameter/output schema and safety metadata including mutation, state-scope, cost, and idempotency; plan validation rejects unknown or invalid action parameters. Read-only plans can execute without confirmation and remain ledger-recorded; no default side-effecting actions are exposed.
 
 # sclet 1.0.2
 

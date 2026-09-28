@@ -878,16 +878,17 @@ Phase 3 基础实现采用显式 allowlist，而不是从全局环境按字符�
 
 - `AIAction()` 描述一个可执行 handler、参数、前置条件和返回类型；
 - `AIExecutionRegistry()` 只接受显式注册的 action，默认是空 registry；
+- `AIDefaultExecutionRegistry(object)` 提供 `inspect_status`、`inspect_ledger`、`check_qc` 三个只读 action，它们不修改 SCE，也不要求 confirmation；
+- `AIAction()` 还记录 input/output schema、是否修改对象、允许写入的 state 类型、估计成本和幂等性；
 - `AIPlanAnalysis()` 只生成 `sclet_ai_plan`，不会执行任何 action；
-- `ValidateAIPlan()` 检查 action 是否注册、步骤依赖、当前 ledger fingerprint 和前置条件；
-- `ExecuteAIPlan()` 默认 `dry_run = TRUE`，非 dry-run 必须提供 validation 返回的 confirmation token；
+- `ValidateAIPlan()` 检查 action 是否注册、参数 schema、步骤依赖、当前 ledger fingerprint 和前置条件；
+- `ExecuteAIPlan()` 默认 `dry_run = TRUE`，包含修改对象或要求确认的 action 时，非 dry-run 必须提供 validation 返回的 confirmation token；
 - 成功或失败执行都可以通过 `sclet_set_analysis()` 写入 `ai_execution_*` 记录，并写入 command log；
 - execution registry 不作为 AI tool 暴露，AI 不能自行触发有副作用的函数。
 
-Phase 3 基础实现暂不提供默认有副作用 action。具体分析函数必须由用户或上层 workflow 通过 `AIAction()` 显式包装并注册，后续可以在稳定的 registry contract 上增加经过审查的 sclet-native actions。
+Phase 3.1 暂不提供默认有副作用 action。具体分析函数必须由用户或上层 workflow 通过 `AIAction()` 显式包装并注册，后续可以在稳定的 registry contract 上增加经过审查的 sclet-native actions。
 
-
-只在 Phase 0–3 的 R API 稳定后进行：
+### Phase 4：外部 agent 接入
 
 - 以 `GetAnalysisLedger()` 作为外部 context boundary；
 - 以 tool registry 作为外部工具描述；

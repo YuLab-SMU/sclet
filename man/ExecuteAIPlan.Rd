@@ -35,6 +35,7 @@ object, action results, and execution status.
 }
 \description{
 The default is a side-effect-free dry run. Non-dry execution requires the
-issued confirmation token returned by \code{ValidateAIPlan()} and invokes only
+issued confirmation token returned by \code{ValidateAIPlan()} when the plan
+contains a mutating or confirmation-required action, and invokes only
 actions present in the supplied \code{AIExecutionRegistry()}.
 }

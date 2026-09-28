@@ -10,7 +10,13 @@ AIAction(
   description = NULL,
   prerequisites = function(object, params) TRUE,
   returns = c("sce", "value"),
-  requires_confirmation = TRUE
+  requires_confirmation = TRUE,
+  input_schema = list(),
+  output_schema = list(),
+  mutates_object = NULL,
+  allowed_state_types = character(),
+  estimated_cost = "low",
+  idempotent = FALSE
 )
 }
 \arguments{
@@ -27,6 +33,20 @@ AIAction(
 \item{returns}{Either \code{"sce"} or \code{"value"}.}
 
 \item{requires_confirmation}{Logical. Defaults to \code{TRUE}.}
+
+\item{input_schema}{Optional named parameter schema. Character vectors of
+length greater than one are treated as enumerations; scalar values name
+primitive types.}
+
+\item{output_schema}{Optional bounded output schema metadata.}
+
+\item{mutates_object}{Logical. Whether the handler may modify the SCE.}
+
+\item{allowed_state_types}{Optional state types the handler may write.}
+
+\item{estimated_cost}{Optional cost label such as \code{"low"}, \code{"medium"}, or \code{"high"}.}
+
+\item{idempotent}{Logical. Whether repeating the action is expected to be safe.}
 }
 \value{
 An action descriptor.

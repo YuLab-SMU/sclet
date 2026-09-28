@@ -132,6 +132,25 @@ ValidateAIPlan <- function(
                 errors <- c(errors, paste0("action ", step$id, " has no action name"))
             } else if (is.null(registry[[step$action]])) {
                 errors <- c(errors, paste0("action is not registered: ", step$action))
+            } else {
+                descriptor <- registry[[step$action]]
+                parameter_problems <- sclet_ai_action_param_problems(
+                    step$params,
+                    descriptor$input_schema %||% list()
+                )
+                if (length(parameter_problems)) {
+                    errors <- c(errors, paste0(
+                        "invalid params for action ", step$id, ": ",
+                        paste(parameter_problems, collapse = "; ")
+                    ))
+                }
+                if (isTRUE(descriptor$mutates_object) &&
+                    !isTRUE(descriptor$requires_confirmation)) {
+                    errors <- c(errors, paste0(
+                        "mutating action ", step$id,
+                        " must require confirmation"
+                    ))
+                }
             }
             missing_dependencies <- setdiff(step$depends_on, ids)
             if (length(missing_dependencies)) {
@@ -189,7 +208,16 @@ ValidateAIPlan <- function(
 
     errors <- unique(errors[nzchar(errors)])
     valid <- !length(errors)
-    confirmation_token <- if (valid) {
+    requires_confirmation <- any(vapply(normalized, function(step) {
+        descriptor <- if (!is.null(step$action) && nzchar(step$action)) {
+            registry[[step$action]]
+        } else {
+            NULL
+        }
+        !is.null(descriptor) && (isTRUE(descriptor$requires_confirmation) ||
+            isTRUE(descriptor$mutates_object))
+    }, logical(1)))
+    confirmation_token <- if (valid && requires_confirmation) {
         paste0("sclet-confirm-", paste(sample(c(letters, 0:9), 32L, replace = TRUE), collapse = ""))
     } else {
         NULL
@@ -200,6 +228,7 @@ ValidateAIPlan <- function(
         warnings = unique(warnings[nzchar(warnings)]),
         plan_id = plan$plan_id %||% NULL,
         context_fingerprint = current_fingerprint %||% plan$context_fingerprint %||% NULL,
+        requires_confirmation = requires_confirmation,
         confirmation_token = confirmation_token,
         plan = plan,
         checked_at = Sys.time()

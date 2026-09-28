@@ -8,6 +8,14 @@
 #'   `TRUE`, `FALSE`, or a character explanation.
 #' @param returns Either `"sce"` or `"value"`.
 #' @param requires_confirmation Logical. Defaults to `TRUE`.
+#' @param input_schema Optional named parameter schema. Character vectors of
+#'   length greater than one are treated as enumerations; scalar values name
+#'   primitive types.
+#' @param output_schema Optional bounded output schema metadata.
+#' @param mutates_object Logical. Whether the handler may modify the SCE.
+#' @param allowed_state_types Optional state types the handler may write.
+#' @param estimated_cost Optional cost label such as `"low"`, `"medium"`, or `"high"`.
+#' @param idempotent Logical. Whether repeating the action is expected to be safe.
 #' @return An action descriptor.
 #' @export
 AIAction <- function(
@@ -16,9 +24,16 @@ AIAction <- function(
     description = NULL,
     prerequisites = function(object, params) TRUE,
     returns = c("sce", "value"),
-    requires_confirmation = TRUE
+    requires_confirmation = TRUE,
+    input_schema = list(),
+    output_schema = list(),
+    mutates_object = NULL,
+    allowed_state_types = character(),
+    estimated_cost = "low",
+    idempotent = FALSE
 ) {
     returns <- match.arg(returns)
+    estimated_cost <- match.arg(estimated_cost, c("low", "medium", "high"))
     if (!is.character(name) || length(name) != 1L || is.na(name) || !nzchar(name)) {
         stop("`name` must be a single non-empty character string.")
     }
@@ -28,16 +43,158 @@ AIAction <- function(
     if (!is.function(prerequisites)) {
         stop("`prerequisites` must be a function.")
     }
+    if (!is.list(input_schema) || is.null(names(input_schema)) && length(input_schema)) {
+        stop("`input_schema` must be a named list.")
+    }
+    if (!is.list(output_schema)) {
+        stop("`output_schema` must be a list.")
+    }
+    if (is.null(mutates_object)) {
+        mutates_object <- identical(returns, "sce")
+    }
+    if (!is.logical(mutates_object) || length(mutates_object) != 1L || is.na(mutates_object)) {
+        stop("`mutates_object` must be a single non-missing logical value.")
+    }
+    if (!is.logical(requires_confirmation) || length(requires_confirmation) != 1L || is.na(requires_confirmation)) {
+        stop("`requires_confirmation` must be a single non-missing logical value.")
+    }
+    if (!is.logical(idempotent) || length(idempotent) != 1L || is.na(idempotent)) {
+        stop("`idempotent` must be a single non-missing logical value.")
+    }
+    allowed_state_types <- as.character(allowed_state_types)
     descriptor <- list(
         name = name,
         description = description %||% paste("Execute registered action", name),
         handler = handler,
         prerequisites = prerequisites,
         returns = returns,
-        requires_confirmation = isTRUE(requires_confirmation)
+        requires_confirmation = isTRUE(requires_confirmation),
+        input_schema = input_schema,
+        output_schema = output_schema,
+        mutates_object = isTRUE(mutates_object),
+        allowed_state_types = allowed_state_types,
+        estimated_cost = estimated_cost,
+        idempotent = isTRUE(idempotent)
     )
     class(descriptor) <- c("sclet_ai_action", "list")
     descriptor
+}
+
+sclet_ai_action_param_problems <- function(params, schema) {
+    if (is.null(params)) {
+        params <- list()
+    }
+    if (!is.list(params)) {
+        return("action params must be a list")
+    }
+    if (!length(schema)) {
+        return(character())
+    }
+    schema_names <- names(schema)
+    if (is.null(schema_names) || any(!nzchar(schema_names))) {
+        return("action input_schema must be named")
+    }
+    problems <- character()
+    unknown <- setdiff(names(params), schema_names)
+    if (length(unknown)) {
+        problems <- c(problems, paste0("unknown parameter(s): ", paste(unknown, collapse = ", ")))
+    }
+    for (name in intersect(names(params), schema_names)) {
+        value <- params[[name]]
+        spec <- schema[[name]]
+        required <- FALSE
+        if (is.list(spec) && !is.null(spec$type)) {
+            required <- isTRUE(spec$required)
+            spec <- spec$type
+        }
+        if (is.null(value)) {
+            if (required) {
+                problems <- c(problems, paste0("missing required parameter: ", name))
+            }
+            next
+        }
+        if (is.character(spec) && length(spec) > 1L) {
+            if (!as.character(value)[[1L]] %in% spec) {
+                problems <- c(problems, paste0("parameter ", name, " must be one of: ", paste(spec, collapse = ", ")))
+            }
+            next
+        }
+        type <- as.character(spec)[[1L]]
+        valid <- switch(
+            type,
+            character = is.character(value) && length(value) == 1L,
+            string = is.character(value) && length(value) == 1L,
+            logical = is.logical(value) && length(value) == 1L,
+            boolean = is.logical(value) && length(value) == 1L,
+            numeric = is.numeric(value) && length(value) == 1L,
+            number = is.numeric(value) && length(value) == 1L,
+            integer = is.numeric(value) && length(value) == 1L && value == as.integer(value),
+            list = is.list(value),
+            object = is.list(value),
+            TRUE
+        )
+        if (!isTRUE(valid)) {
+            problems <- c(problems, paste0("parameter ", name, " has invalid type"))
+        }
+    }
+    unique(problems)
+}
+
+#' Build the safe built-in read-only action catalog
+#'
+#' The returned actions never mutate the supplied SCE and do not require a
+#' confirmation token. They expose only bounded, deterministic ledger views.
+#'
+#' @param object A `SingleCellExperiment` object.
+#' @return A `sclet_ai_execution_registry` containing read-only actions.
+#' @export
+AIDefaultExecutionRegistry <- function(object) {
+    if (!inherits(object, "SingleCellExperiment")) {
+        stop("`object` must be a SingleCellExperiment.")
+    }
+    AIExecutionRegistry(list(
+        inspect_status = AIAction(
+            name = "inspect_status",
+            description = "Inspect deterministic sclet status without modifying the object.",
+            handler = function(object, params) Status(object),
+            returns = "value",
+            requires_confirmation = FALSE,
+            mutates_object = FALSE,
+            output_schema = list(type = "object"),
+            estimated_cost = "low",
+            idempotent = TRUE
+        ),
+        inspect_ledger = AIAction(
+            name = "inspect_ledger",
+            description = "Inspect the bounded AI-facing analysis ledger.",
+            handler = function(object, params) {
+                detail <- params$detail %||% "summary"
+                target <- params$target %||% NULL
+                GetAnalysisLedger(object, detail = detail, target = target)
+            },
+            input_schema = list(
+                detail = c("summary", "full"),
+                target = "character"
+            ),
+            returns = "value",
+            requires_confirmation = FALSE,
+            mutates_object = FALSE,
+            output_schema = list(type = "object"),
+            estimated_cost = "low",
+            idempotent = TRUE
+        ),
+        check_qc = AIAction(
+            name = "check_qc",
+            description = "Inspect deterministic quality checks without modifying the object.",
+            handler = function(object, params) GetAnalysisLedger(object)$quality_checks,
+            returns = "value",
+            requires_confirmation = FALSE,
+            mutates_object = FALSE,
+            output_schema = list(type = "object"),
+            estimated_cost = "low",
+            idempotent = TRUE
+        )
+    ))
 }
 
 #' Build an allowlisted AI execution registry
@@ -138,7 +295,8 @@ sclet_ai_record_execution <- function(object, plan, results, status, dry_run) {
 #' Execute a validated AI analysis plan under explicit safety controls
 #'
 #' The default is a side-effect-free dry run. Non-dry execution requires the
-#' issued confirmation token returned by `ValidateAIPlan()` and invokes only
+#' issued confirmation token returned by `ValidateAIPlan()` when the plan
+#' contains a mutating or confirmation-required action, and invokes only
 #' actions present in the supplied `AIExecutionRegistry()`.
 #'
 #' @param object A `SingleCellExperiment` object.
@@ -209,7 +367,8 @@ ExecuteAIPlan <- function(
             class = c("sclet_ai_execution", "list")
         ))
     }
-    if (!identical(as.character(confirmation), as.character(validation$confirmation_token))) {
+    if (isTRUE(validation$requires_confirmation) &&
+        !identical(as.character(confirmation), as.character(validation$confirmation_token))) {
         sclet_ai_error(
             "sclet_ai_confirmation_required",
             "Non-dry execution requires the confirmation token returned by ValidateAIPlan()."

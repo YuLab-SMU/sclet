@@ -1,3 +1,50 @@
+test_that("default execution registry exposes only safe read-only actions", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 3, ncol = 2))
+    )
+    registry <- AIDefaultExecutionRegistry(sce)
+    expect_s3_class(registry, "sclet_ai_execution_registry")
+    expect_equal(names(registry), c("inspect_status", "inspect_ledger", "check_qc"))
+    expect_true(all(!vapply(registry, function(x) isTRUE(x$mutates_object), logical(1))))
+    expect_true(all(!vapply(registry, function(x) isTRUE(x$requires_confirmation), logical(1))))
+
+    plan <- new_sclet_ai_plan(
+        task = "read_only_plan",
+        context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+        actions = list(
+            list(id = "status", action = "inspect_status"),
+            list(id = "qc", action = "check_qc", depends_on = "status")
+        )
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+    expect_true(isTRUE(validation$valid))
+    result <- ExecuteAIPlan(sce, plan, registry, validation = validation, dry_run = FALSE,
+        confirmation = validation$confirmation_token)
+    expect_equal(result$status, "completed")
+    expect_true(isTRUE(result$recorded))
+    expect_equal(nrow(result$object), nrow(sce))
+    expect_equal(ncol(result$object), ncol(sce))
+})
+
+test_that("action input schemas reject unknown and invalid parameters", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 3, ncol = 2))
+    )
+    registry <- AIDefaultExecutionRegistry(sce)
+    plan <- new_sclet_ai_plan(
+        task = "bad_params",
+        context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+        actions = list(list(
+            id = "ledger",
+            action = "inspect_ledger",
+            params = list(detail = "not-a-detail", unexpected = TRUE)
+        ))
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+    expect_false(isTRUE(validation$valid))
+    expect_true(any(grepl("unknown parameter", validation$errors, fixed = TRUE)))
+    expect_true(any(grepl("must be one of", validation$errors, fixed = TRUE)))
+})
 test_that("AIPlanAnalysis creates a non-executing structured plan", {
     sce <- SingleCellExperiment::SingleCellExperiment(
         list(counts = matrix(1, nrow = 4, ncol = 3))
