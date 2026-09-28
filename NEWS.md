@@ -1,4 +1,16 @@
-# sclet 1.0.1
+# sclet 1.0.2
+
++ **R-native AI integration — Phase 1**: Added a bounded, versioned `GetAnalysisLedger()` / `sclet_ai_context()` view for `SingleCellExperiment` analysis state, together with the provider-neutral `sclet_ai_call()` adapter and structured `sclet_ai_result` contract. AI responses now retain findings, evidence references, warnings, recommendations, and conservative claim levels; causal claims require explicit evidence references. The existing `sclet_copilot()` and `AuditAnalysisChain()` entry points remain available through the unified adapter.
++
++  + **aisdk native integration**: Uses YuLab-SMU `aisdk` native models, tool descriptors, `z_*` schemas, and structured-output support without requiring users to leave R. Full expression matrices are not included in the AI-facing context by default.
++
+++ **R-native AI integration — Phase 2**: Added a read-only AI tool registry for deterministic status, ledger, capability, analysis-record, lineage, and quality-check queries. Added `AIStatus()`, `AIReviewQC()`, `AIExplainAnalysis()`, `AIRecommendNextStep()`, `AIAuditAnalysisChain()`, and explicit `RecordAIResult()` ledger recording without changing the active computational state.
++
++  + **Dual-stage structured summaries**: High-level AI functions can run an `aisdk::create_agent()` tool loop followed by `aisdk::generate_object(mode = "tool")` and `z_*` schema validation. If the structured-summary stage is unavailable, the tool-loop response is retained with an explicit fallback warning; strict callers can disable fallback.
++  + **Safety and maintenance**: Execution tools remain disabled in this phase; the registry is read-only, AI results are not written back implicitly, and Makefile-based package checks are documented in `AGENTS.md`.
++  + Added mock coverage for native tool conversion, structured summaries, causal-claim validation, fallback behavior, and ledger recording.
++
+ # sclet 1.0.1
 
 + **`source = "auto"` now works across program/regulon accessors** (reported in [#28](https://github.com/YuLab-SMU/sclet/issues/28)): `sclet_resolve_program_activity()` never handled `source = "auto"`, so the documented `plot_program_dotplot(..., source = "auto")` call failed with a misleading `No program activity data could be resolved.` message (the underlying `Unsupported program activity source 'auto'` was swallowed by a `tryCatch`). `source = "auto"` now tries `geneset_scoring` then `scenic` and returns the first source that supplies the requested program, so `get_program()`, `plot_program_dotplot()`, `plot_program_heatmap()`, and `has_program()` all honor it. `plot_program_dotplot()` also collects per-program resolution failures and reports them instead of hiding the real cause when nothing resolves.
 

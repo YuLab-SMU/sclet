@@ -2,7 +2,7 @@
 % Please edit documentation in R/copilot.R
 \name{AuditAnalysisChain}
 \alias{AuditAnalysisChain}
-\title{Audit Analysis Chain}
+\title{Audit an analysis chain through the R-native AI layer}
 \usage{
 AuditAnalysisChain(
   sce,
@@ -13,21 +13,20 @@ AuditAnalysisChain(
 )
 }
 \arguments{
-\item{sce}{A SingleCellExperiment object.}
+\item{sce}{A \code{SingleCellExperiment} object.}
 
-\item{features}{A character vector of features to audit.}
+\item{features}{Candidate features to audit.}
 
-\item{raw_layer}{String. The name of the uncorrected layer. Defaults to "counts".}
+\item{raw_layer}{Raw assay name.}
 
-\item{integrated_layer}{String. The name of the integrated/corrected layer. If NULL, automatically inferred from integration state.}
+\item{integrated_layer}{Corrected/integrated assay name. If \code{NULL}, infer it
+from the integration state when possible.}
 
-\item{...}{Additional arguments passed to \code{sclet_copilot}.}
+\item{...}{Additional arguments passed to \code{AIAuditAnalysisChain()}.}
 }
 \value{
-A character string containing the audit report from the AI.
+A character report for backward compatibility.
 }
 \description{
-Evaluates whether a set of candidate features (e.g., DE genes) is robust across
-the analysis chain (e.g., before and after batch correction/integration) and queries
-\code{sclet_copilot} to assign a State-Dependency Confidence Score.
+Audit an analysis chain through the R-native AI layer
 }

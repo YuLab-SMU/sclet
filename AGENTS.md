@@ -149,7 +149,9 @@ traps. These apply to the `devel` checkout (`R/`, `man/`, `NAMESPACE`, ...).
   and let the one `man/*.Rd` be the only regenerated artifact; leave `DESCRIPTION` and unrelated
   `man/*.Rd` alone.
 
-## Quick reference
+- **Run package checks through the repository Makefile.** Do not invoke `R CMD check` directly for routine validation. Use `make check`; it runs `devtools::check()` with the package's local conventions. Use `make check2` only when an installable source tarball check is specifically needed, and use `make clean` to remove generated `*.Rcheck/` output. Before a broad check, run the focused `testthat` filter for the changed module.
+- **Treat Makefile targets as the maintenance contract.** The `all` target runs documentation, checks, and cleanup; `rd` regenerates documentation and may touch unrelated Rd/NAMESPACE files, so review and revert unrelated changes before delivery. If check output reports package metadata problems, fix the metadata or environment rather than bypassing the Makefile with a direct check command.
+
 
 ```bash
 # Confirm which branch you are on before editing

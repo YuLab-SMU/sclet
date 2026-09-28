@@ -2,23 +2,25 @@
 % Please edit documentation in R/copilot.R
 \name{sclet_copilot}
 \alias{sclet_copilot}
-\title{sclet AI Copilot}
+\title{sclet AI Copilot compatibility facade}
 \usage{
-sclet_copilot(sce, question, model = NULL)
+sclet_copilot(sce, question, model = NULL, structured_output = TRUE, ...)
 }
 \arguments{
-\item{sce}{A SingleCellExperiment object.}
+\item{sce}{A \code{SingleCellExperiment} object.}
 
-\item{question}{Character string. The question or task for the AI Copilot.}
+\item{question}{Character string containing the user task.}
 
-\item{model}{Optional. An \code{aisdk} model object. If NULL, the function will attempt
-to initialize a default model using the environment variable OPENAI_MODEL.}
+\item{model}{Optional aisdk model identifier or model object.}
+
+\item{structured_output}{Logical. Use the tool-loop plus structured-output
+summary stage. Defaults to \code{TRUE}.}
+
+\item{...}{Additional arguments passed to the AI adapter.}
 }
 \value{
-A character string containing the AI's response.
+A character response from the structured sclet AI adapter.
 }
 \description{
-An intelligent agent built on \code{aisdk} that uses the \code{analysis-state} provenance
-of the SingleCellExperiment object to diagnose analysis chains, interpret biological
-results, and detect potential computational artifacts.
+sclet AI Copilot compatibility facade
 }

@@ -2,19 +2,17 @@
 % Please edit documentation in R/copilot.R
 \name{SummarizeContextForLLM}
 \alias{SummarizeContextForLLM}
-\title{Summarize SingleCellExperiment Context for LLM}
+\title{Summarize the AI-facing analysis ledger for an LLM}
 \usage{
 SummarizeContextForLLM(sce)
 }
 \arguments{
-\item{sce}{A SingleCellExperiment object.}
+\item{sce}{A \code{SingleCellExperiment} object.}
 }
 \value{
-A character string containing the structured context.
+A character string containing the structured ledger.
 }
 \description{
-This function extracts the full analysis-state provenance (bloodline) from a
-SingleCellExperiment object and formats it into a highly structured JSON-like
-string. This output is specifically designed to be consumed as the \code{system_prompt}
-or \code{context} for an LLM via the \code{aisdk} package.
+This compatibility formatter uses the same bounded ledger as the newer
+R-native AI functions. New code should prefer \code{GetAnalysisLedger()}.
 }
