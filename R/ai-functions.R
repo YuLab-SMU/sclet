@@ -475,6 +475,156 @@ sclet_ai_format_clarification <- function(validation_errors, readiness_results =
     )
 }
 
+#' Resolve AI clarification questions interactively
+#'
+#' Presents the structured questions produced by
+#' `sclet_ai_format_clarification()` to the user, collects an answer for each,
+#' applies the answer through the existing confirmation mechanism where one
+#' exists, and records each accepted answer as a `user_decision` evidence node.
+#' This closes the loop described in the clarification contract: the AI was
+#' blocked, the user was asked, and the user answered.
+#'
+#' The function never answers on the user's behalf. It proposes no default
+#' column, no default cluster and no default reference, and an empty answer is
+#' treated as "not answered" rather than being filled in. Answers are only
+#' applied when the question type has a real confirmation function
+#' (`design_batch` goes through `ConfirmAIDesignSemantics()`); other question
+#' types describe plan parameters, so they are recorded for the audit trail
+#' and returned for the caller to feed back into its plan.
+#'
+#' In a non-interactive session without an `ask` function the function refuses
+#' to prompt and returns `status = "needs_interactive"` without modifying the
+#' object or recording anything.
+#'
+#' @title ResolveAIClarifications
+#' @param object A `SingleCellExperiment` object.
+#' @param clarification A clarification list as returned by
+#'   `sclet_ai_format_clarification()`, or `result$report$clarification` from
+#'   `RunAIAnalysis()`.
+#' @param ask Optional function taking a question list and returning the user's
+#'   answer as a character scalar. Defaults to a terminal prompt. Supply this
+#'   to embed a different UI or to script the interaction.
+#' @param apply_answer Optional function `(object, question, answer)` returning
+#'   the updated object, used for question types that have no built-in
+#'   confirmation function.
+#' @param record Logical. Record accepted answers as `user_decision` evidence.
+#' @return A list with the updated `object`, a `status`, and a `transcript` of
+#'   per-question `resolved` / `skipped` / `invalid` outcomes.
+#' @export
+ResolveAIClarifications <- function(
+    object,
+    clarification,
+    ask = NULL,
+    apply_answer = NULL,
+    record = TRUE) {
+    if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)
+    questions <- clarification$questions
+    if (is.null(questions) || !length(questions)) {
+        return(list(
+            object = object,
+            status = "nothing_to_resolve",
+            resolved = character(),
+            skipped = character(),
+            invalid = character(),
+            transcript = list(),
+            raw_errors = clarification$raw_errors %||% character()
+        ))
+    }
+    if (!is.null(ask) && !is.function(ask)) stop("ask must be a function", call. = FALSE)
+    if (!is.null(apply_answer) && !is.function(apply_answer)) {
+        stop("apply_answer must be a function", call. = FALSE)
+    }
+    if (is.null(ask) && !interactive()) {
+        return(list(
+            object = object,
+            status = "needs_interactive",
+            resolved = character(),
+            skipped = vapply(questions, function(q) as.character(q$id), character(1L)),
+            invalid = character(),
+            transcript = list(),
+            questions = questions,
+            raw_errors = clarification$raw_errors %||% character()
+        ))
+    }
+
+    resolved <- character()
+    skipped <- character()
+    invalid <- character()
+    transcript <- list()
+
+    for (question in questions) {
+        question_id <- as.character(question$id)
+        blocked <- question$blocked_action %||% "unknown"
+        if (is.null(ask)) {
+            cat("\n[sclet] ", question$text, "\n", sep = "")
+            if (!is.null(question$related_function)) {
+                cat("       Related function: ", question$related_function, "\n", sep = "")
+            }
+            cat("       Your answer (empty to skip): ")
+            answer <- tryCatch(readLines(n = 1L, warn = FALSE), error = function(e) character())
+            answer <- if (length(answer)) trimws(as.character(answer)[[1L]]) else ""
+        } else {
+            answer <- tryCatch(ask(question), error = function(e) NULL)
+            answer <- if (is.null(answer)) "" else trimws(as.character(answer)[[1L]])
+        }
+        if (!nzchar(answer)) {
+            skipped <- c(skipped, question_id)
+            transcript[[length(transcript) + 1L]] <- list(
+                id = question_id, outcome = "skipped", applied = FALSE
+            )
+            next
+        }
+        # a design confirmation answer must name a real column before anything
+        # is written; an unusable answer is reported, never confirmed
+        if (identical(question_id, "design_batch")) {
+            columns <- colnames(SummarizedExperiment::colData(object))
+            if (!answer %in% columns) {
+                invalid <- c(invalid, question_id)
+                transcript[[length(transcript) + 1L]] <- list(
+                    id = question_id, outcome = "invalid", applied = FALSE,
+                    reason = "answer is not an existing colData column"
+                )
+                next
+            }
+            object <- ConfirmAIDesignSemantics(object, design = list(batch = answer))
+        } else if (is.function(apply_answer)) {
+            object <- apply_answer(object, question, answer)
+        }
+        if (isTRUE(record)) {
+            object <- tryCatch(
+                sclet_ai_record_clarification_response(
+                    object,
+                    question_id = question_id,
+                    answer = answer,
+                    blocked_action = blocked
+                ),
+                error = function(e) object
+            )
+        }
+        resolved <- c(resolved, question_id)
+        transcript[[length(transcript) + 1L]] <- list(
+            id = question_id, outcome = "resolved", applied = TRUE,
+            blocked_action = blocked, recorded = isTRUE(record)
+        )
+    }
+
+    status <- if (length(skipped) || length(invalid)) {
+        if (length(resolved)) "partially_resolved" else "unresolved"
+    } else {
+        "resolved"
+    }
+    list(
+        object = object,
+        status = status,
+        resolved = resolved,
+        skipped = skipped,
+        invalid = invalid,
+        transcript = transcript,
+        questions = questions,
+        raw_errors = clarification$raw_errors %||% character()
+    )
+}
+
 #' Record a user's answer to a clarification question as evidence
 #'
 #' Records that a clarification question was asked and answered, so an audit can

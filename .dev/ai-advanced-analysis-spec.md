@@ -838,6 +838,13 @@ list(
   它**不**在 `ConfirmAIDesignSemantics()` 内部自动调用（确认机制本身保持原样），由上层 UX 流程显式串联。
   为遵守既有 `sclet_ai_evidence_value_ok()` 规则且不为其开特例，answer 的自由文本**不写入** evidence，
   只记录问题码、被点名 colData 列的序号以及若干布尔标记。
+- 交互：`ResolveAIClarifications()` 把上述 question 逐条呈现给用户、读取答案、按需应用并留痕，
+  至此"AI 被阻塞 → 用户被提问 → 用户已回答 → 可重新执行"形成闭环。它不代替用户作答：
+  不推荐任何默认列 / cluster / reference；空答案记为 `skipped` 而不是被自动填上；
+  指向不存在 colData 列的答案记为 `invalid`，既不写 confirmation 也不写 decision。
+  只有 `design_batch` 会自动应用（经 `ConfirmAIDesignSemantics()`），其余问题描述的是 plan 参数，
+  仅留痕并交还给调用方回填 plan（可用 `apply_answer` 钩子接管）。
+  非交互会话且未提供 `ask` 时拒绝提示，直接返回 `needs_interactive` 且不改动对象。
 
 
 ## 11. API 演进建议
@@ -1213,7 +1220,7 @@ identical(Sys.getenv("SCLET_RUN_ONLINE_TESTS"), "true")
 
 还需要建设：
 
-- 更完整的 sample / batch / condition 语义确认交互式 UX（`sclet_ai_format_clarification()` + `sclet_ai_record_clarification_response()` 已提供结构化呈现与 `user_decision` 留痕，交互式终端流程本身仍待建设）；
+- 更完整的 sample / batch / condition 语义确认交互式 UX（`sclet_ai_format_clarification()` 结构化呈现、`sclet_ai_record_clarification_response()` 以 `user_decision` 留痕、`ResolveAIClarifications()` 交互式问答闭环均已实现；尚未实现的只是非终端形态的 UI，例如 Shiny / 网页端确认界面）；
 - rare-cell / doublet 剩余项（第一批已实现，见上）：decontX ambient RNA 作为独立信号、`compare_rare_cell_evidence` 多路线比较、以及任何删除/合并稀有群体的 action（明确不在当前范围）；
 - trajectory 剩余项（readiness + root-confirmed 执行已实现，见上）：`compare_trajectory_roots` 多 root 比较、`check_velocity_readiness`、`run_velocity`（需 spliced/unspliced）、`run_fate_analysis`（依赖 velocity 输出）；
 - spatial 和 multimodal action catalog；

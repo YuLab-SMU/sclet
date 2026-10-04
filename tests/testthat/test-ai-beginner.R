@@ -237,6 +237,168 @@ test_that("clarification recording never stores the free-text answer", {
     expect_false(grepl("stage 3", dumped))
 })
 
+test_that("ResolveAIClarifications refuses to prompt in a non-interactive session", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, 4L, 4L)),
+        colData = S4Vectors::DataFrame(batch = rep(c("a", "b"), 2L))
+    )
+    clarification <- sclet:::sclet_ai_format_clarification(
+        "prerequisites not met for action i: design_semantics_not_confirmed: x"
+    )
+    result <- ResolveAIClarifications(sce, clarification)
+    expect_equal(result$status, "needs_interactive")
+    expect_equal(result$resolved, character())
+    expect_equal(result$skipped, "design_batch")
+    # nothing was written: no confirmation, no evidence, object untouched
+    expect_identical(result$object, sce)
+    expect_null(sclet_get_state_record(result$object, "ai_design_confirmation", "design;batch=batch"))
+    expect_length(sclet:::sclet_ai_evidence_get_all(result$object), 0L)
+})
+
+test_that("ResolveAIClarifications applies a design answer and records a user_decision", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, 4L, 4L)),
+        colData = S4Vectors::DataFrame(batch = rep(c("a", "b"), 2L))
+    )
+    clarification <- sclet:::sclet_ai_format_clarification(
+        "prerequisites not met for action i: design_semantics_not_confirmed: x"
+    )
+    result <- ResolveAIClarifications(sce, clarification, ask = function(q) "batch")
+    expect_equal(result$status, "resolved")
+    expect_equal(result$resolved, "design_batch")
+
+    record <- sclet_get_state_record(result$object, "ai_design_confirmation", "design;batch=batch")
+    expect_false(is.null(record))
+    expect_equal(record$inputs$batch, "batch")
+
+    decisions <- Filter(function(x) identical(x$summary$kind, "user_decision"),
+        GetAnalysisLedger(result$object, detail = "summary",
+            include_artifacts = FALSE, include_data = FALSE)$state_records$ai_evidence)
+    expect_true(length(decisions) >= 1L)
+    expect_equal(result$transcript[[1L]]$outcome, "resolved")
+    expect_true(result$transcript[[1L]]$recorded)
+})
+
+test_that("ResolveAIClarifications never confirms an answer that is not a real column", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, 4L, 4L)),
+        colData = S4Vectors::DataFrame(batch = rep(c("a", "b"), 2L))
+    )
+    clarification <- sclet:::sclet_ai_format_clarification(
+        "prerequisites not met for action i: design_semantics_not_confirmed: x"
+    )
+    result <- ResolveAIClarifications(sce, clarification, ask = function(q) "not_a_column")
+    expect_equal(result$status, "unresolved")
+    expect_equal(result$invalid, "design_batch")
+    expect_equal(result$resolved, character())
+    # a rejected answer must not leave a confirmation or a decision behind
+    expect_null(sclet_get_state_record(result$object, "ai_design_confirmation", "design;batch=not_a_column"))
+    expect_length(sclet:::sclet_ai_evidence_get_all(result$object), 0L)
+    expect_false(result$transcript[[1L]]$applied)
+})
+
+test_that("ResolveAIClarifications treats an empty answer as skipped, never auto-filled", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, 4L, 4L)),
+        colData = S4Vectors::DataFrame(batch = rep(c("a", "b"), 2L))
+    )
+    clarification <- sclet:::sclet_ai_format_clarification(
+        c(
+            "prerequisites not met for action i: design_semantics_not_confirmed: x",
+            "prerequisites not met for action a: reference_missing: y"
+        )
+    )
+    result <- ResolveAIClarifications(sce, clarification, ask = function(q) "")
+    expect_equal(result$status, "unresolved")
+    expect_setequal(result$skipped, c("design_batch", "annotation_reference"))
+    expect_equal(result$resolved, character())
+    expect_identical(result$object, sce)
+    expect_length(sclet:::sclet_ai_evidence_get_all(result$object), 0L)
+})
+
+test_that("ResolveAIClarifications uses apply_answer for questions with no built-in confirmation", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, 4L, 4L)),
+        colData = S4Vectors::DataFrame(cluster = rep(c("A", "B"), 2L))
+    )
+    clarification <- sclet:::sclet_ai_format_clarification(
+        "prerequisites not met for action t: start_cluster_missing: root required."
+    )
+    seen <- character()
+    result <- ResolveAIClarifications(
+        sce, clarification,
+        ask = function(q) "A",
+        apply_answer = function(object, question, answer) {
+            seen <<- c(seen, answer)
+            object
+        }
+    )
+    expect_equal(result$status, "resolved")
+    expect_equal(result$resolved, "trajectory_root")
+    expect_equal(seen, "A")
+    # recorded for the audit trail even though nothing was applied to the object
+    expect_true(length(sclet:::sclet_ai_evidence_get_all(result$object)) >= 1L)
+})
+
+test_that("ResolveAIClarifications can resolve without recording evidence", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, 4L, 4L)),
+        colData = S4Vectors::DataFrame(batch = rep(c("a", "b"), 2L))
+    )
+    clarification <- sclet:::sclet_ai_format_clarification(
+        "prerequisites not met for action i: design_semantics_not_confirmed: x"
+    )
+    result <- ResolveAIClarifications(sce, clarification, ask = function(q) "batch", record = FALSE)
+    expect_equal(result$status, "resolved")
+    expect_false(result$transcript[[1L]]$recorded)
+    expect_length(sclet:::sclet_ai_evidence_get_all(result$object), 0L)
+    expect_false(is.null(sclet_get_state_record(result$object, "ai_design_confirmation", "design;batch=batch")))
+})
+
+test_that("resolving a clarification unblocks the plan that was previously rejected", {
+    set.seed(1)
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(rpois(40, 5), nrow = 10L, ncol = 4L))
+    )
+    SummarizedExperiment::colData(sce)$batch <- c("a", "a", "b", "b")
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "integration"))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "integrate",
+        context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+        actions = list(list(id = "i", action = "run_integration",
+            params = list(batch = "batch", method = "fastMNN")))
+    )
+    before <- ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
+    expect_true(any(grepl("design_semantics_not_confirmed", before$errors)))
+
+    solved <- ResolveAIClarifications(
+        sce,
+        sclet:::sclet_ai_format_clarification(before$errors),
+        ask = function(q) "batch"
+    )
+    expect_equal(solved$status, "resolved")
+
+    # the design error is gone; only the expected fingerprint staleness remains
+    after <- ValidateAIPlan(plan, object = solved$object, registry = registry, strict = FALSE)
+    expect_false(any(grepl("design_semantics_not_confirmed", after$errors)))
+})
+
+test_that("ResolveAIClarifications handles an empty clarification and rejects bad callbacks", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 4L, 4L)))
+    empty <- ResolveAIClarifications(sce, list(questions = list()))
+    expect_equal(empty$status, "nothing_to_resolve")
+    clarification <- sclet:::sclet_ai_format_clarification("start_cluster_missing: x")
+    expect_error(ResolveAIClarifications(sce, clarification, ask = "not a function"), "ask must be")
+    expect_error(
+        ResolveAIClarifications(sce, clarification, apply_answer = "not a function"),
+        "apply_answer must be"
+    )
+    expect_error(
+        ResolveAIClarifications(list(counts = matrix(1)), clarification, ask = function(q) "a"),
+        "SingleCellExperiment"
+    )
+})
+
 test_that("clarification formatting does not alter ValidateAIPlan or prerequisites behavior", {
     set.seed(1)
     sce <- SingleCellExperiment::SingleCellExperiment(
