@@ -49,6 +49,125 @@ sclet_ai_claim_dependency_reasons <- function(all_nodes, a, b) {
     }
     reasons
 }
+#' Finding claim levels that must cite independent support
+#'
+#' A finding at `"hypothesis"` is explicitly speculative and self-limiting, so
+#' it needs no evidence to be recorded: it asserts nothing. The levels that
+#' actually assert something beyond one node's own claim level are the ones
+#' gated here, plus `"causal"`, which is banned outright below.
+sclet_ai_findings_needing_support <- c("consistent_with", "suggestive", "causal")
+
+# Map a finding's claim level onto the strongest evidence ceiling it may cite.
+# "suggestive" sits one step above "consistent_with" on the finding ladder, so
+# it must clear the same bar. "causal" never reaches here: it is rejected
+# outright above.
+sclet_ai_finding_allowed_level <- function(claim_level) {
+    claim_level <- as.character(claim_level)
+    if (identical(claim_level, "suggestive")) return("consistent_with")
+    claim_level
+}
+
+#' Audit the findings of an AI result against the recorded evidence
+#'
+#' `validate_sclet_ai_result()` can only check a result's shape, because it has
+#' no object to look at. This function performs the object-aware half of the
+#' contract: for every finding that asserts more than its evidence nodes can
+#' carry, it reports a problem.
+#'
+#' Two rules are enforced. First, `"causal"` is never an acceptable AI claim
+#' level at all: the advanced-analysis contract reserves causal interpretation
+#' for a separately designed and separately evidenced causal study, and no
+#' amount of observational evidence lifts an AI finding into it. Second, a
+#' finding that goes beyond a single node's own claim level must cite evidence
+#' whose claim ceiling - as computed by `sclet_ai_claim_ceiling()` - actually
+#' reaches that level.
+#'
+#' The function only audits. It never rewrites a finding, never downgrades one
+#' silently, and never records anything.
+#'
+#' @param object A `SingleCellExperiment` object.
+#' @param result An `sclet_ai_result` or a list with a `findings` element.
+#' @return A list with a `status` of `"ok"` or `"overclaimed"`, the per-finding
+#'   `findings` audit, the `n_problems` count and a `problems` character vector.
+#' @noRd
+sclet_ai_audit_result_claims <- function(object, result) {
+    findings <- if (is.list(result)) result$findings else NULL
+    if (!is.list(findings) || !length(findings)) {
+        return(list(status = "ok", findings = list(), n_problems = 0L, problems = character()))
+    }
+    problems <- character()
+    audit <- list()
+    for (i in seq_along(findings)) {
+        finding <- findings[[i]]
+        claim <- if (is.list(finding)) as.character(finding$claim_level %||% "hypothesis")[[1L]] else "hypothesis"
+        entry <- list(index = i, claim_level = claim, allowed_claim_level = claim, problems = character())
+
+        if (identical(claim, "causal")) {
+            # not an AI-generatable claim level, regardless of support
+            entry$allowed_claim_level <- "hypothesis"
+            entry$problems <- c(entry$problems, paste0(
+                "findings[[", i, "]]: 'causal' is not a claim level the AI may assert; ",
+                "causal interpretation requires a separately designed and evidenced causal study. ",
+                "Use 'hypothesis' at most."
+            ))
+        } else if (claim %in% sclet_ai_findings_needing_support) {
+            refs <- if (is.list(finding)) finding$evidence_refs else NULL
+            allowed <- sclet_ai_finding_allowed_level(claim)
+            if (!length(refs)) {
+                entry$allowed_claim_level <- "observed"
+                entry$problems <- c(entry$problems, paste0(
+                    "findings[[", i, "]]: claim_level '", claim,
+                    "' cites no evidence_refs; cite recorded evidence or weaken the claim"
+                ))
+            } else {
+                # a stale or unknown ref is itself a reportable problem, not a
+                # crash: the audit contract is to return problems
+                ceiling <- tryCatch(
+                    sclet_ai_claim_ceiling(
+                        object,
+                        evidence_ids = as.character(refs),
+                        proposed_claim_level = allowed
+                    ),
+                    error = function(e) list(
+                        status = "unsupported",
+                        ceiling_claim_level = NULL,
+                        n_independent_groups = 0L,
+                        reason = conditionMessage(e)
+                    )
+                )
+                entry$ceiling_claim_level <- ceiling$ceiling_claim_level
+                entry$n_independent_groups <- ceiling$n_independent_groups
+                if (identical(ceiling$status, "downgraded")) {
+                    entry$allowed_claim_level <- ceiling$ceiling_claim_level
+                    entry$problems <- c(entry$problems, paste0(
+                        "findings[[", i, "]]: claim_level '", claim,
+                        "' exceeds the evidence ceiling '", ceiling$ceiling_claim_level,
+                        "' (", ceiling$n_independent_groups,
+                        " independent line(s) of support); use '",
+                        ceiling$ceiling_claim_level, "' or weaker"
+                    ))
+                } else if (identical(ceiling$status, "unsupported")) {
+                    entry$allowed_claim_level <- "observed"
+                    entry$problems <- c(entry$problems, paste0(
+                        "findings[[", i, "]]: claim_level '", claim,
+                        "' is not supported by the cited evidence (",
+                        ceiling$reason %||% "no independent support",
+                        "); cite resolved evidence or weaken the claim"
+                    ))
+                }
+            }
+        }
+        if (length(entry$problems)) problems <- c(problems, entry$problems)
+        audit[[length(audit) + 1L]] <- entry
+    }
+    list(
+        status = if (length(problems)) "overclaimed" else "ok",
+        findings = audit,
+        n_problems = length(problems),
+        problems = problems
+    )
+}
+
 #' Audit whether a claim is supported by independent evidence
 #'
 #' `sclet_ai_claim_ceiling()` answers a narrow question: given the evidence nodes

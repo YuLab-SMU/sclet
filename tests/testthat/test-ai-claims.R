@@ -55,6 +55,135 @@ test_that("many nodes from one run count as a single line of support", {
     expect_equal(result$ceiling_claim_level, "associated")
 })
 
+test_that("a causal finding is rejected regardless of how much evidence it cites", {
+    sce <- sclet_ai_claim_test_object()
+    sce <- sclet_ai_claim_test_node(sce, "ev:a", source = "srcA", claim = "consistent_with")
+    sce <- sclet_ai_claim_test_node(sce, "ev:b", source = "srcB", claim = "consistent_with")
+    result <- list(findings = list(list(
+        claim_level = "causal", evidence_refs = c("ev:a", "ev:b")
+    )))
+    audit <- sclet:::sclet_ai_audit_result_claims(sce, result)
+    expect_equal(audit$status, "overclaimed")
+    expect_true(any(grepl("not a claim level the AI may assert", audit$problems)))
+    expect_equal(audit$findings[[1L]]$allowed_claim_level, "hypothesis")
+})
+
+test_that("a consistent_with finding needs evidence that reaches the ceiling", {
+    sce <- sclet_ai_claim_test_object()
+    sce <- sclet_ai_claim_test_node(sce, "ev:a", source = "srcA", claim = "consistent_with")
+    # only one line of support, so the ceiling is capped at associated
+    audit <- sclet:::sclet_ai_audit_result_claims(sce, list(
+        findings = list(list(claim_level = "consistent_with", evidence_refs = "ev:a"))
+    ))
+    expect_equal(audit$status, "overclaimed")
+    expect_true(any(grepl("exceeds the evidence ceiling 'associated'", audit$problems)))
+
+    # add a second independent strong source and the same finding is allowed
+    sce2 <- sclet_ai_claim_test_node(sce, "ev:b", source = "srcB",
+        claim = "consistent_with", dependency_group = "g2")
+    audit2 <- sclet:::sclet_ai_audit_result_claims(sce2, list(
+        findings = list(list(claim_level = "consistent_with", evidence_refs = c("ev:a", "ev:b")))
+    ))
+    expect_equal(audit2$status, "ok")
+    expect_equal(audit2$n_problems, 0L)
+})
+
+test_that("suggestive is held to the consistent_with bar and hypothesis needs nothing", {
+    sce <- sclet_ai_claim_test_object()
+    sce <- sclet_ai_claim_test_node(sce, "ev:a", source = "srcA", claim = "associated")
+    suggestive <- sclet:::sclet_ai_audit_result_claims(sce, list(
+        findings = list(list(claim_level = "suggestive", evidence_refs = "ev:a"))
+    ))
+    expect_equal(suggestive$status, "overclaimed")
+    expect_equal(suggestive$findings[[1L]]$allowed_claim_level, "associated")
+
+    # a hypothesis is explicitly speculative and asserts nothing
+    hypothesis <- sclet:::sclet_ai_audit_result_claims(sce, list(
+        findings = list(list(claim_level = "hypothesis"))
+    ))
+    expect_equal(hypothesis$status, "ok")
+})
+
+test_that("a consistent_with finding with no evidence_refs is rejected", {
+    sce <- sclet_ai_claim_test_object()
+    audit <- sclet:::sclet_ai_audit_result_claims(sce, list(
+        findings = list(list(claim_level = "consistent_with"))
+    ))
+    expect_equal(audit$status, "overclaimed")
+    expect_true(any(grepl("cites no evidence_refs", audit$problems)))
+})
+
+test_that("record_claims auditing refuses to write an over-claimed result to the ledger", {
+    sce <- sclet_ai_claim_test_object()
+    sce <- sclet_ai_claim_test_node(sce, "ev:a", source = "srcA", claim = "associated")
+    overclaimed <- new_sclet_ai_result(
+        "review",
+        answer = "something",
+        context = list(schema_version = "1.0", fingerprint = "test"),
+        findings = list(list(claim_level = "causal", evidence_refs = "ev:a"))
+    )
+    expect_error(
+        RecordAIResult(sce, overclaimed, id = "ai_over"),
+        "refusing to record an over-claimed AI result"
+    )
+    # nothing was written
+    expect_false("ai_over" %in% names(GetAnalysisLedger(sce)$analyses))
+
+    # the audit can be turned off explicitly, and then it records
+    updated <- RecordAIResult(sce, overclaimed, id = "ai_raw", audit_claims = FALSE)
+    expect_true("ai_raw" %in% names(GetAnalysisLedger(updated)$analyses))
+})
+
+test_that("a supported result still records normally with auditing enabled", {
+    sce <- sclet_ai_claim_test_object()
+    sce <- sclet_ai_claim_test_node(sce, "ev:a", source = "srcA", claim = "consistent_with")
+    sce <- sclet_ai_claim_test_node(sce, "ev:b", source = "srcB",
+        claim = "consistent_with", dependency_group = "g2")
+    supported <- new_sclet_ai_result(
+        "review",
+        answer = "something",
+        context = list(schema_version = "1.0", fingerprint = "test"),
+        findings = list(list(claim_level = "consistent_with", evidence_refs = c("ev:a", "ev:b")))
+    )
+    updated <- RecordAIResult(sce, supported, id = "ai_ok")
+    expect_true("ai_ok" %in% names(GetAnalysisLedger(updated)$analyses))
+})
+
+test_that("result claim auditing is read-only", {
+    sce <- sclet_ai_claim_test_object()
+    sce <- sclet_ai_claim_test_node(sce, "ev:a", source = "srcA", claim = "associated")
+    before_fp <- GetAnalysisLedger(sce)$fingerprint
+    before_n <- length(sclet:::sclet_ai_evidence_get_all(sce))
+    result <- list(findings = list(list(claim_level = "causal", evidence_refs = "ev:a")))
+    audit <- sclet:::sclet_ai_audit_result_claims(sce, result)
+    expect_equal(audit$status, "overclaimed")
+    expect_equal(GetAnalysisLedger(sce)$fingerprint, before_fp)
+    expect_equal(length(sclet:::sclet_ai_evidence_get_all(sce)), before_n)
+    # the audit reports a ceiling but never rewrites the finding it inspected
+    expect_equal(result$findings[[1L]]$claim_level, "causal")
+})
+
+test_that("results without findings are unaffected by claim auditing", {
+    sce <- sclet_ai_claim_test_object()
+    expect_equal(sclet:::sclet_ai_audit_result_claims(sce, list())$status, "ok")
+    plain <- new_sclet_ai_result("status_review",
+        answer = "all inputs are visible",
+        context = list(schema_version = "1.0", fingerprint = "test"),
+        metadata = list(provider = "mock"))
+    updated <- RecordAIResult(sce, plain, id = "ai_plain")
+    expect_true("ai_plain" %in% names(GetAnalysisLedger(updated)$analyses))
+})
+
+test_that("a finding citing an unknown evidence ref is reported, not crashed on", {
+    sce <- sclet_ai_claim_test_object()
+    audit <- sclet:::sclet_ai_audit_result_claims(sce, list(
+        findings = list(list(claim_level = "consistent_with", evidence_refs = "ev:does_not_exist"))
+    ))
+    expect_equal(audit$status, "overclaimed")
+    expect_true(any(grepl("is not supported by the cited evidence", audit$problems)))
+    expect_equal(audit$findings[[1L]]$allowed_claim_level, "observed")
+})
+
 test_that("two independent strong sources reach the consistent_with ceiling", {
     sce <- sclet_ai_claim_test_object()
     sce <- sclet_ai_claim_test_node(sce, "ev:a", source = "srcA",

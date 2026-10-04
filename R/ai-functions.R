@@ -84,10 +84,22 @@ sclet_copilot <- function(sce, question, model = NULL) {
 #' @param id Optional stable record id. Defaults to a timestamped task id.
 #' @param active Logical. Reserved for future AI state activation; defaults to
 #'   `FALSE` so recording a review does not change the active analysis view.
+#' @param audit_claims Logical. Audit each finding against the claim ceiling of
+#'   the recorded evidence and refuse to record an over-claimed result. Defaults
+#'   to `TRUE` so a finding can never be written to the ledger at a strength the
+#'   evidence does not support.
 #' @return The updated `SingleCellExperiment` object.
 #' @export
-RecordAIResult <- function(object, result, id = NULL, active = FALSE) {
+RecordAIResult <- function(object, result, id = NULL, active = FALSE, audit_claims = TRUE) {
     validate_sclet_ai_result(result)
+    if (isTRUE(audit_claims)) {
+        audit <- sclet_ai_audit_result_claims(object, result)
+        if (identical(audit$status, "overclaimed")) {
+            stop("refusing to record an over-claimed AI result: ",
+                paste(audit$problems, collapse = "; "),
+                call. = FALSE)
+        }
+    }
     if (is.null(id)) {
         stamp <- format(Sys.time(), "%Y%m%d%H%M%S")
         id <- paste(result$task, stamp, sep = "_")

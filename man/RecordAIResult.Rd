@@ -4,7 +4,7 @@
 \alias{RecordAIResult}
 \title{Record a structured AI result in the analysis ledger}
 \usage{
-RecordAIResult(object, result, id = NULL, active = FALSE)
+RecordAIResult(object, result, id = NULL, active = FALSE, audit_claims = TRUE)
 }
 \arguments{
 \item{object}{A \code{SingleCellExperiment} object.}
@@ -15,6 +15,11 @@ RecordAIResult(object, result, id = NULL, active = FALSE)
 
 \item{active}{Logical. Reserved for future AI state activation; defaults to
 \code{FALSE} so recording a review does not change the active analysis view.}
+
+\item{audit_claims}{Logical. Audit each finding against the claim ceiling of
+the recorded evidence and refuse to record an over-claimed result. Defaults to
+\code{TRUE} so a finding can never be written to the ledger at a strength the
+evidence does not support.}
 }
 \value{
 The updated \code{SingleCellExperiment} object.
