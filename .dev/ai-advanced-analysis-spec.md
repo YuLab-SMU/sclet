@@ -1226,7 +1226,9 @@ identical(Sys.getenv("SCLET_RUN_ONLINE_TESTS"), "true")
 - spatial 和 multimodal action catalog；
 - hypothesis、success criteria 的 plan-level 执行与验证；
 - advanced mode 的用户体验；
-- 完整 causal claim ceiling 与跨证据独立性审计；
+- 完整 causal claim ceiling（第一层已实现，见上：跨链 support 分组 + 确定性 ceiling）；
+- causal / 机制性推论本身（目前 ceiling 只约束"证据支持强度"，不对"因果断言"设限，
+  跨证据独立性审计也尚未接入 plan 或 result 层，仅作为独立只读 API 存在）；
 - `run_integration` design_confirmed gate 方案 B（已实现）：独立 state `ai_design_confirmation` + 导出 API `ConfirmAIDesignSemantics(object, design = list(batch = "xxx", [condition = "...", subject = "..."]))`，删除 input_schema 里可伪造的 `.design_confirmed` 布尔；`prerequisites` 同时匹配三重条件才接受确认：① 存的骨架指纹（n_cells/n_features/colData 列名集合/是否有 rowData）与当前对象一致——仅结构变化才触发该层过期；② 存的 `summary$design_value_key`（design 中每个被点名 colData 列的逐单元值签名）与当前该列值逐格一致——同列名、但列下标签/值被重新赋义（如 batch 从 a/b 重映射为 T_cell/B_cell）时该层失效；③ `summary$design$batch == params$batch`。确认写完后再跑 PCA/写 preprocess/integration state 不会让确认失效（避免「确认一次就废」假阳性），但真正能影响 integration 语义的变更（batch 值的重赋义、列重命名/增删、对象维度变化）会让确认过期；从根源上杜绝 AI 自签通行证。
 
 因此下一轮开发不应继续以“增加更多基础 action”为主，而应优先实现：
@@ -1266,6 +1268,15 @@ Phase C 收尾 + Phase D 第一批（第 7–8 项）已完成：
 7. **design confirmation 硬化**：`ConfirmAIDesignSemantics()` 取代可被 AI 自称的 `.design_confirmed` 布尔；`run_integration` 的 `prerequisites` 按骨架指纹 + 逐列值签名双重校验确认记录，任一维度漂移（列增删改名、或同列名下取值被重新赋义）都会让旧确认过期。
 8. **marker / DE / annotation 证据链**：`check_annotation_readiness()` 只读诊断；`AIDefaultExecutionRegistry` 新增 `annotation` group（`run_de_test`、`run_annotation`）；`run_annotation` 的 `ref`/`labels` 为必填参数，禁止落入 `RunSingleR()` 默认下载人类 reference 的分支；两个 action 的执行结果都登记为 evidence，`claim_level` 限定为 `associated`/`consistent_with`，不含逐细胞原始标签或基因名，且从不覆盖 `Idents()`。
 
-此外已提供 `RunBasicWorkflow()` 基础 facade 与结构化 clarification UX（`sclet_ai_format_clarification()` 呈现、`sclet_ai_record_clarification_response()` 以 `user_decision` evidence 留痕）。
+此外已提供 `RunBasicWorkflow()` 基础 facade、结构化 clarification UX（`sclet_ai_format_clarification()` 呈现、`sclet_ai_record_clarification_response()` 以 `user_decision` evidence 留痕、`ResolveAIClarifications()` 交互闭环），以及跨证据 claim ceiling（`sclet_ai_claim_ceiling()`）。
+
+`claim ceiling` 的设计要点：evidence 节点先按"独立支撑线"分组，再算 ceiling。两个节点若共享
+`dependency_group`、存在 `parents` 祖先关系、或来自同一次底层分析（`source` 相同），则视为同一
+条支撑线；再取该关系的连通分量作为分组，保证独立性只会被低估、不会被高估。这一条在实践中很关键：
+单次 rare-cell 运行会为每个小群体各产生一个 evidence 节点，按节点计数会把"一次测量"夸大成
+"几十个独立信号"。ceiling 规则是确定性的：无支撑则不可断言；单条支撑线封顶 `associated`，
+孤立节点无法被升级；≥2 条独立支撑线时 ceiling 介于 `associated` 与 `consistent_with` 之间，
+并受最弱的那个节点约束。`user_decision` 节点不计入支撑数，与既有"AI 生成的 claim 不得引用
+人类决策"规则一致。该函数只做评估，不生成、不强化、不登记任何 claim。
 
 当前版本已提供 evidence registration、payload sanitizer、真实多路线执行、真实路线比较、默认 privacy gate、lineage/dependency 独立性查询、design confirmation 硬化、marker/DE/annotation 证据链、rare-cell/doublet 证据链（`check_rare_cell_readiness()`、`summarize_small_cluster_evidence()`、`rare_cell` group、按独立信号数量分级的 `claim_level`）与 trajectory 第一批（`check_trajectory_readiness()`、只读 `summarize_trajectory_cluster_order()`、`trajectory` group、root 必填的 `run_trajectory`）；下一阶段建议建设 velocity/CellRank/fate、spatial/multimodal action catalog、trajectory 多 root 比较和 rare-cell 多路线比较，使 sclet AI 从"integration + annotation 审计助手"进一步扩展为"全流程高级分析研究助手"。

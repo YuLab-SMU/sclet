@@ -327,6 +327,13 @@ sclet_ai_diag_marker_signal <- function(object, cluster_label, cluster_index, n_
     covered <- FALSE
     for (record in detest) {
         if (!is.list(record)) next
+        # FindAllMarkers runs over every cluster by construction, so it covers
+        # whichever cluster is being summarized. FindMarkers records the two
+        # compared labels explicitly, so match those directly.
+        if (identical(as.character(record$method %||% ""), "FindAllMarkers")) {
+            covered <- TRUE
+            break
+        }
         parts <- c(
             as.character(record$id %||% ""),
             as.character(record$inputs$ident.1 %||% ""),

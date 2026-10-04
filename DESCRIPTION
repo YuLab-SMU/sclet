@@ -133,6 +133,7 @@ Collate:
     'SuperCell.R'
     'basic-workflow.R'
     'ai-adapter.R'
+    'ai-claims.R'
     'ai-comparison.R'
     'ai-context.R'
     'ai-design-confirmation.R'

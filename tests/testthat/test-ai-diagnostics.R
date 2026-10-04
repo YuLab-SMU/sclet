@@ -89,6 +89,31 @@ test_that("summarize_small_cluster_evidence reports qc deviation without judging
     expect_false(any(c("real", "noise", "verdict", "is_rare") %in% names(result)))
 })
 
+test_that("FindAllMarkers output counts as marker evidence for rare clusters", {
+    # regression: a FindAllMarkers run covers every cluster, but its state record
+    # stores only the active-ident column name (not per-cluster labels) and no
+    # n_groups in its summary, so label matching alone misses it entirely.
+    set.seed(1)
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(rpois(50 * 40, lambda = 5), nrow = 50L, ncol = 40L,
+            dimnames = list(paste0("gene_", seq_len(50L)), paste0("c", seq_len(40L)))))
+    )
+    sce <- NormalizeData(sce)
+    sce <- FindVariableFeatures(sce, nfeatures = 30L)
+    sce <- RunPCA(sce, ncomponents = 10L)
+    sce <- FindNeighbors(sce, dims = seq_len(5L), reduction = "PCA")
+    sce <- FindClusters(sce, resolution = 1.2)
+    sce <- RunDEtest(sce, name = "all_markers")
+
+    rare <- RunRareCellDetection(sce, name = "rareX", k = 5, dims = 1:3, rare_threshold = 1000)
+    summary <- sclet:::summarize_small_cluster_evidence(rare, cluster = "rare_cluster", size_threshold = 1000)
+    expect_equal(summary$status, "available")
+    marker <- summary$clusters[[1L]]$independent_signals$marker
+    expect_true(marker$available)
+    expect_true(marker$cluster_covered_by_marker_analysis)
+    expect_equal(marker$n_marker_records, 1L)
+})
+
 test_that("summarize_small_cluster_evidence returns not_available without cluster information", {
     sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 4L, 4L)))
     result <- sclet:::summarize_small_cluster_evidence(sce)
