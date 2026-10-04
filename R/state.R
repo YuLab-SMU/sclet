@@ -706,7 +706,9 @@ sclet_state_types <- function() {
         "perturbation",
         "priority",
         "rare_cells",
-        "multimodal"
+        "multimodal",
+        "ai_evidence",
+        "ai_design_confirmation"
     )
 }
 

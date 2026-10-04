@@ -37,6 +37,22 @@ sclet_ai_plan_id <- function(task = "analysis_plan") {
     paste(c("plan", task, stamp, suffix), collapse = "_")
 }
 
+sclet_ai_project_plan_value <- function(value, planned_outputs) {
+    if (is.character(value) && length(value) == 1L && grepl("^\\$\\{[^}]+\\}$", value)) {
+        token <- sub("^\\$\\{", "", sub("\\}$", "", value))
+        path <- strsplit(token, "\\.", fixed = FALSE)[[1L]]
+        if (length(path) < 3L || !identical(path[[2L]], "output")) return(value)
+        current <- planned_outputs[[path[[1L]]]]
+        if (is.null(current)) return(value)
+        for (field in path[-c(1L, 2L)]) {
+            if (!is.list(current) || is.null(current[[field]])) return(value)
+            current <- current[[field]]
+        }
+        return(current)
+    }
+    if (is.list(value)) return(lapply(value, sclet_ai_project_plan_value, planned_outputs = planned_outputs))
+    value
+}
 sclet_ai_plan_capabilities <- function(object) {
     state <- sclet_get_state(object)
     list(
@@ -283,19 +299,27 @@ ValidateAIPlan <- function(
                 GetAnalysisLedger(object)$fingerprint,
                 error = function(e) NULL
             )
+            full_fingerprint <- tryCatch(
+                GetAnalysisLedger(object, detail = "full")$fingerprint,
+                error = function(e) NULL
+            )
             planned_fingerprint <- plan$context_fingerprint
-            if (!is.null(planned_fingerprint) &&
-                !identical(as.character(planned_fingerprint), as.character(current_fingerprint))) {
+            if (!is.null(planned_fingerprint) && !any(
+                identical(as.character(planned_fingerprint), as.character(current_fingerprint)),
+                identical(as.character(planned_fingerprint), as.character(full_fingerprint))
+            )) {
                 errors <- c(errors, "plan context fingerprint does not match the current object")
             }
             planned <- sclet_ai_plan_capabilities(object)
+            planned_outputs <- list()
             for (step in normalized) {
                 descriptor <- if (!is.null(step$action) && nzchar(step$action)) registry[[step$action]] else NULL
+                planned_params <- sclet_ai_project_plan_value(step$params, planned_outputs)
                 if (is.null(descriptor) || !is.function(descriptor$prerequisites)) {
                     next
                 }
                 check <- tryCatch(
-                    sclet_ai_call_prerequisites(descriptor, object, step$params, planned),
+                    sclet_ai_call_prerequisites(descriptor, object, planned_params, planned),
                     error = function(e) e
                 )
                 if (inherits(check, "error")) {
@@ -305,7 +329,8 @@ ValidateAIPlan <- function(
                 } else if (is.character(check) && length(check)) {
                     errors <- c(errors, paste0("prerequisites not met for action ", step$id, ": ", paste(check, collapse = "; ")))
                 }
-                planned <- sclet_ai_apply_planned_output(planned, descriptor, step$params)
+                planned <- sclet_ai_apply_planned_output(planned, descriptor, planned_params)
+                planned_outputs[[step$id]] <- descriptor$output_schema %||% list()
             }
         }
     } else if (length(normalized)) {
@@ -355,6 +380,7 @@ ValidateAIPlan <- function(
 #'
 #' @param object A `SingleCellExperiment` object.
 #' @param model Optional aisdk model.
+#' @param goal Optional natural-language user goal to include in the planning context.
 #' @param structured_output Logical. Use the tool-loop plus structured-output summary stage.
 #' @param fallback_on_structure_error Logical. Retain the tool-loop response if structured output fails.
 #' @param ... Additional arguments passed to `sclet_ai_call()`.
@@ -362,6 +388,7 @@ ValidateAIPlan <- function(
 #' @export
 AIPlanAnalysis <- function(
     object,
+    goal = NULL,
     model = NULL,
     structured_output = TRUE,
     fallback_on_structure_error = TRUE,
@@ -377,6 +404,11 @@ AIPlanAnalysis <- function(
         fallback_on_structure_error = fallback_on_structure_error,
         system_prompt = paste(
             "Propose a conservative analysis plan from the supplied ledger.",
+            if (!is.null(goal) && length(goal) == 1L && nzchar(trimws(goal))) {
+                paste("The user's analysis goal is:", goal)
+            } else {
+                "No additional user goal was supplied."
+            },
             "Return only actions that can be represented by a registered action name",
             "and parameter list. List prerequisites, dependencies, expected outputs,",
             "and uncertainty. Never execute an action or claim that it was executed.",
@@ -387,13 +419,14 @@ AIPlanAnalysis <- function(
     plan <- new_sclet_ai_plan(
         task = result$task,
         actions = result$proposed_actions,
-        context_fingerprint = result$context$fingerprint %||% context$fingerprint,
+        context_fingerprint = GetAnalysisLedger(object)$fingerprint,
         rationale = result$answer,
         requires_confirmation = TRUE,
         ai_result = result,
         metadata = list(
             provider = result$metadata$provider %||% NULL,
-            structured_output = result$metadata$structured_output %||% NULL
+            structured_output = result$metadata$structured_output %||% NULL,
+            goal = goal %||% NULL
         )
     )
     plan

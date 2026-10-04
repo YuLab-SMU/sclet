@@ -213,6 +213,9 @@ sclet_ai_call <- function(
     system_prompt = NULL,
     structured_output = FALSE,
     fallback_on_structure_error = TRUE,
+    privacy = getOption("sclet.ai.privacy", "standard"),
+    privacy_consent = FALSE,
+    enforce_privacy = getOption("sclet.ai.enforce_privacy", TRUE),
     ...
 ) {
     if (!is.list(context)) {
@@ -220,6 +223,40 @@ sclet_ai_call <- function(
     }
     dots <- list(...)
     mock <- getOption("sclet.ai.call", default = NULL)
+    privacy_policy <- NULL
+    if (!length(enforce_privacy) || !is.logical(enforce_privacy) || is.na(enforce_privacy)) {
+        enforce_privacy <- TRUE
+    }
+    if (isTRUE(enforce_privacy)) {
+        sanitized <- sclet_ai_sanitize_context(
+            object = NULL,
+            context = context,
+            privacy = privacy,
+            user_consent = privacy_consent
+        )
+        context <- sanitized$payload
+        privacy_policy <- sanitized$policy
+        if (!is.null(privacy_policy)) {
+            if (!is.function(mock)) {
+                if (isTRUE(privacy_policy$requires_user_consent)) {
+                    warning(
+                        call. = FALSE,
+                        paste(
+                            "sclet AI outbound payload requires user consent before use.",
+                            "Fields requiring consent were redacted:",
+                            paste(sort(unique(privacy_policy$redacted_fields)), collapse = ", "),
+                            "Re-run with privacy_consent = TRUE to include them under explicit user approval."
+                        )
+                    )
+                }
+                if (!is.null(privacy_policy$warnings) && length(privacy_policy$warnings)) {
+                    for (w in unique(privacy_policy$warnings)) {
+                        warning(call. = FALSE, paste("sclet AI payload sanitizer:", w))
+                    }
+                }
+            }
+        }
+    }
     if (is.function(mock)) {
         response <- tryCatch(
             mock(task = task, context = context, tools = tools, schema = schema, model = model, ...),
@@ -231,7 +268,11 @@ sclet_ai_call <- function(
         )
         result <- sclet_ai_normalize_response(
             response, task = task, context = context,
-            metadata = list(mock = TRUE, native_tools = FALSE)
+            metadata = list(
+                mock = TRUE,
+                native_tools = FALSE,
+                payload_policy = privacy_policy
+            )
         )
         return(sclet_ai_validate_schema(result, schema))
     }
@@ -286,7 +327,8 @@ sclet_ai_call <- function(
                 duration_sec = as.numeric(difftime(Sys.time(), started, units = "secs")),
                 provider = "aisdk",
                 native_tools = FALSE,
-                structured_output = TRUE
+                structured_output = TRUE,
+                payload_policy = privacy_policy
             )
         )
         return(sclet_ai_validate_schema(result, schema))
@@ -332,7 +374,8 @@ sclet_ai_call <- function(
             duration_sec = elapsed,
             provider = "aisdk",
             native_tools = length(native_tools) > 0L,
-            max_steps = max_steps
+            max_steps = max_steps,
+            payload_policy = privacy_policy
         )
     )
     if (!isTRUE(structured_output)) {
@@ -403,7 +446,8 @@ sclet_ai_call <- function(
             provider = "aisdk",
             native_tools = length(native_tools) > 0L,
             structured_output = TRUE,
-            tool_loop_steps = max_steps
+            tool_loop_steps = max_steps,
+            payload_policy = privacy_policy
         )
     )
     sclet_ai_validate_schema(structured_result, schema)

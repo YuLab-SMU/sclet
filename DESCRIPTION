@@ -72,6 +72,7 @@ Suggests:
     ComplexHeatmap,
     DESeq2,
     DelayedArray,
+    digest,
     DropletUtils,
     enrichplot,
     ggraph,
@@ -130,11 +131,20 @@ Config/roxygen2/version: 8.0.0
 Collate: 
     'Enrichment.R'
     'SuperCell.R'
+    'basic-workflow.R'
     'ai-adapter.R'
+    'ai-comparison.R'
     'ai-context.R'
+    'ai-design-confirmation.R'
+    'ai-diagnostics.R'
+    'ai-evidence.R'
     'ai-execution.R'
+    'ai-integration-routes.R'
     'ai-functions.R'
+    'ai-investigate.R'
     'ai-planning.R'
+    'ai-privacy.R'
+    'ai-profile.R'
     'ai-result.R'
     'ai-tools.R'
     'analysis-accessors.R'

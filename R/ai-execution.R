@@ -148,7 +148,7 @@ sclet_ai_action_param_problems <- function(params, schema) {
             number = is.numeric(value) && length(value) == 1L,
             integer = is.numeric(value) && length(value) == 1L && value == as.integer(value),
             list = is.list(value),
-            object = is.list(value),
+            object = (is.atomic(value) && length(value) > 0L) || is.list(value) || inherits(value, "SummarizedExperiment"),
             TRUE
         )
         if (!isTRUE(valid)) {
@@ -166,7 +166,8 @@ sclet_ai_action_param_problems <- function(params, schema) {
 #'
 #' @param object A `SingleCellExperiment` object.
 #' @param include Character vector of action groups. Supported groups are
-#'   `"read"`, `"preprocess"`, `"dimred"`, `"graph"`, `"cluster"`, and
+#'   `"read"`, `"preprocess"`, `"dimred"`, `"graph"`, `"cluster"`,
+#'   `"integration"`, `"annotation"`, `"rare_cell"`, `"trajectory"`, and
 #'   `"all"`. Defaults to `"read"`.
 #' @return A `sclet_ai_execution_registry` containing the requested actions.
 #' @export
@@ -175,7 +176,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
         stop("`object` must be a SingleCellExperiment.")
     }
     include <- unique(as.character(include))
-    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "all")
+    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "rare_cell", "trajectory", "all")
     if (!length(include) || any(!include %in% allowed_groups)) {
         stop("`include` must contain only: ", paste(allowed_groups, collapse = ", "))
     }
@@ -467,7 +468,687 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
             )
         ))
     }
+    if ("integration" %in% include) {
+        actions <- c(actions, list(
+            run_integration = AIAction(
+                name = "run_integration",
+                description = "Run batch-correction integration via fastMNN, Harmony, or scVI and register the result.",
+                handler = function(object, params) {
+                    method <- match.arg(params$method %||% "fastMNN", c("fastMNN", "Harmony", "scVI"))
+                    batch <- params$batch
+                    features <- if (!is.null(params$features)) sclet_ai_vector_param(params$features, "character") else NULL
+                    dims <- if (!is.null(params$dims)) sclet_ai_vector_param(params$dims, "integer") else NULL
+                    RunIntegration(
+                        object,
+                        method = method,
+                        batch = batch,
+                        features = features,
+                        layer = params$layer %||% NULL,
+                        reduction = params$reduction %||% NULL,
+                        name = params$name %||% tolower(method),
+                        dims = dims
+                    )
+                },
+                input_schema = list(
+                    batch = list(type = "character", required = TRUE),
+                    method = c("fastMNN", "Harmony", "scVI"),
+                    name = "character",
+                    dims = "integer_vector",
+                    features = "character_vector",
+                    layer = "character",
+                    reduction = "character"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    method <- match.arg(params$method %||% "fastMNN", c("fastMNN", "Harmony", "scVI"))
+                    batch <- params$batch
+                    if (is.null(batch) || !is.character(batch) || length(batch) != 1L || !nzchar(batch)) {
+                        return("missing required parameter: batch (a single colData column name)")
+                    }
+                    cd_names <- planned$colData_columns %||% colnames(SummarizedExperiment::colData(object))
+                    if (!batch %in% cd_names) {
+                        return(paste0("batch column is not available in colData: ", batch))
+                    }
+                    confirmation <- sclet_ai_find_design_confirmation(object, batch = batch)
+                    if (is.null(confirmation)) {
+                        return(paste0(
+                            "design_semantics_not_confirmed: call ConfirmAIDesignSemantics(object, design = list(batch = '",
+                            batch, "', ...)) before running integration"
+                        ))
+                    }
+                    if (identical(method, "Harmony")) {
+                        if (!requireNamespace("harmony", quietly = TRUE)) {
+                            return("optional_package_missing: harmony is required for method Harmony; install.packages('harmony')")
+                        }
+                    }
+                    if (identical(method, "scVI")) {
+                        if (!requireNamespace("basilisk", quietly = TRUE)) {
+                            return("optional_package_missing: basilisk is required for method scVI")
+                        }
+                        if (!requireNamespace("zellkonverter", quietly = TRUE)) {
+                            return("optional_package_missing: zellkonverter is required for method scVI")
+                        }
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                requires_confirmation = TRUE,
+                output_schema = list(
+                    required_states = list(integration = "any_qualified"),
+                    allowed_reductions = c("HARMONY", "scVI")
+                ),
+                mutates_object = TRUE,
+                allowed_state_types = c("integration", "reduction"),
+                estimated_cost = "medium",
+                idempotent = FALSE
+            )
+        ))
+    }
+    if ("annotation" %in% include) {
+        actions <- c(actions, list(
+            run_de_test = AIAction(
+                name = "run_de_test",
+                description = "Run a differential-expression or all-cluster marker analysis and register evidence.",
+                handler = function(object, params) {
+                    ident.1 <- if (!is.null(params$ident.1)) sclet_ai_vector_param(params$ident.1, "character") else NULL
+                    ident.2 <- if (!is.null(params$ident.2)) sclet_ai_vector_param(params$ident.2, "character") else NULL
+                    result <- RunDEtest(
+                        object,
+                        ident.1 = ident.1,
+                        ident.2 = ident.2,
+                        name = params$name %||% if (is.null(ident.1)) "findallmarkers" else "detest",
+                        min.pct = params$min.pct %||% 0.01,
+                        logfc.threshold = params$logfc.threshold %||% 0.1
+                    )
+                    rec_name <- params$name %||% if (is.null(ident.1)) "findallmarkers" else "detest"
+                    de_records <- sclet_get_state_records(result, "detest")
+                    rec <- de_records[[rec_name]]
+                    artifact <- if (!is.null(rec)) {
+                        tryCatch(rec$artifacts$result, error = function(e) NULL)
+                    } else NULL
+                    if (!is.null(artifact) && is.data.frame(artifact)) {
+                        logfc_col <- grep("logFC|avg_log2FC|avg_logFC|log2FC", colnames(artifact), value = TRUE, ignore.case = TRUE)[[1L]]
+                        if (!is.na(logfc_col)) {
+                            p_col <- grep("^p_val_adj$|^adj.P.Val$|padj|FDR|p_adj", colnames(artifact), value = TRUE, ignore.case = TRUE)[[1L]]
+                            p_col <- if (!is.na(p_col)) p_col else grep("^p_val$|P.Value|^pvalue$", colnames(artifact), value = TRUE, ignore.case = TRUE)[[1L]]
+                            p_thresh <- 0.05
+                            fc_thresh <- 0.1
+                            sig <- if (is.na(p_col)) {
+                                rep(TRUE, nrow(artifact))
+                            } else {
+                                artifact[[p_col]] < p_thresh
+                            }
+                            sig[is.na(sig)] <- FALSE
+                            up <- sig & artifact[[logfc_col]] >= fc_thresh
+                            top_n <- 10L
+                            ord <- order(ifelse(up, -artifact[[logfc_col]], NA_real_), na.last = NA)
+                            top_genes <- if (length(ord)) as.character(rownames(artifact)[utils::head(ord[seq_len(min(top_n, length(ord)))], top_n)]) else character()
+                            idents <- Idents(result)
+                            groups <- unique(as.character(idents))
+                            aggregate_values <- list(
+                                n_rows = as.integer(nrow(artifact)),
+                                n_significant = as.integer(sum(sig)),
+                                n_upregulated = as.integer(sum(up)),
+                                n_groups = as.integer(length(groups)),
+                                smallest_group_n = as.integer(min(as.integer(table(as.character(idents), useNA = "no")))),
+                                pvalue_threshold = p_thresh,
+                                logfc_threshold = fc_thresh,
+                                raw_values_included = FALSE
+                            )
+                            top <- rep(NA_integer_, 10L)
+                            if (length(top_genes) > 0L) top[seq_len(min(10L, length(top_genes)))] <- seq_len(min(10L, length(top_genes)))
+                            aggregate_values$n_top_up <- as.integer(sum(!is.na(top)))
+                            aggregate_values$top_up_ranks <- as.integer(top)
+                            aggregate_values$top_up_fractions <- as.numeric(rep_len(NA_real_, 10L))
+                            aggregate_values$annotation_method_code <- 1L
+                            aggregate_values$annotation_scope_code <- 2L
+                            evidence <- list(
+                                id = if (is.null(ident.1)) "ev:findallmarkers" else paste0("ev:detest_", paste(ident.1, collapse = "_"), if (length(ident.2)) paste0("_vs_", paste(ident.2, collapse = "_"))),
+                                kind = "deterministic_summary",
+                                values = aggregate_values,
+                                claim_level = "associated"
+                            )
+                            tryCatch(RecordAIEvidence(result, evidence,
+                                source = rec_name,
+                                parents = if (!is.null(rec$id)) as.character(rec$id) else character(),
+                                scope = NULL),
+                                error = function(e) result)
+                        } else result
+                    } else result
+                },
+                input_schema = list(
+                    ident.1 = "character_vector",
+                    ident.2 = "character_vector",
+                    name = "character",
+                    min.pct = "number",
+                    logfc.threshold = "number"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    ident.1 <- if (is.null(params$ident.1)) NULL else sclet_ai_vector_param(params$ident.1, "character")
+                    ident.2 <- if (is.null(params$ident.2)) NULL else sclet_ai_vector_param(params$ident.2, "character")
+                    active_ident <- ActiveIdent(object)
+                    if (is.null(active_ident)) {
+                        return("cluster identity is not set: run FindClusters() or set ActiveIdent(object) <- 'colname' before running marker/DE tests")
+                    }
+                    idents <- Idents(object)
+                    if (is.null(idents)) {
+                        return("cluster identity is available at slot but has no values")
+                    }
+                    min_cells_per_group <- 2L
+                    ident_vec <- as.character(idents)
+                    grp_n <- table(ident_vec, useNA = "no")
+                    if (length(grp_n) < 1L || min(as.integer(grp_n)) < min_cells_per_group) {
+                        return(paste0("at least one group/identity is too small; minimum required per group: ", min_cells_per_group))
+                    }
+                    if (is.null(ident.1) && length(grp_n) < 2L) {
+                        return("FindAllMarkers requires at least two distinct identity groups; object has 1")
+                    }
+                    if (!is.null(ident.1) && !all(ident.1 %in% names(grp_n))) {
+                        return(paste0("ident.1 contains unknown group labels: ", paste(setdiff(ident.1, names(grp_n)), collapse = ", ")))
+                    }
+                    if (!is.null(ident.2) && !all(ident.2 %in% names(grp_n))) {
+                        return(paste0("ident.2 contains unknown group labels: ", paste(setdiff(ident.2, names(grp_n)), collapse = ", ")))
+                    }
+                    if (!is.null(ident.1) && !is.null(ident.2) && length(intersect(ident.1, ident.2))) {
+                        return("ident.1 and ident.2 overlap; DE comparison groups must be disjoint")
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                requires_confirmation = TRUE,
+                output_schema = list(
+                    required_states = list(detest = "any")
+                ),
+                mutates_object = TRUE,
+                allowed_state_types = c("detest", "ai_evidence"),
+                estimated_cost = "medium",
+                idempotent = FALSE
+            ),
+            run_annotation = AIAction(
+                name = "run_annotation",
+                description = "Run SingleR reference-based annotation with an explicitly supplied reference and record aggregate evidence.",
+                handler = function(object, params) {
+                    ref_arg <- params$ref
+                    if (is.character(ref_arg) && length(ref_arg) == 1L && nzchar(ref_arg)) {
+                        if (grepl("Data$", ref_arg) && requireNamespace("celldex", quietly = TRUE)) {
+                            fun <- tryCatch(getExportedValue("celldex", ref_arg), error = function(e) NULL)
+                            if (!is.function(fun)) stop(paste0("reference '", ref_arg, "' is not a function in celldex"), call. = FALSE)
+                            ref <- do.call(fun, list())
+                        } else {
+                            stop(paste0("reference '", ref_arg, "' is not a supported celldex dataset name (must end with 'Data'). Provide a SummarizedExperiment ref directly or a celldex function name."), call. = FALSE)
+                        }
+                    } else {
+                        ref <- ref_arg
+                    }
+                    labels_arg <- params$labels
+                    result <- RunSingleR(
+                        object,
+                        ref = ref,
+                        labels = labels_arg,
+                        layer = params$layer %||% NULL,
+                        name = params$name %||% "singler"
+                    )
+                    name <- params$name %||% "singler"
+                    ann_records <- sclet_get_state_records(result, "annotation")
+                    ann_rec <- ann_records[[name]]
+                    if (!is.null(ann_rec)) {
+                        artifacts <- if (!is.null(ann_rec)) tryCatch(ann_rec$artifacts, error = function(e) NULL) else NULL
+                        labels_col <- if (!is.null(artifacts)) as.character(artifacts$labels_col) else NULL
+                        score_col <- if (!is.null(artifacts)) as.character(artifacts$score_col) else NULL
+                        cd <- SummarizedExperiment::colData(result)
+                        lab_vec <- if (!is.null(labels_col) && labels_col %in% colnames(cd)) cd[[labels_col]] else NULL
+                        score_vec <- if (!is.null(score_col) && score_col %in% colnames(cd)) cd[[score_col]] else NULL
+                        idents <- if (!is.null(ActiveIdent(result))) as.character(Idents(result)) else NULL
+                        n_cells <- if (!is.null(idents)) length(idents) else ncol(result)
+                        idents_vec <- if (is.null(idents)) rep("group_0", n_cells) else {
+                            u <- unique(as.character(idents))
+                            map <- paste0("group_", seq_along(u))
+                            names(map) <- u
+                            as.character(map[as.character(idents)])
+                        }
+                        aggregate_values <- list(n_cells = as.integer(n_cells))
+                        if (!is.null(lab_vec)) {
+                            lab_vec_ch <- as.character(lab_vec)
+                            lab_vec_ch[!nzchar(lab_vec_ch) | is.na(lab_vec_ch)] <- "NA"
+                            tb <- table(lab_vec_ch, useNA = "no")
+                            top_n <- 15L
+                            ord <- order(as.integer(tb), decreasing = TRUE)
+                            top_labels <- names(tb)[utils::head(ord, top_n)]
+                            top_fractions <- round(as.integer(tb[top_labels]) / n_cells, 4L)
+                            aggregate_values$n_labels <- as.integer(length(tb))
+                            tl <- rep(NA_integer_, 15L)
+                            if (length(top_labels) > 0L) tl[seq_len(min(15L, length(top_labels)))] <- seq_len(min(15L, length(top_labels)))
+                            tf <- rep_len(NA_real_, 15L)
+                            if (length(top_fractions) > 0L) tf[seq_len(min(15L, length(top_fractions)))] <- top_fractions
+                            aggregate_values$n_top_labels <- as.integer(sum(!is.na(tl)))
+                            aggregate_values$top_label_ranks <- as.integer(tl)
+                            aggregate_values$top_label_fractions <- as.numeric(tf)
+                            if (!is.null(idents) && length(idents) == n_cells) {
+                                tb2 <- table(idents_vec, lab_vec_ch, useNA = "no")
+                                cluster_totals <- rowSums(tb2); cluster_totals[cluster_totals == 0L] <- NA_integer_
+                                prop <- as.data.frame(tb2 / cluster_totals[row(tb2)])
+                                colnames(prop) <- c("cluster", "label", "fraction")
+                                prop <- prop[prop$fraction > 0.05 & !is.na(prop$fraction), , drop = FALSE]
+                                prop <- prop[order(-prop$fraction), , drop = FALSE]
+                                keep_n <- 30L; prop <- utils::head(prop, keep_n)
+                                n_rows <- as.integer(nrow(prop))
+                                aggregate_values$cluster_summary_rows <- n_rows
+                                groups_idx <- integer(keep_n)
+                                fractions_vec <- numeric(keep_n)
+                                group_levels <- unique(idents_vec)
+                                idx_map <- seq_along(group_levels)
+                                names(idx_map) <- group_levels
+                                if (n_rows > 0L) {
+                                  ok_clusters <- as.character(prop$cluster[seq_len(n_rows)]) %in% names(idx_map)
+                                  groups_idx[seq_len(n_rows)] <- ifelse(ok_clusters, idx_map[as.character(prop$cluster[seq_len(n_rows)])], NA_integer_)
+                                  fractions_vec[seq_len(n_rows)] <- round(as.numeric(prop$fraction[seq_len(n_rows)]), 4L)
+                                }
+                                if (keep_n > n_rows) {
+                                  groups_idx[seq(n_rows + 1L, keep_n)] <- NA_integer_
+                                  fractions_vec[seq(n_rows + 1L, keep_n)] <- NA_real_
+                                }
+                                aggregate_values$cluster_summary_group_index <- as.integer(groups_idx)
+                                aggregate_values$cluster_summary_fractions <- as.numeric(fractions_vec)
+                            }
+                        }
+                        if (!is.null(score_vec)) {
+                            score_num <- as.numeric(score_vec)
+                            aggregate_values$mean_score <- round(mean(score_num, na.rm = TRUE), 4L)
+                            qs <- round(stats::quantile(score_num, c(0.25, 0.5, 0.75), na.rm = TRUE), 4L)
+                            aggregate_values$score_quantile_25 <- as.numeric(qs[[1L]])
+                            aggregate_values$score_quantile_50 <- as.numeric(qs[[2L]])
+                            aggregate_values$score_quantile_75 <- as.numeric(qs[[3L]])
+                        }
+                        aggregate_values$annotation_method_code <- 2L
+                        aggregate_values$annotation_scope_code <- 3L
+                        aggregate_values$raw_values_included <- FALSE
+                        evidence <- list(
+                            id = paste0("ev:annotation_", name),
+                            kind = "deterministic_summary",
+                            values = aggregate_values,
+                            claim_level = "consistent_with"
+                        )
+                        result <- tryCatch(RecordAIEvidence(
+                            result,
+                            evidence,
+                            source = name,
+                            parents = if (!is.null(ann_rec$id)) as.character(ann_rec$id) else character(),
+                            scope = NULL
+                        ), error = function(e) result)
+                    }
+                    result
+                },
+                input_schema = list(
+                    ref = list(type = "object", required = TRUE),
+                    labels = list(type = "object", required = TRUE),
+                    name = "character",
+                    layer = "character"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    ref_arg <- params$ref
+                    labels_arg <- params$labels
+                    if (missing(ref_arg) || is.null(ref_arg)) {
+                        return("reference_missing: annotation requires an explicit 'ref' parameter: either a celldex dataset name (e.g. HumanPrimaryCellAtlasData) or a SummarizedExperiment reference. Do not rely on the package default of HumanPrimaryCellAtlasData.")
+                    }
+                    ref_is_name <- is.character(ref_arg) && length(ref_arg) == 1L && nzchar(ref_arg)
+                    ref_is_object <- inherits(ref_arg, "SummarizedExperiment") ||
+                        (is.matrix(ref_arg) && !is.null(rownames(ref_arg)) && !is.null(colnames(ref_arg)))
+                    if (!ref_is_name && !ref_is_object) {
+                        return("reference_invalid: 'ref' must be either a single non-empty string naming a celldex dataset or a SummarizedExperiment/matrix with dimnames.")
+                    }
+                    if (missing(labels_arg) || is.null(labels_arg)) {
+                        return("labels_missing: annotation requires an explicit 'labels' parameter selecting which labels column of the reference to use (e.g. label.main, label.fine) or a vector of per-reference-sample labels.")
+                    }
+                    labels_is_name <- is.character(labels_arg) && length(labels_arg) == 1L && nzchar(labels_arg)
+                    labels_is_vec <- is.atomic(labels_arg) && length(labels_arg) > 0L &&
+                        (is.character(labels_arg) || is.factor(labels_arg))
+                    if (!labels_is_name && !labels_is_vec) {
+                        return("labels_invalid: 'labels' must be either a single non-empty string identifying a reference colData column or one label per reference sample (character or factor vector).")
+                    }
+                    if (labels_is_vec && ref_is_object) {
+                        ref_n <- if (is.matrix(ref_arg)) ncol(ref_arg) else ncol(ref_arg)
+                        if (length(labels_arg) != ref_n) {
+                            return(paste0("labels_mismatch: length(labels)=", length(labels_arg), " does not match ncol(ref)=", ref_n))
+                        }
+                    }
+                    real_req_ns <- base::requireNamespace
+                    if (!real_req_ns("SingleR", quietly = TRUE)) {
+                        return("optional_package_missing: SingleR is required for run_annotation; install via BiocManager::install('SingleR')")
+                    }
+                    if (ref_is_name && grepl("Data$", ref_arg) && !real_req_ns("celldex", quietly = TRUE)) {
+                        return(paste0("optional_package_missing: celldex is required to resolve ref='", ref_arg, "'; install via BiocManager::install('celldex')"))
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                requires_confirmation = TRUE,
+                output_schema = list(
+                    required_states = list(annotation = "any"),
+                    note = "Predicted labels are written into colData columns <name>_labels / <name>_pruned.labels and are NEVER used to overwrite Idents(object) or any existing cluster identity."
+                ),
+                mutates_object = TRUE,
+                allowed_state_types = c("annotation", "mapping", "ai_evidence"),
+                estimated_cost = "medium",
+                idempotent = FALSE
+            )
+        ))
+    }
+    if ("rare_cell" %in% include) {
+        actions <- c(actions, list(
+            run_doublet_detection = AIAction(
+                name = "run_doublet_detection",
+                description = "Score doublets with scDblFinder and store per-cell doublet class/score in colData.",
+                handler = function(object, params) {
+                    RunDoubletFinder(object)
+                },
+                input_schema = list(),
+                prerequisites = function(object, params, planned = NULL) {
+                    if (!"counts" %in% SummarizedExperiment::assayNames(object)) {
+                        return("counts_assay_missing: run_doublet_detection requires a 'counts' assay in the object")
+                    }
+                    if (!base::requireNamespace("scDblFinder", quietly = TRUE)) {
+                        return("optional_package_missing: scDblFinder is required for run_doublet_detection; install via BiocManager::install('scDblFinder')")
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                requires_confirmation = TRUE,
+                output_schema = list(
+                    required_states = list(preprocess = "any"),
+                    note = "Per-cell doublet calls are added to colData. No cell is removed or filtered by this action."
+                ),
+                mutates_object = TRUE,
+                allowed_state_types = c("preprocess"),
+                estimated_cost = "medium",
+                idempotent = FALSE
+            ),
+run_rare_cell_detection = AIAction(
+                name = "run_rare_cell_detection",
+                description = "Label density-based rare populations and register one bounded evidence node per small population, graded by the number of independent signals available.",
+                handler = function(object, params) {
+                    reduction <- params$reduction %||% "PCA"
+                    name <- params$name %||% "rareq"
+                    dims <- if (is.null(params$dims)) 1:20 else as.integer(unlist(params$dims, use.names = FALSE))
+                    rare_threshold <- params$rare_threshold %||% 10
+                    result <- RunRareCellDetection(
+                        object,
+                        method = "density",
+                        reduction = reduction,
+                        dims = dims,
+                        k = params$k %||% 20,
+                        q_threshold = params$q_threshold %||% 0.25,
+                        rare_threshold = rare_threshold,
+                        name = name
+                    )
+                    sclet_ai_record_rare_cell_evidence(result, name, rare_threshold)
+                },
+                input_schema = list(
+                    reduction = "character",
+                    dims = "integer_vector",
+                    k = "integer",
+                    q_threshold = "number",
+                    rare_threshold = "integer",
+                    name = "character"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    reduction <- params$reduction %||% "PCA"
+                    if (!is.character(reduction) || length(reduction) != 1L || !nzchar(reduction)) {
+                        return("reduction_invalid: 'reduction' must be a single non-empty reduction name")
+                    }
+                    available <- tryCatch(SingleCellExperiment::reducedDimNames(object), error = function(e) character())
+                    if (!reduction %in% available) {
+                        return(paste0(
+                            "reduction_missing: reduction '", reduction,
+                            "' is not available; run the dimensionality reduction first. Available reductions: ",
+                            paste(available, collapse = ", ")
+                        ))
+                    }
+                    if (!base::requireNamespace("BiocNeighbors", quietly = TRUE)) {
+                        return("optional_package_missing: BiocNeighbors is required for density-based rare-cell detection; install via BiocManager::install('BiocNeighbors')")
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                requires_confirmation = TRUE,
+                output_schema = list(
+                    required_states = list(rare_cells = "any"),
+                    note = paste(
+                        "Rare populations are only labeled (colData rare_cluster). No cell is removed, filtered or merged.",
+                        "Evidence claim_level is graded by the number of independent signals: zero signals records no",
+                        "evidence at all, one signal records 'associated' with low_confidence = TRUE, and two or more",
+                        "signals record 'consistent_with'. Cluster size alone never produces evidence."
+                    )
+                ),
+                mutates_object = TRUE,
+                allowed_state_types = c("rare_cells", "ai_evidence"),
+                estimated_cost = "medium",
+                idempotent = FALSE
+            )
+        ))
+    }
+    if ("trajectory" %in% include) {
+        actions <- c(actions, list(
+            run_trajectory = AIAction(
+                name = "run_trajectory",
+                description = "Infer a slingshot trajectory from an explicitly supplied start cluster and record a bounded aggregate evidence node.",
+                handler = function(object, params) {
+                    name <- params$name %||% "slingshot"
+                    result <- RunSlingshot(
+                        object,
+                        group = params$group,
+                        reduction = params$reduction %||% "UMAP",
+                        start_cluster = params$start_cluster,
+                        end_cluster = params$end_cluster,
+                        reverse = isTRUE(params$reverse),
+                        align_start = isTRUE(params$align_start),
+                        seed = params$seed %||% 2025,
+                        name = name
+                    )
+                    sclet_ai_record_trajectory_evidence(
+                        result,
+                        name = name,
+                        group = params$group,
+                        start_cluster = params$start_cluster,
+                        reduction = params$reduction %||% "UMAP"
+                    )
+                },
+                input_schema = list(
+                    group = list(type = "character", required = TRUE),
+                    start_cluster = list(type = "character", required = TRUE),
+                    reduction = "character",
+                    end_cluster = "character",
+                    reverse = "logical",
+                    align_start = "logical",
+                    seed = "integer",
+                    name = "character"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    start <- params$start_cluster
+                    if (is.null(start) || !is.character(start) || length(start) != 1L || !nzchar(trimws(start))) {
+                        return(paste0(
+                            "start_cluster_missing: trajectory root must be an explicit cluster label supplied by the user. ",
+                            "Do not rely on slingshot's automatic root selection: inspect the current cluster identities and ",
+                            "state which cluster represents the origin."
+                        ))
+                    }
+                    group <- params$group
+                    if (is.null(group) || !is.character(group) || length(group) != 1L || !nzchar(trimws(group))) {
+                        return("group_missing: run_trajectory requires an explicit 'group' naming the cluster column in colData")
+                    }
+                    columns <- colnames(SummarizedExperiment::colData(object))
+                    if (!group %in% columns) {
+                        return(paste0(
+                            "group_column_missing: cluster column '", group, "' is not present in colData. ",
+                            "Available columns: ", paste(columns, collapse = ", ")
+                        ))
+                    }
+                    idents <- tryCatch(Idents(object), error = function(e) NULL)
+                    has_idents <- !is.null(idents) && length(idents) == ncol(object)
+                    has_cluster_col <- has_idents ||
+                        any(c("cluster", "ident", "seurat_clusters") %in% columns)
+                    if (!has_cluster_col) {
+                        return("cluster_identity_missing: run FindClusters() or provide a cluster column before inferring a trajectory")
+                    }
+                    labels <- if (group %in% columns) {
+                        as.character(SummarizedExperiment::colData(object)[[group]])
+                    } else {
+                        as.character(idents)
+                    }
+                    if (!start %in% unique(stats::na.omit(labels))) {
+                        return(paste0(
+                            "start_cluster_unknown: start_cluster '", start,
+                            "' is not one of the current cluster identities in column '", group, "'"
+                        ))
+                    }
+                    reduction <- params$reduction %||% "UMAP"
+                    available <- tryCatch(SingleCellExperiment::reducedDimNames(object), error = function(e) character())
+                    if (!reduction %in% available) {
+                        return(paste0(
+                            "reduction_missing: reduction '", reduction,
+                            "' is not available; run the corresponding dimensionality reduction first. ",
+                            "Available reductions: ", paste(available, collapse = ", ")
+                        ))
+                    }
+                    if (!base::requireNamespace("slingshot", quietly = TRUE)) {
+                        return("optional_package_missing: slingshot is required for run_trajectory; install via BiocManager::install('slingshot')")
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                requires_confirmation = TRUE,
+                output_schema = list(
+                    required_states = list(trajectory = "any"),
+                    note = paste(
+                        "Pseudotime is a relative ordering computed from the supplied start_cluster and reduction;",
+                        "it is not absolute time. Cluster order is never interpreted as temporal order and no time-point",
+                        "labels are generated. No cluster identity is overwritten."
+                    )
+                ),
+                mutates_object = TRUE,
+                allowed_state_types = c("trajectory", "ai_evidence"),
+                estimated_cost = "medium",
+                idempotent = TRUE
+            )
+        ))
+    }
     AIExecutionRegistry(actions)
+}
+sclet_ai_record_trajectory_evidence <- function(object, name, group, start_cluster, reduction) {
+    record <- sclet_get_state_record(object, "trajectory", name)
+    if (is.null(record)) return(object)
+    groups <- as.character(SummarizedExperiment::colData(object)[[group]])
+    group_levels <- unique(stats::na.omit(groups))
+    n_groups <- length(group_levels)
+    start_index <- match(as.character(start_cluster), group_levels)
+    # Only the numeric per-lineage columns (slingPseudotime_1, slingPseudotime_2, ...)
+    # are summarized here. The plain "slingPseudotime" column is a per-cell
+    # data.frame and is deliberately never read into evidence.
+    pseudotime_columns <- grep("^slingPseudotime_[0-9]+$",
+        colnames(SummarizedExperiment::colData(object)), value = TRUE)
+    lineage_summaries <- list()
+    n_lineages <- as.integer(record$summary$n_lineages %||% 0L)
+    for (column in pseudotime_columns) {
+        values <- as.numeric(SummarizedExperiment::colData(object)[[column]])
+        values <- values[is.finite(values)]
+        if (!length(values)) next
+        quantiles <- round(unname(stats::quantile(values, c(0.25, 0.5, 0.75))), 4L)
+        lineage_summaries[[column]] <- list(
+            n_observed = as.integer(length(values)),
+            mean = round(mean(values), 4L),
+            quantile_25 = as.numeric(quantiles[[1L]]),
+            median = as.numeric(quantiles[[2L]]),
+            quantile_75 = as.numeric(quantiles[[3L]]),
+            max = round(max(values), 4L)
+        )
+    }
+    values <- list(
+        n_lineages = as.integer(n_lineages),
+        n_groups = as.integer(n_groups),
+        start_group_code = as.integer(start_index),
+        group_codes = paste0("cluster_", seq_len(n_groups)),
+        start_group = paste0("cluster_", start_index),
+        relative_ordering_only = TRUE,
+        pseudotime_is_absolute_time = FALSE,
+        raw_values_included = FALSE
+    )
+    if (length(lineage_summaries)) {
+        first <- lineage_summaries[[1L]]
+        values$n_summarized_lineages <- as.integer(length(lineage_summaries))
+        values$first_lineage_median <- first$median
+        values$first_lineage_iqr <- round(first$quantile_75 - first$quantile_25, 4L)
+        values$first_lineage_max <- first$max
+    }
+    evidence <- list(
+        id = paste0("ev:trajectory_", name),
+        kind = "deterministic_summary",
+        values = values,
+        claim_level = "consistent_with"
+    )
+    tryCatch(
+        RecordAIEvidence(object, evidence, source = name, parents = character(), scope = NULL),
+        error = function(e) object
+    )
+}
+
+sclet_ai_record_rare_cell_evidence <- function(object, name, rare_threshold) {
+    summary <- summarize_small_cluster_evidence(object, cluster = "rare_cluster", size_threshold = rare_threshold)
+    if (!identical(summary$status, "available") || !length(summary$clusters)) {
+        return(object)
+    }
+    notes <- character()
+    for (entry in summary$clusters) {
+        label <- entry$cluster
+        n_signals <- as.integer(entry$n_independent_signals_available)
+        if (n_signals < 1L) {
+            notes <- c(notes, paste0(
+                "no_evidence_recorded: population ", label, " (size ", entry$size,
+                ") has no independent signal available; cluster size alone cannot establish that this population is ",
+                "real. Run doublet detection, marker tests, or add sample metadata before making any claim."
+            ))
+            next
+        }
+        signal <- entry$independent_signals
+        values <- list(
+            population_label = label,
+            population_size = as.integer(entry$size),
+            population_fraction = as.numeric(entry$fraction_of_total),
+            n_independent_signals = n_signals,
+            qc_available = isTRUE(signal$qc$available),
+            doublet_available = isTRUE(signal$doublet$available),
+            marker_available = isTRUE(signal$marker$available),
+            sample_replication_available = isTRUE(signal$sample_replication$available),
+            low_confidence = n_signals < 2L,
+            raw_values_included = FALSE
+        )
+        if (isTRUE(signal$doublet$available)) {
+            values$doublet_fraction <- as.numeric(signal$doublet$doublet_fraction)
+            values$doublet_fraction_other_cells <- as.numeric(signal$doublet$doublet_fraction_other_cells)
+        }
+        if (isTRUE(signal$qc$available)) {
+            values$qc_metric_count <- as.integer(signal$qc$n_qc_metrics)
+            values$qc_max_eta_squared <- as.numeric(signal$qc$max_eta_squared)
+        }
+        if (isTRUE(signal$sample_replication$available)) {
+            values$replicated_across_groups <- isTRUE(signal$sample_replication$present_in_multiple_samples)
+            values$group_presence_count <- as.integer(signal$sample_replication$n_samples_present)
+        }
+        if (isTRUE(signal$marker$available)) {
+            values$marker_evidence_present <- TRUE
+        }
+        evidence <- list(
+            id = paste0("ev:rare_", name, "_", label),
+            kind = "deterministic_summary",
+            values = values,
+            claim_level = if (n_signals >= 2L) "consistent_with" else "associated"
+        )
+        object <- tryCatch(
+            RecordAIEvidence(object, evidence, source = name, parents = character(), scope = NULL),
+            error = function(e) object
+        )
+    }
+    if (length(notes)) {
+        attr(object, "sclet_ai_note") <- notes
+    }
+    object
 }
 
 #' Build an allowlisted AI execution registry
@@ -556,8 +1237,18 @@ sclet_ai_action_output_problems <- function(object, descriptor) {
         for (type in names(schema$required_states)) {
             expected <- as.character(schema$required_states[[type]])
             records <- tryCatch(sclet_get_state_records(object, type), error = function(e) list())
-            missing <- setdiff(expected, names(records))
-            if (length(missing)) problems <- c(problems, paste0("missing output state(s) for ", type, ": ", paste(missing, collapse = ", ")))
+            if (identical(expected, "any")) {
+                if (!length(records)) {
+                    problems <- c(problems, paste0("missing output state(s) for ", type, ": any"))
+                }
+            } else if (identical(expected, "any_qualified")) {
+                if (!length(records)) {
+                    problems <- c(problems, paste0("missing output state(s) for ", type, ": any_qualified"))
+                }
+            } else {
+                missing <- setdiff(expected, names(records))
+                if (length(missing)) problems <- c(problems, paste0("missing output state(s) for ", type, ": ", paste(missing, collapse = ", ")))
+            }
         }
     }
     unique(problems)
@@ -666,6 +1357,7 @@ ExecuteAIPlan <- function(
     if (!inherits(registry, "sclet_ai_execution_registry")) {
         registry <- AIExecutionRegistry(registry)
     }
+    plan$actions <- sclet_ai_normalize_plan_actions(plan$actions %||% list())
     if (is.null(validation)) {
         validation <- ValidateAIPlan(plan, object = object, registry = registry, strict = TRUE)
     } else {

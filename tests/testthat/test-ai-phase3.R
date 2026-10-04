@@ -286,6 +286,22 @@ test_that("RunAIPlan provides the validate-and-dry-run workflow", {
     expect_true(isTRUE(result$dry_run))
 })
 
+
+test_that("compatible raw plan lists are normalized before execution", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, nrow = 2, ncol = 2)))
+    registry <- AIDefaultExecutionRegistry(sce)
+    plan <- list(
+        plan_id = "raw_compatible_plan",
+        task = "raw_compatible_plan",
+        context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+        actions = list(list(id = "status", action = "inspect_status"))
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+    expect_true(isTRUE(validation$valid))
+    executed <- ExecuteAIPlan(sce, plan, registry, validation = validation, dry_run = FALSE)
+    expect_equal(executed$status, "completed")
+})
+
 test_that("idempotent actions support bounded retry and continue-on-error isolation", {
     sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, nrow = 2, ncol = 2)))
     attempts <- 0L

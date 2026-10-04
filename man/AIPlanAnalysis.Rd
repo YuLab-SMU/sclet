@@ -6,6 +6,7 @@
 \usage{
 AIPlanAnalysis(
   object,
+  goal = NULL,
   model = NULL,
   structured_output = TRUE,
   fallback_on_structure_error = TRUE,
@@ -14,6 +15,8 @@ AIPlanAnalysis(
 }
 \arguments{
 \item{object}{A \code{SingleCellExperiment} object.}
+
+\item{goal}{Optional natural-language user goal to include in the planning context.}
 
 \item{model}{Optional aisdk model.}
 
