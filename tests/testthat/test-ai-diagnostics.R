@@ -89,29 +89,116 @@ test_that("summarize_small_cluster_evidence reports qc deviation without judging
     expect_false(any(c("real", "noise", "verdict", "is_rare") %in% names(result)))
 })
 
-test_that("FindAllMarkers output counts as marker evidence for rare clusters", {
-    # regression: a FindAllMarkers run covers every cluster, but its state record
-    # stores only the active-ident column name (not per-cluster labels) and no
-    # n_groups in its summary, so label matching alone misses it entirely.
+sclet_ai_diag_rare_fixture <- function() {
     set.seed(1)
-    sce <- SingleCellExperiment::SingleCellExperiment(
-        list(counts = matrix(rpois(50 * 40, lambda = 5), nrow = 50L, ncol = 40L,
-            dimnames = list(paste0("gene_", seq_len(50L)), paste0("c", seq_len(40L)))))
-    )
+    counts <- matrix(rpois(50 * 40, lambda = 5), nrow = 50L, ncol = 40L,
+        dimnames = list(paste0("gene_", seq_len(50L)), paste0("c", seq_len(40L))))
+    counts[1:5, 1:6] <- counts[1:5, 1:6] + 60
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = counts))
     sce <- NormalizeData(sce)
     sce <- FindVariableFeatures(sce, nfeatures = 30L)
-    sce <- RunPCA(sce, ncomponents = 10L)
+    RunPCA(sce, ncomponents = 10L)
+}
+
+sclet_ai_diag_marker_credited <- function(summary) {
+    vapply(summary$clusters, function(entry) isTRUE(entry$independent_signals$marker$available), logical(1L))
+}
+
+test_that("an all-cluster marker run credits populations individually, not object-wide", {
+    skip_if_not_installed("BiocNeighbors")
+    # regression: a FindAllMarkers run stores no per-cluster labels in its state
+    # record, so it used to credit every population on the object at once
+    sce <- sclet_ai_diag_rare_fixture()
     sce <- FindNeighbors(sce, dims = seq_len(5L), reduction = "PCA")
     sce <- FindClusters(sce, resolution = 1.2)
     sce <- RunDEtest(sce, name = "all_markers")
 
     rare <- RunRareCellDetection(sce, name = "rareX", k = 5, dims = 1:3, rare_threshold = 1000)
     summary <- sclet:::summarize_small_cluster_evidence(rare, cluster = "rare_cluster", size_threshold = 1000)
+    credited <- sclet_ai_diag_marker_credited(summary)
+
     expect_equal(summary$status, "available")
-    marker <- summary$clusters[[1L]]$independent_signals$marker
-    expect_true(marker$available)
-    expect_true(marker$cluster_covered_by_marker_analysis)
-    expect_equal(marker$n_marker_records, 1L)
+    expect_gt(summary$n_small_clusters, 2L)
+    expect_lt(sum(credited), length(credited))
+    expect_gt(sum(credited), 0L)
+    # the object really does hold one marker record; credit is still per population
+    expect_equal(summary$clusters[[1L]]$independent_signals$marker$n_marker_records, 1L)
+    for (index in which(credited)) {
+        expect_true(summary$clusters[[index]]$independent_signals$marker$cluster_covered_by_marker_analysis)
+        expect_gte(summary$clusters[[index]]$independent_signals$marker$n_significant_up_genes, 1L)
+    }
+    for (index in which(!credited)) {
+        expect_equal(summary$clusters[[index]]$independent_signals$marker$reason,
+            "no_marker_evidence_attributable_to_population")
+    }
+})
+
+test_that("marker credit needs significant up genes attributable to the population", {
+    skip_if_not_installed("BiocNeighbors")
+    sce <- sclet_ai_diag_rare_fixture()
+    sce <- RunRareCellDetection(sce, name = "rareB", k = 5, dims = 1:3, rare_threshold = 1000)
+    ActiveIdent(sce) <- "rare_cluster"
+    sce <- RunDEtest(sce, name = "rare_markers")
+
+    # noise data with no marker passing the default adjusted-p-value cutoff
+    strict <- sclet:::summarize_small_cluster_evidence(sce, cluster = "rare_cluster", size_threshold = 1000)
+    expect_identical(sum(sclet_ai_diag_marker_credited(strict)), 0L)
+    expect_identical(sum(vapply(strict$clusters, function(entry) entry$n_independent_signals_available,
+        integer(1L))), 0L)
+
+    # relaxing the cutoff to a level no real claim would use shows that exactly the
+    # populations whose own group passes are the ones credited
+    loose <- sclet:::summarize_small_cluster_evidence(sce, cluster = "rare_cluster",
+        size_threshold = 1000, pvalue_cutoff = 0.5)
+    credited <- sclet_ai_diag_marker_credited(loose)
+    expect_identical(sum(credited), 1L)
+    expect_gte(loose$clusters[[which(credited)[1L]]]$independent_signals$marker$n_significant_up_genes, 1L)
+
+    expect_error(sclet:::summarize_small_cluster_evidence(sce, cluster = "rare_cluster", pvalue_cutoff = 5))
+    expect_error(sclet:::summarize_small_cluster_evidence(sce, cluster = "rare_cluster", min_up_genes = 0L))
+})
+
+test_that("uninformative signals are not counted as independent evidence", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        assays = list(counts = matrix(1, 6L, 8L)),
+        colData = S4Vectors::DataFrame(
+            cluster = c("c1", "c1", rep("c2", 6L)),
+            const_value = rep(7, 8L),
+            all_missing = rep(NA_real_, 8L),
+            scDblFinder.class = rep(NA_character_, 8L),
+            sample_id = rep("sample_a", 8L)
+        )
+    )
+    result <- sclet:::summarize_small_cluster_evidence(sce, "cluster", size_threshold = 2L)
+    signals <- result$independent_signals
+    expect_equal(result$n_independent_signals_available, 0L)
+    expect_false(isTRUE(signals$qc$available))
+    expect_equal(signals$qc$reason, "no_informative_qc_columns")
+    expect_equal(signals$qc$n_qc_columns_screened, 2L)
+    expect_false(isTRUE(signals$doublet$available))
+    expect_equal(signals$doublet$reason, "scDblFinder_calls_missing_for_population_or_rest")
+    expect_false(isTRUE(signals$sample_replication$available))
+    expect_equal(signals$sample_replication$reason, "fewer_than_two_samples")
+    expect_false(isTRUE(signals$marker$available))
+    expect_equal(signals$marker$reason, "no_marker_evidence_attributable_to_population")
+    expect_false(any(c("real", "noise", "verdict", "is_rare") %in% names(result)))
+})
+
+test_that("cells without a sample label are not counted as an extra sample group", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        assays = list(counts = matrix(1, 6L, 8L)),
+        colData = S4Vectors::DataFrame(
+            cluster = c("c1", "c1", rep("c2", 6L)),
+            sample_id = c("s1", NA, "s2", "s2", "s1", "s2", "s1", "s2")
+        )
+    )
+    result <- sclet:::summarize_small_cluster_evidence(sce, "cluster", size_threshold = 2L)
+    replication <- result$independent_signals$sample_replication
+    expect_true(replication$available)
+    expect_equal(replication$n_samples_total, 2L)
+    expect_equal(replication$n_samples_present, 1L)
+    expect_equal(replication$n_cells_unlabeled, 1L)
+    expect_false(isTRUE(replication$present_in_multiple_samples))
 })
 
 test_that("summarize_small_cluster_evidence returns not_available without cluster information", {

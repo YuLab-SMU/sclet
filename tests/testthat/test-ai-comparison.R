@@ -100,3 +100,90 @@ test_that("CompareAIAnalyses normalizes missing metrics to not_available", {
     expect_identical(m$uncertainty$status, "not_available")
     expect_true(is.na(m$value))
 })
+
+sclet_ai_test_rare_comparison_state <- function(object, id) {
+    sclet:::sclet_set_analysis_state(
+        object, type = "rare_cells", id = id, method = "density",
+        inputs = list(reduction = "PCA", dims = 1:3),
+        summary = list(status = "completed", n_rare_clusters = 2L)
+    )
+}
+
+sclet_ai_test_rare_comparison_node <- function(object, source, label, size,
+                                                signals, claim_level = "associated",
+                                                low_confidence = TRUE) {
+    RecordAIEvidence(
+        object,
+        list(
+            id = paste0("ev:rare_", source, "_", label),
+            kind = "deterministic_summary",
+            values = list(
+                population_label = label,
+                population_size = as.integer(size),
+                population_fraction = size / 100,
+                n_independent_signals = as.integer(signals),
+                low_confidence = isTRUE(low_confidence),
+                raw_values_included = FALSE
+            ),
+            claim_level = claim_level
+        ),
+        source = source
+    )
+}
+
+test_that("compare_rare_cell_evidence handles missing and single-run evidence", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 2L, 4L)))
+    empty <- compare_rare_cell_evidence(sce)
+    expect_equal(empty$status, "not_available")
+    expect_equal(empty$reason, "no_rare_cell_evidence_records")
+
+    sce <- sclet_ai_test_rare_comparison_state(sce, "rare_a")
+    sce <- sclet_ai_test_rare_comparison_node(sce, "rare_a", "cluster_1", 3L, 1L)
+    single <- compare_rare_cell_evidence(sce)
+    expect_equal(single$status, "not_available")
+    expect_equal(single$reason, "at_least_two_completed_rare_cell_runs_required")
+    expect_equal(single$n_runs, 1L)
+})
+
+test_that("compare_rare_cell_evidence compares runs without inflating same-run support", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 2L, 4L)))
+    sce <- sclet_ai_test_rare_comparison_state(sce, "rare_a")
+    sce <- sclet_ai_test_rare_comparison_state(sce, "rare_b")
+    sce <- sclet_ai_test_rare_comparison_node(sce, "rare_a", "cluster_1", 3L, 1L)
+    sce <- sclet_ai_test_rare_comparison_node(sce, "rare_a", "cluster_2", 2L, 2L,
+        claim_level = "consistent_with", low_confidence = FALSE)
+    sce <- sclet_ai_test_rare_comparison_node(sce, "rare_b", "cluster_1", 4L, 2L,
+        claim_level = "consistent_with", low_confidence = FALSE)
+    sce <- sclet_ai_test_rare_comparison_node(sce, "rare_b", "cluster_3", 1L, 1L)
+
+    result <- compare_rare_cell_evidence(sce)
+    expect_equal(result$status, "available")
+    expect_equal(result$n_runs, 2L)
+    expect_equal(result$n_populations, 3L)
+    expect_equal(result$n_recurring_populations, 1L)
+    expect_equal(result$matching$method, "same_recorded_population_label")
+    expect_false(result$matching$cell_level_overlap_available)
+    expect_equal(result$independence$n_support_lines, 2L)
+    expect_true(result$independence$populations_within_one_run_are_not_independent)
+    expect_equal(result$populations$cluster_1$run_count, 2L)
+    expect_true(result$populations$cluster_1$recurring)
+    expect_setequal(result$populations$cluster_1$runs_present, c("run_1", "run_2"))
+    expect_equal(result$runs$run_1$n_populations, 2L)
+    expect_equal(result$runs$run_2$n_populations, 2L)
+    expect_false(result$raw_values_included)
+    expect_null(result$recommendation)
+    expect_false(grepl("rare_a|rare_b", paste(utils::capture.output(str(result)), collapse = " ")))
+})
+
+test_that("compare_rare_cell_evidence can restrict completed runs", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 2L, 4L)))
+    sce <- sclet_ai_test_rare_comparison_state(sce, "rare_a")
+    sce <- sclet_ai_test_rare_comparison_state(sce, "rare_b")
+    sce <- sclet_ai_test_rare_comparison_node(sce, "rare_a", "cluster_1", 3L, 1L)
+    sce <- sclet_ai_test_rare_comparison_node(sce, "rare_b", "cluster_1", 4L, 2L,
+        claim_level = "consistent_with", low_confidence = FALSE)
+    result <- compare_rare_cell_evidence(sce, ids = c("rare_b", "missing"))
+    expect_equal(result$status, "not_available")
+    expect_equal(result$n_runs, 1L)
+    expect_error(compare_rare_cell_evidence(sce, ids = 1), "ids must be")
+})

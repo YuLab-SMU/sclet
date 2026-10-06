@@ -861,7 +861,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 estimated_cost = "medium",
                 idempotent = FALSE
             ),
-run_rare_cell_detection = AIAction(
+            run_rare_cell_detection = AIAction(
                 name = "run_rare_cell_detection",
                 description = "Label density-based rare populations and register one bounded evidence node per small population, graded by the number of independent signals available.",
                 handler = function(object, params) {
@@ -915,7 +915,10 @@ run_rare_cell_detection = AIAction(
                         "Rare populations are only labeled (colData rare_cluster). No cell is removed, filtered or merged.",
                         "Evidence claim_level is graded by the number of independent signals: zero signals records no",
                         "evidence at all, one signal records 'associated' with low_confidence = TRUE, and two or more",
-                        "signals record 'consistent_with'. Cluster size alone never produces evidence."
+                        "signals record 'consistent_with'. A signal counts only when it is informative for that",
+                        "population: markers must be attributable to the population itself, QC columns must vary and be",
+                        "observed on both sides, doublet calls must cover the population and the rest, and sample",
+                        "replication needs at least two sample labels. Cluster size alone never produces evidence."
                     )
                 ),
                 mutates_object = TRUE,
@@ -1133,6 +1136,7 @@ sclet_ai_record_rare_cell_evidence <- function(object, name, rare_threshold) {
         }
         if (isTRUE(signal$marker$available)) {
             values$marker_evidence_present <- TRUE
+            values$marker_up_gene_count <- as.integer(signal$marker$n_significant_up_genes %||% 0L)
         }
         evidence <- list(
             id = paste0("ev:rare_", name, "_", label),
@@ -1140,10 +1144,18 @@ sclet_ai_record_rare_cell_evidence <- function(object, name, rare_threshold) {
             values = values,
             claim_level = if (n_signals >= 2L) "consistent_with" else "associated"
         )
-        object <- tryCatch(
+        recorded <- tryCatch(
             RecordAIEvidence(object, evidence, source = name, parents = character(), scope = NULL),
-            error = function(e) object
+            error = function(e) e
         )
+        if (inherits(recorded, "error")) {
+            notes <- c(notes, paste0(
+                "evidence_record_failed: population ", label, " was not registered as evidence (",
+                base::conditionMessage(recorded), "); no claim was recorded for it."
+            ))
+        } else {
+            object <- recorded
+        }
     }
     if (length(notes)) {
         attr(object, "sclet_ai_note") <- notes

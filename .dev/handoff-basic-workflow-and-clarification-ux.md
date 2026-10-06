@@ -11,7 +11,7 @@
 
 这是 Spec 里"还需要建设"清单的第 2、3 项，都属于**用户体验层**的工作，不涉及新的安全边界：
 
-1. **`RunBasicWorkflow()`**：新手友好的基础流程 facade，纯确定性 R workflow，不需要 AI 参与决策。之前一直是"拟议接口"没人实现。
+1. **`RunBasicWorkflow()`**：新手友好的基础流程 facade，纯确定性 R workflow，不需要 AI 参与决策。它此前是拟议接口，现已实现。
 2. **结构化 clarification UX**：现在 `RunAIAnalysis()`/`AIInvestigate()` 遇到"design 语义未确认"这类情况时，只是把校验错误的原始字符串（比如 `"design_semantics_not_confirmed: call ConfirmAIDesignSemantics(...)"`）原样抛给用户，不够结构化、不够友好，而且**用户回答后的确认动作不会被记录成 evidence**——Spec 第 10.5 节写了"用户回答要作为 `user_decision` evidence 写回 ledger"，这一步现在完全没做。
 
 两者都是纯粹的"包装/呈现"工作，风险很低，适合一起做。**关键约束是：不要重新实现或修改任何 action 的 `prerequisites`、任何 `check_*_readiness()` 的判定逻辑、任何 `ConfirmAIDesignSemantics()`/`RecordAIEvidence()` 的校验规则**——这些都已经过审核，本任务只是在它们之上加一层更好的呈现和记录。
@@ -243,15 +243,19 @@ make check
 
 ## 5. 交付物
 
-- [ ] `RunBasicWorkflow()` 新函数（放在 `R/` 下合适的文件，比如新建 `R/basic-workflow.R`，同步更新 `DESCRIPTION` 的 `Collate:`）
-- [ ] `sclet_ai_format_clarification()`、`sclet_ai_record_clarification_response()`（放在 `R/ai-functions.R`）
-- [ ] `RunAIAnalysis()` 的 `report` 字段接入 clarification 结构
-- [ ] 对应的手写 `man/RunBasicWorkflow.Rd`（这个函数要 export）
-- [ ] `NAMESPACE` 新增 `export(RunBasicWorkflow)`（`sclet_ai_format_clarification`/`sclet_ai_record_clarification_response` 是否需要 export，参考包内命名习惯——加了 `sclet_` 前缀的通常是内部函数，不导出，但如果你觉得用户应该能直接调用第二个函数去手动记录确认历史，可以导出，在报告里说明理由）
-- [ ] `NEWS.md` 顶部加一条本阶段条目
-- [ ] `.dev/ai-advanced-analysis-spec.md` 更新：`RunBasicWorkflow()` 从"拟议接口，尚未实现"改为已实现；第 10.5 节补充说明 clarification 现在有了结构化呈现层和 evidence 记录机制
-- [ ] §2.4/§3.5 的测试全部添加并通过（§3.5 最后一条回归测试尤其重要）
-- [ ] 最终报告：贴出 §4 四条命令的真实输出
+- [x] `RunBasicWorkflow()` 新函数（放在 `R/` 下合适的文件，比如新建 `R/basic-workflow.R`，同步更新 `DESCRIPTION` 的 `Collate:`）
+- [x] `sclet_ai_format_clarification()`、`sclet_ai_record_clarification_response()`（放在 `R/ai-functions.R`）
+- [x] `RunAIAnalysis()` 的 `report` 字段接入 clarification 结构
+- [x] 对应的手写 `man/RunBasicWorkflow.Rd`（这个函数要 export）
+- [x] `NAMESPACE` 新增 `export(RunBasicWorkflow)`（`sclet_ai_format_clarification`/`sclet_ai_record_clarification_response` 是否需要 export，参考包内命名习惯——加了 `sclet_` 前缀的通常是内部函数，不导出，但如果你觉得用户应该能直接调用第二个函数去手动记录确认历史，可以导出，在报告里说明理由）
+- [x] `NEWS.md` 顶部加一条本阶段条目
+- [x] `.dev/ai-advanced-analysis-spec.md` 更新：`RunBasicWorkflow()` 从"拟议接口，尚未实现"改为已实现；第 10.5 节补充说明 clarification 现在有了结构化呈现层和 evidence 记录机制
+- [x] §2.4/§3.5 的测试全部添加并通过（§3.5 最后一条回归测试尤其重要）
+- [x] 最终报告：贴出 §4 四条命令的真实输出
+
+## Status synchronization (2026-10-06)
+
+The implementation, tests, documentation, and exports are present in the current `devel` checkout. The shared verification baseline is `[ FAIL 0 | WARN 0 | SKIP 1 | PASS 1000 ]` for the focused AI tests and `0 errors | 0 warnings | 0 notes` for `make check`. `ResolveAIClarifications()` is also implemented as an additional clarification loop; the `sclet_*` helpers remain internal by naming convention.
 
 ## 6. 不要做的事
 

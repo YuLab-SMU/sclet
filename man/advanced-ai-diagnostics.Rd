@@ -26,7 +26,7 @@ check_annotation_readiness(object, design = NULL)
 check_rare_cell_readiness(object, cluster = NULL)
 
 summarize_small_cluster_evidence(object, cluster = NULL, size_threshold = 10L,
-  label = NULL)
+  label = NULL, pvalue_cutoff = 0.05, logfc_threshold = 0.1, min_up_genes = 1L)
 
 check_trajectory_readiness(object, reduction = NULL)
 
@@ -47,6 +47,13 @@ reference, labels, and group column names used by readiness checks.}
 \item{size_threshold}{Maximum number of cells for a population to be
 considered small.}
 \item{label}{Optional single cluster label to summarize.}
+\item{pvalue_cutoff}{Significance cutoff a marker must pass to be counted as an
+independent signal. The adjusted p-value is used when the recorded differential
+expression table provides one, otherwise the raw p-value.}
+\item{logfc_threshold}{Minimum positive fold change for a marker to count as up
+in the population.}
+\item{min_up_genes}{Number of significant up genes required before the marker
+signal is considered informative.}
 \item{n_dims}{Number of leading embedding dimensions to summarize.}
 }
 \value{
@@ -72,6 +79,11 @@ cluster order as time.
 \code{summarize_small_cluster_evidence()} aggregates the already computed
 signals bearing on a small population (QC columns, doublet calls, recorded
 marker/annotation analyses, sample or batch composition) and reports how many
-independent signal classes are available. It deliberately returns no verdict
-about whether a population is real or noise.
+independent signal classes are available. A class counts only when it is
+informative for that population rather than merely present on the object:
+markers must be attributable to the population itself, a QC column must vary and
+be observed on both sides, doublet calls must cover both the population and the
+rest, and sample replication needs at least two sample labels, with unlabeled
+cells ignored. It deliberately returns no verdict about whether a population is
+real or noise.
 }

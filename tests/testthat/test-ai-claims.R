@@ -268,6 +268,11 @@ test_that("evidence from a real two-source pipeline yields two independent lines
     set.seed(1)
     sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(rpois(50 * 40, 5),
         nrow = 50L, ncol = 40L, dimnames = list(paste0("g", seq_len(50L)), paste0("c", seq_len(40L))))))
+    # a population is only recorded when a signal is informative for it, so give every
+    # population two real signals (doublet calls plus two samples) to keep enough nodes
+    # from this one run for the collapse assertion below to mean something
+    SummarizedExperiment::colData(sce)$scDblFinder.class <- rep(c("singlet", "doublet"), length.out = ncol(sce))
+    SummarizedExperiment::colData(sce)$sample_id <- rep(c("sample_a", "sample_b"), length.out = ncol(sce))
     sce <- NormalizeData(sce)
     sce <- FindVariableFeatures(sce, nfeatures = 30L)
     sce <- RunPCA(sce, ncomponents = 10L)

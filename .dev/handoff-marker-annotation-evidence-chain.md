@@ -212,15 +212,19 @@ make check
 
 ## 6. 交付物
 
-- [ ] `R/ai-diagnostics.R` 新增 `check_annotation_readiness()`
-- [ ] `R/ai-execution.R` 新增 `annotation` group、`run_de_test`、`run_annotation` 两个 action
-- [ ] 对应的手写 `man/*.Rd`（新增导出符号都要有文档）
-- [ ] `NAMESPACE` 新增 export（不要有重复行）
-- [ ] `DESCRIPTION` 的 `Collate:` 如果新增了文件要同步
-- [ ] `NEWS.md` 顶部加一条本阶段条目
-- [ ] `.dev/ai-advanced-analysis-spec.md` 更新：把"marker / DE / annotation evidence chain"从"未实现"移到"已实现"，并简述做了什么、还差什么
-- [ ] §4 的测试全部添加并通过
-- [ ] 最终报告：贴出 §5 四条命令的真实输出
+- [x] `R/ai-diagnostics.R` 新增 `check_annotation_readiness()`
+- [x] `R/ai-execution.R` 新增 `annotation` group、`run_de_test`、`run_annotation` 两个 action
+- [x] 对应的手写 `man/*.Rd`（新增导出符号都要有文档）
+- [x] `NAMESPACE` 新增 export（不要有重复行）
+- [x] `DESCRIPTION` 的 `Collate:` 如果新增了文件要同步
+- [x] `NEWS.md` 顶部加一条本阶段条目
+- [x] `.dev/ai-advanced-analysis-spec.md` 更新：把"marker / DE / annotation evidence chain"从"未实现"移到"已实现"，并简述做了什么、还差什么
+- [x] §4 的测试全部添加并通过
+- [x] 最终报告：贴出 §5 四条命令的真实输出
+
+## Status synchronization (2026-10-06)
+
+The implementation, tests, documentation, and exports are present in the current `devel` checkout. The shared verification baseline is `[ FAIL 0 | WARN 0 | SKIP 1 | PASS 1000 ]` for the focused AI tests and `0 errors | 0 warnings | 0 notes` for `make check`. The marker/DE/annotation handoff is closed. DE evidence is intentionally aggregate and stricter than the original proposal; it does not store gene names or per-cell labels.
 
 ## 7. 不要做的事
 

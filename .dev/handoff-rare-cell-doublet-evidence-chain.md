@@ -248,16 +248,47 @@ make check
 
 ## 6. 交付物
 
-- [ ] `R/ai-diagnostics.R` 新增 `check_rare_cell_readiness()`、`summarize_small_cluster_evidence()`
-- [ ] `R/ai-execution.R` 新增 `rare_cell` group、`run_doublet_detection`、`run_rare_cell_detection` 两个 action
-- [ ] 对应的手写 `man/*.Rd`
-- [ ] `NAMESPACE` 新增 export（不要有重复行；两个新 action 名不需要单独 export，参考 `run_integration`/`run_annotation` 的先例，只 export 诊断函数）
-- [ ] `DESCRIPTION` 的 `Collate:` 如有新文件要同步（本轮如果只改现有的 `R/ai-diagnostics.R`/`R/ai-execution.R`，不需要新增条目）
-- [ ] `NEWS.md` 顶部加一条本阶段条目
-- [ ] `.dev/ai-advanced-analysis-spec.md` 更新：把"rare-cell / doublet diagnosis"从"还需要建设"清单里移除，在状态行和"重要状态说明"里加上做了什么、还差什么（比如"decontX 未纳入独立信号"这类范围说明）
-- [ ] §4 的测试全部添加并通过
-- [ ] 最终报告：贴出 §5 四条命令的真实输出
-- [ ] 确认没有在仓库里留下你自己验证用的临时脚本文件
+- [x] `R/ai-diagnostics.R` 新增 `check_rare_cell_readiness()`、`summarize_small_cluster_evidence()`
+- [x] `R/ai-execution.R` 新增 `rare_cell` group、`run_doublet_detection`、`run_rare_cell_detection` 两个 action
+- [x] 对应的手写 `man/*.Rd`
+- [x] `NAMESPACE` 新增/保留诊断函数 export（无重复行；两个新 action 名不单独 export）
+- [x] `DESCRIPTION` 的 `Collate:` 无需修改（本轮只改现有 R 文件）
+- [x] `NEWS.md` 顶部加一条本阶段条目
+- [x] `.dev/ai-advanced-analysis-spec.md` 已同步：rare-cell/doublet 第一批已实现，decontX 独立信号与多路线比较仍在范围外
+- [x] §4 的测试全部添加并通过
+- [x] 最终报告：见下方 §6.1
+- [x] 已确认没有在仓库里留下验证用临时脚本文件
+
+### 6.1 最终验收报告（2026-10-06）
+
+执行目录：`/home/wang/data/source/omics/sclet`，分支：`devel`。
+
+ASCII 检查：通过，`R/ai-*.R` 无非 ASCII 字符。
+
+```text
+git diff --check
+# 无输出，退出码 0
+```
+
+```text
+Rscript -e 'devtools::test(filter = "ai-", reporter = "progress")'
+
+[ FAIL 0 | WARN 0 | SKIP 1 | PASS 1000 ]
+```
+
+唯一 skip 是在线 provider 测试，原因是未设置 `SCLET_RUN_ONLINE_TESTS=true`；没有失败或警告。
+
+```text
+make check
+
+0 errors | 0 warnings | 0 notes
+```
+
+本批范围确认：`summarize_small_cluster_evidence()` 只聚合 QC/doublet/marker/sample replication 四类已有信号；decontX 不作为本批独立证据信号；0/1/2+ 信号分别对应不登记 evidence、`associated + low_confidence`、`consistent_with`；rare-cell actions 只标注，不删除、过滤或合并细胞。只读的 `compare_rare_cell_evidence()` 已在后续步骤实现；decontX 独立证据及删除/合并 action仍留作后续范围。
+
+### 6.2 后续只读比较扩展
+
+`compare_rare_cell_evidence()` 已加入 `R/ai-comparison.R`，只读取多个已完成 rare-cell run 的聚合 evidence，按同一对象内记录的 population label 做 recurrence summary。返回匿名化的 `run_N`/`cluster_N`、群体大小与信号摘要，明确标记不能推断细胞级重叠或生物学身份；不创建新 evidence、不修改对象、不自动推荐路线。新增 comparison 测试通过：`[ FAIL 0 | WARN 0 | SKIP 0 | PASS 41 ]`。
 
 ## 7. 不要做的事
 

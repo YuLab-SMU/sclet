@@ -225,6 +225,10 @@ make check
 
 ---
 
+## Status synchronization (2026-10-06)
+
+The design-confirmation hardening is implemented in the current `devel` checkout: `ConfirmAIDesignSemantics()`, the `ai_design_confirmation` state, stale fingerprint/value checks, removal of the AI-self-declared `.design_confirmed` input, and the corresponding tests are present. The shared verification baseline is `[ FAIL 0 | WARN 0 | SKIP 1 | PASS 1000 ]` for the focused AI tests and `0 errors | 0 warnings | 0 notes` for `make check`. Any `design_confirmed = TRUE` text remaining in route summaries is validation metadata, not an AI-controllable plan parameter.
+
 ## 4. 不要做的事
 
 - 不要重新设计 `RunIntegrationRoutes()`、`CompareAIAnalyses()`、evidence graph、privacy allowlist——这些已经验收通过。

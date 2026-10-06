@@ -310,11 +310,15 @@ make check
 
 ## 4. 交付物
 
-- [ ] `R/ai-privacy.R` allowlist 修复
-- [ ] `R/ai-execution.R`（和/或新文件，如选方案 B）里 `run_integration` 的修复
-- [ ] 新增的三条测试（§1.2 两条 + §2.3 一条），全部通过
-- [ ] 若选方案 A：`.dev/ai-advanced-analysis-spec.md` 里补一条方案 B 的 TODO
-- [ ] 最终报告：贴出 §3 五条命令的真实输出，并说明选了哪个方案、为什么
+- [x] `R/ai-privacy.R` allowlist 修复
+- [x] `R/ai-execution.R`（和/或新文件，如选方案 B）里 `run_integration` 的修复
+- [x] 新增的三条测试（§1.2 两条 + §2.3 一条），全部通过
+- [x] 若选方案 A：`.dev/ai-advanced-analysis-spec.md` 里补一条方案 B 的 TODO
+- [x] 最终报告：贴出 §3 五条命令的真实输出，并说明选了哪个方案、为什么
+
+## Status synchronization (2026-10-06)
+
+The allowlist and integration confirmation path are implemented in the current `devel` checkout. The completed path uses design-confirmation scheme B; the scheme-A TODO item is not applicable. The shared verification baseline is `[ FAIL 0 | WARN 0 | SKIP 1 | PASS 1000 ]` for the focused AI tests and `0 errors | 0 warnings | 0 notes` for `make check`.
 
 ## 5. 不要做的事
 

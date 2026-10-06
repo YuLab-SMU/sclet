@@ -375,14 +375,18 @@ make check
 
 **交付物**：
 
-- [ ] 新增/修改的 `R/*.R`
-- [ ] 新增/修改的 `tests/testthat/test-ai-*.R`
-- [ ] 手写的 `man/*.Rd`
-- [ ] `NAMESPACE` / `DESCRIPTION` / `NEWS.md` 更新（无重复、无无关改动）
-- [ ] `.dev/ai-advanced-analysis-spec.md` 状态同步
-- [ ] 最终报告：**贴出上面 4 条命令的真实输出**，并逐条说明 T1–T6 的完成情况与**未完成项及原因**
+- [x] 新增/修改的 `R/*.R`
+- [x] 新增/修改的 `tests/testthat/test-ai-*.R`
+- [x] 手写的 `man/*.Rd`
+- [x] `NAMESPACE` / `DESCRIPTION` / `NEWS.md` 更新（无重复、无无关改动）
+- [x] `.dev/ai-advanced-analysis-spec.md` 状态同步
+- [x] 最终报告：**贴出上面 4 条命令的真实输出**，并逐条说明 T1–T6 的完成情况与**未完成项及原因**
 
 ---
+
+## Status synchronization (2026-10-06)
+
+T1-T6 are implemented in the current `devel` checkout, including real integration route execution, evidence lineage/dependency validation, strict provider-side privacy, and synchronized documentation. The shared verification baseline is `[ FAIL 0 | WARN 0 | SKIP 1 | PASS 1000 ]` for the focused AI tests and `0 errors | 0 warnings | 0 notes` for `make check`. Later Phase D work extends this baseline with annotation, rare-cell, trajectory, and claim-ceiling features.
 
 ## 5. 已知陷阱（踩过，别再踩）
 

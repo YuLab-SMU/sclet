@@ -215,14 +215,18 @@ make check
 
 ## 6. 交付物
 
-- [ ] `R/ai-diagnostics.R` 新增 `check_trajectory_readiness()`（3.2 的聚合函数可选）
-- [ ] `R/ai-execution.R` 新增 `trajectory` group、`run_trajectory` action
-- [ ] 对应的手写 `man/*.Rd`
-- [ ] `NAMESPACE` 新增 export（诊断函数需要 export，action 名不需要，参考之前几批先例）
-- [ ] `NEWS.md` 顶部加一条本阶段条目
-- [ ] `.dev/ai-advanced-analysis-spec.md` 更新：把"trajectory action catalog"从"还需要建设"清单里按实际完成范围调整措辞（明确写清楚"只完成了 trajectory 的 readiness + root-confirmed 执行，velocity/CellRank/fate/spatial/multimodal 仍未开始"，不要笼统写"trajectory/velocity 已实现"）
-- [ ] §4 的测试全部添加并通过
-- [ ] 最终报告：贴出 §5 四条命令的真实输出，并说明 `RunSlingshot_trajectory` vs `RunSlingshot` 两者关系的调查结论（2 节表格里提到的那个需要你自己确认的点）
+- [x] `R/ai-diagnostics.R` 新增 `check_trajectory_readiness()`（3.2 的聚合函数可选）
+- [x] `R/ai-execution.R` 新增 `trajectory` group、`run_trajectory` action
+- [x] 对应的手写 `man/*.Rd`
+- [x] `NAMESPACE` 新增 export（诊断函数需要 export，action 名不需要，参考之前几批先例）
+- [x] `NEWS.md` 顶部加一条本阶段条目
+- [x] `.dev/ai-advanced-analysis-spec.md` 更新：把"trajectory action catalog"从"还需要建设"清单里按实际完成范围调整措辞（明确写清楚"只完成了 trajectory 的 readiness + root-confirmed 执行，velocity/CellRank/fate/spatial/multimodal 仍未开始"，不要笼统写"trajectory/velocity 已实现"）
+- [x] §4 的测试全部添加并通过
+- [x] 最终报告：贴出 §5 四条命令的真实输出，并说明 `RunSlingshot_trajectory` vs `RunSlingshot` 两者关系的调查结论（2 节表格里提到的那个需要你自己确认的点）
+
+## Status synchronization (2026-10-06)
+
+The trajectory first batch is implemented in the current `devel` checkout: readiness, optional cluster-order summary, root-confirmed `run_trajectory`, bounded evidence, and the required standard-pipeline tests. The implementation uses `RunSlingshot()` rather than `RunSlingshot_trajectory()` because it requires an explicit `group`, supports explicit root/end parameters, and has a deterministic seed. The shared verification baseline is `[ FAIL 0 | WARN 0 | SKIP 1 | PASS 1000 ]` for the focused AI tests and `0 errors | 0 warnings | 0 notes` for `make check`. Velocity, CellRank/fate, spatial, multimodal, and multi-root comparison remain future work.
 
 ## 7. 不要做的事
 

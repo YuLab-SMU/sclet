@@ -925,18 +925,18 @@ tests/testthat/
 
 以下条件全部满足，才认为 R-native AI 第一版完成：
 
-- [ ] `GetAnalysisLedger()` 能输出版本化结构化 context；
-- [ ] `priority`、`rare_cells`、`state_priority` 和 health 信息对 AI 可见；
-- [ ] `SummarizeContextForLLM()` 基于统一 context 生成；
-- [ ] `sclet_ai_call()` 隔离 aisdk provider 细节；
-- [ ] `sclet_ai_result` 有稳定字段和本地校验；
-- [ ] 至少实现 `AIStatus()`、`AIReviewQC()`、`AIExplainAnalysis()`、`AIRecommendNextStep()`；
-- [ ] 有 mock 测试，不依赖网络和真实模型；
-- [ ] AI 输出带 evidence、scope、claim level 或明确的缺失标记；
-- [ ] 默认只读，不会未经确认修改 SCE；
-- [ ] 重要 AI 结果可以显式写回 analysis-state；
-- [ ] 没有 `aisdk` 时，普通 sclet 分析和状态接口不受影响；
-- [ ] 外部 agent 可以在不理解 SCE 内部结构的情况下，消费稳定的 ledger/tool contract。
+- [x] `GetAnalysisLedger()` 能输出版本化结构化 context；
+- [x] `priority`、`rare_cells`、`state_priority` 和 health 信息对 AI 可见；
+- [x] `SummarizeContextForLLM()` 基于统一 context 生成；
+- [x] `sclet_ai_call()` 隔离 aisdk provider 细节；
+- [x] `sclet_ai_result` 有稳定字段和本地校验；
+- [x] 至少实现 `AIStatus()`、`AIReviewQC()`、`AIExplainAnalysis()`、`AIRecommendNextStep()`；
+- [x] 有 mock 测试，不依赖网络和真实模型；
+- [x] AI 输出带 evidence、scope、claim level 或明确的缺失标记；
+- [x] 默认只读，不会未经确认修改 SCE；
+- [x] 重要 AI 结果可以显式写回 analysis-state；
+- [x] 没有 `aisdk` 时，普通 sclet 分析和状态接口不受影响；
+- [x] 外部 agent 可以在不理解 SCE 内部结构的情况下，消费稳定的 ledger/tool contract。
 
 ---
 

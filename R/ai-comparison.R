@@ -268,3 +268,161 @@ CompareAIAnalyses <- function(
         execution = list(allowed = FALSE, performed = FALSE)
     )
 }
+
+sclet_ai_rare_cell_run_ids <- function(object, requested = NULL) {
+    ledger <- GetAnalysisLedger(object, detail = "summary", include_artifacts = FALSE, include_data = FALSE)
+    records <- ledger$state_records$rare_cells %||% list()
+    if (!is.list(records)) return(character())
+    ids <- vapply(records, function(record) {
+        if (!is.list(record)) return("")
+        as.character(record$id %||% "")
+    }, character(1L))
+    ids <- unique(ids[nzchar(ids)])
+    if (!is.null(requested)) {
+        requested <- unique(as.character(requested))
+        ids <- ids[ids %in% requested]
+    }
+    ids
+}
+
+sclet_ai_rare_cell_node_is_valid <- function(node, run_ids) {
+    if (!is.list(node)) return(FALSE)
+    if (!identical(as.character(node$kind %||% ""), "deterministic_summary")) return(FALSE)
+    if (!as.character(node$source %||% "") %in% run_ids) return(FALSE)
+    values <- node$values %||% list()
+    is.list(values) && nzchar(as.character(values$population_label %||% "")) &&
+        length(values$population_size %||% numeric()) == 1L &&
+        length(values$n_independent_signals %||% numeric()) == 1L
+}
+
+#' Compare bounded evidence summaries from multiple rare-cell runs
+#'
+#' This function compares only the aggregate evidence nodes emitted by completed
+#' rare-cell runs. Populations are matched by their recorded label within the
+#' same object; the result never claims cell-level overlap or biological truth.
+#' The returned run and population identifiers are anonymized deterministic codes.
+#'
+#' @param object A `SingleCellExperiment` object.
+#' @param ids Optional completed rare-cell analysis ids to compare. When `NULL`,
+#'   all completed rare-cell runs with evidence are used.
+#' @return A bounded comparison with `status`, run summaries, recurring
+#'   population summaries, and an explicit limitation note. Fewer than two
+#'   usable runs returns `status = "not_available"`.
+#' @export
+compare_rare_cell_evidence <- function(object, ids = NULL) {
+    if (!inherits(object, "SingleCellExperiment")) {
+        stop("object must be a SingleCellExperiment", call. = FALSE)
+    }
+    if (!is.null(ids) && (!is.character(ids) || any(!nzchar(ids)))) {
+        stop("ids must be NULL or a non-empty character vector", call. = FALSE)
+    }
+    run_ids <- sclet_ai_rare_cell_run_ids(object, requested = ids)
+    evidence <- sclet_ai_evidence_get_all(object)
+    evidence <- evidence[vapply(evidence, sclet_ai_rare_cell_node_is_valid,
+        logical(1L), run_ids = run_ids)]
+    usable_runs <- run_ids[vapply(run_ids, function(run_id) {
+        any(vapply(evidence, function(node) identical(as.character(node$source), run_id), logical(1L)))
+    }, logical(1L))]
+    if (length(usable_runs) < 2L) {
+        return(list(
+            status = "not_available",
+            reason = if (!length(evidence)) {
+                "no_rare_cell_evidence_records"
+            } else {
+                "at_least_two_completed_rare_cell_runs_required"
+            },
+            n_runs = as.integer(length(usable_runs)),
+            runs = list(),
+            populations = list(),
+            matching = list(method = "same_recorded_population_label",
+                cell_level_overlap_available = FALSE),
+            raw_values_included = FALSE
+        ))
+    }
+
+    by_run <- lapply(usable_runs, function(run_id) {
+        nodes <- evidence[vapply(evidence, function(node) {
+            identical(as.character(node$source), run_id)
+        }, logical(1L))]
+        labels <- vapply(nodes, function(node) {
+            as.character(node$values$population_label)
+        }, character(1L))
+        list(nodes = nodes, labels = labels)
+    })
+    names(by_run) <- usable_runs
+    labels <- sort(unique(unlist(lapply(by_run, function(run) run$labels), use.names = FALSE)))
+    label_codes <- stats::setNames(paste0("cluster_", seq_along(labels)), labels)
+
+    populations <- lapply(labels, function(label) {
+        entries <- list()
+        for (run_index in seq_along(by_run)) {
+            run <- by_run[[run_index]]
+            hit <- which(run$labels == label)
+            if (!length(hit)) next
+            node <- run$nodes[[hit[[1L]]]]
+            entries[[length(entries) + 1L]] <- list(
+                run = paste0("run_", run_index),
+                size = as.numeric(node$values$population_size),
+                fraction = as.numeric(node$values$population_fraction %||% NA_real_),
+                n_independent_signals = as.integer(node$values$n_independent_signals),
+                claim_level = as.character(node$claim_level %||% "measured"),
+                low_confidence = isTRUE(node$values$low_confidence)
+            )
+        }
+        sizes <- vapply(entries, function(entry) entry$size, numeric(1L))
+        fractions <- vapply(entries, function(entry) entry$fraction, numeric(1L))
+        finite_fractions <- fractions[is.finite(fractions)]
+        signals <- vapply(entries, function(entry) entry$n_independent_signals, integer(1L))
+        list(
+            population = unname(label_codes[[label]]),
+            run_count = as.integer(length(entries)),
+            run_fraction = round(length(entries) / length(by_run), 4L),
+            recurring = length(entries) >= 2L,
+            size_min = as.integer(min(sizes)),
+            size_max = as.integer(max(sizes)),
+            size_mean = round(mean(sizes), 4L),
+            fraction_min = if (length(finite_fractions)) round(min(finite_fractions), 6L) else NA_real_,
+            fraction_max = if (length(finite_fractions)) round(max(finite_fractions), 6L) else NA_real_,
+            n_independent_signals_min = as.integer(min(signals)),
+            n_independent_signals_max = as.integer(max(signals)),
+            low_confidence_run_count = as.integer(sum(vapply(entries,
+                function(entry) entry$low_confidence, logical(1L)))),
+            claim_levels_observed = sort(unique(vapply(entries,
+                function(entry) entry$claim_level, character(1L)))),
+            runs_present = vapply(entries, function(entry) entry$run, character(1L)),
+            raw_values_included = FALSE
+        )
+    })
+    names(populations) <- unname(label_codes)
+    recurring <- vapply(populations, function(population) isTRUE(population$recurring), logical(1L))
+    run_summaries <- lapply(seq_along(by_run), function(index) {
+        run <- by_run[[index]]
+        list(
+            run = paste0("run_", index),
+            n_populations = as.integer(length(unique(run$labels))),
+            n_evidence_nodes = as.integer(length(run$nodes)),
+            raw_values_included = FALSE
+        )
+    })
+    names(run_summaries) <- paste0("run_", seq_along(by_run))
+    list(
+        status = "available",
+        n_runs = as.integer(length(by_run)),
+        runs = run_summaries,
+        populations = populations,
+        n_populations = as.integer(length(populations)),
+        n_recurring_populations = as.integer(sum(recurring)),
+        independence = list(
+            n_runs = as.integer(length(by_run)),
+            n_support_lines = as.integer(length(by_run)),
+            populations_within_one_run_are_not_independent = TRUE,
+            note = "Each run is one measurement line; recurring labels are a consistency summary, not independent cell-level evidence."
+        ),
+        matching = list(
+            method = "same_recorded_population_label",
+            cell_level_overlap_available = FALSE,
+            interpretation = "Recurring labels summarize consistency of recorded evidence only; they do not establish cell-level overlap or biological identity."
+        ),
+        raw_values_included = FALSE
+    )
+}
