@@ -273,6 +273,13 @@ sclet_ai_rare_cell_run_ids <- function(object, requested = NULL) {
     ledger <- GetAnalysisLedger(object, detail = "summary", include_artifacts = FALSE, include_data = FALSE)
     records <- ledger$state_records$rare_cells %||% list()
     if (!is.list(records)) return(character())
+    records <- records[vapply(records, function(record) {
+        if (!is.list(record)) return(FALSE)
+        record_status <- as.character(record$status %||% "")
+        summary_status <- as.character(record$summary$status %||% "")
+        identical(record_status, "completed") &&
+            (!nzchar(summary_status) || identical(summary_status, "completed"))
+    }, logical(1L))]
     ids <- vapply(records, function(record) {
         if (!is.list(record)) return("")
         as.character(record$id %||% "")
@@ -290,8 +297,9 @@ sclet_ai_rare_cell_node_is_valid <- function(node, run_ids) {
     if (!identical(as.character(node$kind %||% ""), "deterministic_summary")) return(FALSE)
     if (!as.character(node$source %||% "") %in% run_ids) return(FALSE)
     values <- node$values %||% list()
-    is.list(values) && nzchar(as.character(values$population_label %||% "")) &&
-        length(values$population_size %||% numeric()) == 1L &&
+    label <- values$population_label %||% ""
+    is.list(values) && is.character(label) && length(label) == 1L && !is.na(label) &&
+        nzchar(label) && length(values$population_size %||% numeric()) == 1L &&
         length(values$n_independent_signals %||% numeric()) == 1L
 }
 

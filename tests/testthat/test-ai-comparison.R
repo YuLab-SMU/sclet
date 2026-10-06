@@ -101,11 +101,11 @@ test_that("CompareAIAnalyses normalizes missing metrics to not_available", {
     expect_true(is.na(m$value))
 })
 
-sclet_ai_test_rare_comparison_state <- function(object, id) {
+sclet_ai_test_rare_comparison_state <- function(object, id, summary_status = "completed") {
     sclet:::sclet_set_analysis_state(
         object, type = "rare_cells", id = id, method = "density",
         inputs = list(reduction = "PCA", dims = 1:3),
-        summary = list(status = "completed", n_rare_clusters = 2L)
+        summary = list(status = summary_status, n_rare_clusters = 2L)
     )
 }
 
@@ -143,6 +143,25 @@ test_that("compare_rare_cell_evidence handles missing and single-run evidence", 
     expect_equal(single$status, "not_available")
     expect_equal(single$reason, "at_least_two_completed_rare_cell_runs_required")
     expect_equal(single$n_runs, 1L)
+})
+
+test_that("compare_rare_cell_evidence excludes non-completed runs and invalid labels", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 2L, 4L)))
+    sce <- sclet_ai_test_rare_comparison_state(sce, "rare_failed", summary_status = "failed")
+    sce <- sclet_ai_test_rare_comparison_node(sce, "rare_failed", "cluster_1", 3L, 1L)
+    result <- compare_rare_cell_evidence(sce)
+    expect_equal(result$status, "not_available")
+    expect_equal(result$reason, "no_rare_cell_evidence_records")
+    invalid_node <- list(
+        kind = "deterministic_summary",
+        source = "rare_failed",
+        values = list(
+            population_label = NA_character_,
+            population_size = 3L,
+            n_independent_signals = 1L
+        )
+    )
+    expect_false(sclet:::sclet_ai_rare_cell_node_is_valid(invalid_node, "rare_failed"))
 })
 
 test_that("compare_rare_cell_evidence compares runs without inflating same-run support", {
