@@ -1552,7 +1552,9 @@ sclet_ai_compare_criterion <- function(observed, check, expected) {
 #'   object, action results, execution status, and `success_assessment` (a list
 #'   of per-criterion evaluation results; empty for dry runs). The
 #'   `success_assessment` field is purely observational and does not alter
-#'   `status`.
+#'   `status`. Dry-run results additionally include `success_criteria_preview`,
+#'   `stop_conditions_preview`, and `human_confirmations` (threaded through from
+#'   `validation$human_confirmations`), all purely descriptive and unevaluated.
 #' @export
 ExecuteAIPlan <- function(
     object,
@@ -1609,7 +1611,10 @@ ExecuteAIPlan <- function(
                 dry_run = TRUE,
                 recorded = FALSE,
                 execution_id = NULL,
-                success_assessment = list()
+                success_assessment = list(),
+                success_criteria_preview = plan$success_criteria %||% list(),
+                stop_conditions_preview = plan$stop_conditions %||% list(),
+                human_confirmations = validation$human_confirmations %||% list()
             ),
             class = c("sclet_ai_execution", "list")
         ))

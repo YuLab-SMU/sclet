@@ -25,8 +25,14 @@ An object of class \code{sclet_ai_plan_validation} with \code{valid}, \code{erro
 \code{warnings}, and a one-time confirmation token when valid. Validation errors
 include \code{success_criterion_unresolvable} (criterion references unknown step
 or has empty evidence_id), \code{success_criterion_incomplete} (non-exists check
-missing field or value), and \code{selected_route_unknown} (selected_route not in
-candidate_routes).
+missing field or value), \code{stop_condition_unresolvable} (stop condition
+references unknown step or has empty evidence_id), \code{stop_condition_incomplete}
+(non-exists check missing field or value), \code{data_scale_incompatible}
+(\code{run_pca} step requests more components than the object supports),
+\code{selected_route_unknown} (selected_route not in candidate_routes). The
+\code{human_confirmations} field is a read-only derived summary listing design
+confirmations already on record (status \code{"confirmed"}) and design
+confirmations the plan still requires (status \code{"required_not_confirmed"}).
 }
 \description{
 Validate an AI-generated analysis plan

@@ -176,6 +176,43 @@ sclet_ai_normalize_success_criteria <- function(success_criteria) {
     })
 }
 
+sclet_ai_normalize_stop_conditions <- function(stop_conditions) {
+    if (is.null(stop_conditions)) {
+        return(list())
+    }
+    if (!is.list(stop_conditions)) {
+        stop_conditions <- as.list(stop_conditions)
+    }
+    lapply(seq_along(stop_conditions), function(i) {
+        condition <- stop_conditions[[i]]
+        if (is.character(condition) && length(condition) == 1L) {
+            condition <- list(description = condition)
+        }
+        if (!is.list(condition)) {
+            return(list(
+                id = paste0("stop_condition_", i),
+                description = as.character(condition)[[1L]],
+                source = "action_output",
+                step_id = NULL,
+                evidence_id = NULL,
+                check = "exists",
+                field = NULL,
+                value = NULL
+            ))
+        }
+        list(
+            id = as.character(condition$id %||% paste0("stop_condition_", i))[[1L]],
+            description = as.character(condition$description %||% "")[[1L]],
+            source = as.character(condition$source %||% "action_output")[[1L]],
+            step_id = if (is.null(condition$step_id)) NULL else as.character(condition$step_id)[[1L]],
+            evidence_id = if (is.null(condition$evidence_id)) NULL else as.character(condition$evidence_id)[[1L]],
+            check = as.character(condition$check %||% "exists")[[1L]],
+            field = if (is.null(condition$field)) NULL else as.character(condition$field)[[1L]],
+            value = condition$value
+        )
+    })
+}
+
 sclet_ai_extract_dotted_field <- function(obj, field) {
     if (is.null(field) || !nzchar(field)) return(NULL)
     parts <- strsplit(field, ".", fixed = TRUE)[[1L]]
@@ -203,6 +240,7 @@ sclet_ai_extract_dotted_field <- function(obj, field) {
 #'   `candidate_routes`, or free text when `candidate_routes` is empty.
 #' @param success_criteria Optional list of named criterion descriptors.
 #' @param risks Optional character vector or list of known risks.
+#' @param stop_conditions Optional list of named stop-condition descriptors.
 #' @return An object of class `sclet_ai_plan`.
 new_sclet_ai_plan <- function(
     task = "analysis_plan",
@@ -216,7 +254,8 @@ new_sclet_ai_plan <- function(
     candidate_routes = list(),
     selected_route = NULL,
     success_criteria = list(),
-    risks = list()
+    risks = list(),
+    stop_conditions = list()
 ) {
     if (!is.character(task) || length(task) != 1L || is.na(task) || !nzchar(task)) {
         stop("`task` must be a single non-empty character string.")
@@ -234,7 +273,8 @@ new_sclet_ai_plan <- function(
         candidate_routes = if (is.null(candidate_routes)) list() else candidate_routes,
         selected_route = selected_route,
         success_criteria = sclet_ai_normalize_success_criteria(success_criteria),
-        risks = as.list(risks)
+        risks = as.list(risks),
+        stop_conditions = sclet_ai_normalize_stop_conditions(stop_conditions)
     )
     class(plan) <- c("sclet_ai_plan", "list")
     plan
@@ -250,8 +290,14 @@ new_sclet_ai_plan <- function(
 #'   `warnings`, and a one-time confirmation token when valid. Validation errors
 #'   include `success_criterion_unresolvable` (criterion references unknown step
 #'   or has empty evidence_id), `success_criterion_incomplete` (non-exists check
-#'   missing field or value), and `selected_route_unknown` (selected_route not in
-#'   candidate_routes).
+#'   missing field or value), `stop_condition_unresolvable` (stop condition
+#'   references unknown step or has empty evidence_id), `stop_condition_incomplete`
+#'   (non-exists check missing field or value), `data_scale_incompatible`
+#'   (`run_pca` step requests more components than the object supports),
+#'   `selected_route_unknown` (selected_route not in candidate_routes). The
+#'   `human_confirmations` field is a read-only derived summary listing design
+#'   confirmations already on record (status `"confirmed"`) and design
+#'   confirmations the plan still requires (status `"required_not_confirmed"`).
 #' @export
 ValidateAIPlan <- function(
     plan,
@@ -386,6 +432,33 @@ ValidateAIPlan <- function(
             }
         }
     }
+    normalized_stop_conditions <- sclet_ai_normalize_stop_conditions(plan$stop_conditions %||% list())
+    if (length(normalized_stop_conditions)) {
+        stop_ids <- vapply(normalized_stop_conditions, function(x) x$id %||% "", character(1))
+        if (anyDuplicated(stop_ids)) {
+            errors <- c(errors, "stop_condition ids must be unique")
+        }
+        for (i in seq_along(normalized_stop_conditions)) {
+            cond <- normalized_stop_conditions[[i]]
+            cid <- cond$id
+            if (identical(cond$source, "action_output")) {
+                if (is.null(cond$step_id) || !nzchar(cond$step_id)) {
+                    errors <- c(errors, paste0("stop_condition_unresolvable: ", cid, " has empty step_id"))
+                } else if (!cond$step_id %in% ids) {
+                    errors <- c(errors, paste0("stop_condition_unresolvable: ", cid, " references unknown step ", cond$step_id))
+                }
+            } else if (identical(cond$source, "evidence")) {
+                if (is.null(cond$evidence_id) || !nzchar(cond$evidence_id)) {
+                    errors <- c(errors, paste0("stop_condition_unresolvable: ", cid, " has empty evidence_id"))
+                }
+            }
+            if (!identical(cond$check, "exists")) {
+                if (is.null(cond$field) || is.null(cond$value)) {
+                    errors <- c(errors, paste0("stop_condition_incomplete: ", cid, " requires field and value for check '", cond$check, "'"))
+                }
+            }
+        }
+    }
     candidate_routes <- plan$candidate_routes %||% list()
     selected_route <- plan$selected_route
     if (length(candidate_routes) && !is.null(selected_route)) {
@@ -420,6 +493,21 @@ ValidateAIPlan <- function(
             for (step in normalized) {
                 descriptor <- if (!is.null(step$action) && nzchar(step$action)) registry[[step$action]] else NULL
                 planned_params <- sclet_ai_project_plan_value(step$params, planned_outputs)
+                if (!is.null(step$action) && identical(step$action, "run_pca")) {
+                    requested_ncomp <- step$params$ncomponents
+                    if (!is.null(requested_ncomp)) {
+                        requested_ncomp <- suppressWarnings(as.integer(requested_ncomp))
+                        max_possible <- min(ncol(object), nrow(object))
+                        if (!is.na(requested_ncomp) && requested_ncomp > max_possible) {
+                            errors <- c(errors, paste0(
+                                "data_scale_incompatible: step ", step$id,
+                                " requests ncomponents=", requested_ncomp,
+                                " but the object only has min(ncol, nrow)=", max_possible,
+                                " (ncol=", ncol(object), ", nrow=", nrow(object), ")"
+                            ))
+                        }
+                    }
+                }
                 if (is.null(descriptor) || !is.function(descriptor$prerequisites)) {
                     next
                 }
@@ -444,6 +532,39 @@ ValidateAIPlan <- function(
 
     errors <- unique(errors[nzchar(errors)])
     valid <- !length(errors)
+    human_confirmations <- list()
+    if (!is.null(object) && inherits(object, "SingleCellExperiment")) {
+        design_confirms <- tryCatch(
+            GetAnalysisLedger(object)$analysis_story$design_confirmations,
+            error = function(e) list()
+        )
+        if (is.list(design_confirms) && length(design_confirms)) {
+            for (dc in design_confirms) {
+                design_map <- dc$design
+                if (!is.list(design_map)) next
+                confirmed_at <- dc$created_at
+                for (role in names(design_map)) {
+                    human_confirmations[[length(human_confirmations) + 1L]] <- list(
+                        role = as.character(role),
+                        column = as.character(design_map[[role]]),
+                        status = "confirmed",
+                        confirmed_at = confirmed_at
+                    )
+                }
+            }
+        }
+    }
+    unconfirmed_errors <- errors[grepl("design_semantics_not_confirmed", errors, fixed = TRUE)]
+    if (length(unconfirmed_errors)) {
+        for (ue in unconfirmed_errors) {
+            human_confirmations[[length(human_confirmations) + 1L]] <- list(
+                role = NA_character_,
+                column = NA_character_,
+                status = "required_not_confirmed",
+                confirmed_at = NULL
+            )
+        }
+    }
     requires_confirmation <- any(vapply(normalized, function(step) {
         descriptor <- if (!is.null(step$action) && nzchar(step$action)) {
             registry[[step$action]]
@@ -467,6 +588,7 @@ ValidateAIPlan <- function(
         requires_confirmation = requires_confirmation,
         confirmation_token = confirmation_token,
         plan = plan,
+        human_confirmations = human_confirmations,
         checked_at = Sys.time()
     )
     class(validation) <- c("sclet_ai_plan_validation", "list")

@@ -34,7 +34,9 @@ An object of class \code{sclet_ai_execution} containing the resulting
 object, action results, execution status, and \code{success_assessment} (a list
 of per-criterion evaluation results; empty for dry runs). The
 \code{success_assessment} field is purely observational and does not alter
-\code{status}.
+\code{status}. Dry-run results additionally include \code{success_criteria_preview},
+\code{stop_conditions_preview}, and \code{human_confirmations} (threaded through from
+\code{validation$human_confirmations}), all purely descriptive and unevaluated.
 }
 \description{
 The default is a side-effect-free dry run. Non-dry execution requires the
