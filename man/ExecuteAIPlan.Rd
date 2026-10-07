@@ -31,7 +31,10 @@ ExecuteAIPlan(
 }
 \value{
 An object of class \code{sclet_ai_execution} containing the resulting
-object, action results, and execution status.
+object, action results, execution status, and \code{success_assessment} (a list
+of per-criterion evaluation results; empty for dry runs). The
+\code{success_assessment} field is purely observational and does not alter
+\code{status}.
 }
 \description{
 The default is a side-effect-free dry run. Non-dry execution requires the

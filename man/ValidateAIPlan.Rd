@@ -22,7 +22,11 @@ ValidateAIPlan(
 }
 \value{
 An object of class \code{sclet_ai_plan_validation} with \code{valid}, \code{errors},
-\code{warnings}, and a one-time confirmation token when valid.
+\code{warnings}, and a one-time confirmation token when valid. Validation errors
+include \code{success_criterion_unresolvable} (criterion references unknown step
+or has empty evidence_id), \code{success_criterion_incomplete} (non-exists check
+missing field or value), and \code{selected_route_unknown} (selected_route not in
+candidate_routes).
 }
 \description{
 Validate an AI-generated analysis plan

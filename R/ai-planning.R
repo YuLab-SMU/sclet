@@ -139,6 +139,54 @@ sclet_ai_normalize_plan_actions <- function(actions) {
     })
 }
 
+sclet_ai_normalize_success_criteria <- function(success_criteria) {
+    if (is.null(success_criteria)) {
+        return(list())
+    }
+    if (!is.list(success_criteria)) {
+        success_criteria <- as.list(success_criteria)
+    }
+    lapply(seq_along(success_criteria), function(i) {
+        criterion <- success_criteria[[i]]
+        if (is.character(criterion) && length(criterion) == 1L) {
+            criterion <- list(description = criterion)
+        }
+        if (!is.list(criterion)) {
+            return(list(
+                id = paste0("criterion_", i),
+                description = as.character(criterion)[[1L]],
+                source = "action_output",
+                step_id = NULL,
+                evidence_id = NULL,
+                check = "exists",
+                field = NULL,
+                value = NULL
+            ))
+        }
+        list(
+            id = as.character(criterion$id %||% paste0("criterion_", i))[[1L]],
+            description = as.character(criterion$description %||% "")[[1L]],
+            source = as.character(criterion$source %||% "action_output")[[1L]],
+            step_id = if (is.null(criterion$step_id)) NULL else as.character(criterion$step_id)[[1L]],
+            evidence_id = if (is.null(criterion$evidence_id)) NULL else as.character(criterion$evidence_id)[[1L]],
+            check = as.character(criterion$check %||% "exists")[[1L]],
+            field = if (is.null(criterion$field)) NULL else as.character(criterion$field)[[1L]],
+            value = criterion$value
+        )
+    })
+}
+
+sclet_ai_extract_dotted_field <- function(obj, field) {
+    if (is.null(field) || !nzchar(field)) return(NULL)
+    parts <- strsplit(field, ".", fixed = TRUE)[[1L]]
+    current <- obj
+    for (part in parts) {
+        if (!is.list(current) || is.null(current[[part]])) return(NULL)
+        current <- current[[part]]
+    }
+    current
+}
+
 #' Construct an analysis plan returned by the R-native AI planner
 #'
 #' @param task Short planning task identifier.
@@ -148,6 +196,13 @@ sclet_ai_normalize_plan_actions <- function(actions) {
 #' @param requires_confirmation Logical. Whether execution requires explicit confirmation.
 #' @param ai_result Optional `sclet_ai_result` that produced the plan.
 #' @param metadata Additional plan metadata.
+#' @param assumptions Optional character vector or list of planning assumptions.
+#' @param candidate_routes Optional list of named route descriptors (each with at
+#'   minimum `id` and `description`).
+#' @param selected_route Optional character naming one element of
+#'   `candidate_routes`, or free text when `candidate_routes` is empty.
+#' @param success_criteria Optional list of named criterion descriptors.
+#' @param risks Optional character vector or list of known risks.
 #' @return An object of class `sclet_ai_plan`.
 new_sclet_ai_plan <- function(
     task = "analysis_plan",
@@ -156,7 +211,12 @@ new_sclet_ai_plan <- function(
     rationale = NULL,
     requires_confirmation = TRUE,
     ai_result = NULL,
-    metadata = list()
+    metadata = list(),
+    assumptions = list(),
+    candidate_routes = list(),
+    selected_route = NULL,
+    success_criteria = list(),
+    risks = list()
 ) {
     if (!is.character(task) || length(task) != 1L || is.na(task) || !nzchar(task)) {
         stop("`task` must be a single non-empty character string.")
@@ -169,7 +229,12 @@ new_sclet_ai_plan <- function(
         actions = sclet_ai_normalize_plan_actions(actions),
         requires_confirmation = isTRUE(requires_confirmation),
         ai_result = ai_result,
-        metadata = metadata
+        metadata = metadata,
+        assumptions = as.list(assumptions),
+        candidate_routes = if (is.null(candidate_routes)) list() else candidate_routes,
+        selected_route = selected_route,
+        success_criteria = sclet_ai_normalize_success_criteria(success_criteria),
+        risks = as.list(risks)
     )
     class(plan) <- c("sclet_ai_plan", "list")
     plan
@@ -182,7 +247,11 @@ new_sclet_ai_plan <- function(
 #' @param registry An `AIExecutionRegistry`.
 #' @param strict Logical. If `TRUE`, stop on invalid plans; otherwise return validation details.
 #' @return An object of class `sclet_ai_plan_validation` with `valid`, `errors`,
-#'   `warnings`, and a one-time confirmation token when valid.
+#'   `warnings`, and a one-time confirmation token when valid. Validation errors
+#'   include `success_criterion_unresolvable` (criterion references unknown step
+#'   or has empty evidence_id), `success_criterion_incomplete` (non-exists check
+#'   missing field or value), and `selected_route_unknown` (selected_route not in
+#'   candidate_routes).
 #' @export
 ValidateAIPlan <- function(
     plan,
@@ -287,6 +356,42 @@ ValidateAIPlan <- function(
                 }
             }
             known_ids <- c(known_ids, step$id)
+        }
+    }
+
+    normalized_criteria <- sclet_ai_normalize_success_criteria(plan$success_criteria %||% list())
+    if (length(normalized_criteria)) {
+        criterion_ids <- vapply(normalized_criteria, function(x) x$id %||% "", character(1))
+        if (anyDuplicated(criterion_ids)) {
+            errors <- c(errors, "success_criterion ids must be unique")
+        }
+        for (i in seq_along(normalized_criteria)) {
+            crit <- normalized_criteria[[i]]
+            cid <- crit$id
+            if (identical(crit$source, "action_output")) {
+                if (is.null(crit$step_id) || !nzchar(crit$step_id)) {
+                    errors <- c(errors, paste0("success_criterion_unresolvable: ", cid, " has empty step_id"))
+                } else if (!crit$step_id %in% ids) {
+                    errors <- c(errors, paste0("success_criterion_unresolvable: ", cid, " references unknown step ", crit$step_id))
+                }
+            } else if (identical(crit$source, "evidence")) {
+                if (is.null(crit$evidence_id) || !nzchar(crit$evidence_id)) {
+                    errors <- c(errors, paste0("success_criterion_unresolvable: ", cid, " has empty evidence_id"))
+                }
+            }
+            if (!identical(crit$check, "exists")) {
+                if (is.null(crit$field) || is.null(crit$value)) {
+                    errors <- c(errors, paste0("success_criterion_incomplete: ", cid, " requires field and value for check '", crit$check, "'"))
+                }
+            }
+        }
+    }
+    candidate_routes <- plan$candidate_routes %||% list()
+    selected_route <- plan$selected_route
+    if (length(candidate_routes) && !is.null(selected_route)) {
+        route_ids <- vapply(candidate_routes, function(r) as.character(r$id %||% ""), character(1))
+        if (!as.character(selected_route) %in% route_ids) {
+            errors <- c(errors, paste0("selected_route_unknown: '", selected_route, "' is not in candidate_routes"))
         }
     }
 

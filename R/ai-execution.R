@@ -1334,6 +1334,206 @@ sclet_ai_record_execution <- function(object, plan, results, status, dry_run) {
     list(object = sclet_set_analysis(object, execution_id, record), id = execution_id)
 }
 
+sclet_ai_assess_success_criteria <- function(plan, outputs, object_after, before_evidence_ids) {
+    criteria <- sclet_ai_normalize_success_criteria(plan$success_criteria %||% list())
+    if (!length(criteria)) return(list())
+    after_evidence <- tryCatch(
+        sclet_ai_evidence_get_all(object_after),
+        error = function(e) list()
+    )
+    new_evidence_ids <- setdiff(names(after_evidence), before_evidence_ids)
+    step_ids <- vapply(plan$actions %||% list(), function(s) as.character(s$id %||% ""), character(1))
+    lapply(criteria, function(crit) {
+        if (identical(crit$source, "action_output")) {
+            step_output <- outputs[[crit$step_id]]
+            if (is.null(step_output)) {
+                return(list(
+                    id = crit$id,
+                    description = crit$description,
+                    status = "not_available",
+                    reason = paste("step", crit$step_id, "did not complete"),
+                    observed_value = NULL
+                ))
+            }
+            if (is.list(step_output) && identical(step_output$status, "failed")) {
+                return(list(
+                    id = crit$id,
+                    description = crit$description,
+                    status = "not_available",
+                    reason = paste("step", crit$step_id, "did not complete"),
+                    observed_value = NULL
+                ))
+            }
+            if (identical(crit$check, "exists")) {
+                if (!is.null(crit$field) && nzchar(crit$field)) {
+                    extracted <- sclet_ai_extract_dotted_field(step_output, crit$field)
+                    if (is.null(extracted)) {
+                        return(list(
+                            id = crit$id,
+                            description = crit$description,
+                            status = "not_met",
+                            reason = paste("field", crit$field, "not found in output of step", crit$step_id),
+                            observed_value = NULL
+                        ))
+                    }
+                    return(list(
+                        id = crit$id,
+                        description = crit$description,
+                        status = "met",
+                        reason = paste("field", crit$field, "exists in output of step", crit$step_id),
+                        observed_value = extracted
+                    ))
+                }
+                return(list(
+                    id = crit$id,
+                    description = crit$description,
+                    status = "met",
+                    reason = paste("output of step", crit$step_id, "exists"),
+                    observed_value = step_output
+                ))
+            }
+            extracted <- sclet_ai_extract_dotted_field(step_output, crit$field)
+            if (is.null(extracted) || length(extracted) == 0L) {
+                return(list(
+                    id = crit$id,
+                    description = crit$description,
+                    status = "not_available",
+                    reason = paste("field", crit$field, "not found in output of step", crit$step_id),
+                    observed_value = NULL
+                ))
+            }
+            comparison <- tryCatch(
+                sclet_ai_compare_criterion(extracted, crit$check, crit$value),
+                error = function(e) list(status = "not_available", reason = conditionMessage(e))
+            )
+            if (is.na(comparison$status) || is.null(comparison$status)) {
+                comparison$status <- "not_available"
+                comparison$reason <- "comparison produced NA"
+            }
+            list(
+                id = crit$id,
+                description = crit$description,
+                status = comparison$status,
+                reason = comparison$reason,
+                observed_value = extracted
+            )
+        } else if (identical(crit$source, "evidence")) {
+            matched_id <- intersect(crit$evidence_id, new_evidence_ids)
+            if (!length(matched_id)) {
+                return(list(
+                    id = crit$id,
+                    description = crit$description,
+                    status = "not_available",
+                    reason = paste("no evidence node found for", crit$evidence_id),
+                    observed_value = NULL
+                ))
+            }
+            evidence_node <- after_evidence[[matched_id[[1L]]]]
+            if (identical(crit$check, "exists")) {
+                if (!is.null(crit$field) && nzchar(crit$field)) {
+                    extracted <- sclet_ai_extract_dotted_field(evidence_node, crit$field)
+                    if (is.null(extracted)) {
+                        return(list(
+                            id = crit$id,
+                            description = crit$description,
+                            status = "not_met",
+                            reason = paste("field", crit$field, "not found in evidence", crit$evidence_id),
+                            observed_value = NULL
+                        ))
+                    }
+                    return(list(
+                        id = crit$id,
+                        description = crit$description,
+                        status = "met",
+                        reason = paste("field", crit$field, "exists in evidence", crit$evidence_id),
+                        observed_value = extracted
+                    ))
+                }
+                return(list(
+                    id = crit$id,
+                    description = crit$description,
+                    status = "met",
+                    reason = paste("evidence node", crit$evidence_id, "exists"),
+                    observed_value = evidence_node
+                ))
+            }
+            extracted <- sclet_ai_extract_dotted_field(evidence_node$values %||% evidence_node, crit$field)
+            if (is.null(extracted) || length(extracted) == 0L) {
+                return(list(
+                    id = crit$id,
+                    description = crit$description,
+                    status = "not_available",
+                    reason = paste("field", crit$field, "not found in evidence", crit$evidence_id),
+                    observed_value = NULL
+                ))
+            }
+            comparison <- tryCatch(
+                sclet_ai_compare_criterion(extracted, crit$check, crit$value),
+                error = function(e) list(status = "not_available", reason = conditionMessage(e))
+            )
+            if (is.na(comparison$status) || is.null(comparison$status)) {
+                comparison$status <- "not_available"
+                comparison$reason <- "comparison produced NA"
+            }
+            list(
+                id = crit$id,
+                description = crit$description,
+                status = comparison$status,
+                reason = comparison$reason,
+                observed_value = extracted
+            )
+        } else {
+            list(
+                id = crit$id,
+                description = crit$description,
+                status = "not_available",
+                reason = paste("unknown source type:", crit$source),
+                observed_value = NULL
+            )
+        }
+    })
+}
+
+sclet_ai_compare_criterion <- function(observed, check, expected) {
+    if (identical(check, "equals")) {
+        if (identical(observed, expected)) {
+            return(list(status = "met", reason = paste("observed value equals expected")))
+        }
+        return(list(status = "not_met", reason = paste("observed value does not equal expected")))
+    }
+    if (identical(check, "gte")) {
+        if (is.numeric(observed) && is.numeric(expected) && !is.na(observed) && !is.na(expected)) {
+            if (observed >= expected) {
+                return(list(status = "met", reason = paste("observed", observed, ">= expected", expected)))
+            }
+            return(list(status = "not_met", reason = paste("observed", observed, "< expected", expected)))
+        }
+        return(list(status = "not_available", reason = "values are not numeric or contain NA"))
+    }
+    if (identical(check, "lte")) {
+        if (is.numeric(observed) && is.numeric(expected) && !is.na(observed) && !is.na(expected)) {
+            if (observed <= expected) {
+                return(list(status = "met", reason = paste("observed", observed, "<= expected", expected)))
+            }
+            return(list(status = "not_met", reason = paste("observed", observed, "> expected", expected)))
+        }
+        return(list(status = "not_available", reason = "values are not numeric or contain NA"))
+    }
+    if (identical(check, "in")) {
+        if (is.null(expected) || !length(expected)) {
+            return(list(status = "not_available", reason = "expected set is empty"))
+        }
+        if (any(is.na(observed))) {
+            return(list(status = "not_available", reason = "observed value contains NA"))
+        }
+        if (all(observed %in% expected)) {
+            return(list(status = "met", reason = "observed value is in expected set"))
+        }
+        return(list(status = "not_met", reason = "observed value is not in expected set"))
+    }
+    list(status = "not_available", reason = paste("unknown check type:", check))
+}
+
 #' Execute a validated AI analysis plan under explicit safety controls
 #'
 #' The default is a side-effect-free dry run. Non-dry execution requires the
@@ -1349,7 +1549,10 @@ sclet_ai_record_execution <- function(object, plan, results, status, dry_run) {
 #' @param confirmation Confirmation token returned by `ValidateAIPlan()`.
 #' @param record Logical. Record execution results in the analysis ledger.
 #' @return An object of class `sclet_ai_execution` containing the resulting
-#'   object, action results, and execution status.
+#'   object, action results, execution status, and `success_assessment` (a list
+#'   of per-criterion evaluation results; empty for dry runs). The
+#'   `success_assessment` field is purely observational and does not alter
+#'   `status`.
 #' @export
 ExecuteAIPlan <- function(
     object,
@@ -1405,7 +1608,8 @@ ExecuteAIPlan <- function(
                 status = "dry_run",
                 dry_run = TRUE,
                 recorded = FALSE,
-                execution_id = NULL
+                execution_id = NULL,
+                success_assessment = list()
             ),
             class = c("sclet_ai_execution", "list")
         ))
@@ -1423,6 +1627,10 @@ ExecuteAIPlan <- function(
     results <- list()
     status <- "completed"
     continued_failure <- FALSE
+    before_evidence_ids <- tryCatch(
+        names(sclet_ai_evidence_get_all(object)),
+        error = function(e) character()
+    )
     for (step in plan$actions) {
         descriptor <- registry[[step$action]]
         before <- current
@@ -1529,6 +1737,9 @@ ExecuteAIPlan <- function(
             duration_sec = elapsed
         )
     }
+    success_assessment <- sclet_ai_assess_success_criteria(
+        plan, outputs, current, before_evidence_ids
+    )
     execution_id <- NULL
     recorded <- FALSE
     if (isTRUE(record)) {
@@ -1552,7 +1763,8 @@ ExecuteAIPlan <- function(
             status = status,
             dry_run = FALSE,
             recorded = recorded,
-            execution_id = execution_id
+            execution_id = execution_id,
+            success_assessment = success_assessment
         ),
         class = c("sclet_ai_execution", "list")
     )
