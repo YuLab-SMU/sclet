@@ -100,6 +100,33 @@ RecordAIResult <- function(object, result, id = NULL, active = FALSE, audit_clai
                 call. = FALSE)
         }
     }
+    all_refs <- unique(unlist(lapply(result$findings, function(f) {
+        if (is.list(f)) as.character(f$evidence_refs %||% character()) else character()
+    }), use.names = FALSE))
+    if (isTRUE(audit_claims) && length(all_refs)) {
+        # Deliberately no `fingerprint` argument: this check only asks whether
+        # each cited evidence id resolves to a real, completed evidence node on
+        # the object, not whether that node was recorded against the exact same
+        # ledger fingerprint as `result$context`. Fingerprint staleness is a
+        # separate concern, and `result$context$fingerprint` is frequently a
+        # hand-built placeholder rather than a real ledger fingerprint; treating
+        # a mismatch here as an error would wrongly reject results built from
+        # synthetic/test contexts whose evidence is otherwise perfectly valid.
+        ref_check <- ValidateAIEvidenceRefs(object, all_refs)
+        if (length(ref_check$errors)) {
+            stop("refusing to record an AI result citing unresolvable evidence: ",
+                paste(ref_check$errors, collapse = "; "),
+                call. = FALSE)
+        }
+    }
+    cited_user_decisions <- character()
+    if (length(all_refs)) {
+        all_nodes <- tryCatch(sclet_ai_evidence_get_all(object), error = function(e) list())
+        cited_user_decisions <- all_refs[vapply(all_refs, function(id) {
+            node <- all_nodes[[id]]
+            !is.null(node) && sclet_ai_evidence_kind_is_user_decision(node$kind %||% "")
+        }, logical(1L))]
+    }
     if (is.null(id)) {
         stamp <- format(Sys.time(), "%Y%m%d%H%M%S")
         id <- paste(result$task, stamp, sep = "_")
@@ -128,7 +155,8 @@ RecordAIResult <- function(object, result, id = NULL, active = FALSE, audit_clai
         summary = list(
             n_findings = length(result$findings),
             n_recommendations = length(result$recommendations),
-            n_proposed_actions = length(result$proposed_actions)
+            n_proposed_actions = length(result$proposed_actions),
+            cited_user_decisions = cited_user_decisions
         ),
         created_at = Sys.time()
     )
@@ -198,6 +226,10 @@ AskAI <- function(object, question, model = NULL, structured_output = TRUE, ...)
 #' @param fallback_on_structure_error Logical. Retain the tool-loop plan if
 #'   structured output fails.
 #' @param record Logical. Record the execution and AI plan in the ledger.
+#' @param interpret Logical. When `TRUE` and the execution completes, call
+#'   `AIExplainAnalysis()` on the updated object and store the result in
+#'   `report$interpretation`. Defaults to `FALSE` so no additional LLM call
+#'   is made unless explicitly requested.
 #' @param ... Additional arguments passed to `AIPlanAnalysis()`.
 #' @return An object of class `sclet_ai_analysis` containing the original or
 #'   updated object, plan, validation, dry-run preview, execution, and report.
@@ -212,6 +244,7 @@ RunAIAnalysis <- function(
     structured_output = TRUE,
     fallback_on_structure_error = TRUE,
     record = TRUE,
+    interpret = FALSE,
     ...
 ) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -322,6 +355,47 @@ RunAIAnalysis <- function(
             id = paste0("ai_plan_", plan$plan_id)
         )
     }
+    report <- list(
+        status = execution$status,
+        goal = goal,
+        plan_id = plan$plan_id,
+        actions = vapply(plan$actions, function(x) x$action, character(1)),
+        errors = validation$errors,
+        warnings = validation$warnings,
+        execution_id = execution$execution_id,
+        success_assessment = execution$success_assessment
+    )
+    if (isTRUE(interpret) && execution$status %in% c("completed", "completed_with_errors")) {
+        interpretation_state <- new.env(parent = emptyenv())
+        interpretation_state$error <- NULL
+        interpretation_state$result <- NULL
+        tryCatch({
+            interpretation_state$result <- AIExplainAnalysis(updated, id = execution$execution_id, model = model)
+        }, error = function(e) {
+            interpretation_state$error <- conditionMessage(e)
+        })
+        if (!is.null(interpretation_state$error)) {
+            report$interpretation_error <- interpretation_state$error
+        }
+        if (!is.null(interpretation_state$result) && inherits(interpretation_state$result, "sclet_ai_result")) {
+            report$interpretation <- interpretation_state$result
+            if (isTRUE(record)) {
+                recorded_interpretation <- tryCatch(
+                    RecordAIResult(
+                        updated,
+                        interpretation_state$result,
+                        id = paste0("ai_interpretation_", plan$plan_id)
+                    ),
+                    error = function(e) conditionMessage(e)
+                )
+                if (is.character(recorded_interpretation)) {
+                    report$interpretation_error <- recorded_interpretation
+                } else {
+                    updated <- recorded_interpretation
+                }
+            }
+        }
+    }
     structure(
         list(
             object = updated,
@@ -331,15 +405,7 @@ RunAIAnalysis <- function(
             preview = preview,
             execution = execution,
             status = execution$status,
-            report = list(
-                status = execution$status,
-                goal = goal,
-                plan_id = plan$plan_id,
-                actions = vapply(plan$actions, function(x) x$action, character(1)),
-                errors = validation$errors,
-                warnings = validation$warnings,
-                execution_id = execution$execution_id
-            )
+            report = report
         ),
         class = c("sclet_ai_analysis", "list")
     )

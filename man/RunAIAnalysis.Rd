@@ -14,6 +14,7 @@ RunAIAnalysis(
   structured_output = TRUE,
   fallback_on_structure_error = TRUE,
   record = TRUE,
+  interpret = FALSE,
   ...
 )
 }
@@ -32,11 +33,20 @@ and clustering actions.}
 \item{fallback_on_structure_error}{Logical. Retain the tool-loop plan if
 structured output fails.}
 \item{record}{Logical. Record execution and the AI plan in the ledger.}
+\item{interpret}{Logical. When \code{TRUE} and the execution completes, call
+\code{AIExplainAnalysis()} on the updated object and store the result in
+\code{report$interpretation}. Defaults to \code{FALSE} so no additional LLM call
+is made unless explicitly requested.}
 \item{...}{Additional arguments passed to \code{AIPlanAnalysis()}.}
 }
 \value{
 An object of class \code{sclet_ai_analysis} containing the object, plan,
-validation, dry-run preview, execution, and beginner-facing report.
+validation, dry-run preview, execution, and beginner-facing report. The
+\code{report} field includes \code{success_assessment} (from
+\code{ExecuteAIPlan()}); when \code{interpret = TRUE} and the execution
+completes, \code{report$interpretation} contains the \code{sclet_ai_result}
+from \code{AIExplainAnalysis()} (or \code{report$interpretation_error} if the
+interpretation call failed).
 }
 \description{
 Hides the registry, validation, dry-run, and confirmation details behind one

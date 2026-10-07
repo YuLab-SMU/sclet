@@ -178,6 +178,34 @@ sclet_ai_payload_scan <- function(
                 if (identical(kind, "unknown")) {
                     return(unknown_field(path))
                 }
+                # An unnamed list under an already-allowlisted field name is
+                # not necessarily unbounded free-form data: when every element
+                # is itself a list, this is a bounded array of structurally
+                # known records (e.g. analysis_story$timeline, user_decisions,
+                # design_confirmations, conflicts), and each element already
+                # has its own field names that `visit()` can check. Recurse
+                # into each element under the parent's own `name`/`kind`
+                # rather than redacting the whole array; a scalar-only
+                # unnamed list (truly unbounded free text/numbers) still hits
+                # the redaction below.
+                if (length(value) && all(vapply(value, is.list, logical(1L)))) {
+                    result <- lapply(seq_along(value), function(index) {
+                        visit(
+                            value[[index]],
+                            path,
+                            name,
+                            depth + 1L,
+                            parent_kind = kind
+                        )
+                    })
+                    keep <- !vapply(result, is.null, logical(1L))
+                    result <- result[keep]
+                    if (!length(result)) {
+                        return(NULL)
+                    }
+                    add_allowed(path)
+                    return(unname(result))
+                }
                 add_redacted(path, "unnamed nested values are not bounded")
                 return(NULL)
             }
