@@ -19,7 +19,7 @@ Understand / Clarify / Plan / Execute / Interpret 五层中的恰好一层，固
 
 | 层 | API | 唯一职责 | 是否读/写对象 |
 |---|---|---|---|
-| Understand | `GetAnalysisLedger()` | 输出 bounded、确定性的分析状态视图（dataset/active_view/health/analyses/state_records/capabilities） | 只读 |
+| Understand | `GetAnalysisLedger()` | 输出 bounded、确定性的分析状态视图（dataset/active_view/health/analyses/state_records/analysis_story/capabilities） | 只读 |
 | Understand | `GetAIProfile()` | 输出数据集画像（结构、QC、设计候选字段），供规划前参考 | 只读 |
 | Understand | `check_integration_readiness()` / `check_annotation_readiness()` / `check_rare_cell_readiness()` / `check_trajectory_readiness()` | 回答"当前对象是否满足某条领域路线的前置输入"，不给出任何路线/root/reference 建议 | 只读 |
 | Understand | `summarize_qc_by_group()` / `summarize_pca_metadata_association()` / `summarize_cluster_sample_composition()` / `summarize_small_clusters()` / `summarize_small_cluster_evidence()` / `summarize_trajectory_cluster_order()` | 聚合已有信号为确定性摘要，不下任何"真实/噪声"结论 | 只读 |
@@ -478,7 +478,14 @@ list(
 
 ## 6. AI Context 扩展
 
-当前 `GetAnalysisLedger()` 已经提供基础的状态视图。高级个性化分析需要增加一个面向诊断的 context 层，但仍然不能包含完整表达矩阵。
+当前 `GetAnalysisLedger()` 已经提供基础的状态视图，并通过 `analysis_story` 字段提供分析过程的
+确定性时间线摘要：`timeline`（按 `created_at` 排序的记录列表）、`user_decisions`（通过
+`RecordAIEvidence()` 记录的人类决策）、`design_confirmations`（`ConfirmAIDesignSemantics()`
+的角色到列名映射，不包含敏感的值哈希）、`evidence_gaps`（目前仅覆盖 `check_rare_cell_readiness()`
+的 `doublet_evidence_available` 标志）、`conflicts`（重复记录检测）。整个 `analysis_story`
+是只读的：不调用任何 mutating action，不调用 `RecordAIEvidence()`，不修改传入对象。
+
+高级个性化分析需要增加一个面向诊断的 context 层，但仍然不能包含完整表达矩阵。
 
 建议新增：
 

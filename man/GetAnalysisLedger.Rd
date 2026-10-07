@@ -29,7 +29,15 @@ dimensions. Complete expression matrices are never included. Defaults to
 \code{FALSE}.}
 }
 \value{
-A versioned, bounded AI context list.
+A versioned, bounded AI context list, including:
+\item{analyses}{Flattened, deduplicated analysis records.}
+\item{state_records}{State records grouped by type.}
+\item{workflows}{Workflow-shaped records.}
+\item{lineage}{Parent/child relationships between records.}
+\item{analysis_story}{Chronological summary of the analysis: timeline (ordered by \code{created_at}), user decisions, design confirmations, evidence gaps, and conflicts.}
+\item{capabilities}{Read-only capability information.}
+\item{blocked_actions}{Actions blocked by current state.}
+\item{health}{Health flags from \code{\link[=Status]{Status()}}.}
 }
 \description{
 \code{GetAnalysisLedger()} returns a bounded, versioned view of the current

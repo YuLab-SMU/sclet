@@ -98,6 +98,7 @@ sclet_ai_build_context <- function(
         state_records = records$state_records,
         workflows = records$workflows,
         lineage = records$lineage,
+        analysis_story = sclet_ai_build_analysis_story(object, records, status),
         capabilities = sclet_ai_capabilities(status, records),
         blocked_actions = sclet_ai_blocked_actions(health),
         quality_checks = list(
@@ -327,6 +328,187 @@ sclet_ai_collect_records <- function(
     )
 }
 
+sclet_ai_build_analysis_story <- function(object, records, status) {
+    analyses <- records$analyses
+    if (!is.list(analyses)) {
+        analyses <- list()
+    }
+    lineage <- records$state_records
+    if (!is.list(records$lineage)) {
+        lineage_map <- list()
+    } else {
+        lineage_map <- records$lineage
+    }
+
+    timeline <- list()
+    unordered_keys <- character()
+    analysis_keys <- names(analyses)
+
+    for (key in analysis_keys) {
+        record <- analyses[[key]]
+        created_at <- record$created_at
+        if (is.null(created_at) || !length(created_at)) {
+            unordered_keys <- c(unordered_keys, key)
+            created_at_str <- NULL
+        } else {
+            created_at_str <- as.character(created_at)
+        }
+
+        parents <- lineage_map[[key]]$parents
+        if (is.null(parents)) {
+            parents <- character()
+        } else {
+            parents <- as.character(parents)
+        }
+        parents <- intersect(parents, analysis_keys)
+
+        timeline[[length(timeline) + 1L]] <- list(
+            key = key,
+            type = as.character(record$type %||% ""),
+            id = if (is.null(record$id)) NULL else as.character(record$id),
+            created_at = created_at_str,
+            status = if (is.null(record$status)) NULL else as.character(record$status),
+            method = if (is.null(record$method)) NULL else as.character(record$method),
+            depends_on = parents
+        )
+    }
+
+    if (length(timeline) > 1L) {
+        has_time <- vapply(timeline, function(x) !is.null(x$created_at), logical(1L))
+        if (any(has_time)) {
+            parse_time <- function(x) {
+                if (is.null(x$created_at)) return(NA_real_)
+                t <- tryCatch(as.POSIXct(x$created_at, tryFormats = c(
+                    "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%OS",
+                    "%Y/%m/%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S",
+                    "%Y-%m-%dT%H:%M:%OS"
+                )), error = function(e) NA_real_)
+                if (is.na(t)) NA_real_ else as.numeric(t)
+            }
+            times <- vapply(timeline, parse_time, numeric(1L))
+            with_time <- which(!is.na(times))
+            without_time <- which(is.na(times))
+            if (length(with_time) > 1L) {
+                ord <- order(times[with_time])
+                with_time <- with_time[ord]
+            }
+            timeline <- timeline[c(with_time, without_time)]
+        }
+    }
+
+    state_records <- records$state_records
+    if (!is.list(state_records)) {
+        state_records <- list()
+    }
+
+    user_decisions <- list()
+    ai_evidence_records <- state_records[["ai_evidence"]]
+    if (is.list(ai_evidence_records) && length(ai_evidence_records)) {
+        for (nm in names(ai_evidence_records)) {
+            rec <- ai_evidence_records[[nm]]
+            summary <- rec$summary
+            if (!is.list(summary)) summary <- list()
+            kind <- summary$kind
+            if (!identical(kind, "user_decision")) next
+            decision_summary <- summary$summary
+            if (is.null(decision_summary) || !is.character(decision_summary) || !length(decision_summary)) {
+                decision_summary <- "user decision recorded"
+            } else {
+                decision_summary <- as.character(decision_summary)[1L]
+            }
+            user_decisions[[length(user_decisions) + 1L]] <- list(
+                id = as.character(rec$id %||% nm),
+                created_at = if (is.null(summary$created_at)) NULL else as.character(summary$created_at),
+                summary = decision_summary
+            )
+        }
+    }
+
+    design_confirmations <- list()
+    design_records <- state_records[["ai_design_confirmation"]]
+    if (is.list(design_records) && length(design_records)) {
+        for (nm in names(design_records)) {
+            rec <- design_records[[nm]]
+            summary <- rec$summary
+            if (!is.list(summary)) summary <- list()
+            design <- summary$design
+            if (!is.list(design)) next
+            confirmed_at <- summary$confirmed_at
+            design_confirmations[[length(design_confirmations) + 1L]] <- list(
+                id = as.character(rec$id %||% nm),
+                created_at = if (is.null(confirmed_at)) NULL else as.character(confirmed_at),
+                design = design
+            )
+        }
+    }
+
+    evidence_gaps <- list()
+    has_rare_cells <- "rare_cells" %in% analysis_keys ||
+        any(vapply(names(state_records), function(type) {
+            type_records <- state_records[[type]]
+            if (!is.list(type_records)) return(FALSE)
+            any(vapply(type_records, function(r) {
+                is.list(r) && identical(as.character(r$type %||% ""), "rare_cells")
+            }, logical(1L)))
+        }, logical(1L)))
+    if (has_rare_cells) {
+        readiness <- tryCatch(
+            check_rare_cell_readiness(object),
+            error = function(e) NULL
+        )
+        if (!is.null(readiness)) {
+            doublet_available <- readiness$checks$doublet_evidence_available
+            if (isFALSE(doublet_available)) {
+                notes <- readiness$notes
+                if (is.character(notes) && length(notes)) {
+                    note <- notes[1L]
+                } else {
+                    note <- "doublet evidence missing"
+                }
+                evidence_gaps[[1L]] <- list(
+                    analysis_type = "rare_cells",
+                    gap = "doublet_evidence_available",
+                    reason = note
+                )
+            }
+        }
+    }
+
+    conflicts <- list()
+    type_to_keys <- list()
+    for (key in analysis_keys) {
+        record <- analyses[[key]]
+        type <- as.character(record$type %||% "")
+        if (!nzchar(type)) next
+        if (is.null(type_to_keys[[type]])) {
+            type_to_keys[[type]] <- character()
+        }
+        type_to_keys[[type]] <- c(type_to_keys[[type]], key)
+    }
+    for (type in names(type_to_keys)) {
+        keys <- type_to_keys[[type]]
+        if (length(keys) > 1L) {
+            conflicts[[length(conflicts) + 1L]] <- list(
+                type = type,
+                keys = keys,
+                reason = paste0("multiple ", type, " records exist; only the active one (if any) is in active_states")
+            )
+        }
+    }
+
+    list(
+        schema_version = "1.0",
+        timeline = timeline,
+        n_steps = length(timeline),
+        unordered_steps = unordered_keys,
+        user_decisions = user_decisions,
+        design_confirmations = design_confirmations,
+        evidence_gaps = evidence_gaps,
+        conflicts = conflicts,
+        raw_values_included = FALSE
+    )
+}
+
 sclet_ai_normalize_record <- function(
     record,
     id,
@@ -504,15 +686,15 @@ sclet_ai_capabilities <- function(status, records) {
         graphs = sclet_ai_or(available$graphs, character()),
         recorded_analyses = names(records$analyses),
         recorded_workflows = names(records$workflows),
-        execution = FALSE
+        execution = NA
     )
 }
 
 sclet_ai_blocked_actions <- function(health) {
     list(
         execute_analysis = list(
-            blocked = TRUE,
-            reason = "Phase 0 context is read-only"
+            blocked = NA,
+            reason = "execution capability depends on the AIExecutionRegistry supplied at call time, not on this read-only context"
         ),
         missing_mainline_steps = sclet_ai_or(health$mainline_missing, character()),
         unavailable_prerequisites = sclet_ai_or(health$mainline_missing, character())
