@@ -10,6 +10,96 @@
 - **trajectory 已实现范围（仅第一批）**：`check_trajectory_readiness()`（只回答“cluster + 可用 embedding 是否齐备”，**不输出任何起点/root 建议**）、只读的 `summarize_trajectory_cluster_order()`（只描述 cluster 在嵌入维度上的分布，`root_suggested` 恒为 `FALSE`）、`AIDefaultExecutionRegistry` 的 `trajectory` group（`run_trajectory`，包装 `RunSlingshot()`，`group` 与 `start_cluster` 均必填，缺失/NULL/空/不存在的 root 分别被 `start_cluster_missing`/`start_cluster_unknown` 拒绝）、以及 `claim_level = "consistent_with"` 的聚合 evidence（只含 lineage 数量、pseudotime 分位数与匿名化 `cluster_N` 起点编码，不含逐细胞向量，`pseudotime_is_absolute_time = FALSE`）。**尚未覆盖**：`compare_trajectory_roots` 多 root 比较、`check_velocity_readiness`、`run_velocity`、`run_fate_analysis`、spatial 和 multimodal 的任何执行 action（需要 spliced/unspliced 或 Python 后端，留给后续批次）。
 - **rare-cell / doublet 证据链已实现范围**：`check_rare_cell_readiness()`（cluster 分配、PCA reduction、doublet 证据缺失的显式说明）、只聚合不下结论的 `summarize_small_cluster_evidence()`（QC / doublet / marker / sample replication 四类独立信号 + 计数；**每一类只有对该群体“有信息量”时才计数**：marker 需按群体归因并通过 `pvalue_cutoff`/`logfc_threshold`/`min_up_genes`，QC 列需有变化且群体内外都被观测，doublet 需覆盖两侧，sample replication 需至少两个样本标签）、`AIDefaultExecutionRegistry` 的 `rare_cell` group（`run_doublet_detection`、`run_rare_cell_detection`）、按独立信号数量分级的 evidence `claim_level`（0 个信号不登记 evidence、1 个信号降级为 `associated` 并标 `low_confidence = TRUE`、≥2 个信号才 `consistent_with`；evidence 登记失败改为通过非 evidence 的 note 通道报告，不再静默吞掉），以及“只标注不删除”的红线。**尚未覆盖**：ambient RNA（decontX）作为独立信号本轮刻意不纳入；`compare_rare_cell_evidence` 已实现（按同一对象内的记录 population label 做只读 recurrence summary，不声称细胞级重叠或生物学身份）；删除/合并稀有群体的独立 action 明确不在本轮范围内。文中“建议”“拟支持”“应”表示未来 contract；“当前”只指本文件列出的已实现能力。
 
+## P0. API 职责映射（路线冻结，2026-10-07）
+
+本节是 `.dev/ai-product-roadmap.md` P0 阶段的交付物：把每个已导出 AI API 映射到
+Understand / Clarify / Plan / Execute / Interpret 五层中的恰好一层，固定职责边界，
+作为后续开发是否"该不该做"的检查依据。下表只列已导出函数；内部 `sclet_ai_*` 辅助函数
+不在职责映射范围内。
+
+| 层 | API | 唯一职责 | 是否读/写对象 |
+|---|---|---|---|
+| Understand | `GetAnalysisLedger()` | 输出 bounded、确定性的分析状态视图（dataset/active_view/health/analyses/state_records/capabilities） | 只读 |
+| Understand | `GetAIProfile()` | 输出数据集画像（结构、QC、设计候选字段），供规划前参考 | 只读 |
+| Understand | `check_integration_readiness()` / `check_annotation_readiness()` / `check_rare_cell_readiness()` / `check_trajectory_readiness()` | 回答"当前对象是否满足某条领域路线的前置输入"，不给出任何路线/root/reference 建议 | 只读 |
+| Understand | `summarize_qc_by_group()` / `summarize_pca_metadata_association()` / `summarize_cluster_sample_composition()` / `summarize_small_clusters()` / `summarize_small_cluster_evidence()` / `summarize_trajectory_cluster_order()` | 聚合已有信号为确定性摘要，不下任何"真实/噪声"结论 | 只读 |
+| Understand | `AIStatus()` / `AIReviewQC()` | 把确定性状态/QC 事实转述给用户；不发明生物学结论 | 只读 |
+| Understand | `CompareAIAnalyses()` / `compare_rare_cell_evidence()` | 比较已记录的多路线/多次运行摘要；`recommendation` 恒为 `NULL`，不自动选优 | 只读 |
+| Clarify | `check_*_readiness()` 的 `clarification_required`/`questions` 返回值 | 列出需要用户确认的语义缺口（batch/condition/reference/root 等） | 只读 |
+| Clarify | `sclet_ai_format_clarification()` / `ResolveAIClarifications()` | 把校验错误格式化为结构化问题，并以 `user_decision` evidence 记录用户回答 | 读写（写入 evidence，不写入计算分析） |
+| Clarify | `ConfirmAIDesignSemantics()` | 人类显式调用的设计语义确认闸门；不进入任何 action registry，AI 不能自己触发 | 读写（写 `ai_design_confirmation` state） |
+| Plan | `AIPlanAnalysis()` | 向模型请求一份候选 plan（action 列表 + P0.1 的 assumptions/candidate_routes/selected_route/success_criteria/risks），不执行任何 action | 只读 |
+| Plan | `ValidateAIPlan()` | 对 plan 做结构/依赖/前置条件/success_criteria 可解析性校验，返回 `valid`/`errors`/confirmation token | 只读（可读取对象做 fingerprint 和 prerequisite 检查） |
+| Plan | `AIInvestigate()` | 只读地组合 profile + ledger + readiness diagnostics 回答一个科学问题；在设计语义不明时返回 `clarification_required`；不执行、不生成可执行 plan | 只读 |
+| Execute | `ExecuteAIPlan()` / `RunAIPlan()` | 在已验证 plan 和确认 token 下执行 action，登记 state/evidence，计算 `success_assessment`；`dry_run` 为默认安全模式 | 读写（仅在 `dry_run = FALSE` 且 token 匹配时写对象） |
+| Execute | `RunIntegrationRoutes()` | integration 领域的受控多路线执行 facade，包装 plan/validate/execute | 读写 |
+| Execute | `RunAIAnalysis()` | 新手一体化入口：plan → validate → dry-run 预览 → 用户确认 → execute；隐藏底层细节 | 读写（经用户确认后） |
+| Execute | `RecordAIEvidence()` | 登记一条 bounded、确定性的 evidence 节点；校验字段/scope/claim_level | 读写（写 `ai_evidence` state） |
+| Execute | `RecordAIResult()` | 把结构化 `sclet_ai_result` 写入 ledger；默认审计 claim ceiling，拒绝过度断言的 finding | 读写 |
+| Interpret | `AIExplainAnalysis()` | 解释一条已记录分析（输入/方法/输出/evidence/局限），区分已测量结果与假设 | 只读 |
+| Interpret | `AIRecommendNextStep()` | 在前置条件可见时推荐下一步分析，列出缺失输入和风险；只返回建议，不执行 | 只读 |
+| Interpret | `AskAI()` | 新手一体化只读问答：基于完整 ledger 回答问题，不执行、不发明矩阵级统计量 | 只读 |
+| Interpret | `ValidateAIEvidenceRefs()` | 校验一组 evidence 引用是否可解析、是否过期；供 report/finding 生成前预检查 | 只读 |
+
+**已知仍未对齐、留给 P3 的缺口**（不在本次 P0 范围内修复，只记录边界）：
+
+- `AIExplainAnalysis()` 和 `AIInvestigate()` 目前各自独立组装 context，没有共享统一的
+  "evidence-linked report" 输出形状；P3 要统一这两者的 report contract。
+- `RunAIAnalysis()` 执行成功后不会自动生成 Interpret 层的报告，用户需要另外调用
+  `AIExplainAnalysis()`；P3 要把两者接起来。
+- 只读入口（`AskAI` / `AIInvestigate` / `AIExplainAnalysis` / `AIStatus` / `AIReviewQC` /
+  `AIRecommendNextStep`）返回的 findings 目前不经过 `sclet_ai_claim_ceiling()` 审计，只有
+  `RecordAIResult()` 这一个写入闸口会审计；这是独立于本次 P0 的后续工作项，不在本节范围内。
+
+**本节与 §11（API 演进建议）的关系**：§11 中仍标注为"后续增加"的参数（例如
+`RunAIAnalysis(design =, mode =, constraints =)`）是**提案，不是已实现签名**；
+当前已实现签名以 R 源码为准（`RunAIAnalysis(object, goal, model, confirm, registry, include,
+structured_output, fallback_on_structure_error, record, ...)`，无 `design`/`mode`/`constraints`
+参数）。本节不是要替换 §11，而是对已经存在的导出函数做职责边界确认；§11 仍然是未实现提案的
+存放位置。
+
+### P0.a 一条可追踪的端到端 user journey（context -> report）
+
+用 integration 作为示例——它是当前覆盖面最完整的领域 adapter（readiness + 真实多路线
+执行 + evidence + comparison），可以逐步调用下表的 API 走完整条链路：
+
+```r
+# 1. Understand：读取当前状态，不涉及任何假设
+ledger <- GetAnalysisLedger(sce)
+readiness <- check_integration_readiness(sce)
+# readiness$status == "clarification_required" 时，列出的 questions
+# 就是用户必须回答的 batch/condition 语义
+
+# 2. Clarify：用户提供 design 语义后显式确认（AI 不能自己触发这一步）
+sce <- ConfirmAIDesignSemantics(sce, design = list(batch = "batch_id", condition = "condition"))
+
+# 3. Plan：请求一份候选 plan（P0.1 的 success_criteria/candidate_routes 已经是 plan 的一部分）
+plan <- AIPlanAnalysis(sce, goal = "是否存在需要校正的技术批次效应？")
+
+# 4. Validate + 预览：结构/依赖/成功标准可解析性校验，先 dry-run
+registry <- AIDefaultExecutionRegistry(sce, include = c("read", "integration"))
+validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+preview <- ExecuteAIPlan(sce, plan, registry, validation = validation, dry_run = TRUE)
+
+# 5. Execute：用户确认后真正执行，登记 evidence 和 success_assessment
+execution <- ExecuteAIPlan(sce, plan, registry, validation = validation,
+    dry_run = FALSE, confirmation = validation$confirmation_token)
+sce <- execution$object
+
+# 6. Interpret：解释已记录的分析，引用 evidence，不下因果结论
+AIExplainAnalysis(sce, type = "integration")
+
+# 之后可选：多路线比较（只读，不自动选优）
+CompareAIAnalyses(sce, criterion = "biological_preservation")
+```
+
+这条链路目前的真实缺口（留给 P3，不是本节声称已解决）：第 6 步 `AIExplainAnalysis()`
+需要用户另外调用，`RunAIAnalysis()` 执行成功后不会自动产出这一步的解释；且第 6 步返回的
+findings 不经过 `sclet_ai_claim_ceiling()` 审计。这两点已经在前面"已知仍未对齐的缺口"里
+列出，这里只是把它们放进一条具体的调用链里，方便下一阶段核对。
+
+---
+
 ## 0. 本轮审核结论与采纳范围
 
 本轮审核反馈大部分采纳，主要修订如下：
@@ -606,40 +696,39 @@ run_multimodal_alignment
 
 P0.1 已实现 plan 层的 `assumptions`、`candidate_routes`、`selected_route`、`success_criteria`、`risks` 五个可选字段（均默认空值，向后兼容）。`ValidateAIPlan()` 验证 criterion 可解析性（action_output 必须引用已知 step_id，evidence 必须有非空 evidence_id）、非 exists 检查的 field/value 完整性、以及 selected_route 与 candidate_routes 的一致性。`ExecuteAIPlan()` 在执行后计算 `success_assessment`，逐条评估每个 criterion 是否满足（met/not_met/not_available），该评估为只读，不改变 `execution$status`。
 
-建议的 plan 扩展结构（与已实现 contract 对齐）：
+实际实现的 plan 结构（`new_sclet_ai_plan()`，`R/ai-planning.R`）：
 
 ```r
-list(
-    plan_id = "integration_route_1",
+new_sclet_ai_plan(
     task = "batch_effect_diagnosis",
-    user_goal = "保留 condition，降低技术 batch 影响",
-    context_fingerprint = "...",
-    assumptions = list(
-        batch_is_technical = TRUE,
-        condition_must_be_preserved = TRUE
+    actions = list(
+        list(id = "integrate", action = "run_integration",
+            params = list(batch = "batch_id", method = "harmony"))
     ),
-    hypotheses = list(
-        list(
-            id = "batch_effect",
-            statement = "PCA structure is partly explained by batch",
-            evidence_required = c("pca_metadata_association", "sample_composition")
-        )
+    context_fingerprint = "...",
+    rationale = "保留 condition，降低技术 batch 影响",
+    assumptions = list(
+        "batch_id column is a technical batch, confirmed by user",
+        "condition column must be preserved"
     ),
     candidate_routes = list(
-        list(id = "harmony", cost = "low", risk = "embedding_only"),
-        list(id = "fastmnn", cost = "medium", risk = "parameter_sensitive"),
-        list(id = "scvi", cost = "high", risk = "python_environment")
+        list(id = "harmony", description = "低成本，仅校正 embedding"),
+        list(id = "fastmnn", description = "参数敏感，适合低维结构"),
+        list(id = "scvi", description = "成本较高，需要 Python 环境")
     ),
     selected_route = "harmony",
     success_criteria = list(
-        "batch mixing improves",
-        "condition separation is not erased",
-        "marker structure remains interpretable"
+        list(id = "integration_ran", description = "integration step completed",
+            source = "action_output", step_id = "integrate", check = "exists"),
+        list(id = "bio_preserved", description = "biological_preservation at or above baseline",
+            source = "evidence", evidence_id = "ev:integration_harmony_metrics",
+            check = "gte", field = "biological_preservation", value = 0.7)
     ),
-    actions = list(...),
-    requires_confirmation = TRUE
+    risks = list("harmony 可能过度校正真实的 condition 混杂批次信号")
 )
 ```
+
+字段形状以 `new_sclet_ai_plan()` 的签名和 `ValidateAIPlan()` 的校验规则为准：`candidate_routes[[i]]` 至少含 `id`/`description`；`success_criteria[[i]]` 的 `source` 为 `"action_output"`（引用某个 `actions[[i]]$id`）或 `"evidence"`（引用一个预期在执行后出现的 evidence id），`check` 为 `exists`/`equals`/`gte`/`lte`/`in`，非 `exists` 时 `field`/`value` 必填。`ExecuteAIPlan()` 执行后输出的 `success_assessment` 按 criterion 逐条给出 `met`/`not_met`/`not_available`，不改变 `execution$status`。
 
 ### 8.1 路线选择原则
 
