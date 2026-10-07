@@ -148,6 +148,7 @@ Collate:
     'ai-profile.R'
     'ai-result.R'
     'ai-tools.R'
+    'ai-trajectory-velocity-crosscheck.R'
     'analysis-accessors.R'
     'annotation.R'
     'basilisk.R'
