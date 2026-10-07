@@ -951,3 +951,59 @@ check_integration_readiness <- function(object, design = NULL) {
     )
 }
 
+#' Check whether an object is ready for RNA velocity analysis
+#'
+#' Reports whether the \code{"spliced"} and \code{"unspliced"} assays and a
+#' usable embedding are present for \code{RunVelocity()}. No velocity mode
+#' (deterministic/stochastic/dynamical) is recommended here: that is a
+#' numerical-method choice for \code{run_velocity}'s own params, not a
+#' readiness gate. No design confirmation is required for this domain.
+#'
+#' @param object A \code{SingleCellExperiment} object.
+#' @param reduction Optional preferred reduction name. Defaults to UMAP when
+#'   available, then any usable embedding.
+#' @return A read-only readiness summary.
+#' @export
+check_velocity_readiness <- function(object, reduction = NULL) {
+    if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)
+    assay_names <- SummarizedExperiment::assayNames(object)
+    has_spliced <- "spliced" %in% assay_names
+    has_unspliced <- "unspliced" %in% assay_names
+    reductions <- tryCatch(SingleCellExperiment::reducedDimNames(object), error = function(e) character())
+    resolved <- sclet_ai_diag_embedding_name(object, reduction)
+    has_reduction <- !is.null(resolved)
+    questions <- character()
+    if (!has_spliced || !has_unspliced) {
+        questions <- c(questions, paste0(
+            "RNA velocity requires 'spliced' and 'unspliced' assays (e.g. from a splicing-aware",
+            " quantification pipeline such as velocyto or alevin-fry); the current assays are: ",
+            paste(assay_names, collapse = ", ")
+        ))
+    }
+    if (!has_reduction) {
+        questions <- c(questions, paste0(
+            "No usable embedding is available; run the dimensionality reduction first. ",
+            "Available reductions: ", paste(reductions, collapse = ", ")
+        ))
+    }
+    status <- if (!has_spliced || !has_unspliced || !has_reduction) "not_ready" else "ready_for_diagnostic"
+    list(
+        status = status,
+        checks = list(
+            spliced_assay_available = has_spliced,
+            unspliced_assay_available = has_unspliced,
+            reduction_resolved = resolved,
+            available_reductions = reductions,
+            raw_values_included = FALSE
+        ),
+        blocked_actions = if (identical(status, "not_ready")) "velocity" else character(),
+        questions = questions,
+        notes = paste(
+            "No velocity mode (deterministic/stochastic/dynamical) is recommended here: that is a",
+            "numerical-method choice for run_velocity's own params, not a readiness gate. No design",
+            "confirmation is required for this domain -- velocity has no sample/batch/root semantic",
+            "parameter the way trajectory or integration do."
+        )
+    )
+}
+

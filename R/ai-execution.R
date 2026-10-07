@@ -167,8 +167,8 @@ sclet_ai_action_param_problems <- function(params, schema) {
 #' @param object A `SingleCellExperiment` object.
 #' @param include Character vector of action groups. Supported groups are
 #'   `"read"`, `"preprocess"`, `"dimred"`, `"graph"`, `"cluster"`,
-#'   `"integration"`, `"annotation"`, `"rare_cell"`, `"trajectory"`, and
-#'   `"all"`. Defaults to `"read"`.
+#'   `"integration"`, `"annotation"`, `"rare_cell"`, `"trajectory"`,
+#'   `"velocity"`, and `"all"`. Defaults to `"read"`.
 #' @return A `sclet_ai_execution_registry` containing the requested actions.
 #' @export
 AIDefaultExecutionRegistry <- function(object, include = "read") {
@@ -176,7 +176,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
         stop("`object` must be a SingleCellExperiment.")
     }
     include <- unique(as.character(include))
-    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "rare_cell", "trajectory", "all")
+    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "rare_cell", "trajectory", "velocity", "all")
     if (!length(include) || any(!include %in% allowed_groups)) {
         stop("`include` must contain only: ", paste(allowed_groups, collapse = ", "))
     }
@@ -1033,6 +1033,68 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
             )
         ))
     }
+    if ("velocity" %in% include) {
+        actions <- c(actions, list(
+            run_velocity = AIAction(
+                name = "run_velocity",
+                description = "Estimate RNA velocity with velociraptor::scvelo and record a bounded aggregate evidence node.",
+                handler = function(object, params) {
+                    name <- params$name %||% "velocity"
+                    result <- RunVelocity(
+                        object,
+                        mode = params$mode %||% "deterministic",
+                        use.dimred = params$use.dimred %||% NULL,
+                        subset.row = if (is.null(params$subset.row)) NULL else sclet_ai_vector_param(params$subset.row, "character"),
+                        name = name
+                    )
+                    sclet_ai_record_velocity_evidence(result, name = name)
+                },
+                input_schema = list(
+                    mode = "character",
+                    use.dimred = "character",
+                    subset.row = "character_vector",
+                    name = "character"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    available <- planned$assays %||% SummarizedExperiment::assayNames(object)
+                    if (!all(c("spliced", "unspliced") %in% available)) {
+                        return(paste0(
+                            "spliced_unspliced_missing: run_velocity requires 'spliced' and 'unspliced' assays; available: ",
+                            paste(available, collapse = ", ")
+                        ))
+                    }
+                    reduction <- params$use.dimred %||% planned$active_reduction %||%
+                        tryCatch(DefaultReduction(object), error = function(e) NULL)
+                    available_reductions <- planned$reductions %||% tryCatch(SingleCellExperiment::reducedDimNames(object), error = function(e) character())
+                    if (is.null(reduction) || !nzchar(reduction) || !reduction %in% available_reductions) {
+                        return(paste0(
+                            "reduction_missing: a dimensionality reduction is required for run_velocity; available: ",
+                            paste(available_reductions, collapse = ", ")
+                        ))
+                    }
+                    if (!base::requireNamespace("velociraptor", quietly = TRUE)) {
+                        return("optional_package_missing: velociraptor is required for run_velocity; install via BiocManager::install('velociraptor')")
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                requires_confirmation = TRUE,
+                output_schema = list(
+                    required_states = list(velocity = "any"),
+                    note = paste(
+                        "Velocity direction and velocity_pseudotime are model-fitted estimates from scVelo,",
+                        "not measured biological facts; they depend on the chosen mode and the spliced/unspliced",
+                        "ratio and must not be read as ground-truth cell-state transitions. No cell is removed",
+                        "or filtered by this action."
+                    )
+                ),
+                mutates_object = TRUE,
+                allowed_state_types = c("velocity", "ai_evidence"),
+                estimated_cost = "high",
+                idempotent = FALSE
+            )
+        ))
+    }
     AIExecutionRegistry(actions)
 }
 sclet_ai_record_trajectory_evidence <- function(object, name, group, start_cluster, reduction) {
@@ -1082,6 +1144,57 @@ sclet_ai_record_trajectory_evidence <- function(object, name, group, start_clust
     }
     evidence <- list(
         id = paste0("ev:trajectory_", name),
+        kind = "deterministic_summary",
+        values = values,
+        claim_level = "consistent_with"
+    )
+    tryCatch(
+        RecordAIEvidence(object, evidence, source = name, parents = character(), scope = NULL),
+        error = function(e) object
+    )
+}
+
+sclet_ai_record_velocity_evidence <- function(object, name) {
+    record <- sclet_get_state_record(object, "velocity", name)
+    if (is.null(record)) return(object)
+    velocity_coldata <- intersect(
+        c("velocity_pseudotime", "velocity_confidence", "root_cells", "end_points"),
+        colnames(SummarizedExperiment::colData(object))
+    )
+    column_summaries <- list()
+    for (column in velocity_coldata) {
+        values <- as.numeric(SummarizedExperiment::colData(object)[[column]])
+        values <- values[is.finite(values)]
+        if (!length(values)) next
+        quantiles <- round(unname(stats::quantile(values, c(0.25, 0.5, 0.75))), 4L)
+        column_summaries[[column]] <- list(
+            n_observed = as.integer(length(values)),
+            mean = round(mean(values), 4L),
+            quantile_25 = as.numeric(quantiles[[1L]]),
+            median = as.numeric(quantiles[[2L]]),
+            quantile_75 = as.numeric(quantiles[[3L]]),
+            max = round(max(values), 4L)
+        )
+    }
+    mode <- record$params$mode %||% "deterministic"
+    mode_code <- match(mode, c("deterministic", "stochastic", "dynamical"))
+    if (is.na(mode_code)) mode_code <- 0L
+    reductions_written <- record$reductions %||% character()
+    values <- list(
+        mode_code = as.integer(mode_code),
+        n_reductions_written = as.integer(length(reductions_written)),
+        n_fields_written = as.integer(length(velocity_coldata)),
+        velocity_is_model_estimate = TRUE,
+        raw_values_included = FALSE
+    )
+    if (length(column_summaries)) {
+        values$n_summarized_fields <- as.integer(length(column_summaries))
+        for (column in names(column_summaries)) {
+            values[[column]] <- column_summaries[[column]]
+        }
+    }
+    evidence <- list(
+        id = paste0("ev:velocity_", name),
         kind = "deterministic_summary",
         values = values,
         claim_level = "consistent_with"

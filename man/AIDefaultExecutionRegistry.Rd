@@ -12,7 +12,7 @@ AIDefaultExecutionRegistry(object, include = "read")
 \item{include}{Character vector of action groups. Supported groups are
 \code{"read"}, \code{"preprocess"}, \code{"dimred"}, \code{"graph"},
 \code{"cluster"}, \code{"integration"}, \code{"annotation"},
-\code{"rare_cell"}, \code{"trajectory"}, and \code{"all"}. Defaults to
+\code{"rare_cell"}, \code{"trajectory"}, \code{"velocity"}, and \code{"all"}. Defaults to
 \code{"read"}.}
 }
 \value{
