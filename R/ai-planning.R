@@ -697,6 +697,11 @@ sclet_ai_plan_once <- function(
         "`params` list using only the parameter names listed in that action's",
         "input_schema. Do not invent action names. If no listed action fits",
         "a needed step, say so in your rationale instead of inventing one.",
+        "For group-valued parameters (ident.1, ident.2, start_cluster), use",
+        "only the `code` values from `context$capabilities$identity_levels$codes`.",
+        "When `all_levels_available` is FALSE or no code fits, omit the",
+        "parameter if the action supports omission (e.g. run_de_test without",
+        "ident.1 runs the all-cluster marker path) rather than guessing.",
         "List prerequisites, dependencies, expected outputs, and uncertainty.",
         "Never execute an action or claim that it was executed.",
         sep = "\n"

@@ -557,6 +557,8 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 handler = function(object, params) {
                     ident.1 <- if (!is.null(params$ident.1)) sclet_ai_vector_param(params$ident.1, "character") else NULL
                     ident.2 <- if (!is.null(params$ident.2)) sclet_ai_vector_param(params$ident.2, "character") else NULL
+                    ident.1 <- sclet_ai_resolve_ident_value(object, ident.1)
+                    ident.2 <- sclet_ai_resolve_ident_value(object, ident.2)
                     result <- RunDEtest(
                         object,
                         ident.1 = ident.1,
@@ -631,6 +633,8 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 prerequisites = function(object, params, planned = NULL) {
                     ident.1 <- if (is.null(params$ident.1)) NULL else sclet_ai_vector_param(params$ident.1, "character")
                     ident.2 <- if (is.null(params$ident.2)) NULL else sclet_ai_vector_param(params$ident.2, "character")
+                    ident.1 <- sclet_ai_resolve_ident_value(object, ident.1)
+                    ident.2 <- sclet_ai_resolve_ident_value(object, ident.2)
                     active_ident <- ActiveIdent(object)
                     if (is.null(active_ident)) {
                         return("cluster identity is not set: run FindClusters() or set ActiveIdent(object) <- 'colname' before running marker/DE tests")
@@ -941,11 +945,12 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 description = "Infer a slingshot trajectory from an explicitly supplied start cluster and record a bounded aggregate evidence node.",
                 handler = function(object, params) {
                     name <- params$name %||% "slingshot"
+                    start_cluster <- sclet_ai_resolve_ident_value(object, params$start_cluster)
                     result <- RunSlingshot(
                         object,
                         group = params$group,
                         reduction = params$reduction %||% "UMAP",
-                        start_cluster = params$start_cluster,
+                        start_cluster = start_cluster,
                         end_cluster = params$end_cluster,
                         reverse = isTRUE(params$reverse),
                         align_start = isTRUE(params$align_start),
@@ -956,7 +961,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         result,
                         name = name,
                         group = params$group,
-                        start_cluster = params$start_cluster,
+                        start_cluster = start_cluster,
                         reduction = params$reduction %||% "UMAP"
                     )
                 },
@@ -971,7 +976,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     name = "character"
                 ),
                 prerequisites = function(object, params, planned = NULL) {
-                    start <- params$start_cluster
+                    start <- sclet_ai_resolve_ident_value(object, params$start_cluster)
                     if (is.null(start) || !is.character(start) || length(start) != 1L || !nzchar(trimws(start))) {
                         return(paste0(
                             "start_cluster_missing: trajectory root must be an explicit cluster label supplied by the user. ",

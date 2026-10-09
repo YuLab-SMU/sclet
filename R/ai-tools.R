@@ -202,7 +202,11 @@ AIRecommendNextStep <- function(object, model = NULL, structured_output = TRUE, 
             "Any proposed action's `action` field must be an exact, verbatim key",
             "from `context$available_actions`, with a `params` list using only the",
             "parameter names listed in that action's input_schema. Do not invent",
-            "action names. If no listed action fits, say so in your answer instead."
+            "action names. If no listed action fits, say so in your answer instead.",
+            "For group-valued parameters (ident.1, ident.2, start_cluster), use",
+            "only the `code` values from `context$capabilities$identity_levels$codes`.",
+            "When `all_levels_available` is FALSE or no code fits, omit the",
+            "parameter if the action supports omission rather than guessing."
         ),
         ...
     )

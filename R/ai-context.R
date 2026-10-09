@@ -102,7 +102,7 @@ sclet_ai_build_context <- function(
         workflows = records$workflows,
         lineage = records$lineage,
         analysis_story = sclet_ai_build_analysis_story(object, records, status),
-        capabilities = sclet_ai_capabilities(status, records),
+        capabilities = sclet_ai_capabilities(status, records, object = object),
         blocked_actions = sclet_ai_blocked_actions(health),
         quality_checks = list(
             health = health,
@@ -706,12 +706,12 @@ sclet_ai_describe_registry <- function(registry) {
     actions
 }
 
-sclet_ai_capabilities <- function(status, records) {
+sclet_ai_capabilities <- function(status, records, object = NULL) {
     available <- status$available
     if (!is.list(available)) {
         available <- list()
     }
-    list(
+    result <- list(
         read_only_context = TRUE,
         assays = sclet_ai_or(available$assays, character()),
         layers = sclet_ai_or(available$layers, character()),
@@ -721,6 +721,94 @@ sclet_ai_capabilities <- function(status, records) {
         recorded_workflows = names(records$workflows),
         execution = NA
     )
+    if (!is.null(object)) {
+        result$identity_levels <- sclet_ai_build_identity_levels(object)
+    }
+    result
+}
+
+sclet_ai_build_identity_levels <- function(object) {
+    mapping <- sclet_ai_ident_group_codes(object)
+    if (is.null(mapping) || is.null(mapping$codes) || !length(mapping$codes)) {
+        return(list(
+            column = NULL,
+            n_levels = 0L,
+            aggregation_threshold = 10L,
+            codes = list(),
+            omitted_below_threshold = 0L,
+            all_levels_available = TRUE,
+            raw_values_included = FALSE
+        ))
+    }
+    threshold <- 10L
+    keep <- mapping$sizes >= threshold
+    n_omitted <- sum(!keep)
+    codes_list <- lapply(which(keep), function(i) {
+        list(code = mapping$codes[[i]], n_cells = as.integer(mapping$sizes[[i]]))
+    })
+    list(
+        column = mapping$col,
+        n_levels = as.integer(sum(keep)),
+        aggregation_threshold = threshold,
+        codes = codes_list,
+        omitted_below_threshold = as.integer(n_omitted),
+        all_levels_available = n_omitted == 0L,
+        raw_values_included = FALSE
+    )
+}
+
+sclet_ai_ident_group_codes <- function(object) {
+    col <- tryCatch(ActiveIdent(object), error = function(e) NULL)
+    if (is.null(col) || !nzchar(col)) {
+        return(list(col = NULL, codes = character(), labels = character(), sizes = integer(), n_groups = 0L))
+    }
+    # NOTE: `col` may legitimately be "colLabels" -- that is what FindClusters()
+    # sets, and it is the most common way an object acquires an identity.
+    # Idents() already resolves the colLabels case (R/clustering.R), so do NOT
+    # bail out here: an earlier version returned an empty mapping for
+    # "colLabels", which silently made group codes unusable on the standard
+    # clustering path while still working on objects with an explicit colData
+    # ident column. A `colLabels`-identified object has a perfectly usable
+    # identity, so it must produce a mapping like any other.
+    labels <- tryCatch(as.character(Idents(object)), error = function(e) NULL)
+    if (is.null(labels) || !length(labels)) {
+        return(list(col = col, codes = character(), labels = character(), sizes = integer(), n_groups = 0L))
+    }
+    sorted_labels <- sort(unique(labels))
+    sizes <- as.integer(table(factor(labels, levels = sorted_labels)))
+    codes <- paste0("group_", seq_along(sorted_labels))
+    list(
+        col = col,
+        codes = codes,
+        labels = sorted_labels,
+        sizes = sizes,
+        n_groups = as.integer(length(sorted_labels))
+    )
+}
+
+sclet_ai_resolve_ident_value <- function(object, value) {
+    if (is.null(value) || !length(value)) {
+        return(value)
+    }
+    if (!is.character(value)) {
+        return(value)
+    }
+    if (!all(grepl("^group_[0-9]+$", value))) {
+        return(value)
+    }
+    mapping <- sclet_ai_ident_group_codes(object)
+    if (is.null(mapping) || !length(mapping$codes)) {
+        return(value)
+    }
+    code_indices <- as.integer(sub("^group_", "", value))
+    resolved <- vapply(seq_along(value), function(i) {
+        idx <- code_indices[[i]]
+        if (is.na(idx) || idx < 1L || idx > length(mapping$labels)) {
+            return(value[[i]])
+        }
+        mapping$labels[[idx]]
+    }, character(1L))
+    resolved
 }
 
 sclet_ai_blocked_actions <- function(health) {
