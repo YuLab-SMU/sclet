@@ -92,7 +92,7 @@ test_that("scale_data accepts the range notation that used to crash", {
     expect_true("scaled" %in% SummarizedExperiment::assayNames(execution$object))
 })
 
-test_that("scale_data reports an unusable selector instead of crashing", {
+test_that("scale_data rejects an unusable selector at validation, not by crashing", {
     sce <- selector_test_sce()
     sce <- NormalizeData(sce)
     registry <- AIExecutionRegistry(list(
@@ -102,11 +102,87 @@ test_that("scale_data reports an unusable selector instead of crashing", {
         task = "analysis_plan",
         actions = list(list(id = "s1", action = "scale_data", params = list(features = "banana")))
     )
-    execution <- RunAIPlan(
-        object = sce, plan = plan, registry = registry,
-        dry_run = FALSE, confirm = TRUE
+
+    # The schema cannot catch this -- "banana" is a perfectly good string -- so
+    # the prerequisite does. That places the complaint where the repair loop
+    # can act on it, instead of letting the plan validate and fail later.
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
+    expect_false(validation$valid)
+    expect_true(any(grepl("features is not usable", validation$errors)))
+
+    # A strict run therefore refuses before executing anything at all.
+    expect_error(
+        RunAIPlan(object = sce, plan = plan, registry = registry, dry_run = FALSE, confirm = TRUE),
+        class = "sclet_ai_invalid_plan"
     )
-    expect_equal(execution$status, "failed")
-    # Not "subscript out of bounds".
-    expect_true(grepl("features is not usable", execution$results[[1L]]$error, fixed = TRUE))
+})
+
+test_that("the handler still guards a selector that reached it anyway", {
+    sce <- selector_test_sce()
+    sce <- NormalizeData(sce)
+    descriptor <- AIDefaultExecutionRegistry(sce, include = "preprocess")[["scale_data"]]
+
+    # Defence in depth: validation is the first gate, the handler is the last.
+    # Calling the handler directly bypasses the first, as a replayed or
+    # hand-edited plan could.
+    err <- tryCatch(
+        descriptor$handler(sce, list(features = "banana")),
+        error = function(e) conditionMessage(e)
+    )
+    expect_true(grepl("features is not usable", err, fixed = TRUE))
+    # Specifically not the opaque error this used to produce.
+    expect_false(grepl("subscript out of bounds", err, fixed = TRUE))
+})
+
+test_that("a prose selector is rejected at validation, not at execution", {
+    # Both real failures in the last execution-benchmark batch were this shape:
+    # the model wrote a description ("top HVGs from step_2",
+    # "UNRESOLVED — cannot be filled") as the value of a character_vector
+    # selector. It passed the schema check, the plan validated, and the run
+    # then died at the failing step with no chance to repair.
+    sce <- selector_test_sce()
+    sce <- NormalizeData(sce)
+    registry <- AIExecutionRegistry(list(
+        AIDefaultExecutionRegistry(sce, include = c("preprocess", "dimred"))[["scale_data"]],
+        AIDefaultExecutionRegistry(sce, include = c("preprocess", "dimred"))[["run_pca"]]
+    ))
+
+    for (case in list(
+        list(action = "scale_data", param = "features"),
+        list(action = "run_pca", param = "subset_row")
+    )) {
+        bad_params <- list()
+        bad_params[[case$param]] <- "top HVGs from step_2"
+        plan <- sclet:::new_sclet_ai_plan(
+            task = "analysis_plan",
+            actions = list(list(id = "s1", action = case$action, params = bad_params))
+        )
+        validation <- ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
+        expect_false(validation$valid, info = case$action)
+        expect_true(
+            any(grepl(paste0(case$param, " is not usable"), validation$errors)),
+            info = case$action
+        )
+
+        # The same selector as range notation resolves and validates.
+        ok_params <- list()
+        ok_params[[case$param]] <- "1:3"
+        plan_ok <- sclet:::new_sclet_ai_plan(
+            task = "analysis_plan",
+            actions = list(list(id = "s1", action = case$action, params = ok_params))
+        )
+        expect_true(
+            isTRUE(ValidateAIPlan(plan_ok, object = sce, registry = registry, strict = FALSE)$valid),
+            info = case$action
+        )
+    }
+})
+
+test_that("the selector problem helper reports and passes through correctly", {
+    sce <- selector_test_sce()
+    problem <- sclet:::sclet_ai_selector_problem
+    expect_true(isTRUE(problem(sce, NULL, "features")))
+    expect_true(isTRUE(problem(sce, "1:2", "features")))
+    expect_true(isTRUE(problem(sce, "gene_1", "features")))
+    expect_true(grepl("features is not usable", problem(sce, "nope", "features")))
 })

@@ -93,6 +93,38 @@ sclet_ai_vector_param <- function(value, type = c("character", "integer")) {
     suppressWarnings(as.integer(value))
 }
 
+#' Prerequisite-friendly wrapper around [sclet_ai_gene_selector()]
+#'
+#' Returns `TRUE` when the selector resolves (or is absent) and the problem
+#' message when it does not, so an action's `prerequisites` can validate a
+#' selector the schema cannot: `features`/`subset_row` are declared
+#' `character_vector`, so a prose description such as "top HVGs from step_2"
+#' passes the schema check. Caught here, the model is told at validation time
+#' and the repair loop can fix it; caught only by the handler, the plan
+#' validates and then dies at execution with no chance to repair. Both real
+#' failures in the last benchmark batch were exactly this.
+#'
+#' @param object A `SingleCellExperiment`.
+#' @param value The raw selector value.
+#' @param arg Parameter name, used in the message.
+#' @return `TRUE`, or a character problem message.
+sclet_ai_selector_problem <- function(object, value, arg) {
+    if (is.null(value)) {
+        return(TRUE)
+    }
+    resolved <- tryCatch(
+        sclet_ai_gene_selector(object, value, arg = arg),
+        error = function(e) e
+    )
+    if (inherits(resolved, "error")) {
+        return(conditionMessage(resolved))
+    }
+    if (!length(resolved)) {
+        return(paste0(arg, " selected no features"))
+    }
+    TRUE
+}
+
 #' Resolve a model-supplied gene selector against the object
 #'
 #' Gene selectors (`features` for `scale_data`/`run_integration`,
@@ -504,7 +536,12 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     if (!assay %in% available) {
                         return(paste0("assay is not available: ", assay))
                     }
-                    TRUE
+                    # features is a character_vector, so a prose description
+                    # passes the schema check. Resolving it here -- the same way
+                    # the handler will -- means the model is told at validation
+                    # time and the repair loop can fix it, instead of the plan
+                    # validating and then dying at execution.
+                    sclet_ai_selector_problem(object, params$features, "features")
                 },
                 returns = "sce",
                 output_schema = list(
@@ -543,7 +580,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         return(paste0("PCA source assay/layer is not available: ", source))
                     }
                     if (!length(available)) return("at least one assay is required")
-                    TRUE
+                    sclet_ai_selector_problem(object, params$subset_row, "subset_row")
                 },
                 returns = "sce",
                 output_schema = list(
