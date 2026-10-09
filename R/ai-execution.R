@@ -744,9 +744,24 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 prerequisites = function(object, params, planned = NULL) {
                     ident.1 <- if (is.null(params$ident.1)) NULL else sclet_ai_vector_param(params$ident.1, "character")
                     ident.2 <- if (is.null(params$ident.2)) NULL else sclet_ai_vector_param(params$ident.2, "character")
+                    active_ident <- ActiveIdent(object)
+                    planned_ident <- (planned %||% list())$active_ident
+                    if (!is.null(planned_ident) &&
+                        !identical(as.character(planned_ident), as.character(active_ident))) {
+                        # An earlier step in this plan will (re)set the identity
+                        # -- typically find_clusters writing colLabels -- so the
+                        # object's *current* identity is not the one this step
+                        # will see, and neither its group sizes nor its label
+                        # set can be checked before that step runs. Refusing the
+                        # plan here would make the ordinary "cluster, then find
+                        # markers" request unplannable from a raw object, which
+                        # is the common case. Defer: the producing step's output
+                        # contract (required_states/active_ident) and the
+                        # execution-time check are the authority.
+                        return(TRUE)
+                    }
                     ident.1 <- sclet_ai_resolve_ident_value(object, ident.1)
                     ident.2 <- sclet_ai_resolve_ident_value(object, ident.2)
-                    active_ident <- ActiveIdent(object)
                     if (is.null(active_ident)) {
                         return("cluster identity is not set: run FindClusters() or set ActiveIdent(object) <- 'colname' before running marker/DE tests")
                     }
