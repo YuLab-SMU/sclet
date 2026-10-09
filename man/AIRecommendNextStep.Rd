@@ -4,7 +4,13 @@
 \alias{AIRecommendNextStep}
 \title{Ask the AI to recommend a conservative next analysis step}
 \usage{
-AIRecommendNextStep(object, model = NULL, structured_output = TRUE, ...)
+AIRecommendNextStep(
+  object,
+  model = NULL,
+  structured_output = TRUE,
+  registry = NULL,
+  ...
+)
 }
 \arguments{
 \item{object}{A \code{SingleCellExperiment} object.}
@@ -13,6 +19,12 @@ AIRecommendNextStep(object, model = NULL, structured_output = TRUE, ...)
 
 \item{structured_output}{Logical. Use the tool-loop plus structured-output
 summary stage. Defaults to \code{TRUE}.}
+
+\item{registry}{Optional \code{AIExecutionRegistry}. Its action names,
+descriptions, and input schemas are exposed to the model via
+\code{context$available_actions} so recommended actions can reference real,
+registered action names rather than invented ones. Defaults to
+\code{AIDefaultExecutionRegistry(object, include = "all")}.}
 
 \item{...}{Additional arguments passed to \code{sclet_ai_call()}.}
 }

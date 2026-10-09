@@ -626,43 +626,87 @@ ValidateAIPlan <- function(
     validation
 }
 
-#' Ask the AI to propose a conservative, executable analysis plan
+#' Build the repair prompt block from validation errors
 #'
-#' The function only creates a plan. It never executes proposed actions.
+#' Pure helper: character vector of validation errors -> character vector of
+#' prompt lines to append to the system prompt. Returns `character(0)` for
+#' empty/NULL input so callers can append unconditionally.
 #'
-#' @param object A `SingleCellExperiment` object.
-#' @param model Optional aisdk model.
-#' @param goal Optional natural-language user goal to include in the planning context.
-#' @param structured_output Logical. Use the tool-loop plus structured-output summary stage.
-#' @param fallback_on_structure_error Logical. Retain the tool-loop response if structured output fails.
-#' @param registry Optional `AIExecutionRegistry`. Its action names,
-#'   descriptions, and input schemas are exposed to the model via
-#'   `context$available_actions` so proposed actions can reference real,
-#'   registered action names. Also used to validate the returned plan
-#'   (see `$validation` below). Defaults to
-#'   `AIDefaultExecutionRegistry(object, include = "all")`.
-#' @param ... Additional arguments passed to `sclet_ai_call()`.
-#' @return An object of class `sclet_ai_plan`. The model's proposed actions
-#'   are not guaranteed to be well-formed: it may omit an action name or
-#'   name an action that is not registered. The plan's `$validation` field
-#'   (a non-strict `ValidateAIPlan()` result) reports this; check
-#'   `plan$validation$valid` before treating `plan$actions` as executable,
-#'   or re-run `ValidateAIPlan()` explicitly later if the object has
-#'   changed. This function itself never executes proposed actions.
-#' @export
-AIPlanAnalysis <- function(
+#' @param errors Character vector of validation error strings (verbatim).
+#' @return Character vector of prompt lines, or `character(0)`.
+#' @noRd
+sclet_ai_repair_prompt_block <- function(errors) {
+    if (is.null(errors) || !length(errors) || !any(nzchar(errors))) {
+        return(character(0))
+    }
+    errors <- as.character(errors)
+    errors <- errors[nzchar(errors)]
+    c(
+        "The previous plan you proposed was rejected by deterministic",
+        "validation against the registry and the object; it was NOT executed",
+        "and must not be treated as having run. Fix ONLY the problems listed",
+        "below; preserve the rest of the plan unchanged.",
+        "Validation errors (verbatim):",
+        paste0("- ", errors),
+        "If a step cannot be fixed using only the registered actions and",
+        "the parameter types shown in `context$available_actions`, DELETE",
+        "that step from the plan. Do NOT invent a new action name, do NOT",
+        "rephrase an action name, and do NOT substitute a similar-sounding",
+        "name: the `action` field must be an exact key from",
+        "`context$available_actions`.",
+        "Important: the values shown in each action's `input_schema` are",
+        "TYPE DESCRIPTIONS (e.g. \"integer\", \"character\", \"numeric\"),",
+        "NOT literal values to pass. Pass real values of the declared type",
+        "(e.g. an actual assay name for an `assay` parameter, an actual",
+        "integer for `ncomponents`), not the type label itself."
+    )
+}
+
+#' One-shot plan proposal (internal)
+#'
+#' Extracts the body of [AIPlanAnalysis()] so the repair loop and the
+#' single-call path cannot drift apart. Returns a `sclet_ai_plan` with
+#' `$validation` attached; never throws on an invalid plan.
+#'
+#' @inheritParams AIPlanAnalysis
+#' @param repair_errors Optional character vector of validation errors from
+#'   a previous attempt. When non-empty, a repair block is appended to the
+#'   system prompt.
+#' @return An `sclet_ai_plan` with `$validation` attached.
+#' @noRd
+sclet_ai_plan_once <- function(
     object,
-    goal = NULL,
-    model = NULL,
-    structured_output = TRUE,
-    fallback_on_structure_error = TRUE,
-    registry = NULL,
+    goal,
+    model,
+    structured_output,
+    fallback_on_structure_error,
+    registry,
+    repair_errors = NULL,
     ...
 ) {
-    if (is.null(registry)) {
-        registry <- AIDefaultExecutionRegistry(object, include = "all")
-    }
     context <- sclet_ai_context(object, target = "planning", detail = "full", registry = registry)
+    base_prompt <- paste(
+        "Propose a conservative analysis plan from the supplied ledger.",
+        if (!is.null(goal) && length(goal) == 1L && nzchar(trimws(goal))) {
+            paste("The user's analysis goal is:", goal)
+        } else {
+            "No additional user goal was supplied."
+        },
+        "Return only actions whose `action` field is an exact, verbatim key",
+        "from `context$available_actions` (e.g. \"run_de_test\"), with a",
+        "`params` list using only the parameter names listed in that action's",
+        "input_schema. Do not invent action names. If no listed action fits",
+        "a needed step, say so in your rationale instead of inventing one.",
+        "List prerequisites, dependencies, expected outputs, and uncertainty.",
+        "Never execute an action or claim that it was executed.",
+        sep = "\n"
+    )
+    repair_block <- sclet_ai_repair_prompt_block(repair_errors)
+    system_prompt <- if (length(repair_block)) {
+        paste(c(base_prompt, "", repair_block), collapse = "\n")
+    } else {
+        base_prompt
+    }
     result <- sclet_ai_call(
         task = "analysis_plan",
         context = context,
@@ -670,22 +714,7 @@ AIPlanAnalysis <- function(
         model = model,
         structured_output = structured_output,
         fallback_on_structure_error = fallback_on_structure_error,
-        system_prompt = paste(
-            "Propose a conservative analysis plan from the supplied ledger.",
-            if (!is.null(goal) && length(goal) == 1L && nzchar(trimws(goal))) {
-                paste("The user's analysis goal is:", goal)
-            } else {
-                "No additional user goal was supplied."
-            },
-            "Return only actions whose `action` field is an exact, verbatim key",
-            "from `context$available_actions` (e.g. \"run_de_test\"), with a",
-            "`params` list using only the parameter names listed in that action's",
-            "input_schema. Do not invent action names. If no listed action fits",
-            "a needed step, say so in your rationale instead of inventing one.",
-            "List prerequisites, dependencies, expected outputs, and uncertainty.",
-            "Never execute an action or claim that it was executed.",
-            sep = "\n"
-        ),
+        system_prompt = system_prompt,
         ...
     )
     plan <- new_sclet_ai_plan(
@@ -708,6 +737,103 @@ AIPlanAnalysis <- function(
         strict = FALSE
     )
     plan
+}
+
+#' Ask the AI to propose a conservative, executable analysis plan
+#'
+#' The function only creates a plan. It never executes proposed actions.
+#'
+#' @param object A `SingleCellExperiment` object.
+#' @param model Optional aisdk model.
+#' @param goal Optional natural-language user goal to include in the planning context.
+#' @param structured_output Logical. Use the tool-loop plus structured-output summary stage.
+#' @param fallback_on_structure_error Logical. Retain the tool-loop response if structured output fails.
+#' @param registry Optional `AIExecutionRegistry`. Its action names,
+#'   descriptions, and input schemas are exposed to the model via
+#'   `context$available_actions` so proposed actions can reference real,
+#'   registered action names. Also used to validate the returned plan
+#'   (see `$validation` below). Defaults to
+#'   `AIDefaultExecutionRegistry(object, include = "all")`.
+#' @param max_repair_rounds Integer in `0:3`. When the first proposal fails
+#'   validation, the validation errors are fed back to the model and it is
+#'   asked to propose a corrected plan, up to this many times. `0L` preserves
+#'   the pre-repair behaviour (exactly one provider call). Each repair round
+#'   roughly doubles the provider calls of a plain invocation (one agent
+#'   round-trip plus a second structured-output call), so raising this above
+#'   the default `1L` has a real cost; the actual number of rounds used is
+#'   recorded in `plan$metadata$repair_rounds_used`. Non-integer, `NA`, or
+#'   out-of-range values are an error.
+#' @param ... Additional arguments passed to `sclet_ai_call()`.
+#' @return An object of class `sclet_ai_plan`. The model's proposed actions
+#'   are not guaranteed to be well-formed: it may omit an action name or
+#'   name an action that is not registered. The plan's `$validation` field
+#'   (a non-strict `ValidateAIPlan()` result) reports this; check
+#'   `plan$validation$valid` before treating `plan$actions` as executable,
+#'   or re-run `ValidateAIPlan()` explicitly later if the object has
+#'   changed. When repair is enabled, the returned plan is the one with the
+#'   fewest validation errors across all attempts (ties go to the earliest
+#'   attempt); `plan$metadata$repair_rounds_used` records how many repair
+#'   calls were made, and `plan$metadata$validation_error_counts` records
+#'   the error count per attempt (first attempt first). This function itself
+#'   never executes proposed actions.
+#' @export
+AIPlanAnalysis <- function(
+    object,
+    goal = NULL,
+    model = NULL,
+    structured_output = TRUE,
+    fallback_on_structure_error = TRUE,
+    registry = NULL,
+    max_repair_rounds = 1L,
+    ...
+) {
+    if (!is.numeric(max_repair_rounds) || length(max_repair_rounds) != 1L ||
+        is.na(max_repair_rounds) || !is.finite(max_repair_rounds) ||
+        max_repair_rounds != as.integer(max_repair_rounds) ||
+        as.integer(max_repair_rounds) < 0L || as.integer(max_repair_rounds) > 3L) {
+        sclet_ai_error(
+            "sclet_ai_invalid_arg",
+            "`max_repair_rounds` must be an integer in 0:3."
+        )
+    }
+    max_repair_rounds <- as.integer(max_repair_rounds)
+    if (is.null(registry)) {
+        registry <- AIDefaultExecutionRegistry(object, include = "all")
+    }
+
+    plan <- sclet_ai_plan_once(
+        object = object, goal = goal, model = model,
+        structured_output = structured_output,
+        fallback_on_structure_error = fallback_on_structure_error,
+        registry = registry, repair_errors = NULL, ...
+    )
+    error_counts <- length(plan$validation$errors %||% character())
+    best <- plan
+    best_count <- error_counts
+    rounds_used <- 0L
+
+    while (!isTRUE(best$validation$valid) && rounds_used < max_repair_rounds) {
+        rounds_used <- rounds_used + 1L
+        candidate <- sclet_ai_plan_once(
+            object = object, goal = goal, model = model,
+            structured_output = structured_output,
+            fallback_on_structure_error = fallback_on_structure_error,
+            registry = registry,
+            repair_errors = best$validation$errors, ...
+        )
+        candidate_count <- length(candidate$validation$errors %||% character())
+        error_counts <- c(error_counts, candidate_count)
+        if (candidate_count < best_count) {
+            best <- candidate
+            best_count <- candidate_count
+        } else {
+            break
+        }
+    }
+
+    best$metadata$repair_rounds_used <- rounds_used
+    best$metadata$validation_error_counts <- as.integer(error_counts)
+    best
 }
 
 #' @export

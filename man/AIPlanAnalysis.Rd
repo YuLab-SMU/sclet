@@ -10,6 +10,8 @@ AIPlanAnalysis(
   model = NULL,
   structured_output = TRUE,
   fallback_on_structure_error = TRUE,
+  registry = NULL,
+  max_repair_rounds = 1L,
   ...
 )
 }
@@ -23,6 +25,23 @@ AIPlanAnalysis(
 \item{structured_output}{Logical. Use the tool-loop plus structured-output summary stage.}
 
 \item{fallback_on_structure_error}{Logical. Retain the tool-loop response if structured output fails.}
+
+\item{registry}{Optional \code{AIExecutionRegistry}. Its action names,
+descriptions, and input schemas are exposed to the model via
+\code{context$available_actions} so proposed actions can reference real,
+registered action names. Also used to validate the returned plan
+(see \code{$validation} below). Defaults to
+\code{AIDefaultExecutionRegistry(object, include = "all")}.}
+
+\item{max_repair_rounds}{Integer in \code{0:3}. When the first proposal fails
+validation, the validation errors are fed back to the model and it is
+asked to propose a corrected plan, up to this many times. \code{0L} preserves
+the pre-repair behaviour (exactly one provider call). Each repair round
+roughly doubles the provider calls of a plain invocation (one agent
+round-trip plus a second structured-output call), so raising this above
+the default \code{1L} has a real cost; the actual number of rounds used is
+recorded in \code{plan$metadata$repair_rounds_used}. Non-integer, \code{NA}, or
+out-of-range values are an error.}
 
 \item{...}{Additional arguments passed to \code{sclet_ai_call()}.}
 }
