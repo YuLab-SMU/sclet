@@ -693,10 +693,25 @@ sclet_ai_describe_registry <- function(registry) {
         return(list())
     }
     actions <- lapply(registry, function(descriptor) {
+        # `output_schema` is exposed because a planning model needs to know the
+        # concrete names a step will *produce* -- e.g. that run_pca registers a
+        # reduction called "PCA" -- in order to fill a downstream action's
+        # `reduction`/`assay` parameter. Without it, a real model wrote the
+        # descriptive phrase "PCA name from step_4" where the literal "PCA" was
+        # required (measured: sclet-benchmark-ai results/ai_plan_repair.jsonl).
+        #
+        # `note` is stripped: every output_schema note is prose guidance, and
+        # the privacy classifier hard-denies the field name `note`, so leaving
+        # it in would redact it anyway and emit a spurious privacy warning on
+        # every planning call (verified: all five actions that carry a note
+        # produced 1 redaction + 1 warning each when it was included).
+        output_schema <- descriptor$output_schema %||% list()
+        output_schema[["note"]] <- NULL
         list(
             name = descriptor$name,
             description = descriptor$description,
             input_schema = descriptor$input_schema,
+            output_schema = output_schema,
             requires_confirmation = isTRUE(descriptor$requires_confirmation),
             mutates_object = isTRUE(descriptor$mutates_object),
             estimated_cost = descriptor$estimated_cost %||% NA_character_

@@ -206,7 +206,11 @@ AIRecommendNextStep <- function(object, model = NULL, structured_output = TRUE, 
             "For group-valued parameters (ident.1, ident.2, start_cluster), use",
             "only the `code` values from `context$capabilities$identity_levels$codes`.",
             "When `all_levels_available` is FALSE or no code fits, omit the",
-            "parameter if the action supports omission rather than guessing."
+            "parameter if the action supports omission rather than guessing.",
+            "When a parameter must carry a value that an earlier step produces,",
+            "take it from the producing action's `output_schema`, or reference it",
+            "with the plan's ${step_id.output.field} syntax. Never put a prose",
+            "description where a concrete value or reference is required."
         ),
         ...
     )

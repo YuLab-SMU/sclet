@@ -702,6 +702,12 @@ sclet_ai_plan_once <- function(
         "When `all_levels_available` is FALSE or no code fits, omit the",
         "parameter if the action supports omission (e.g. run_de_test without",
         "ident.1 runs the all-cluster marker path) rather than guessing.",
+        "When a parameter must carry a value that an earlier step produces,",
+        "take it from the producing action's `output_schema` (for example",
+        "run_pca's output_schema declares reduction = \"PCA\"), or reference it",
+        "with the plan's ${step_id.output.field} syntax. Never put a prose",
+        "description -- such as \"PCA name from step_4\" -- where a concrete",
+        "value or reference is required.",
         "List prerequisites, dependencies, expected outputs, and uncertainty.",
         "Never execute an action or claim that it was executed.",
         sep = "\n"

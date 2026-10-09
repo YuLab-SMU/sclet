@@ -366,7 +366,7 @@ sclet_ai_payload_field_kind <- function(name, path) {
     if (grepl("group|cluster", field, perl = TRUE) &&
         grepl("label|labels|groups?|clusters?|classes?", field, perl = TRUE) &&
         !grepl("count|size|number|composition", field, perl = TRUE) &&
-        !grepl("input[_-]?schema", path, perl = TRUE)) {
+        !grepl("(input|output)[_-]?schema", path, perl = TRUE)) {
         return("group")
     }
     if (grepl("goal|question|objective|user[_-]?request", field, perl = TRUE)) {
