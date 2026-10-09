@@ -1605,6 +1605,37 @@ sclet_ai_action_state_problems <- function(before, after, descriptor) {
     character()
 }
 
+#' Field names a plan may reference in an earlier step's output
+#'
+#' One definition, shared by the runtime output summary and by validation.
+#' They must agree. When they did not, validation resolved a reference against
+#' the action's declared `output_schema` (which has keys like `required_hvg`)
+#' while execution resolved it against the runtime summary (which does not), so
+#' a plan containing `${step_2.output.required_hvg}` *passed validation and
+#' then failed at execution* with "Plan output field is not available":
+#'
+#'   step_3: Plan output field is not available: ${step_2.output.required_hvg}
+#'
+#' Reproduced in two of four real benchmark runs. Validation that accepts what
+#' execution cannot do is worse than stricter validation, because the failure
+#' surfaces only after the plan has been paid for.
+#'
+#' @param descriptor An action descriptor (`NULL` for the base keys only).
+#' @return Character vector of referenceable field names.
+sclet_ai_referenceable_output_fields <- function(descriptor = NULL) {
+    fields <- c(
+        "class", "n_features", "n_cells", "assays", "reductions",
+        "active_assay", "active_reduction", "fingerprint"
+    )
+    contract <- descriptor$output_schema %||% list()
+    for (name in c("assay", "reduction", "graph", "state")) {
+        if (!is.null(contract[[name]])) {
+            fields <- c(fields, name)
+        }
+    }
+    unique(fields)
+}
+
 sclet_ai_execution_summary <- function(value, descriptor = NULL) {
     if (inherits(value, "SingleCellExperiment")) {
         summary <- list(

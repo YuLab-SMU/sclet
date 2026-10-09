@@ -501,7 +501,7 @@ reference_registry <- function() {
             returns = "sce",
             mutates_object = TRUE,
             requires_confirmation = TRUE,
-            output_schema = list(x = "X", y = "Y", z = "Z")
+            output_schema = list(reduction = "PCA", assay = "logcounts", required_reductions = "PCA")
         ),
         AIAction(
             name = "consumer",
@@ -520,14 +520,14 @@ test_that("references are collected per reference, not as one flat vector", {
     # name as a step id ("references unknown step(s): y") or read an empty
     # first segment and reported "references unknown step(s): " with no name.
     refs <- sclet:::sclet_ai_collect_plan_references(list(
-        a = "${step_2.output.x}",
+        a = "${step_2.output.reduction}",
         b = "${step_3}",
-        c = "${step_4.output.y}"
+        c = "${step_4.output.assay}"
     ))
     expect_length(refs, 3L)
-    expect_identical(refs[[1L]], c("step_2", "output", "x"))
+    expect_identical(refs[[1L]], c("step_2", "output", "reduction"))
     expect_identical(refs[[2L]], "step_3")
-    expect_identical(refs[[3L]], c("step_4", "output", "y"))
+    expect_identical(refs[[3L]], c("step_4", "output", "assay"))
 })
 
 test_that("mixed reference shapes produce no bogus unknown-step error", {
@@ -538,9 +538,9 @@ test_that("mixed reference shapes produce no bogus unknown-step error", {
             list(
                 id = "step_2", action = "consumer",
                 params = list(
-                    a = "${step_1.output.x}",
-                    b = "${step_1.output.y}",
-                    c = "${step_1.output.z}"
+                    a = "${step_1.output.reduction}",
+                    b = "${step_1.output.assay}",
+                    c = "${step_1.output.n_features}"
                 ),
                 depends_on = "step_1"
             )
@@ -585,7 +585,7 @@ test_that("the well-formedness grammar has one definition", {
     expect_false(well_formed(c("", "output", "x")))
     expect_false(well_formed(character()))
     # The detector and the grammar must agree on every one of these.
-    templates <- c("${step_1.output.x}", "${step_1.output}", "${step_1.x}", "${.output.x}")
+    templates <- c("${step_1.output.reduction}", "${step_1.output}", "${step_1.x}", "${.output.x}")
     expected_malformed <- c(FALSE, TRUE, TRUE, TRUE)
     for (i in seq_along(templates)) {
         got <- length(sclet:::sclet_ai_malformed_plan_references(templates[[i]])) > 0L
@@ -598,7 +598,7 @@ test_that("an undeclared dependency error says how to fix it", {
         task = "analysis_plan",
         actions = list(
             list(id = "step_1", action = "producer", params = list()),
-            list(id = "step_2", action = "consumer", params = list(a = "${step_1.output.x}"))
+            list(id = "step_2", action = "consumer", params = list(a = "${step_1.output.reduction}"))
         )
     )
     validation <- ValidateAIPlan(
@@ -626,4 +626,51 @@ test_that("a placeholder action name is told to drop the step instead", {
     )
     expect_true(any(grepl("placeholder such as \"none\"", validation$errors)))
     expect_true(any(grepl("remove the step from the plan", validation$errors)))
+})
+
+test_that("a reference execution cannot resolve is rejected at validation", {
+    # Regression: ${step_2.output.required_hvg} is well-formed syntax, and the
+    # referenced action's output_schema really does have a required_hvg key, so
+    # validation used to accept it -- and execution then failed with
+    # "Plan output field is not available", because the runtime output summary
+    # carries only a fixed set of field names. That cost two of four real
+    # execution benchmark runs. Validation must not accept what execution
+    # cannot do.
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(
+            list(id = "step_1", action = "producer", params = list()),
+            list(
+                id = "step_2", action = "consumer",
+                params = list(a = "${step_1.output.required_hvg}"),
+                depends_on = "step_1"
+            )
+        )
+    )
+    validation <- ValidateAIPlan(
+        plan,
+        object = prereq_test_sce(),
+        registry = reference_registry(),
+        strict = FALSE
+    )
+    expect_false(validation$valid)
+    expect_true(any(grepl("value_reference_unresolvable", validation$errors)))
+    # The error says which fields could have been used.
+    expect_true(any(grepl("exposes:", validation$errors)))
+    expect_true(any(grepl("reduction", validation$errors)))
+})
+
+test_that("the referenceable field set matches what execution really exposes", {
+    sce <- prereq_test_sce()
+    registry <- reference_registry()
+    for (action in c("producer", "consumer")) {
+        descriptor <- registry[[action]]
+        exposed <- names(sclet:::sclet_ai_execution_summary(sce, descriptor))
+        allowed <- sclet:::sclet_ai_referenceable_output_fields(descriptor)
+        # Everything the summary carries must be referenceable...
+        expect_true(all(exposed %in% allowed), info = action)
+        # ...and nothing is offered that the summary will not carry.
+        conditional <- intersect(allowed, c("assay", "reduction", "graph", "state"))
+        expect_true(all(conditional %in% exposed), info = action)
+    }
 })

@@ -443,6 +443,12 @@ ValidateAIPlan <- function(
         errors <- c(errors, "plan action ids must be unique")
     }
     unusable_param_steps <- character()
+    # Step id -> action name, so a reference can be resolved to the descriptor
+    # of the step it names (references name step ids, not actions).
+    action_by_step_id <- list()
+    for (s in normalized) {
+        action_by_step_id[[as.character(s$id)]] <- s$action
+    }
     if (length(normalized)) {
         known_ids <- character()
         for (i in seq_along(normalized)) {
@@ -531,6 +537,39 @@ ValidateAIPlan <- function(
                         "action ", step$id, " references undeclared dependency step(s): ",
                         paste(undeclared, collapse = ", "),
                         "; add them to this step's depends_on"
+                    ))
+                }
+                # A reference is only useful if execution can resolve it, and
+                # execution resolves against the runtime output summary, not
+                # against the declared output_schema. Checking the field name
+                # here is what keeps validation from accepting a plan that then
+                # dies at execution with "Plan output field is not available".
+                unresolvable <- character()
+                for (path in well_formed) {
+                    referenced_id <- path[[1L]]
+                    referenced_action <- action_by_step_id[[referenced_id]]
+                    descriptor_of <- if (!is.null(referenced_action) && !is.na(referenced_action)) {
+                        registry[[referenced_action]]
+                    } else {
+                        NULL
+                    }
+                    if (is.null(descriptor_of)) {
+                        next
+                    }
+                    allowed <- sclet_ai_referenceable_output_fields(descriptor_of)
+                    if (!path[[3L]] %in% allowed) {
+                        unresolvable <- c(unresolvable, paste0(
+                            "${", paste(path, collapse = "."), "}",
+                            " (step ", referenced_id, "=", referenced_action,
+                            " exposes: ", paste(allowed, collapse = ", "), ")"
+                        ))
+                    }
+                }
+                if (length(unresolvable)) {
+                    unusable_param_steps <- c(unusable_param_steps, step$id)
+                    errors <- c(errors, paste0(
+                        "value_reference_unresolvable: action ", step$id,
+                        " references ", paste(unresolvable, collapse = "; ")
                     ))
                 }
             }
