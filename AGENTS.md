@@ -112,6 +112,90 @@ traps. These apply to the `devel` checkout (`R/`, `man/`, `NAMESPACE`, ...).
   shared wrapper (run *before* the callback imports pyscenic), guarded like the pandas `get_values`
   shim: `if not hasattr(np, 'object'): np.object = object`.
 
+### Python environments on this machine (where they live)
+
+Several ways of having Python here are all legitimate — **do not force one**. The point of
+this section is that you can *find* an existing environment instead of concluding a
+dependency is missing. What exists on this machine:
+
+- **`uv` is available** and is the handiest way to create a throwaway venv (no conda/mamba
+  is on `PATH`). Verified 2026-10-09:
+
+  | | |
+  |---|---|
+  | `uv` binary | `~/.local/bin/uv` (0.12.4) |
+  | `uv python dir` | `~/.local/share/uv/python` (includes cpython-3.12.13) |
+  | `uv cache dir` | `~/.cache/uv` |
+  | `uv tool dir` | `~/.local/share/uv/tools` |
+
+  There is no `~/.config/uv/uv.toml`, no `~/.pip/pip.conf` and no `PIP_INDEX_URL`, so installs
+  go straight to PyPI. If one hangs or times out, apply the proxy rule from the global
+  instructions (`http://127.0.0.1:7897`) rather than concluding the package is unavailable.
+
+  ```bash
+  uv venv --python 3.12          # creates ./.venv from a uv-managed interpreter
+  uv pip install <pkg>           # activation is unnecessary: use ./.venv/bin/python
+  ```
+
+  Sibling projects happen to keep a per-project `.venv` (`uv venv`'s default), so that layout
+  will look familiar — but a plain `python -m venv` is equally fine, and whatever already
+  exists should be reused rather than replaced. Seeing `warning: Failed to hardlink files;
+  falling back to full copy` just means the venv is on a different filesystem from
+  `~/.cache/uv` (e.g. under `/tmp`); it is harmless, and `UV_LINK_MODE=copy` silences it.
+  Reproduced here: a venv under `/tmp` warns, one under `$HOME` does not.
+
+- **Environment-variable overrides** for pointing tools at an existing interpreter:
+  `BASILISK_CUSTOM_PYTHON_3_10`, `BASILISK_EXTERNAL_DIR`, `BASILISK_NO_PYENV=1` (see the
+  environment-setup bullet in the Basilisk section above).
+
+**basilisk — what sclet itself uses.** sclet's own Python dependencies are declared as
+`BasiliskEnvironment` objects in `R/basilisk.R` and materialised under:
+
+```
+~/.cache/R/basilisk/<basilisk-version>/<pkgname>/<pkg-version>/<envname>/
+# e.g. ~/.cache/R/basilisk/1.24.0/sclet/1.0.1/sclet_cellrank_env/
+```
+
+(`velociraptor` nests one level deeper: `.../velociraptor/1.22.0/env/`.)
+
+The seven declared envs and their pins:
+
+| envname | python | notable pins |
+|---|---|---|
+| `sclet_scenic_env` | 3.10 | scanpy 1.10.1, anndata 0.10.7, pySCENIC 0.12.1 + the SCENIC pin set in the section below |
+| `sclet_scvi_env` | 3.12 | scanpy 1.10.1, anndata 0.11.4, scvi-tools 1.4.3 |
+| `sclet_cellrank_env` | 3.12 | scanpy 1.10.1, anndata 0.11.4, scvelo 0.3.4, cellrank 2.0.7 |
+| `sclet_regvelo_env` | 3.10 | scanpy 1.10.3, scvelo 0.3.2, scvi-tools 1.1.6, pytorch 2.5.1, regvelo 0.4.2 (pip) |
+| `sclet_cell2location_env` | 3.10 | scvi-tools 1.2.2, cell2location 0.1.5 |
+| `sclet_celloracle_env` | 3.10 | celloracle 0.20.0 |
+| `sclet_cellphonedb_env` | 3.10 | cellphonedb 5.0.0 (pip) |
+
+**Envs are built lazily on first use — a missing directory means "not built yet", not
+"broken".** Only two Python envs existed on this machine as of 2026-10-09:
+
+- `~/.cache/R/basilisk/1.24.0/velociraptor/1.22.0/env/` — scvelo 0.3.3, scanpy 1.11.3,
+  anndata 0.11.4, numpy 2.2.6, pandas 2.3.1, scipy 1.15.3. **This is the env the velocity
+  tests actually execute in**, via `velociraptor::scvelo()`, not one of sclet's own.
+- `~/.cache/R/basilisk/1.24.0/sclet/1.0.1/sclet_cellrank_env/` — scvelo 0.3.4, cellrank 2.0.7,
+  scanpy 1.10.1, anndata 0.11.4 (matches sclet's own pins).
+
+The path is keyed by the R package **version**, so a `DESCRIPTION` version bump
+invalidates the cache: the directory above says `sclet/1.0.1` while `DESCRIPTION` is now
+1.0.2, so basilisk will look under `sclet/1.0.2/` and rebuild from scratch. Expect a long
+first run after a version bump; do not misread it as a network failure.
+
+To resolve an env's path from R — note that `obtainEnvironmentPath()` **creates** the env
+when absent, which can trigger a long install, so prefer reading the on-disk path above:
+
+```r
+basilisk::obtainEnvironmentPath(sclet:::.env("sclet_cellrank_env"))
+```
+
+The legacy `inst/regvelo-smoke-test/setup_pyenv_regvelo.sh` builds a **pyenv** venv aimed at a
+GPU cluster (Torch CUDA wheels) and is not the usual path here — but a pyenv- or
+`python -m venv`-created environment is perfectly acceptable; if one already exists and has
+what you need, use it rather than rebuilding with a different tool.
+
 ### SCENIC / pySCENIC
 
 - **`pyscenic.prune.prune2df()` takes `(rnkdbs, modules, motif_annotations_fname, ...)`, NOT `(dbs, motif_f, adj)`.** The old sclet call passed the raw `.feather` paths and the GRNBoost2
