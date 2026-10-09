@@ -27,6 +27,15 @@ benchmark must check the *object*, not the report:
 
 ## 2. Fixture
 
+**Superseded: the default is now real data.** The fixture below was the first
+attempt; `mockSCE()` turned out to be unusable and the synthetic stand-in was
+still a toy, so both the planning and execution benchmarks now default to
+**pbmc3k** (2700 cells x 32738 genes, real clusters and real marker genes),
+loaded from a local extracted 10x directory by `fixture_pbmc3k()` in
+`R/harness.R`. `fixture =` is an argument on both benchmarks and is recorded on
+every result. The reasoning below still explains why a toy fixture cannot
+support this pipeline at all.
+
 `mockSCE()` does not work for this benchmark, and finding that out was part of
 the work. Executing the standard pipeline on it fails at the last step:
 
@@ -135,7 +144,7 @@ Three defects were found by running it, all now fixed in `sclet` (see section
 Two findings deliberately left open:
 
 - **The model never uses `success_criteria`.** It declared zero success
-  criteria in 14/14 executed runs, so `success_assessment` was always empty and
+  criteria in every executed run, so `success_assessment` was always empty and
   acceptance criterion 5 in section 5 could not be exercised at all. The
   feature is implemented (P0.1) and the model does not reach for it; that is a
   separate question from execution and is recorded rather than papered over.
@@ -147,6 +156,18 @@ Two findings deliberately left open:
   handler defaults correctly -- but whether to expose the feature set as a
   referenceable output is a design decision left for later, on more evidence
   than two runs.
+
+  **Resolved as the next step, with 4/4 evidence.** On pbmc3k all four planning
+  runs tried to reference step 2's feature set and all four were rejected, in
+  four different spellings (`${step_2.output.required_hvg}`,
+  `${step_2.output.hvg}`, `${step_2.output}`, `${step_2}`). That is the single
+  largest first-attempt blocker and it is a capability gap, not a bug:
+  `VariableFeatures(object)` already returns the set, so the fix is a new
+  referenceable output field. Because the value only exists after the producing
+  step runs, it needs the same deferred-projection treatment as
+  `planned$active_ident` -- validation must accept the reference without being
+  able to check the value, and leave the execution-time contract as the
+  authority. New API surface, so it gets its own spec.
 
 The limit that applies regardless: one fixture, one provider. The plan is
 always the same seven-action pipeline, so this does not test execution of
