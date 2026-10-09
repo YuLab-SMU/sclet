@@ -107,13 +107,48 @@ Recorded fields: `status`, `dry_run_status`, `dry_run_mutated`,
 
 ## 6. Outcome
 
-PENDING -- to be filled in from `results/execute_plan.jsonl` after the real run,
-and only with what that record shows. Written before the run, deliberately
-left empty rather than guessed.
+Recorded in `sclet-benchmark-ai`: `results/execute_plan.jsonl` and the
+"execution benchmark" finding in `docs/action-coverage.md`. Sixteen trials in
+four batches, each batch run against the fixes from the one before it.
 
-The limit that will apply regardless of the result: one plan on one fixture
-across one provider establishes that the execution half of the loop works end
-to end and is worth verifying, not that it is robust across action types.
-Actions not in this plan (`run_integration`, `run_annotation`, `run_trajectory`,
-`run_velocity`, the doublet/rare-cell pair) would still have no execution
-benchmark.
+What the benchmark established, with the numbers:
+
+- **The execution report never disagreed with the object.** In all 14 executed
+  runs, every artifact each step's `output_schema` declared was really present
+  on the final object: `missing_artifacts` was empty 14/14. This is the check
+  the benchmark exists for, and it passed every time it could run.
+- **Dry runs are inert** 14/14 (`recorded = FALSE`, `execution_id = NULL`,
+  fingerprint unchanged), and **the ledger carries the execution record**
+  14/14 (`type = "ai_execution"`, retrievable by `execution_id`).
+- **Executing a validated plan completed** in 9 of 14 executed runs, versus 5
+  failures. But the *kind* of failure changed once the fixes landed: batches
+  1-3 lost runs to failures discovered mid-execution, whereas batch 4 (after
+  all four fixes) had **no mid-execution failure at all** -- 3/4 completed and
+  the fourth was rejected at validation, before any work was done.
+
+Three defects were found by running it, all now fixed in `sclet` (see section
+3 and the commit list): the cluster-then-markers prerequisite that ignored
+`planned`, the unresolvable gene selector that surfaced as an opaque
+`subscript out of bounds`, and validation accepting references
+(`${step_2.output.required_hvg}`) that execution could never resolve.
+
+Two findings deliberately left open:
+
+- **The model never uses `success_criteria`.** It declared zero success
+  criteria in 14/14 executed runs, so `success_assessment` was always empty and
+  acceptance criterion 5 in section 5 could not be exercised at all. The
+  feature is implemented (P0.1) and the model does not reach for it; that is a
+  separate question from execution and is recorded rather than papered over.
+- **No referenceable field exposes the variable-feature set.** Two batch-3
+  failures were the model trying to pass "the HVGs from step_2" into
+  `scale_data(features=)`. `find_variable_features`' `output_schema` has
+  `required_hvg` (a flag, not a feature list), so there is nothing legitimate
+  to point at, and the model invents prose instead. Omission works -- the
+  handler defaults correctly -- but whether to expose the feature set as a
+  referenceable output is a design decision left for later, on more evidence
+  than two runs.
+
+The limit that applies regardless: one fixture, one provider. The plan is
+always the same seven-action pipeline, so this does not test execution of
+`run_integration`, `run_annotation`, `run_trajectory`, `run_velocity`, or the
+doublet/rare-cell pair. Those still have no execution benchmark.
