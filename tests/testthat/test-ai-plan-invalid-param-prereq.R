@@ -1,0 +1,423 @@
+# A prerequisite verdict must not be derived from parameters the schema
+# already rejected.
+#
+# Regression: ValidateAIPlan() used to run the per-action prerequisite probe
+# even for a step whose params had just failed input_schema validation. The
+# probe therefore received a value the action never expects, which produced a
+# second, misleading error alongside the one actionable schema error:
+#
+#   - invalid params for action step_1: parameter n has invalid type
+#   - prerequisite check failed for step_1: missing value where TRUE/FALSE needed
+#
+# ...or, worse, a confident but meaningless verdict (a numeric comparison
+# silently becoming a lexicographic one on a character value). Since these
+# errors are fed back to the model by the repair loop, the model was being
+# pointed at the wrong thing to fix.
+#
+# The same class of defect had a second source: a malformed value reference.
+# The plan syntax is ${step_id.output.field}, but a model writing
+# ${step_4.reduction} (no `output` segment) was handled inconsistently --
+# sclet_ai_collect_plan_references() accepted the token, so the step was
+# charged with an undeclared dependency, while sclet_ai_project_plan_value()
+# silently passed the raw template through, so the action's own prerequisite
+# reported "reduction is not available: ${step_4.reduction}". The syntax
+# mistake itself was never named.
+
+prereq_test_sce <- function() {
+    SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1:12, nrow = 4))
+    )
+}
+
+test_that("a step with invalid params does not get a derived prerequisite error", {
+    action <- AIAction(
+        name = "needs_int",
+        handler = function(object, params) object,
+        prerequisites = function(object, params, planned = NULL) {
+            n <- as.integer(params$n)
+            if (n > 2) "n_too_big" else TRUE
+        },
+        mutates_object = TRUE,
+        requires_confirmation = TRUE,
+        input_schema = list(n = "integer")
+    )
+    registry <- AIExecutionRegistry(list(action))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(list(id = "step_1", action = "needs_int", params = list(n = "5x")))
+    )
+
+    validation <- ValidateAIPlan(
+        plan,
+        object = prereq_test_sce(),
+        registry = registry,
+        strict = FALSE
+    )
+
+    # The actionable error is kept...
+    expect_true(any(grepl("invalid params for action step_1", validation$errors)))
+    # ...and the derived one is gone.
+    expect_false(any(grepl("prerequisite", validation$errors)))
+    expect_false(any(grepl("n_too_big", validation$errors)))
+    expect_false(any(grepl("missing value where TRUE/FALSE needed", validation$errors)))
+})
+
+test_that("the skip is reported rather than silent", {
+    action <- AIAction(
+        name = "needs_int",
+        handler = function(object, params) object,
+        prerequisites = function(object, params, planned = NULL) TRUE,
+        mutates_object = TRUE,
+        requires_confirmation = TRUE,
+        input_schema = list(n = "integer")
+    )
+    registry <- AIExecutionRegistry(list(action))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(list(id = "step_1", action = "needs_int", params = list(n = "5x")))
+    )
+
+    validation <- ValidateAIPlan(
+        plan,
+        object = prereq_test_sce(),
+        registry = registry,
+        strict = FALSE
+    )
+
+    expect_true(any(grepl("prerequisite check skipped for action step_1", validation$warnings)))
+})
+
+test_that("probing an invalid-param step emits no conditions of its own", {
+    action <- AIAction(
+        name = "needs_int",
+        handler = function(object, params) object,
+        prerequisites = function(object, params, planned = NULL) {
+            n <- as.integer(params$n)
+            if (n > 2) "n_too_big" else TRUE
+        },
+        mutates_object = TRUE,
+        requires_confirmation = TRUE,
+        input_schema = list(n = "integer")
+    )
+    registry <- AIExecutionRegistry(list(action))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(list(id = "step_1", action = "needs_int", params = list(n = "5x")))
+    )
+
+    # The old probe leaked "NAs introduced by coercion" out of the validator.
+    expect_no_warning(
+        ValidateAIPlan(plan, object = prereq_test_sce(), registry = registry, strict = FALSE)
+    )
+})
+
+test_that("a valid-param step still runs its prerequisite (skip is not blanket)", {
+    action <- AIAction(
+        name = "needs_int",
+        handler = function(object, params) object,
+        prerequisites = function(object, params, planned = NULL) "distinctive_prereq_verdict",
+        mutates_object = TRUE,
+        requires_confirmation = TRUE,
+        input_schema = list(n = "integer")
+    )
+    registry <- AIExecutionRegistry(list(action))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(list(id = "step_1", action = "needs_int", params = list(n = 5L)))
+    )
+
+    validation <- ValidateAIPlan(
+        plan,
+        object = prereq_test_sce(),
+        registry = registry,
+        strict = FALSE
+    )
+
+    expect_true(any(grepl("distinctive_prereq_verdict", validation$errors)))
+    expect_false(any(grepl("prerequisite check skipped", validation$warnings)))
+})
+
+test_that("skipping the probe cannot flip an invalid plan to valid", {
+    action <- AIAction(
+        name = "needs_int",
+        handler = function(object, params) object,
+        prerequisites = function(object, params, planned = NULL) TRUE,
+        mutates_object = TRUE,
+        requires_confirmation = TRUE,
+        input_schema = list(n = "integer")
+    )
+    registry <- AIExecutionRegistry(list(action))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(list(id = "step_1", action = "needs_int", params = list(n = "5x")))
+    )
+
+    validation <- ValidateAIPlan(
+        plan,
+        object = prereq_test_sce(),
+        registry = registry,
+        strict = FALSE
+    )
+
+    # The schema error alone already marks the plan invalid, so dropping the
+    # derived error can only remove noise, never change the verdict.
+    expect_false(validation$valid)
+    expect_true(length(validation$errors) >= 1L)
+})
+
+test_that("a skipped step still propagates its declared output to later steps", {
+    producer <- AIAction(
+        name = "producer",
+        handler = function(object, params) object,
+        prerequisites = function(object, params, planned = NULL) TRUE,
+        returns = "sce",
+        mutates_object = TRUE,
+        requires_confirmation = TRUE,
+        input_schema = list(n = "integer"),
+        output_schema = list(active_reduction = "PCA", required_reductions = "PCA")
+    )
+    consumer <- AIAction(
+        name = "consumer",
+        handler = function(object, params) object,
+        prerequisites = function(object, params, planned = NULL) {
+            if (!identical(planned$active_reduction, "PCA")) "no_pca_planned" else TRUE
+        },
+        mutates_object = TRUE,
+        requires_confirmation = TRUE
+    )
+    registry <- AIExecutionRegistry(list(producer, consumer))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(
+            list(id = "step_1", action = "producer", params = list(n = "5x")),
+            list(id = "step_2", action = "consumer", params = list(), depends_on = "step_1")
+        )
+    )
+
+    validation <- ValidateAIPlan(
+        plan,
+        object = prereq_test_sce(),
+        registry = registry,
+        strict = FALSE
+    )
+
+    # Skipping the *probe* for step_1 must not drop the output it declares:
+    # a later step's prerequisite still needs to see the planned state.
+    expect_false(any(grepl("no_pca_planned", validation$errors)))
+    expect_true(any(grepl("prerequisite check skipped for action step_1", validation$warnings)))
+})
+
+test_that("malformed value references are detected, correct ones are not", {
+    expect_identical(
+        sclet:::sclet_ai_malformed_plan_references("${step_4.reduction}"),
+        "${step_4.reduction}"
+    )
+    expect_identical(
+        sclet:::sclet_ai_malformed_plan_references("${step_4.output.reduction}"),
+        character()
+    )
+    # A bare ${a.b} has no field segment at all.
+    expect_identical(
+        sclet:::sclet_ai_malformed_plan_references("${step_4.output}"),
+        "${step_4.output}"
+    )
+    # ...and it recurses into nested parameter lists.
+    expect_identical(
+        sclet:::sclet_ai_malformed_plan_references(
+            list(a = 1L, b = list(c = "${step_1.reduction}"))
+        ),
+        "${step_1.reduction}"
+    )
+    expect_identical(sclet:::sclet_ai_malformed_plan_references(30L), character())
+    expect_identical(sclet:::sclet_ai_malformed_plan_references("plain"), character())
+})
+
+reference_test_actions <- function() {
+    producer <- AIAction(
+        name = "producer",
+        handler = function(object, params) object,
+        prerequisites = function(object, params, planned = NULL) TRUE,
+        returns = "sce",
+        mutates_object = TRUE,
+        requires_confirmation = TRUE,
+        output_schema = list(reduction = "PCA", required_reductions = "PCA")
+    )
+    consumer <- AIAction(
+        name = "consumer",
+        handler = function(object, params) object,
+        prerequisites = function(object, params, planned = NULL) {
+            if (!params$reduction %in% (planned$reductions %||% character())) {
+                paste0("reduction is not available: ", params$reduction)
+            } else {
+                TRUE
+            }
+        },
+        mutates_object = TRUE,
+        requires_confirmation = TRUE,
+        input_schema = list(reduction = "character")
+    )
+    AIExecutionRegistry(list(producer, consumer))
+}
+
+reference_test_plan <- function(ref) {
+    sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(
+            list(id = "step_1", action = "producer", params = list()),
+            list(id = "step_2", action = "consumer", params = list(reduction = ref), depends_on = "step_1")
+        )
+    )
+}
+
+test_that("a malformed reference is named, not passed through to the action", {
+    validation <- ValidateAIPlan(
+        reference_test_plan("${step_1.reduction}"),
+        object = prereq_test_sce(),
+        registry = reference_test_actions(),
+        strict = FALSE
+    )
+
+    expect_true(any(grepl("value_reference_malformed", validation$errors)))
+    expect_true(any(grepl("step_1.output.reduction", validation$errors)))
+    # The old symptom -- the raw template surfacing from the prerequisite --
+    # must be gone.
+    expect_false(any(grepl("reduction is not available", validation$errors)))
+    expect_false(validation$valid)
+})
+
+test_that("a well-formed reference still resolves (control)", {
+    validation <- ValidateAIPlan(
+        reference_test_plan("${step_1.output.reduction}"),
+        object = prereq_test_sce(),
+        registry = reference_test_actions(),
+        strict = FALSE
+    )
+
+    expect_true(validation$valid)
+    expect_false(any(grepl("value_reference_malformed", validation$errors)))
+})
+
+test_that("the malformed-reference error suggests the corrected spelling", {
+    expect_identical(
+        sclet:::sclet_ai_suggest_reference_fix("${step_4.reduction}"),
+        "${step_4.output.reduction}"
+    )
+    expect_identical(
+        sclet:::sclet_ai_suggest_reference_fix("${step_4}"),
+        "${step_4.output.<field>}"
+    )
+    # Already namespaced but missing a field: keep `output`, flag the field.
+    expect_identical(
+        sclet:::sclet_ai_suggest_reference_fix("${step_4.output}"),
+        "${step_4.output.<field>}"
+    )
+    # A deeper path is preserved.
+    expect_identical(
+        sclet:::sclet_ai_suggest_reference_fix("${step_4.summary.n"),
+        "${step_4.output.summary.n}"
+    )
+})
+
+test_that("the reported suggestion is copy-pasteable back into the plan", {
+    bad <- "${step_1.reduction}"
+    fixed <- sclet:::sclet_ai_suggest_reference_fix(bad)
+    validation <- ValidateAIPlan(
+        reference_test_plan(fixed),
+        object = prereq_test_sce(),
+        registry = reference_test_actions(),
+        strict = FALSE
+    )
+    # The suggestion must actually be a valid reference, not just prose.
+    expect_true(validation$valid)
+})
+
+test_that("an absent parameter still gets its prerequisite diagnostic", {
+    # Regression guard on the fix itself. Narrowing "unusable params" to
+    # present-but-wrong-type must not swallow the prerequisite's own message
+    # about a *missing* required parameter: run_trajectory's
+    # start_cluster_missing, and the clarification question derived from it,
+    # depend on the probe still running.
+    action <- AIAction(
+        name = "needs_start",
+        handler = function(object, params) object,
+        prerequisites = function(object, params, planned = NULL) {
+            if (is.null(params$start_cluster) || !nzchar(params$start_cluster)) {
+                return("start_cluster_missing: provide an explicit start_cluster")
+            }
+            TRUE
+        },
+        mutates_object = TRUE,
+        requires_confirmation = TRUE,
+        input_schema = list(
+            group = "character",
+            start_cluster = list(type = "character", required = TRUE)
+        )
+    )
+    registry <- AIExecutionRegistry(list(action))
+
+    for (params in list(
+        list(group = "cluster"),
+        list(group = "cluster", start_cluster = NULL)
+    )) {
+        plan <- sclet:::new_sclet_ai_plan(
+            task = "analysis_plan",
+            actions = list(list(id = "step_1", action = "needs_start", params = params))
+        )
+        validation <- ValidateAIPlan(
+            plan,
+            object = prereq_test_sce(),
+            registry = registry,
+            strict = FALSE
+        )
+        expect_true(any(grepl("start_cluster_missing", validation$errors)))
+        expect_false(any(grepl("prerequisite check skipped", validation$warnings)))
+    }
+})
+
+test_that("an enumeration violation still probes (only type errors skip)", {
+    action <- AIAction(
+        name = "enumerated",
+        handler = function(object, params) object,
+        prerequisites = function(object, params, planned = NULL) "enum_probe_ran",
+        mutates_object = TRUE,
+        requires_confirmation = TRUE,
+        input_schema = list(method = c("scran", "seurat"))
+    )
+    registry <- AIExecutionRegistry(list(action))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(list(id = "step_1", action = "enumerated", params = list(method = "banana")))
+    )
+    validation <- ValidateAIPlan(
+        plan,
+        object = prereq_test_sce(),
+        registry = registry,
+        strict = FALSE
+    )
+    expect_true(any(grepl("must be one of", validation$errors)))
+    expect_true(any(grepl("enum_probe_ran", validation$errors)))
+})
+
+test_that("param type validity has one definition shared by both callers", {
+    expect_true(sclet:::sclet_ai_param_type_valid(30, "integer"))
+    expect_true(sclet:::sclet_ai_param_type_valid(30L, "integer"))
+    expect_false(sclet:::sclet_ai_param_type_valid("30", "integer"))
+    expect_false(sclet:::sclet_ai_param_type_valid(30.5, "integer"))
+    expect_true(sclet:::sclet_ai_param_type_valid("x", "character"))
+    expect_true(sclet:::sclet_ai_param_type_valid(TRUE, "logical"))
+
+    # Only present, wrongly-typed parameters are named.
+    schema <- list(a = "integer", b = list(type = "character", required = TRUE), c = c("x", "y"))
+    expect_identical(
+        sclet:::sclet_ai_action_param_type_problems(list(a = "no", b = "yes"), schema),
+        "a"
+    )
+    expect_identical(
+        sclet:::sclet_ai_action_param_type_problems(list(b = "yes"), schema),
+        character()
+    )
+    expect_identical(
+        sclet:::sclet_ai_action_param_type_problems(list(c = "z"), schema),
+        character()
+    )
+})

@@ -9,6 +9,62 @@ sclet_ai_collect_plan_references <- function(value) {
     character()
 }
 
+#' Find value references that are syntactically malformed
+#'
+#' The plan value-reference syntax is `${step_id.output.field}`. Only
+#' [sclet_ai_collect_plan_references()] is permissive: it splits any
+#' `${a.b.c}` token, so a malformed reference still constrains the
+#' dependency graph. [sclet_ai_project_plan_value()] cannot resolve one and
+#' returns it unchanged, and [sclet_ai_resolve_plan_value()] refuses it
+#' outright at execution time. Detecting the malformed form during
+#' validation turns a silent pass-through -- which surfaces later as an
+#' unrelated "reduction is not available: ${step_4.reduction}" from some
+#' action's prerequisite -- into an error that names the actual mistake.
+#'
+#' @param value A parameter value, possibly nested.
+#' @return Character vector of malformed reference strings (empty if none).
+sclet_ai_malformed_plan_references <- function(value) {
+    if (is.character(value) && length(value) == 1L && grepl("^\\$\\{[^}]+\\}$", value)) {
+        token <- sub("^\\$\\{", "", sub("\\}$", "", value))
+        path <- strsplit(token, "\\.", fixed = FALSE)[[1L]]
+        if (length(path) < 3L || !identical(path[[2L]], "output")) {
+            return(value)
+        }
+        return(character())
+    }
+    if (is.list(value)) {
+        return(unlist(lapply(value, sclet_ai_malformed_plan_references), use.names = FALSE))
+    }
+    character()
+}
+
+#' Suggest the corrected spelling of a malformed value reference
+#'
+#' Pairing a complaint with the corrected string is what makes the error
+#' usable as feedback: the model can copy the suggestion instead of
+#' re-deriving the grammar. `${step_4.reduction}` becomes
+#' `${step_4.output.reduction}`.
+#'
+#' @param value A malformed reference string.
+#' @return A suggested corrected reference, or `NA_character_` if the token
+#'   has no step segment to build on.
+sclet_ai_suggest_reference_fix <- function(value) {
+    token <- sub("^\\$\\{", "", sub("\\}$", "", value))
+    path <- strsplit(token, "\\.", fixed = FALSE)[[1L]]
+    if (!length(path) || !nzchar(path[[1L]])) {
+        return(NA_character_)
+    }
+    step <- path[[1L]]
+    rest <- path[-1L]
+    if (length(rest) && identical(rest[[1L]], "output")) {
+        rest <- rest[-1L]
+    }
+    if (!length(rest)) {
+        rest <- "<field>"
+    }
+    paste0("${", step, ".output.", paste(rest, collapse = "."), "}")
+}
+
 sclet_ai_resolve_plan_value <- function(value, outputs) {
     if (is.character(value) && length(value) == 1L && grepl("^\\$\\{[^}]+\\}$", value)) {
         token <- sub("^\\$\\{", "", sub("\\}$", "", value))
@@ -360,6 +416,7 @@ ValidateAIPlan <- function(
     if (anyDuplicated(ids)) {
         errors <- c(errors, "plan action ids must be unique")
     }
+    unusable_param_steps <- character()
     if (length(normalized)) {
         known_ids <- character()
         for (i in seq_along(normalized)) {
@@ -370,11 +427,20 @@ ValidateAIPlan <- function(
                 errors <- c(errors, paste0("action is not registered: ", step$action))
             } else {
                 descriptor <- registry[[step$action]]
+                input_schema <- descriptor$input_schema %||% list()
                 parameter_problems <- sclet_ai_action_param_problems(
                     step$params,
-                    descriptor$input_schema %||% list()
+                    input_schema
                 )
                 if (length(parameter_problems)) {
+                    # Only a *present* parameter of the wrong type makes the
+                    # step's parameters unusable for a prerequisite verdict. A
+                    # merely absent parameter must not: the prerequisite is
+                    # often what produces the best message about it (e.g.
+                    # start_cluster_missing).
+                    if (length(sclet_ai_action_param_type_problems(step$params, input_schema))) {
+                        unusable_param_steps <- c(unusable_param_steps, step$id)
+                    }
                     errors <- c(errors, paste0(
                         "invalid params for action ", step$id, ": ",
                         paste(parameter_problems, collapse = "; ")
@@ -425,6 +491,30 @@ ValidateAIPlan <- function(
                         paste(undeclared, collapse = ", ")
                     ))
                 }
+            }
+            malformed_references <- sclet_ai_malformed_plan_references(step$params)
+            if (length(malformed_references)) {
+                # Report the syntax mistake itself. Left undetected, the
+                # template is passed through as a literal string and the step's
+                # prerequisite reports something unrelated to the real cause.
+                unusable_param_steps <- c(unusable_param_steps, step$id)
+                suggestions <- vapply(
+                    malformed_references,
+                    sclet_ai_suggest_reference_fix,
+                    character(1),
+                    USE.NAMES = FALSE
+                )
+                fixed <- suggestions[!is.na(suggestions)]
+                errors <- c(errors, paste0(
+                    "value_reference_malformed: action ", step$id, " uses ",
+                    paste(malformed_references, collapse = ", "),
+                    if (length(fixed)) {
+                        paste0("; write ", paste(fixed, collapse = ", "), " instead")
+                    } else {
+                        ""
+                    },
+                    " (the syntax is ${step_id.output.field})"
+                ))
             }
             known_ids <- c(known_ids, step$id)
         }
@@ -536,16 +626,38 @@ ValidateAIPlan <- function(
                 if (is.null(descriptor) || !is.function(descriptor$prerequisites)) {
                     next
                 }
-                check <- tryCatch(
-                    sclet_ai_call_prerequisites(descriptor, object, planned_params, planned),
-                    error = function(e) e
-                )
-                if (inherits(check, "error")) {
-                    errors <- c(errors, paste0("prerequisite check failed for ", step$id, ": ", conditionMessage(check)))
-                } else if (isFALSE(check)) {
-                    errors <- c(errors, paste0("prerequisites not met for action ", step$id))
-                } else if (is.character(check) && length(check)) {
-                    errors <- c(errors, paste0("prerequisites not met for action ", step$id, ": ", paste(check, collapse = "; ")))
+                if (step$id %in% unusable_param_steps) {
+                    # This step has a parameter that is present but unusable --
+                    # either of a type the schema rejects, or a malformed value
+                    # reference that cannot be resolved. Probing the prerequisite
+                    # anyway derives a verdict from unusable input: it may raise
+                    # an opaque error ("missing value where TRUE/FALSE needed"),
+                    # or -- worse -- return a confident but meaningless answer,
+                    # e.g. a numeric comparison silently becoming a lexicographic
+                    # one on a character value. Either way the model gets a
+                    # second, misleading error to chase instead of the one
+                    # actionable error it already has. Skip the probe, keep the
+                    # real error, and say so.
+                    #
+                    # Note this must not extend to an *absent* parameter: there
+                    # the prerequisite is usually the best diagnostic available.
+                    warnings <- c(warnings, paste0(
+                        "prerequisite check skipped for action ", step$id,
+                        ": parameters are unusable, so a prerequisite ",
+                        "verdict would be derived from invalid input"
+                    ))
+                } else {
+                    check <- tryCatch(
+                        sclet_ai_call_prerequisites(descriptor, object, planned_params, planned),
+                        error = function(e) e
+                    )
+                    if (inherits(check, "error")) {
+                        errors <- c(errors, paste0("prerequisite check failed for ", step$id, ": ", conditionMessage(check)))
+                    } else if (isFALSE(check)) {
+                        errors <- c(errors, paste0("prerequisites not met for action ", step$id))
+                    } else if (is.character(check) && length(check)) {
+                        errors <- c(errors, paste0("prerequisites not met for action ", step$id, ": ", paste(check, collapse = "; ")))
+                    }
                 }
                 planned <- sclet_ai_apply_planned_output(planned, descriptor, planned_params)
                 planned_outputs[[step$id]] <- descriptor$output_schema %||% list()

@@ -139,29 +139,84 @@ sclet_ai_action_param_problems <- function(params, schema) {
             next
         }
         type <- as.character(spec)[[1L]]
-        valid <- switch(
-            type,
-            character_vector = (is.character(value) && length(value) >= 1L) ||
-                (is.list(value) && length(value) >= 1L && all(vapply(value, function(x) is.character(x) && length(x) == 1L, logical(1)))),
-            integer_vector = ((is.numeric(value) && length(value) >= 1L && all(value == as.integer(value))) ||
-                (is.list(value) && length(value) >= 1L && all(vapply(value, function(x) is.numeric(x) && length(x) == 1L && x == as.integer(x), logical(1))))),
-            numeric_vector = is.numeric(value) && length(value) >= 1L,
-            character = is.character(value) && length(value) == 1L,
-            string = is.character(value) && length(value) == 1L,
-            logical = is.logical(value) && length(value) == 1L,
-            boolean = is.logical(value) && length(value) == 1L,
-            numeric = is.numeric(value) && length(value) == 1L,
-            number = is.numeric(value) && length(value) == 1L,
-            integer = is.numeric(value) && length(value) == 1L && value == as.integer(value),
-            list = is.list(value),
-            object = (is.atomic(value) && length(value) > 0L) || is.list(value) || inherits(value, "SummarizedExperiment"),
-            TRUE
-        )
+        valid <- sclet_ai_param_type_valid(value, type)
         if (!isTRUE(valid)) {
             problems <- c(problems, paste0("parameter ", name, " has invalid type"))
         }
     }
     unique(problems)
+}
+
+#' Is one parameter value acceptable for one declared schema type?
+#'
+#' Extracted so that the type grammar has exactly one definition. The
+#' validator needs to ask a narrower question than
+#' [sclet_ai_action_param_problems()] -- "which *present* parameters have a
+#' type the schema rejects?" -- and two copies of this switch would drift.
+#'
+#' @param value The parameter value.
+#' @param type A single schema type name.
+#' @return A single logical value. Unknown type names are permissive.
+sclet_ai_param_type_valid <- function(value, type) {
+    isTRUE(switch(
+        type,
+        character_vector = (is.character(value) && length(value) >= 1L) ||
+            (is.list(value) && length(value) >= 1L && all(vapply(value, function(x) is.character(x) && length(x) == 1L, logical(1)))),
+        integer_vector = ((is.numeric(value) && length(value) >= 1L && all(value == as.integer(value))) ||
+            (is.list(value) && length(value) >= 1L && all(vapply(value, function(x) is.numeric(x) && length(x) == 1L && x == as.integer(x), logical(1))))),
+        numeric_vector = is.numeric(value) && length(value) >= 1L,
+        character = is.character(value) && length(value) == 1L,
+        string = is.character(value) && length(value) == 1L,
+        logical = is.logical(value) && length(value) == 1L,
+        boolean = is.logical(value) && length(value) == 1L,
+        numeric = is.numeric(value) && length(value) == 1L,
+        number = is.numeric(value) && length(value) == 1L,
+        integer = is.numeric(value) && length(value) == 1L && value == as.integer(value),
+        list = is.list(value),
+        object = (is.atomic(value) && length(value) > 0L) || is.list(value) || inherits(value, "SummarizedExperiment"),
+        TRUE
+    ))
+}
+
+#' Names of present parameters whose value fails the declared schema type
+#'
+#' Deliberately narrower than [sclet_ai_action_param_problems()]: it reports
+#' only *present* parameters of the wrong type. A parameter that is merely
+#' absent is not reported, because an action's prerequisite is frequently the
+#' thing that supplies the most useful message about a missing parameter
+#' (e.g. `start_cluster_missing`), and skipping the prerequisite there would
+#' throw away good diagnostics.
+#'
+#' @param params The parameter list.
+#' @param schema The action's `input_schema`.
+#' @return Character vector of parameter names (empty if none).
+sclet_ai_action_param_type_problems <- function(params, schema) {
+    if (is.null(params) || !is.list(params) || !length(schema)) {
+        return(character())
+    }
+    schema_names <- names(schema)
+    if (is.null(schema_names) || any(!nzchar(schema_names))) {
+        return(character())
+    }
+    bad <- character()
+    for (name in intersect(names(params), schema_names)) {
+        value <- params[[name]]
+        if (is.null(value)) {
+            next
+        }
+        spec <- schema[[name]]
+        if (is.list(spec) && !is.null(spec$type)) {
+            spec <- spec$type
+        }
+        # A multi-value character spec is an enumeration, not a type.
+        if (is.character(spec) && length(spec) > 1L) {
+            next
+        }
+        if (!sclet_ai_param_type_valid(value, as.character(spec)[[1L]])) {
+            bad <- c(bad, name)
+        }
+    }
+    bad
 }
 
 #' Build the safe built-in action catalog
