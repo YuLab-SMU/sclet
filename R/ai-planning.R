@@ -896,8 +896,12 @@ sclet_ai_plan_once <- function(
 #'   changed. When repair is enabled, the returned plan is the one with the
 #'   fewest validation errors across all attempts (ties go to the earliest
 #'   attempt); `plan$metadata$repair_rounds_used` records how many repair
-#'   calls were made, and `plan$metadata$validation_error_counts` records
-#'   the error count per attempt (first attempt first). This function itself
+#'   calls were made, `plan$metadata$validation_error_counts` records
+#'   the error count per attempt (first attempt first), and
+#'   `plan$metadata$first_attempt_errors` keeps the first attempt's error
+#'   text -- the only record of what the model got wrong before any repair
+#'   feedback, since the returned plan's own errors are usually empty once
+#'   repair succeeds. This function itself
 #'   never executes proposed actions.
 #' @export
 AIPlanAnalysis <- function(
@@ -931,6 +935,7 @@ AIPlanAnalysis <- function(
         registry = registry, repair_errors = NULL, ...
     )
     error_counts <- length(plan$validation$errors %||% character())
+    first_attempt_errors <- plan$validation$errors %||% character()
     best <- plan
     best_count <- error_counts
     rounds_used <- 0L
@@ -956,6 +961,13 @@ AIPlanAnalysis <- function(
 
     best$metadata$repair_rounds_used <- rounds_used
     best$metadata$validation_error_counts <- as.integer(error_counts)
+    # Keep the first attempt's error text, not just its count. It is the only
+    # record of what the model actually got wrong before any repair feedback,
+    # and it is what distinguishes "the model never proposed a valid plan"
+    # from "the model proposed one and the loop discarded it". Counts alone
+    # cannot tell those apart, and the returned plan's errors are usually
+    # empty by the time anyone looks.
+    best$metadata$first_attempt_errors <- as.character(first_attempt_errors)
     best
 }
 

@@ -35,6 +35,9 @@ test_that("first proposal valid -> no repair (scenario 1)", {
     expect_true(isTRUE(plan$validation$valid))
     expect_equal(plan$metadata$repair_rounds_used, 0L)
     expect_equal(plan$metadata$validation_error_counts, 0L)
+    # A first attempt that was already valid has no first-attempt errors, but
+    # the field must still exist so callers can rely on its shape.
+    expect_identical(plan$metadata$first_attempt_errors, character())
     expect_equal(calls, 1L)
 })
 
@@ -75,6 +78,15 @@ test_that("invalid then valid -> exactly one repair (scenario 2)", {
     expect_equal(length(plan$metadata$validation_error_counts), 2L)
     expect_true(plan$metadata$validation_error_counts[1L] > 0L)
     expect_equal(plan$metadata$validation_error_counts[2L], 0L)
+    # The first attempt's error text survives repair, and its length matches
+    # the recorded first count -- the two views of the same fact must agree.
+    expect_length(
+        plan$metadata$first_attempt_errors,
+        plan$metadata$validation_error_counts[1L]
+    )
+    expect_true(all(nzchar(plan$metadata$first_attempt_errors)))
+    # ...and it is the *first* attempt's text, not the repaired plan's.
+    expect_identical(plan$validation$errors, character())
     expect_equal(calls, 2L)
 })
 
