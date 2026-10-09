@@ -134,17 +134,73 @@ sclet_ai_action_param_problems <- function(params, schema) {
         }
         if (is.character(spec) && length(spec) > 1L) {
             if (!as.character(value)[[1L]] %in% spec) {
-                problems <- c(problems, paste0("parameter ", name, " must be one of: ", paste(spec, collapse = ", ")))
+                problems <- c(problems, paste0(
+                    "parameter ", name, " must be one of: ", paste(spec, collapse = ", "),
+                    " (got ", sclet_ai_describe_param_value(value), ")"
+                ))
             }
             next
         }
         type <- as.character(spec)[[1L]]
         valid <- sclet_ai_param_type_valid(value, type)
         if (!isTRUE(valid)) {
-            problems <- c(problems, paste0("parameter ", name, " has invalid type"))
+            problems <- c(problems, paste0(
+                "parameter ", name, " has invalid type: expected ", type,
+                ", got ", sclet_ai_describe_param_value(value)
+            ))
         }
     }
     unique(problems)
+}
+
+#' Describe a parameter value for an error message, without echoing it whole
+#'
+#' "parameter dims has invalid type" states the rule but not the violation, so
+#' neither the model reading the repair prompt nor a human reading a benchmark
+#' log can tell whether the value was the number as text (`"30"`), a
+#' placeholder (`"<integer>"`), or something else entirely. Naming the received
+#' shape makes the error actionable for the model and diagnosable afterwards.
+#' Long values are truncated: the point is the shape, not the payload.
+#'
+#' @param value Any parameter value.
+#' @param max_chars Maximum characters of a scalar value to show.
+#' @return A short single-line description, e.g.
+#'   `the text "30"` or `a numeric vector of length 3`.
+sclet_ai_describe_param_value <- function(value, max_chars = 60L) {
+    preview <- function(x) {
+        x <- as.character(x)[[1L]]
+        if (is.na(x)) {
+            return("NA (a missing value)")
+        }
+        if (nchar(x) > max_chars) {
+            x <- paste0(substr(x, 1L, max_chars), "...")
+        }
+        paste0("\"", x, "\"")
+    }
+    if (is.null(value)) {
+        return("NULL")
+    }
+    if (is.list(value)) {
+        nms <- names(value)
+        return(paste0(
+            "a list with ", length(value), " element(s)",
+            if (length(nms)) paste0(" named ", paste(utils::head(nms, 5L), collapse = ", ")) else ""
+        ))
+    }
+    n <- length(value)
+    if (is.character(value)) {
+        return(if (n == 1L) paste0("the text ", preview(value)) else paste0("a character vector of length ", n))
+    }
+    if (is.logical(value)) {
+        return(if (n == 1L) paste0("the logical value ", as.character(value)[[1L]]) else paste0("a logical vector of length ", n))
+    }
+    if (is.numeric(value)) {
+        return(if (n == 1L) paste0("the number ", as.character(value)[[1L]]) else paste0("a numeric vector of length ", n))
+    }
+    if (is.factor(value)) {
+        return(if (n == 1L) paste0("the factor level ", preview(as.character(value))) else paste0("a factor of length ", n))
+    }
+    paste0("an object of class ", paste(class(value), collapse = "/"))
 }
 
 #' Is one parameter value acceptable for one declared schema type?

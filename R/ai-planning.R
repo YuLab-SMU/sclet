@@ -770,7 +770,11 @@ sclet_ai_repair_prompt_block <- function(errors) {
         "TYPE DESCRIPTIONS (e.g. \"integer\", \"character\", \"numeric\"),",
         "NOT literal values to pass. Pass real values of the declared type",
         "(e.g. an actual assay name for an `assay` parameter, an actual",
-        "integer for `ncomponents`), not the type label itself."
+        "integer for `ncomponents`), not the type label itself.",
+        "Pass numbers as bare JSON numbers (`\"ncomponents\": 50`), never as",
+        "quoted strings (`\"50\"`), and never as a placeholder or an example.",
+        "The errors above state what each rejected parameter actually",
+        "received; use that to correct the shape."
     )
 }
 
@@ -809,6 +813,11 @@ sclet_ai_plan_once <- function(
         "`params` list using only the parameter names listed in that action's",
         "input_schema. Do not invent action names. If no listed action fits",
         "a needed step, say so in your rationale instead of inventing one.",
+        "Pass each parameter a real value of the declared type: a bare JSON",
+        "number for integer/numeric (ncomponents = 50, NOT \"50\", NOT",
+        "\"<integer>\", NOT \"e.g. 50\"), a single JSON string for character, and",
+        "a JSON boolean for logical. Never pass a type label, a placeholder, or",
+        "an example where the value belongs.",
         "For group-valued parameters (ident.1, ident.2, start_cluster), use",
         "only the `code` values from `context$capabilities$identity_levels$codes`.",
         "When `all_levels_available` is FALSE or no code fits, omit the",

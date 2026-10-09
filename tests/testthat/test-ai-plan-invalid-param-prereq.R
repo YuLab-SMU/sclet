@@ -421,3 +421,73 @@ test_that("param type validity has one definition shared by both callers", {
         character()
     )
 })
+
+test_that("a type error names the value that was actually received", {
+    action <- AIAction(
+        name = "needs_int",
+        handler = function(object, params) object,
+        prerequisites = function(object, params, planned = NULL) TRUE,
+        mutates_object = TRUE,
+        requires_confirmation = TRUE,
+        input_schema = list(n = "integer", k = "character")
+    )
+    registry <- AIExecutionRegistry(list(action))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(list(id = "step_1", action = "needs_int", params = list(n = "30", k = 5L)))
+    )
+    validation <- ValidateAIPlan(
+        plan,
+        object = prereq_test_sce(),
+        registry = registry,
+        strict = FALSE
+    )
+    joined <- paste(validation$errors, collapse = "\n")
+    # Naming the received shape is what makes the error actionable: "invalid
+    # type" alone left both the model and a benchmark reader guessing between
+    # the number as text, a placeholder, and something else.
+    expect_true(grepl("expected integer", joined, fixed = TRUE))
+    expect_true(grepl("got the text \"30\"", joined, fixed = TRUE))
+    expect_true(grepl("expected character", joined, fixed = TRUE))
+    expect_true(grepl("got the number 5", joined, fixed = TRUE))
+})
+
+test_that("an enumeration error names the value that was actually received", {
+    action <- AIAction(
+        name = "enumerated",
+        handler = function(object, params) object,
+        prerequisites = function(object, params, planned = NULL) TRUE,
+        mutates_object = TRUE,
+        requires_confirmation = TRUE,
+        input_schema = list(method = c("scran", "seurat"))
+    )
+    registry <- AIExecutionRegistry(list(action))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(list(id = "step_1", action = "enumerated", params = list(method = "logreg")))
+    )
+    validation <- ValidateAIPlan(
+        plan,
+        object = prereq_test_sce(),
+        registry = registry,
+        strict = FALSE
+    )
+    joined <- paste(validation$errors, collapse = "\n")
+    expect_true(grepl("must be one of: scran, seurat", joined, fixed = TRUE))
+    expect_true(grepl("got the text \"logreg\"", joined, fixed = TRUE))
+})
+
+test_that("parameter value descriptions are bounded and type-aware", {
+    describe <- sclet:::sclet_ai_describe_param_value
+    expect_identical(describe("30"), "the text \"30\"")
+    expect_identical(describe(30L), "the number 30")
+    expect_identical(describe(30.5), "the number 30.5")
+    expect_identical(describe(TRUE), "the logical value TRUE")
+    expect_identical(describe(c("a", "b")), "a character vector of length 2")
+    expect_identical(describe(list(a = 1L, b = 2L)), "a list with 2 element(s) named a, b")
+    expect_identical(describe(NA_character_), "the text NA (a missing value)")
+    # Long payloads are truncated: the point is the shape, not the content.
+    long <- describe(strrep("z", 500L))
+    expect_true(nchar(long) < 100L)
+    expect_true(grepl("...", long, fixed = TRUE))
+})
