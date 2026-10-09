@@ -84,7 +84,13 @@ sclet_ai_vector_param <- function(value, type = c("character", "integer")) {
     type <- match.arg(type)
     if (is.list(value)) value <- unlist(value, use.names = FALSE)
     if (type == "character") return(as.character(value))
-    as.integer(value)
+    # Untrusted model output can put a non-numeric value (or a type label such
+    # as "integer") where an integer vector is expected. A bare as.integer()
+    # still returns NA there but emits "NAs introduced by coercion", which
+    # duplicates an error the schema check already reports properly
+    # ("parameter <x> has invalid type"). Coerce quietly; the invalid value is
+    # still rejected downstream by that schema check.
+    suppressWarnings(as.integer(value))
 }
 sclet_ai_action_param_problems <- function(params, schema) {
     if (is.null(params)) {
