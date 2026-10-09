@@ -92,6 +92,85 @@ sclet_ai_vector_param <- function(value, type = c("character", "integer")) {
     # still rejected downstream by that schema check.
     suppressWarnings(as.integer(value))
 }
+
+#' Resolve a model-supplied gene selector against the object
+#'
+#' Gene selectors (`features` for `scale_data`/`run_integration`,
+#' `subset_row` for `run_pca`) are declared `character_vector`, so a string
+#' passes validation. Model output sometimes expresses the selection as R range
+#' notation in a string -- `"1:20"`, `"1:20,30:40"` -- which is unambiguous (it
+#' means positions) but not a gene name. Handed straight to the action it
+#' subsets by a name that does not exist and base R raises an opaque
+#' "subscript out of bounds", reproduced on the real pipeline:
+#'
+#'   ScaleData(object, features = "1:20", assay = "logcounts")
+#'   #> Error: subscript out of bounds
+#'
+#' That error names neither the parameter nor the problem, and it happens after
+#' validation has already passed, so the repair loop never sees it. Resolving
+#' the notation explicitly fixes the case that has a single sensible reading,
+#' and turns every other unresolvable selector into an error that names the
+#' parameter, the offending entries, and the accepted forms.
+#'
+#' @param object A `SingleCellExperiment`.
+#' @param value The raw parameter value (`NULL` passes through).
+#' @param arg Parameter name, used in error messages.
+#' @return `NULL`, or a character vector of row names of `object`.
+sclet_ai_gene_selector <- function(object, value, arg = "features") {
+    if (is.null(value)) {
+        return(NULL)
+    }
+    if (is.list(value)) value <- unlist(value, use.names = FALSE)
+    available <- rownames(object)
+    if (is.null(available) || !length(available)) {
+        stop("cannot select ", arg, ": the object has no row names", call. = FALSE)
+    }
+    n <- length(available)
+
+    unsupported <- function(bad) {
+        stop(
+            arg, " is not usable: ", paste(utils::head(bad, 5L), collapse = ", "),
+            " (", length(bad), " entr", if (length(bad) == 1L) "y" else "ies", ") ",
+            if (length(bad) == 1L) "is" else "are",
+            " neither a row name of the object nor a valid position. Pass row ",
+            "names, or positions within 1..", n, ", or range notation such as ",
+            "\"1:20\".",
+            call. = FALSE
+        )
+    }
+
+    if (is.numeric(value)) {
+        idx <- suppressWarnings(as.integer(value))
+        if (anyNA(idx) || any(idx < 1L | idx > n)) {
+            unsupported(value)
+        }
+        return(available[idx])
+    }
+
+    value <- as.character(value)
+    missing_rows <- setdiff(value, available)
+    if (!length(missing_rows)) {
+        return(value)
+    }
+
+    # Range notation, and only range notation: digits, colons, commas.
+    if (length(value) == 1L &&
+        grepl("^[0-9]+\\s*:\\s*[0-9]+(\\s*,\\s*[0-9]+\\s*:\\s*[0-9]+)*$", value)) {
+        parts <- strsplit(value, ",", fixed = TRUE)[[1L]]
+        idx <- unlist(lapply(parts, function(part) {
+            ends <- suppressWarnings(as.integer(strsplit(trimws(part), ":", fixed = TRUE)[[1L]]))
+            if (length(ends) != 2L || anyNA(ends)) {
+                return(integer())
+            }
+            seq.int(ends[[1L]], ends[[2L]])
+        }))
+        if (length(idx) && !anyNA(idx) && all(idx >= 1L & idx <= n)) {
+            return(available[idx])
+        }
+    }
+
+    unsupported(missing_rows)
+}
 sclet_ai_action_param_problems <- function(params, schema) {
     if (is.null(params)) {
         params <- list()
@@ -412,7 +491,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 description = "Scale an assay and register the scaled layer.",
                 handler = function(object, params) ScaleData(
                     object,
-                    features = if (is.null(params$features)) NULL else sclet_ai_vector_param(params$features, "character"),
+                    features = sclet_ai_gene_selector(object, params$features, arg = "features"),
                     assay = params$assay %||% "logcounts"
                 ),
                 input_schema = list(
@@ -445,7 +524,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 description = "Compute and register a PCA reduction.",
                 handler = function(object, params) RunPCA(
                     object,
-                    subset_row = if (is.null(params$subset_row)) NULL else sclet_ai_vector_param(params$subset_row, "character"),
+                    subset_row = sclet_ai_gene_selector(object, params$subset_row, arg = "subset_row"),
                     exprs_values = params$exprs_values %||% NULL,
                     layer = params$layer %||% NULL,
                     ncomponents = params$ncomponents %||% 50
@@ -593,7 +672,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 handler = function(object, params) {
                     method <- match.arg(params$method %||% "fastMNN", c("fastMNN", "Harmony", "scVI"))
                     batch <- params$batch
-                    features <- if (!is.null(params$features)) sclet_ai_vector_param(params$features, "character") else NULL
+                    features <- sclet_ai_gene_selector(object, params$features, arg = "features")
                     dims <- if (!is.null(params$dims)) sclet_ai_vector_param(params$dims, "integer") else NULL
                     RunIntegration(
                         object,
