@@ -84,7 +84,7 @@ sclet_ai_apply_planned_output <- function(planned, descriptor, params) {
     if (length(schema$active_ident)) planned$active_ident <- schema$active_ident
     if (length(schema$active_graph)) planned$active_graph <- schema$active_graph
     if (identical(descriptor$name, "run_pca")) {
-        planned$reduction_dims$PCA <- as.integer(params$ncomponents %||% 50)
+        planned$reduction_dims$PCA <- sclet_ai_coerce_integer(params$ncomponents, default = 50L)
         planned$active_reduction <- "PCA"
     }
     planned
@@ -98,6 +98,31 @@ sclet_ai_call_prerequisites <- function(descriptor, object, params, planned) {
     }
     fn(object, params)
 }
+#' Coerce a possibly-malformed model-supplied value to a single integer
+#'
+#' Model output is untrusted and may put a non-numeric string, `NA`, or a
+#' length-0 value where an integer is expected (e.g. `max_retries`,
+#' `ncomponents`). Plain `as.integer()` on such input still returns a
+#' value (`NA`) but raises an "NAs introduced by coercion" warning, which
+#' pollutes logs during normalization/validation of a plan that is
+#' expected to be checked for exactly this kind of malformation. This
+#' coerces quietly and substitutes `default` when the result is `NA`.
+#'
+#' @param value The raw value to coerce.
+#' @param default Integer to use when `value` is `NULL`, length-0, or not
+#'   coercible to a finite integer.
+#' @return A single integer, never `NA`.
+sclet_ai_coerce_integer <- function(value, default = 0L) {
+    if (is.null(value) || !length(value)) {
+        return(as.integer(default))
+    }
+    coerced <- suppressWarnings(as.integer(value[[1L]]))
+    if (is.na(coerced)) {
+        return(as.integer(default))
+    }
+    coerced
+}
+
 sclet_ai_normalize_plan_actions <- function(actions) {
     if (is.null(actions)) {
         return(list())
@@ -133,7 +158,7 @@ sclet_ai_normalize_plan_actions <- function(actions) {
             description = action$description %||% action$rationale %||% NULL,
             expected_outputs = action$expected_outputs %||% list(),
             requires_confirmation = if (is.null(action$requires_confirmation)) TRUE else isTRUE(action$requires_confirmation),
-            max_retries = as.integer(action$max_retries %||% 0L),
+            max_retries = sclet_ai_coerce_integer(action$max_retries, default = 0L),
             continue_on_error = if (is.null(action$continue_on_error)) FALSE else isTRUE(action$continue_on_error)
         )
     })
@@ -610,8 +635,20 @@ ValidateAIPlan <- function(
 #' @param goal Optional natural-language user goal to include in the planning context.
 #' @param structured_output Logical. Use the tool-loop plus structured-output summary stage.
 #' @param fallback_on_structure_error Logical. Retain the tool-loop response if structured output fails.
+#' @param registry Optional `AIExecutionRegistry`. Its action names,
+#'   descriptions, and input schemas are exposed to the model via
+#'   `context$available_actions` so proposed actions can reference real,
+#'   registered action names. Also used to validate the returned plan
+#'   (see `$validation` below). Defaults to
+#'   `AIDefaultExecutionRegistry(object, include = "all")`.
 #' @param ... Additional arguments passed to `sclet_ai_call()`.
-#' @return An object of class `sclet_ai_plan`.
+#' @return An object of class `sclet_ai_plan`. The model's proposed actions
+#'   are not guaranteed to be well-formed: it may omit an action name or
+#'   name an action that is not registered. The plan's `$validation` field
+#'   (a non-strict `ValidateAIPlan()` result) reports this; check
+#'   `plan$validation$valid` before treating `plan$actions` as executable,
+#'   or re-run `ValidateAIPlan()` explicitly later if the object has
+#'   changed. This function itself never executes proposed actions.
 #' @export
 AIPlanAnalysis <- function(
     object,
@@ -619,9 +656,13 @@ AIPlanAnalysis <- function(
     model = NULL,
     structured_output = TRUE,
     fallback_on_structure_error = TRUE,
+    registry = NULL,
     ...
 ) {
-    context <- sclet_ai_context(object, target = "planning", detail = "full")
+    if (is.null(registry)) {
+        registry <- AIDefaultExecutionRegistry(object, include = "all")
+    }
+    context <- sclet_ai_context(object, target = "planning", detail = "full", registry = registry)
     result <- sclet_ai_call(
         task = "analysis_plan",
         context = context,
@@ -636,9 +677,13 @@ AIPlanAnalysis <- function(
             } else {
                 "No additional user goal was supplied."
             },
-            "Return only actions that can be represented by a registered action name",
-            "and parameter list. List prerequisites, dependencies, expected outputs,",
-            "and uncertainty. Never execute an action or claim that it was executed.",
+            "Return only actions whose `action` field is an exact, verbatim key",
+            "from `context$available_actions` (e.g. \"run_de_test\"), with a",
+            "`params` list using only the parameter names listed in that action's",
+            "input_schema. Do not invent action names. If no listed action fits",
+            "a needed step, say so in your rationale instead of inventing one.",
+            "List prerequisites, dependencies, expected outputs, and uncertainty.",
+            "Never execute an action or claim that it was executed.",
             sep = "\n"
         ),
         ...
@@ -656,6 +701,12 @@ AIPlanAnalysis <- function(
             goal = goal %||% NULL
         )
     )
+    plan$validation <- ValidateAIPlan(
+        plan,
+        object = object,
+        registry = registry,
+        strict = FALSE
+    )
     plan
 }
 
@@ -663,6 +714,12 @@ AIPlanAnalysis <- function(
 print.sclet_ai_plan <- function(x, ...) {
     cat("sclet AI plan [", x$plan_id, "]\n", sep = "")
     cat("Actions:", length(x$actions), " Confirmation required:", isTRUE(x$requires_confirmation), "\n", sep = "")
+    if (!is.null(x$validation)) {
+        cat("Validation: ", if (isTRUE(x$validation$valid)) "valid" else "INVALID", "\n", sep = "")
+        if (!isTRUE(x$validation$valid) && length(x$validation$errors)) {
+            cat("  - ", paste(x$validation$errors, collapse = "\n  - "), "\n", sep = "")
+        }
+    }
     if (!is.null(x$rationale) && nzchar(x$rationale)) {
         cat(x$rationale, "\n", sep = "")
     }

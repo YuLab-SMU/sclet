@@ -171,11 +171,24 @@ AIExplainAnalysis <- function(object, type = NULL, id = NULL, model = NULL, stru
 #' @param model Optional aisdk model.
 #' @param structured_output Logical. Use the tool-loop plus structured-output
 #'   summary stage. Defaults to `TRUE`.
+#' @param registry Optional `AIExecutionRegistry`. Its action names,
+#'   descriptions, and input schemas are exposed to the model via
+#'   `context$available_actions` so recommended actions can reference real,
+#'   registered action names rather than invented ones. Defaults to
+#'   `AIDefaultExecutionRegistry(object, include = "all")`.
 #' @param ... Additional arguments passed to `sclet_ai_call()`.
 #' @return A structured `sclet_ai_result` containing recommendations and proposed actions.
 #' @export
-AIRecommendNextStep <- function(object, model = NULL, structured_output = TRUE, ...) {
-    context <- sclet_ai_context(object, target = "planning", detail = "summary")
+AIRecommendNextStep <- function(object, model = NULL, structured_output = TRUE, registry = NULL, ...) {
+    if (is.null(registry)) {
+        registry <- AIDefaultExecutionRegistry(object, include = "all")
+    }
+    context <- sclet_ai_context(
+        object,
+        target = "planning",
+        detail = "summary",
+        registry = registry
+    )
     sclet_ai_call(
         task = "next_step_recommendation",
         context = context,
@@ -185,7 +198,11 @@ AIRecommendNextStep <- function(object, model = NULL, structured_output = TRUE, 
         system_prompt = paste(
             "Recommend the next analysis only when its prerequisites are visible.",
             "List missing inputs and risks. Return proposed actions for review,",
-            "but never imply that they were executed."
+            "but never imply that they were executed.",
+            "Any proposed action's `action` field must be an exact, verbatim key",
+            "from `context$available_actions`, with a `params` list using only the",
+            "parameter names listed in that action's input_schema. Do not invent",
+            "action names. If no listed action fits, say so in your answer instead."
         ),
         ...
     )

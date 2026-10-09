@@ -365,14 +365,15 @@ sclet_ai_payload_field_kind <- function(name, path) {
     }
     if (grepl("group|cluster", field, perl = TRUE) &&
         grepl("label|labels|groups?|clusters?|classes?", field, perl = TRUE) &&
-        !grepl("count|size|number|composition", field, perl = TRUE)) {
+        !grepl("count|size|number|composition", field, perl = TRUE) &&
+        !grepl("input[_-]?schema", path, perl = TRUE)) {
         return("group")
     }
     if (grepl("goal|question|objective|user[_-]?request", field, perl = TRUE)) {
         return("text")
     }
     if (grepl(
-        "assay|layer|reduction|graph|modality|feature[_-]?name|software|version|method|algorithm|parameter|(^|[_-])params?($|[_-])|status|state|schema|available|dimension|(^|[_-])class($|[_-])|summary|aggregate|count|number|composition|qc|diagnostic|profile|ledger|dataset|design|semantic|candidate|candidates|column|requested|scope|parents|claim[_-]?level|evidence|kind|source|uncertainty|privacy|execution|actions?[_-]?executed|capabilit|structure|cost|threshold|sparse|values?[_-]?included|raw[_-]?values?[_-]?included|n[_-]?(cells?|genes?|samples?|features?|clusters?|groups?)|(^|[_-])(active[_-]?view|active[_-]?states|analyses|health|state[_-]?records|workflows|lineage|blocked[_-]?actions|quality[_-]?checks|warnings|fingerprint|capabilities|analysis[_-]?story|analysis[_-]?type|timeline|n[_-]?steps|unordered[_-]?steps|user[_-]?decisions|conflicts|depends[_-]?on|created[_-]?at|confirmed[_-]?at|reason|gap|key|keys|stop[_-]?conditions?|human[_-]?confirmations|confirmed|role|preview)($|[_-])",
+        "assay|layer|reduction|graph|modality|feature[_-]?name|software|version|method|algorithm|parameter|(^|[_-])params?($|[_-])|status|state|schema|available|dimension|(^|[_-])class($|[_-])|summary|aggregate|count|number|composition|qc|diagnostic|profile|ledger|dataset|design|semantic|candidate|candidates|column|requested|scope|parents|claim[_-]?level|evidence|kind|source|uncertainty|privacy|execution|actions?[_-]?executed|capabilit|structure|cost|threshold|sparse|values?[_-]?included|raw[_-]?values?[_-]?included|n[_-]?(cells?|genes?|samples?|features?|clusters?|groups?)|(^|[_-])(active[_-]?view|active[_-]?states|analyses|health|state[_-]?records|workflows|lineage|blocked[_-]?actions|quality[_-]?checks|warnings|fingerprint|capabilities|analysis[_-]?story|analysis[_-]?type|timeline|n[_-]?steps|unordered[_-]?steps|user[_-]?decisions|conflicts|depends[_-]?on|created[_-]?at|confirmed[_-]?at|reason|gap|key|keys|stop[_-]?conditions?|human[_-]?confirmations|confirmed|role|preview|description|requires[_-]?confirmation|mutates[_-]?object|idempotent|returns)($|[_-])",
         field,
         perl = TRUE
     )) {

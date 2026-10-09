@@ -42,13 +42,15 @@ sclet_ai_context <- function(
         "status", "qc", "planning", "markers", "trajectory",
         "velocity", "perturbation", "report"
     ),
-    detail = c("summary", "full")
+    detail = c("summary", "full"),
+    registry = NULL
 ) {
     detail <- match.arg(detail)
     sclet_ai_build_context(
         object = object,
         target = target,
         detail = detail,
+        registry = registry,
         include_artifacts = FALSE,
         include_data = FALSE
     )
@@ -58,6 +60,7 @@ sclet_ai_build_context <- function(
     object,
     target = NULL,
     detail = c("summary", "full"),
+    registry = NULL,
     include_artifacts = FALSE,
     include_data = FALSE
 ) {
@@ -105,6 +108,7 @@ sclet_ai_build_context <- function(
             health = health,
             mainline_missing = sclet_ai_or(health$mainline_missing, character())
         ),
+        available_actions = sclet_ai_describe_registry(registry),
         warnings = records$warnings
     )
     result$fingerprint <- sclet_ai_fingerprint(result)
@@ -671,6 +675,35 @@ sclet_ai_safe_value <- function(value, include_data = FALSE, depth = 0L) {
     } else {
         list(kind = "value", class = class(value))
     }
+}
+
+#' Describe an AIExecutionRegistry's action vocabulary for model-facing context
+#'
+#' Exposes only the fields a planning model needs to propose a valid,
+#' correctly-parameterized action: `name`, `description`, `input_schema`,
+#' `requires_confirmation`, `mutates_object`, `estimated_cost`. Deliberately
+#' excludes `handler` and `prerequisites`, which are R closures and must
+#' never be serialized into a prompt.
+#'
+#' @param registry An `sclet_ai_execution_registry`, or `NULL`.
+#' @return A named list keyed by action name, or an empty list if `registry`
+#'   is `NULL` or empty.
+sclet_ai_describe_registry <- function(registry) {
+    if (is.null(registry) || !length(registry)) {
+        return(list())
+    }
+    actions <- lapply(registry, function(descriptor) {
+        list(
+            name = descriptor$name,
+            description = descriptor$description,
+            input_schema = descriptor$input_schema,
+            requires_confirmation = isTRUE(descriptor$requires_confirmation),
+            mutates_object = isTRUE(descriptor$mutates_object),
+            estimated_cost = descriptor$estimated_cost %||% NA_character_
+        )
+    })
+    names(actions) <- names(registry)
+    actions
 }
 
 sclet_ai_capabilities <- function(status, records) {
