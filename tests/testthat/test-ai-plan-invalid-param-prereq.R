@@ -491,3 +491,139 @@ test_that("parameter value descriptions are bounded and type-aware", {
     expect_true(nchar(long) < 100L)
     expect_true(grepl("...", long, fixed = TRUE))
 })
+
+reference_registry <- function() {
+    AIExecutionRegistry(list(
+        AIAction(
+            name = "producer",
+            handler = function(object, params) object,
+            prerequisites = function(object, params, planned = NULL) TRUE,
+            returns = "sce",
+            mutates_object = TRUE,
+            requires_confirmation = TRUE,
+            output_schema = list(x = "X", y = "Y", z = "Z")
+        ),
+        AIAction(
+            name = "consumer",
+            handler = function(object, params) object,
+            prerequisites = function(object, params, planned = NULL) TRUE,
+            mutates_object = TRUE,
+            requires_confirmation = TRUE,
+            input_schema = list(a = "character", b = "character", c = "character")
+        )
+    ))
+}
+
+test_that("references are collected per reference, not as one flat vector", {
+    # A flat vector only lines up with references when every reference has the
+    # same number of segments. Walking it with a fixed stride read a field
+    # name as a step id ("references unknown step(s): y") or read an empty
+    # first segment and reported "references unknown step(s): " with no name.
+    refs <- sclet:::sclet_ai_collect_plan_references(list(
+        a = "${step_2.output.x}",
+        b = "${step_3}",
+        c = "${step_4.output.y}"
+    ))
+    expect_length(refs, 3L)
+    expect_identical(refs[[1L]], c("step_2", "output", "x"))
+    expect_identical(refs[[2L]], "step_3")
+    expect_identical(refs[[3L]], c("step_4", "output", "y"))
+})
+
+test_that("mixed reference shapes produce no bogus unknown-step error", {
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(
+            list(id = "step_1", action = "producer", params = list()),
+            list(
+                id = "step_2", action = "consumer",
+                params = list(
+                    a = "${step_1.output.x}",
+                    b = "${step_1.output.y}",
+                    c = "${step_1.output.z}"
+                ),
+                depends_on = "step_1"
+            )
+        )
+    )
+    validation <- ValidateAIPlan(
+        plan,
+        object = prereq_test_sce(),
+        registry = reference_registry(),
+        strict = FALSE
+    )
+    expect_true(validation$valid)
+    expect_false(any(grepl("references unknown step", validation$errors)))
+})
+
+test_that("a malformed reference yields exactly one error, not two", {
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(
+            list(id = "step_1", action = "producer", params = list()),
+            list(id = "step_2", action = "consumer", params = list(a = "${step_1.x}"))
+        )
+    )
+    validation <- ValidateAIPlan(
+        plan,
+        object = prereq_test_sce(),
+        registry = reference_registry(),
+        strict = FALSE
+    )
+    expect_true(any(grepl("value_reference_malformed", validation$errors)))
+    # Deriving dependencies from a token we cannot parse only adds noise.
+    expect_false(any(grepl("references undeclared dependency", validation$errors)))
+    expect_false(any(grepl("references unknown step", validation$errors)))
+})
+
+test_that("the well-formedness grammar has one definition", {
+    well_formed <- sclet:::sclet_ai_reference_is_well_formed
+    expect_true(well_formed(c("step_1", "output", "x")))
+    expect_true(well_formed(c("step_1", "output", "a", "b")))
+    expect_false(well_formed(c("step_1", "x")))
+    expect_false(well_formed(c("step_1", "output")))
+    expect_false(well_formed(c("", "output", "x")))
+    expect_false(well_formed(character()))
+    # The detector and the grammar must agree on every one of these.
+    templates <- c("${step_1.output.x}", "${step_1.output}", "${step_1.x}", "${.output.x}")
+    expected_malformed <- c(FALSE, TRUE, TRUE, TRUE)
+    for (i in seq_along(templates)) {
+        got <- length(sclet:::sclet_ai_malformed_plan_references(templates[[i]])) > 0L
+        expect_identical(got, expected_malformed[[i]], info = templates[[i]])
+    }
+})
+
+test_that("an undeclared dependency error says how to fix it", {
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(
+            list(id = "step_1", action = "producer", params = list()),
+            list(id = "step_2", action = "consumer", params = list(a = "${step_1.output.x}"))
+        )
+    )
+    validation <- ValidateAIPlan(
+        plan,
+        object = prereq_test_sce(),
+        registry = reference_registry(),
+        strict = FALSE
+    )
+    expect_true(any(grepl("add them to this step's depends_on", validation$errors)))
+})
+
+test_that("a placeholder action name is told to drop the step instead", {
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(
+            list(id = "step_1", action = "producer", params = list()),
+            list(id = "step_2", action = "none", params = list())
+        )
+    )
+    validation <- ValidateAIPlan(
+        plan,
+        object = prereq_test_sce(),
+        registry = reference_registry(),
+        strict = FALSE
+    )
+    expect_true(any(grepl("placeholder such as \"none\"", validation$errors)))
+    expect_true(any(grepl("remove the step from the plan", validation$errors)))
+})

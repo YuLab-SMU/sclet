@@ -1,25 +1,50 @@
+#' Split one `${...}` token into its path segments
+#'
+#' @param value A parameter value, possibly nested.
+#' @return A list with one character vector of segments per reference found.
+#'   Returning the segments *per reference* rather than one flat vector
+#'   matters: a flat vector only aligns to references if every reference
+#'   happens to have the same number of segments, and callers that walked it
+#'   with a fixed stride then read a field name as a step id (reporting
+#'   "references unknown step(s): y" for `${step_4.output.y}`) or read an
+#'   empty first segment and reported "references unknown step(s): " with no
+#'   name at all.
 sclet_ai_collect_plan_references <- function(value) {
     if (is.character(value) && length(value) == 1L && grepl("^\\$\\{[^}]+\\}$", value)) {
         token <- sub("^\\$\\{", "", sub("\\}$", "", value))
-        return(strsplit(token, "\\.", fixed = FALSE)[[1L]])
+        return(list(strsplit(token, "\\.", fixed = FALSE)[[1L]]))
     }
     if (is.list(value)) {
-        return(unlist(lapply(value, sclet_ai_collect_plan_references), use.names = FALSE))
+        return(unlist(lapply(value, sclet_ai_collect_plan_references), recursive = FALSE))
     }
-    character()
+    list()
+}
+
+#' Is a reference path well formed, i.e. `${step_id.output.field}`?
+#'
+#' The one definition of the grammar, shared by the malformed-reference
+#' detector and by the validator's dependency analysis so the two cannot
+#' disagree about which references count.
+#'
+#' @param path Character vector of path segments.
+#' @return A single logical value.
+sclet_ai_reference_is_well_formed <- function(path) {
+    length(path) >= 3L &&
+        nzchar(path[[1L]]) &&
+        identical(path[[2L]], "output")
 }
 
 #' Find value references that are syntactically malformed
 #'
 #' The plan value-reference syntax is `${step_id.output.field}`. Only
 #' [sclet_ai_collect_plan_references()] is permissive: it splits any
-#' `${a.b.c}` token, so a malformed reference still constrains the
-#' dependency graph. [sclet_ai_project_plan_value()] cannot resolve one and
-#' returns it unchanged, and [sclet_ai_resolve_plan_value()] refuses it
-#' outright at execution time. Detecting the malformed form during
-#' validation turns a silent pass-through -- which surfaces later as an
-#' unrelated "reduction is not available: ${step_4.reduction}" from some
-#' action's prerequisite -- into an error that names the actual mistake.
+#' `${a.b.c}` token, so a malformed reference still parses into segments.
+#' [sclet_ai_project_plan_value()] cannot resolve one and returns it
+#' unchanged, and [sclet_ai_resolve_plan_value()] refuses it outright at
+#' execution time. Detecting the malformed form during validation turns a
+#' silent pass-through -- which surfaces later as an unrelated "reduction is
+#' not available: ${step_4.reduction}" from some action's prerequisite --
+#' into an error that names the actual mistake.
 #'
 #' @param value A parameter value, possibly nested.
 #' @return Character vector of malformed reference strings (empty if none).
@@ -27,7 +52,7 @@ sclet_ai_malformed_plan_references <- function(value) {
     if (is.character(value) && length(value) == 1L && grepl("^\\$\\{[^}]+\\}$", value)) {
         token <- sub("^\\$\\{", "", sub("\\}$", "", value))
         path <- strsplit(token, "\\.", fixed = FALSE)[[1L]]
-        if (length(path) < 3L || !identical(path[[2L]], "output")) {
+        if (!sclet_ai_reference_is_well_formed(path)) {
             return(value)
         }
         return(character())
@@ -64,6 +89,7 @@ sclet_ai_suggest_reference_fix <- function(value) {
     }
     paste0("${", step, ".output.", paste(rest, collapse = "."), "}")
 }
+
 
 sclet_ai_resolve_plan_value <- function(value, outputs) {
     if (is.character(value) && length(value) == 1L && grepl("^\\$\\{[^}]+\\}$", value)) {
@@ -424,7 +450,12 @@ ValidateAIPlan <- function(
             if (is.null(step$action) || !nzchar(step$action)) {
                 errors <- c(errors, paste0("action ", step$id, " has no action name"))
             } else if (is.null(registry[[step$action]])) {
-                errors <- c(errors, paste0("action is not registered: ", step$action))
+                errors <- c(errors, paste0(
+                    "action is not registered: ", step$action,
+                    "; the `action` field must be an exact registry key, and a",
+                    " placeholder such as \"none\" is not a way to drop a step",
+                    " -- remove the step from the plan instead"
+                ))
             } else {
                 descriptor <- registry[[step$action]]
                 input_schema <- descriptor$input_schema %||% list()
@@ -474,21 +505,32 @@ ValidateAIPlan <- function(
                     paste(forward_dependencies, collapse = ", ")
                 ))
             }
-            reference_path <- sclet_ai_collect_plan_references(step$params)
-            if (length(reference_path)) {
-                reference_steps <- unique(reference_path[seq(1L, length(reference_path), by = 3L)])
+            # Dependency analysis uses only well-formed references. A malformed
+            # one is reported on its own (below); deriving dependencies from a
+            # token we cannot parse would only add a second, less precise error
+            # for the model to chase.
+            references <- sclet_ai_collect_plan_references(step$params)
+            well_formed <- Filter(sclet_ai_reference_is_well_formed, references)
+            reference_steps <- unique(vapply(
+                well_formed,
+                function(path) path[[1L]],
+                character(1)
+            ))
+            if (length(reference_steps)) {
                 unknown_reference_steps <- setdiff(reference_steps, ids)
                 if (length(unknown_reference_steps)) {
                     errors <- c(errors, paste0(
                         "action ", step$id, " references unknown step(s): ",
-                        paste(unknown_reference_steps, collapse = ", ")
+                        paste(unknown_reference_steps, collapse = ", "),
+                        "; a reference may only name a step of this plan"
                     ))
                 }
                 undeclared <- setdiff(reference_steps, step$depends_on)
                 if (length(undeclared)) {
                     errors <- c(errors, paste0(
                         "action ", step$id, " references undeclared dependency step(s): ",
-                        paste(undeclared, collapse = ", ")
+                        paste(undeclared, collapse = ", "),
+                        "; add them to this step's depends_on"
                     ))
                 }
             }
@@ -829,6 +871,10 @@ sclet_ai_plan_once <- function(
         "with the plan's ${step_id.output.field} syntax. Never put a prose",
         "description -- such as \"PCA name from step_4\" -- where a concrete",
         "value or reference is required.",
+        "Whenever a step uses another step's output, also list that step's id",
+        "in this step's `depends_on` (e.g. depends_on = [\"step_2\"]). A",
+        "reference alone is not enough: an undeclared dependency is rejected.",
+        "Every step's `depends_on` must name only earlier steps of this plan.",
         "List prerequisites, dependencies, expected outputs, and uncertainty.",
         "Never execute an action or claim that it was executed.",
         sep = "\n"
