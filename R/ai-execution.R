@@ -1659,6 +1659,34 @@ sclet_ai_action_state_problems <- function(before, after, descriptor) {
 #'
 #' @param descriptor An action descriptor (`NULL` for the base keys only).
 #' @return Character vector of referenceable field names.
+#' Contract keys an action's output summary may expose
+#'
+#' One definition, shared by the summary builder and by the validator's view of
+#' which field names a plan reference or a success criterion may name. They must
+#' agree: when they did not, validation accepted references execution could not
+#' resolve.
+#'
+#' `note` is excluded deliberately. Those entries hold long prose and `note` is
+#' hard-denied by the privacy classifier in `R/ai-privacy.R`, so carrying it
+#' onto the ledger path would be wrong on both counts. Keys whose declared value
+#' is `NULL` are excluded too, because assigning `NULL` into a list removes the
+#' element rather than creating one, which would silently desynchronise the two
+#' functions.
+#'
+#' @param descriptor An action descriptor (`NULL` for no contract keys).
+#' @return Character vector of exposable contract key names.
+sclet_ai_exposable_contract_keys <- function(descriptor = NULL) {
+    contract <- (descriptor %||% list())$output_schema %||% list()
+    keys <- names(contract)
+    if (!length(keys)) {
+        return(character())
+    }
+    keep <- vapply(keys, function(k) {
+        !identical(k, "note") && !is.null(contract[[k]])
+    }, logical(1))
+    unique(keys[keep])
+}
+
 sclet_ai_referenceable_output_fields <- function(descriptor = NULL) {
     if (!is.null(descriptor) && !identical(descriptor$returns, "sce")) {
         # A `returns = "value"` action's execution summary is the value itself
@@ -1672,17 +1700,12 @@ sclet_ai_referenceable_output_fields <- function(descriptor = NULL) {
         return(character())
     }
 
-    fields <- c(
+    unique(c(
         "class", "n_features", "n_cells", "assays", "reductions",
-        "active_assay", "active_reduction", "fingerprint"
-    )
-    contract <- descriptor$output_schema %||% list()
-    for (name in c("assay", "reduction", "graph", "state")) {
-        if (!is.null(contract[[name]])) {
-            fields <- c(fields, name)
-        }
-    }
-    unique(fields)
+        "active_assay", "active_reduction", "fingerprint",
+        "active_ident", "active_graph",
+        sclet_ai_exposable_contract_keys(descriptor)
+    ))
 }
 
 sclet_ai_execution_summary <- function(value, descriptor = NULL) {
@@ -1697,11 +1720,34 @@ sclet_ai_execution_summary <- function(value, descriptor = NULL) {
             active_reduction = tryCatch(DefaultReduction(value), error = function(e) NULL),
             fingerprint = tryCatch(GetAnalysisLedger(value)$fingerprint, error = function(e) NULL)
         )
-        if (!is.null(descriptor$output_schema)) {
-            contract <- descriptor$output_schema
-            for (name in c("assay", "reduction", "graph", "state")) {
-                if (!is.null(contract[[name]])) summary[[name]] <- contract[[name]]
+        # Observed state, not declared state: the object really has these. They
+        # are skipped when absent so the key means "the object has one", not
+        # "the object has one and it is NULL".
+        active_ident <- tryCatch(sclet_get_active_ident(value), error = function(e) NULL)
+        if (!is.null(active_ident)) summary$active_ident <- active_ident
+        active_graph <- tryCatch(DefaultGraph(value), error = function(e) NULL)
+        if (!is.null(active_graph)) summary$active_graph <- active_graph
+
+        # Declared contract keys fill whatever the observations did not already
+        # establish. An observation must never be overwritten by a declaration.
+        contract <- (descriptor %||% list())$output_schema %||% list()
+        for (name in sclet_ai_exposable_contract_keys(descriptor)) {
+            if (name %in% names(summary)) {
+                next
             }
+            declared <- contract[[name]]
+            if (is.list(declared)) {
+                # Keep the names, not the nested structure. A contract value such
+                # as list(clustering = "louvain_clusters") holds internal
+                # state-type labels whose KEY matches the privacy classifier's
+                # group pattern, so carrying it verbatim made the sanitizer
+                # redact `required_states.clustering` as group labels -- a false
+                # positive on a state name, but a real warning on a path that
+                # leads to the ledger. The summary's job is to record what the
+                # step promised, which the names do.
+                declared <- utils::head(names(declared), 10L)
+            }
+            summary[[name]] <- declared
         }
         return(summary)
     }
@@ -1710,6 +1756,7 @@ sclet_ai_execution_summary <- function(value, descriptor = NULL) {
     }
     list(class = class(value), length = length(value))
 }
+
 
 sclet_ai_execution_id <- function(plan_id) {
     safe_id <- gsub("[^A-Za-z0-9_.-]+", "_", as.character(plan_id))

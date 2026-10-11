@@ -669,9 +669,11 @@ test_that("the referenceable field set matches what execution really exposes", {
         allowed <- sclet:::sclet_ai_referenceable_output_fields(descriptor)
         # Everything the summary carries must be referenceable...
         expect_true(all(exposed %in% allowed), info = action)
-        # ...and nothing is offered that the summary will not carry.
-        conditional <- intersect(allowed, c("assay", "reduction", "graph", "state"))
-        expect_true(all(conditional %in% exposed), info = action)
+        # ...and every declared field (excluding note) must be in both.
+        contract <- descriptor$output_schema %||% list()
+        declared <- setdiff(names(contract), "note")
+        expect_true(all(declared %in% exposed), info = action)
+        expect_true(all(declared %in% allowed), info = action)
     }
 })
 
