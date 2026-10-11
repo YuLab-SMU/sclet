@@ -674,3 +674,35 @@ test_that("the referenceable field set matches what execution really exposes", {
         expect_true(all(conditional %in% exposed), info = action)
     }
 })
+
+test_that("a reference into a value-returning step is rejected at validation", {
+    # `sclet_ai_referenceable_output_fields()` listed the SingleCellExperiment
+    # field names for every action, including `returns = "value"` ones whose
+    # execution summary carries no such fields. A reference to
+    # ${step_1.output.n_cells} on a check_qc step therefore validated and then
+    # failed at execution -- the same defect as the required_hvg case, one
+    # descriptor field further along.
+    sce <- prereq_test_sce()
+    registry <- AIDefaultExecutionRegistry(sce, include = "all")
+    expect_identical(
+        sclet:::sclet_ai_referenceable_output_fields(registry[["check_qc"]]),
+        character()
+    )
+    # An SCE-returning action is unaffected.
+    expect_true("n_cells" %in% sclet:::sclet_ai_referenceable_output_fields(registry[["normalize_data"]]))
+
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "analysis_plan",
+        actions = list(
+            list(id = "step_1", action = "check_qc", params = list()),
+            list(
+                id = "step_2", action = "normalize_data",
+                params = list(assay = "${step_1.output.n_cells}"),
+                depends_on = "step_1"
+            )
+        )
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
+    expect_false(validation$valid)
+    expect_true(any(grepl("value_reference_unresolvable", validation$errors)))
+})

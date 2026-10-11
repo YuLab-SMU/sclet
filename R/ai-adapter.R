@@ -143,7 +143,9 @@ sclet_ai_native_result_schema <- function() {
             evidence = aisdk::z_array(aisdk::z_any()),
             warnings = aisdk::z_array(aisdk::z_any()),
             recommendations = aisdk::z_array(aisdk::z_any()),
-            proposed_actions = aisdk::z_array(aisdk::z_any())
+            proposed_actions = aisdk::z_array(aisdk::z_any()),
+            success_criteria = aisdk::z_array(aisdk::z_any()),
+            stop_conditions = aisdk::z_array(aisdk::z_any())
         )
     )
 }

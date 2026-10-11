@@ -1660,6 +1660,18 @@ sclet_ai_action_state_problems <- function(before, after, descriptor) {
 #' @param descriptor An action descriptor (`NULL` for the base keys only).
 #' @return Character vector of referenceable field names.
 sclet_ai_referenceable_output_fields <- function(descriptor = NULL) {
+    if (!is.null(descriptor) && !identical(descriptor$returns, "sce")) {
+        # A `returns = "value"` action's execution summary is the value itself
+        # (or a class/length pair when it is long or non-atomic), so no named
+        # field can be promised before the value exists. Offering the SCE field
+        # list regardless made a criterion such as `field = "n_cells"` on a
+        # check_qc step pass validation and then report `not_met` at execution
+        # with "field n_cells not found in output of step" -- the same
+        # validation-accepts-what-execution-cannot-do defect this function
+        # exists to prevent.
+        return(character())
+    }
+
     fields <- c(
         "class", "n_features", "n_cells", "assays", "reductions",
         "active_assay", "active_reduction", "fingerprint"
