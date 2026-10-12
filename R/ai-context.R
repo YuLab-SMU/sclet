@@ -136,8 +136,8 @@ sclet_ai_target_matches <- function(type, id, target) {
     }
     value <- tolower(paste(c(type, id), collapse = " "))
     aliases <- list(
-        status = character(),
-        qc = c("qc", "preprocess", "clean", "doublet", "phenotype"),
+        status = c("ai_evidence"),
+        qc = c("qc", "preprocess", "clean", "doublet", "phenotype", "ai_evidence"),
         planning = c("workflow", "plan"),
         markers = c("marker", "enrichment", "detest", " da", "da ", "gene_set", "geneset"),
         trajectory = c("trajectory", "cellrank"),
@@ -153,6 +153,40 @@ sclet_ai_target_matches <- function(type, id, target) {
         }
         grepl(item, value, fixed = TRUE)
     }, logical(1)))
+}
+
+sclet_ai_evidence_record_is_completed <- function(record) {
+    if (!is.list(record)) return(FALSE)
+    record_status <- record$status
+    if (is.character(record_status) && length(record_status) == 1L && record_status == "completed") {
+        return(TRUE)
+    }
+    summary <- record$summary
+    if (is.list(summary)) {
+        summary_status <- summary$status
+        if (is.character(summary_status) && length(summary_status) == 1L && summary_status == "completed") {
+            return(TRUE)
+        }
+    }
+    FALSE
+}
+
+sclet_ai_strip_evidence_for_interpretive <- function(normalized) {
+    if (!is.list(normalized)) return(normalized)
+    if (is.list(normalized$summary)) {
+        keep <- c("id", "kind", "claim_level", "status")
+        normalized$summary <- normalized$summary[intersect(names(normalized$summary), keep)]
+    }
+    normalized$artifacts <- NULL
+    normalized$inputs <- NULL
+    normalized
+}
+
+sclet_ai_target_exposes_full_evidence <- function(target) {
+    # Internal ledger consumers call GetAnalysisLedger() without a target and
+    # must see full evidence; only explicit interpretive targets are bounded.
+    if (is.null(target) || !length(target)) return(TRUE)
+    "report" %in% target
 }
 
 sclet_ai_collect_records <- function(
@@ -182,6 +216,9 @@ sclet_ai_collect_records <- function(
         if (is.null(record_type) || !length(record_type)) {
             record_type <- type
         }
+        if (identical(record_type, "ai_evidence") && !sclet_ai_evidence_record_is_completed(record)) {
+            return(invisible(NULL))
+        }
         entry_key <- as.character(key)
         if (!nzchar(entry_key)) {
             entry_key <- paste(record_type, id, sep = "::")
@@ -205,6 +242,9 @@ sclet_ai_collect_records <- function(
             include_artifacts = include_artifacts,
             include_data = include_data
         )
+        if (identical(record_type, "ai_evidence") && !sclet_ai_target_exposes_full_evidence(target)) {
+            normalized <- sclet_ai_strip_evidence_for_interpretive(normalized)
+        }
         entries[[entry_key]] <<- normalized
         keys <<- c(keys, entry_key)
         invisible(NULL)
@@ -269,8 +309,11 @@ sclet_ai_collect_records <- function(
                 if (is.null(id)) {
                     id <- record_names[[i]]
                 }
+                if (identical(type, "ai_evidence") && !sclet_ai_evidence_record_is_completed(type_records[[i]])) {
+                    next
+                }
                 if (sclet_ai_target_matches(type, id, target)) {
-                    type_view[[record_names[[i]]]] <- sclet_ai_normalize_record(
+                    normalized <- sclet_ai_normalize_record(
                         record = type_records[[i]],
                         id = id,
                         type = type,
@@ -279,6 +322,10 @@ sclet_ai_collect_records <- function(
                         include_artifacts = include_artifacts,
                         include_data = include_data
                     )
+                    if (identical(type, "ai_evidence") && !sclet_ai_target_exposes_full_evidence(target)) {
+                        normalized <- sclet_ai_strip_evidence_for_interpretive(normalized)
+                    }
+                    type_view[[record_names[[i]]]] <- normalized
                 }
                 add_entry(
                     record = type_records[[i]],
