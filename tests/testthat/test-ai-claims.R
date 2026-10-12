@@ -75,8 +75,17 @@ test_that("a consistent_with finding needs evidence that reaches the ceiling", {
     audit <- sclet:::sclet_ai_audit_result_claims(sce, list(
         findings = list(list(claim_level = "consistent_with", evidence_refs = "ev:a"))
     ))
-    expect_equal(audit$status, "overclaimed")
-    expect_true(any(grepl("exceeds the evidence ceiling 'associated'", audit$problems)))
+    # Updated for spec `spec-ai-derived-claim-levels.md`: a finding that
+    # exceeds the ceiling is now a `downgraded` (correction), not an
+    # `overclaimed` (violation). The corrected level is `associated` (the
+    # ceiling), recorded as `claim_level` on the audit entry.
+    expect_equal(audit$status, "downgraded")
+    expect_equal(audit$findings[[1L]]$claim_level, "associated")
+    expect_equal(audit$findings[[1L]]$requested_claim_level, "consistent_with")
+    expect_true(audit$findings[[1L]]$derived_from_ceiling)
+    expect_true(any(grepl("exceeds the ceiling", audit$findings[[1L]]$ceiling_reasons)))
+    # Legacy `allowed_claim_level` is preserved for backward compatibility.
+    expect_equal(audit$findings[[1L]]$allowed_claim_level, "associated")
 
     # add a second independent strong source and the same finding is allowed
     sce2 <- sclet_ai_claim_test_node(sce, "ev:b", source = "srcB",
@@ -94,8 +103,13 @@ test_that("suggestive is held to the consistent_with bar and hypothesis needs no
     suggestive <- sclet:::sclet_ai_audit_result_claims(sce, list(
         findings = list(list(claim_level = "suggestive", evidence_refs = "ev:a"))
     ))
-    expect_equal(suggestive$status, "overclaimed")
+    # Updated for `spec-ai-derived-claim-levels.md`: a `suggestive` finding
+    # that exceeds the ceiling is now a `downgraded` (correction). The
+    # derived level is `associated` (ceiling), not `suggestive`.
+    expect_equal(suggestive$status, "downgraded")
+    expect_equal(suggestive$findings[[1L]]$claim_level, "associated")
     expect_equal(suggestive$findings[[1L]]$allowed_claim_level, "associated")
+    expect_equal(suggestive$findings[[1L]]$requested_claim_level, "suggestive")
 
     # a hypothesis is explicitly speculative and asserts nothing
     hypothesis <- sclet:::sclet_ai_audit_result_claims(sce, list(
@@ -104,13 +118,21 @@ test_that("suggestive is held to the consistent_with bar and hypothesis needs no
     expect_equal(hypothesis$status, "ok")
 })
 
-test_that("a consistent_with finding with no evidence_refs is rejected", {
+test_that("a consistent_with finding with no evidence_refs lands at hypothesis as a downgrade", {
     sce <- sclet_ai_claim_test_object()
     audit <- sclet:::sclet_ai_audit_result_claims(sce, list(
         findings = list(list(claim_level = "consistent_with"))
     ))
-    expect_equal(audit$status, "overclaimed")
-    expect_true(any(grepl("cites no evidence_refs", audit$problems)))
+    # Updated for `spec-ai-derived-claim-levels.md`: a finding with no refs
+    # is a `downgraded` (the derived level is `hypothesis` -- the correct
+    # floor for a finding that asserts nothing), not a hard failure. The
+    # old `overclaimed` + `"cites no evidence_refs"` problem string is no
+    # longer emitted; the per-entry `status = "downgraded"` carries it.
+    expect_equal(audit$status, "downgraded")
+    expect_equal(audit$findings[[1L]]$claim_level, "hypothesis")
+    expect_equal(audit$findings[[1L]]$requested_claim_level, "consistent_with")
+    expect_equal(audit$findings[[1L]]$ceiling_status, "no_refs")
+    expect_equal(audit$findings[[1L]]$status, "downgraded")
 })
 
 test_that("record_claims auditing refuses to write an over-claimed result to the ledger", {
@@ -176,12 +198,20 @@ test_that("results without findings are unaffected by claim auditing", {
 
 test_that("a finding citing an unknown evidence ref is reported, not crashed on", {
     sce <- sclet_ai_claim_test_object()
+    sce <- sclet_ai_claim_test_node(sce, "ev:a", source = "srcA", claim = "associated")
     audit <- sclet:::sclet_ai_audit_result_claims(sce, list(
         findings = list(list(claim_level = "consistent_with", evidence_refs = "ev:does_not_exist"))
     ))
-    expect_equal(audit$status, "overclaimed")
-    expect_true(any(grepl("is not supported by the cited evidence", audit$problems)))
-    expect_equal(audit$findings[[1L]]$allowed_claim_level, "observed")
+    # Updated for `spec-ai-derived-claim-levels.md`: an unknown ref is now
+    # a `downgraded` (correction) rather than a hard failure. The audit
+    # lands the finding at `hypothesis` and surfaces the unsupported reason
+    # via `ceiling_reasons`. The audit must still not crash on a stale
+    # ref -- that is the property this test guards.
+    expect_equal(audit$status, "downgraded")
+    expect_equal(audit$findings[[1L]]$claim_level, "hypothesis")
+    expect_equal(audit$findings[[1L]]$allowed_claim_level, "hypothesis")
+    expect_equal(audit$findings[[1L]]$ceiling_status, "unsupported")
+    expect_true(any(grepl("unknown or incomplete", audit$findings[[1L]]$ceiling_reasons)))
 })
 
 test_that("two independent strong sources reach the consistent_with ceiling", {

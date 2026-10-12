@@ -1,6 +1,6 @@
 # Spec: derive finding claim levels from evidence instead of asking the model
 
-Status: proposal (not implemented)
+Status: accepted for implementation (implemented concurrently; see the benchmark repo for the measurement)
 Baseline: `4051f41` (sclet clean; all `ai-claims` tests pass)
 
 ## 1. Problem, measured
@@ -143,8 +143,16 @@ definition:
   per-finding `entry` (`claim_level`, `requested_claim_level`,
   `derived_from_ceiling` logical).
 - `RecordAIResult(object, result, audit_claims = TRUE)` writes the **derived**
-  level into the recorded finding, never the requested one. That is what makes
-  the ledger's claim levels meaningful for anything reading them later.
+  level into the finding it persists, never the requested one, so the recorded
+  level is the derived one.
+
+  Verified accessor note: the findings reach the ledger via
+  `sclet_get_state(object)$analyses[[id]]$artifacts$findings`, **not** via
+  `GetAnalysisLedger(object)$analyses[[id]]` -- the latter strips `artifacts`
+  unless `include_artifacts = TRUE`, so a naive read-back shows no findings at
+  all and the measurement would silently observe nothing. Anything verifying a
+  recorded claim level must use the state accessor (or pass
+  `include_artifacts = TRUE`).
 - `validate_sclet_ai_result()` keeps its shape-only checks (it has no object, so
   it cannot derive anything) and continues to reject an invalid level *name*.
 
@@ -184,6 +192,92 @@ Plus the standing gates: `make check` is 0 errors / 0 warnings / 0 notes, and
 the 18 existing tests in `test-ai-claims.R` still pass or are updated with the
 reason for each change recorded.
 
+## 4a. Correction found during implementation: the derivation was unreachable
+
+The first implementation was faithful to section 2.2 as written, and is
+well-built: it downgrades correctly, keeps `estimated`, and preserves the
+`causal` ban. But it **cannot upgrade**, and therefore **has no effect on any
+real run**. Measured across every claim level on an object whose ceiling is
+`associated`:
+
+| requested | derived | from_ceiling | status |
+|---|---|---|---|
+| `observed` | `observed` | TRUE | ok |
+| `measured` | `measured` | TRUE | ok |
+| `associated` | `associated` | TRUE | ok |
+| `consistent_with` | `associated` | TRUE | **downgraded** |
+| `suggestive` | `associated` | TRUE | **downgraded** |
+| `estimated` | `estimated` | FALSE | ok |
+| `hypothesis` | `hypothesis` | **FALSE** | ok |
+| `causal` | `hypothesis` | FALSE | **overclaimed** |
+
+The derivation runs only inside the `sclet_ai_findings_needing_support` branch
+(`consistent_with`, `suggestive`, `causal`). `hypothesis` is not in that set, and
+the "no refs" early-return fires before the ceiling is consulted, so a
+`hypothesis` finding that cites valid evidence never asks what that evidence
+supports.
+
+Since the model emits `hypothesis` for **114 of 114 findings measured**, the
+change is a no-op on real data -- section 1's problem, that `claim_level` is a
+constant, is not solved.
+
+This is a defect in this spec, not in the implementation. Section 2.2's step 3
+said "otherwise", but in the pipeline order the "otherwise" was unreachable for
+the one level the model actually uses. The requirement the spec should have
+stated plainly:
+
+> **A finding that cites evidence whose ceiling exceeds `hypothesis` must be
+> recorded at the ceiling, even when the model asked for `hypothesis`.**
+> `hypothesis` is the floor for an *unevidenced* finding, not a cap for an
+> evidenced one.
+
+The upgrade is safe for the reason verified in section 5: the ceiling is the
+minimum over the supporting nodes' own declared `claim_level`s, so a derived
+level can never exceed what the cited evidence already claims for itself.
+
+Amended rule for step 3:
+
+1. `estimated` -> keep (provenance, not strength).
+2. `causal` -> problem, `refused = TRUE`, derived `hypothesis`. Never silent.
+3. **No refs** -> `hypothesis`, `derived_from_ceiling = FALSE`.
+4. **Refs present** -> consult the ceiling for *every* requested level,
+   including `hypothesis`, and derive
+   `min(requested mapped through sclet_ai_finding_allowed_level(), ceiling)`,
+   where an unmapped requested level ranks at 0 (`hypothesis`) so the ceiling
+   wins. This is what makes the derived level a function of the evidence rather
+   than a copy of the model's word.
+5. `overclaimed` is then reserved for the `causal` ban and for unresolvable
+   refs -- not for a mere downgrade, which is a correction.
+
+## 4b. Consequence: `overclaimed` narrowed, and what that changes
+
+With derivation in place, `overclaimed` is reserved for the two cases that are
+genuine violations -- the `causal` ban, and unresolvable evidence refs. A mere
+downgrade is a *correction*, so it no longer stops `RecordAIResult()`.
+
+That changes one existing behaviour, deliberately and with the consequence
+verified rather than assumed:
+
+| finding | before | after |
+|---|---|---|
+| `consistent_with`, no refs | **refused** (`overclaimed`) | recorded at `hypothesis`, `requested_claim_level = consistent_with`, `ceiling_reasons = "no evidence_refs supplied"` |
+| `consistent_with`, refs below ceiling | **refused** | recorded at the ceiling, `requested_claim_level` preserved |
+| `causal` | refused | **still refused** |
+| unresolvable evidence ref | refused | **still refused** |
+
+The invariant is preserved: nothing over-asserted reaches the ledger. An
+unevidenced strong claim now lands at `hypothesis` -- the level that asserts
+nothing -- instead of blocking the whole result from being recorded. That is a
+better outcome than the old one: a refusal discarded the entire result, so the
+over-claim was lost rather than corrected, whereas the recorded finding now
+carries both the corrected level and the model's original request.
+
+The one thing to keep in view: `RecordAIResult()` no longer refuses an
+*unevidenced* claim at all, so `audit_claims = TRUE` is no longer a strict gate
+against recording one. It is a gate against recording one *at strength*. If a
+future consumer treats "recorded" as "vetted", that reading is now wrong; the
+recorded level is the vetted value, and `requested_claim_level` shows the gap.
+
 ## 5. Risk
 
 The main risk is **over-correcting in the other direction**: if the engine
@@ -202,3 +296,23 @@ A second, smaller risk: `n_independent_groups = 1` means the ceiling is
 still be near-constant in practice -- just at a level that carries information
 rather than at the floor. That is an improvement, not a solution to the
 "one node is thin evidence" problem, and should not be over-sold.
+
+### Why the upgrade path is bounded anyway (verified)
+
+Deriving can move a finding *up* from `hypothesis` to `associated`, which is the
+change most likely to be misread as the system endorsing a claim. It is bounded
+by construction, and this was verified in the implementation rather than
+inferred from intent:
+
+- the ceiling is a minimum over the supporting nodes' own `claim_level`s -- the
+  implementation states this in its own reason string, "bounded by the weakest
+  supporting node" (`R/ai-claims.R`);
+- measured on a pbmc3k object carrying `ev:findallmarkers`: that node declares
+  `claim_level = associated`, and the ceiling independently computes to
+  `associated` with `n_independent_groups = 1`.
+
+So a derived level can never exceed the strength the cited evidence already
+declares for itself. An upgrade to `associated` means "this finding is no
+stronger than the evidence it cites" -- not "the system endorses a biological
+conclusion". Wherever a derived level is surfaced, that reading should be stated,
+because the bare number does not convey it.

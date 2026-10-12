@@ -67,103 +67,240 @@ sclet_ai_finding_allowed_level <- function(claim_level) {
     claim_level
 }
 
+# Derive the claim level a finding should be recorded at, given the recorded
+# evidence on the object. See `.dev/spec-ai-derived-claim-levels.md` for the
+# derivation rule. The returned list has:
+#   claim_level             - the level to record (or to refuse on)
+#   requested_claim_level   - what the model asked for
+#   derived_from_ceiling    - TRUE iff the ceiling decided the derivation
+#   ceiling_status          - status of the underlying ceiling call (or
+#                             "banned"/"provenance"/"no_refs" for the
+#                             special-cased paths)
+#   ceiling_reasons         - reasons from the ceiling function, so a level
+#                             is never quoted without its basis
+#   refused                 - TRUE iff this finding is a hard problem
+#                             (currently only `causal`); the audit should
+#                             never silently downgrade such a finding
+sclet_ai_derive_finding_claim_level <- function(object, finding) {
+    if (!is.list(finding)) {
+        return(list(
+            claim_level = "hypothesis",
+            requested_claim_level = "hypothesis",
+            derived_from_ceiling = FALSE,
+            ceiling_status = "no_finding",
+            ceiling_reasons = character(),
+            refused = FALSE
+        ))
+    }
+    requested <- as.character(finding$claim_level %||% "hypothesis")[[1L]]
+
+    # 1. provenance: `estimated` is a statement about how a value was
+    # produced, not a strength statement. It is orthogonal to the ceiling
+    # and must survive the audit untouched.
+    if (identical(requested, "estimated")) {
+        return(list(
+            claim_level = "estimated",
+            requested_claim_level = "estimated",
+            derived_from_ceiling = FALSE,
+            ceiling_status = "provenance",
+            ceiling_reasons = character(),
+            refused = FALSE
+        ))
+    }
+
+    # 2. causal: a hard ban. The audit must still report this as a problem
+    # (`refused = TRUE`); the field-level derivation is `hypothesis` (the only
+    # level a `causal` finding could ever land at) but the request is kept
+    # visible via `requested_claim_level = "causal"`, and the audit entry
+    # carries the causal problem. Per the spec, this is never a silent
+    # downgrade: `RecordAIResult()` refuses on a `causal` finding because the
+    # audit status is `overclaimed`.
+    if (identical(requested, "causal")) {
+        return(list(
+            claim_level = "hypothesis",
+            requested_claim_level = "causal",
+            derived_from_ceiling = FALSE,
+            ceiling_status = "banned",
+            ceiling_reasons = "causal is not a claim level the AI may assert",
+            refused = TRUE
+        ))
+    }
+
+    refs <- if (is.list(finding)) finding$evidence_refs else NULL
+    refs <- as.character(refs %||% character())
+
+    # 3a. no refs: the audit's previously-suggested floor was `observed`,
+    # but the spec requires `hypothesis` as the correct floor for a finding
+    # that asserts nothing without evidence. `hypothesis` is the only level
+    # that explicitly self-limits and asserts nothing.
+    if (!length(refs)) {
+        return(list(
+            claim_level = "hypothesis",
+            requested_claim_level = requested,
+            derived_from_ceiling = FALSE,
+            ceiling_status = "no_refs",
+            ceiling_reasons = "no evidence_refs supplied",
+            refused = FALSE
+        ))
+    }
+
+    # 3b. compute the ceiling against the cited evidence. An error (e.g., a
+    # stale or unknown ref) is reported as `unsupported` and lands the
+    # finding at `hypothesis` rather than crashing the audit.
+    # `hypothesis` (and any other level outside the evidence ladder) is not a
+    # valid `proposed_claim_level` for the ceiling, which validates against
+    # `sclet_ai_claim_levels`. Passing it anyway made the ceiling raise
+    # "proposed_claim_level must be one of: ...", which the tryCatch below
+    # swallowed as `unsupported` and landed the finding back at `hypothesis`.
+    # Since the model emits `hypothesis` for every finding, that silent
+    # fallback made the whole derivation a no-op on real data. A requested
+    # level outside the ladder asserts nothing (rank 0), so passing NULL lets
+    # the ceiling simply report what the evidence can carry.
+    proposed <- sclet_ai_finding_allowed_level(requested)
+    if (is.na(sclet_ai_claim_rank(proposed))) {
+        proposed <- NULL
+    }
+    ceiling <- tryCatch(
+        sclet_ai_claim_ceiling(
+            object,
+            evidence_ids = refs,
+            proposed_claim_level = proposed
+        ),
+        error = function(e) list(
+            status = "unsupported",
+            ceiling_claim_level = NULL,
+            n_independent_groups = 0L,
+            reasons = conditionMessage(e)
+        )
+    )
+
+    if (identical(ceiling$status, "unsupported")) {
+        return(list(
+            claim_level = "hypothesis",
+            requested_claim_level = requested,
+            derived_from_ceiling = FALSE,
+            ceiling_status = "unsupported",
+            ceiling_reasons = as.character(ceiling$reasons %||% "no independent support"),
+            refused = FALSE
+        ))
+    }
+
+    # 3c. The derived level is a function of the EVIDENCE, not a copy of the
+    # model's word. The ceiling is the strongest level the cited evidence can
+    # carry, and it is computed as the minimum over the supporting nodes' own
+    # claim levels -- so taking it can never assert more than the evidence
+    # already declares for itself.
+    #
+    # It is deliberately NOT min(requested, ceiling): capping at the request
+    # would let a model that always answers `hypothesis` pin every finding to
+    # the floor, which is exactly the state this change exists to fix (114 of
+    # 114 measured findings were `hypothesis`). A request BELOW the ceiling is
+    # raised to the ceiling; a request ABOVE it is lowered to the ceiling. The
+    # request is always preserved in `requested_claim_level`, so the movement
+    # stays visible either way.
+    ceiling_rank <- sclet_ai_claim_rank(ceiling$ceiling_claim_level)
+    if (is.na(ceiling_rank)) ceiling_rank <- 0L
+    derived <- if (ceiling_rank < 1L) "hypothesis" else sclet_ai_claim_from_rank(ceiling_rank)
+    list(
+        claim_level = derived,
+        requested_claim_level = requested,
+        derived_from_ceiling = TRUE,
+        ceiling_status = ceiling$status,
+        ceiling_reasons = as.character(ceiling$reasons %||% character()),
+        refused = FALSE
+    )
+}
+
 #' Audit the findings of an AI result against the recorded evidence
 #'
 #' `validate_sclet_ai_result()` can only check a result's shape, because it has
 #' no object to look at. This function performs the object-aware half of the
-#' contract: for every finding that asserts more than its evidence nodes can
-#' carry, it reports a problem.
+#' contract: for every finding, it derives the claim level the finding should
+#' be recorded at from the recorded evidence, and reports the per-finding
+#' verdict.
 #'
-#' Two rules are enforced. First, `"causal"` is never an acceptable AI claim
-#' level at all: the advanced-analysis contract reserves causal interpretation
+#' Three rules are enforced. First, `"causal"` is never an acceptable AI
+#' claim level: the advanced-analysis contract reserves causal interpretation
 #' for a separately designed and separately evidenced causal study, and no
-#' amount of observational evidence lifts an AI finding into it. Second, a
-#' finding that goes beyond a single node's own claim level must cite evidence
-#' whose claim ceiling - as computed by `sclet_ai_claim_ceiling()` - actually
-#' reaches that level.
+#' amount of observational evidence lifts an AI finding into it. A `causal`
+#' finding is reported as `overclaimed` and is never silently downgraded.
+#' Second, a finding whose requested level exceeds the evidence ceiling is
+#' reported as `downgraded` with the corrected level attached, so the
+#' downgrade is visible rather than silent. Third, a finding that cites no
+#' evidence (or unsupported evidence) is also reported as `downgraded`, with
+#' the derived level set to `hypothesis` -- the only level that explicitly
+#' self-limits and asserts nothing.
 #'
-#' The function only audits. It never rewrites a finding, never downgrades one
-#' silently, and never records anything.
+#' The function only audits. It never rewrites the caller's `result`, never
+#' downgrades a `causal` finding into silence, and never records anything.
+#' `RecordAIResult()` is the function that applies the derived level to the
+#' recorded finding.
 #'
 #' @param object A `SingleCellExperiment` object.
 #' @param result An `sclet_ai_result` or a list with a `findings` element.
-#' @return A list with a `status` of `"ok"` or `"overclaimed"`, the per-finding
-#'   `findings` audit, the `n_problems` count and a `problems` character vector.
+#' @return A list with an overall `status` of `"ok"`, `"downgraded"` or
+#'   `"overclaimed"`, the per-finding `findings` audit, the `n_problems` and
+#'   `n_downgraded` counts, and a `problems` character vector. Each
+#'   `findings[[i]]` carries `claim_level` (derived), `requested_claim_level`
+#'   (what the model asked), `derived_from_ceiling` (logical), `ceiling_reasons`
+#'   (the basis), `allowed_claim_level` (kept for backward compatibility;
+#'   equal to the derived `claim_level`), and a per-entry `status`.
 #' @noRd
 sclet_ai_audit_result_claims <- function(object, result) {
     findings <- if (is.list(result)) result$findings else NULL
     if (!is.list(findings) || !length(findings)) {
-        return(list(status = "ok", findings = list(), n_problems = 0L, problems = character()))
+        return(list(
+            status = "ok", findings = list(),
+            n_problems = 0L, n_downgraded = 0L, problems = character()
+        ))
     }
     problems <- character()
     audit <- list()
+    n_downgraded <- 0L
     for (i in seq_along(findings)) {
         finding <- findings[[i]]
-        claim <- if (is.list(finding)) as.character(finding$claim_level %||% "hypothesis")[[1L]] else "hypothesis"
-        entry <- list(index = i, claim_level = claim, allowed_claim_level = claim, problems = character())
+        requested <- if (is.list(finding)) as.character(finding$claim_level %||% "hypothesis")[[1L]] else "hypothesis"
+        derivation <- sclet_ai_derive_finding_claim_level(object, finding)
+        derived <- derivation$claim_level
 
-        if (identical(claim, "causal")) {
-            # not an AI-generatable claim level, regardless of support
-            entry$allowed_claim_level <- "hypothesis"
-            entry$problems <- c(entry$problems, paste0(
+        # Per-entry verdict:
+        #  - `causal` -> overclaimed (hard ban)
+        #  - derivation differs from request -> downgraded (correction)
+        #  - otherwise -> ok
+        entry_status <- "ok"
+        if (isTRUE(derivation$refused)) {
+            entry_status <- "overclaimed"
+            problems <- c(problems, paste0(
                 "findings[[", i, "]]: 'causal' is not a claim level the AI may assert; ",
                 "causal interpretation requires a separately designed and evidenced causal study. ",
                 "Use 'hypothesis' at most."
             ))
-        } else if (claim %in% sclet_ai_findings_needing_support) {
-            refs <- if (is.list(finding)) finding$evidence_refs else NULL
-            allowed <- sclet_ai_finding_allowed_level(claim)
-            if (!length(refs)) {
-                entry$allowed_claim_level <- "observed"
-                entry$problems <- c(entry$problems, paste0(
-                    "findings[[", i, "]]: claim_level '", claim,
-                    "' cites no evidence_refs; cite recorded evidence or weaken the claim"
-                ))
-            } else {
-                # a stale or unknown ref is itself a reportable problem, not a
-                # crash: the audit contract is to return problems
-                ceiling <- tryCatch(
-                    sclet_ai_claim_ceiling(
-                        object,
-                        evidence_ids = as.character(refs),
-                        proposed_claim_level = allowed
-                    ),
-                    error = function(e) list(
-                        status = "unsupported",
-                        ceiling_claim_level = NULL,
-                        n_independent_groups = 0L,
-                        reason = conditionMessage(e)
-                    )
-                )
-                entry$ceiling_claim_level <- ceiling$ceiling_claim_level
-                entry$n_independent_groups <- ceiling$n_independent_groups
-                if (identical(ceiling$status, "downgraded")) {
-                    entry$allowed_claim_level <- ceiling$ceiling_claim_level
-                    entry$problems <- c(entry$problems, paste0(
-                        "findings[[", i, "]]: claim_level '", claim,
-                        "' exceeds the evidence ceiling '", ceiling$ceiling_claim_level,
-                        "' (", ceiling$n_independent_groups,
-                        " independent line(s) of support); use '",
-                        ceiling$ceiling_claim_level, "' or weaker"
-                    ))
-                } else if (identical(ceiling$status, "unsupported")) {
-                    entry$allowed_claim_level <- "observed"
-                    entry$problems <- c(entry$problems, paste0(
-                        "findings[[", i, "]]: claim_level '", claim,
-                        "' is not supported by the cited evidence (",
-                        ceiling$reason %||% "no independent support",
-                        "); cite resolved evidence or weaken the claim"
-                    ))
-                }
-            }
+        } else if (!identical(requested, derived)) {
+            entry_status <- "downgraded"
+            n_downgraded <- n_downgraded + 1L
         }
-        if (length(entry$problems)) problems <- c(problems, entry$problems)
+
+        entry <- list(
+            index = i,
+            claim_level = derived,
+            requested_claim_level = requested,
+            derived_from_ceiling = isTRUE(derivation$derived_from_ceiling),
+            allowed_claim_level = derived,
+            ceiling_status = derivation$ceiling_status,
+            ceiling_reasons = derivation$ceiling_reasons,
+            status = entry_status,
+            problems = character()
+        )
         audit[[length(audit) + 1L]] <- entry
     }
+    overall_status <- if (length(problems)) "overclaimed"
+        else if (n_downgraded > 0L) "downgraded"
+        else "ok"
     list(
-        status = if (length(problems)) "overclaimed" else "ok",
+        status = overall_status,
         findings = audit,
         n_problems = length(problems),
+        n_downgraded = n_downgraded,
         problems = problems
     )
 }

@@ -92,6 +92,7 @@ sclet_copilot <- function(sce, question, model = NULL) {
 #' @export
 RecordAIResult <- function(object, result, id = NULL, active = FALSE, audit_claims = TRUE) {
     validate_sclet_ai_result(result)
+    audit <- NULL
     if (isTRUE(audit_claims)) {
         audit <- sclet_ai_audit_result_claims(object, result)
         if (identical(audit$status, "overclaimed")) {
@@ -134,6 +135,25 @@ RecordAIResult <- function(object, result, id = NULL, active = FALSE, audit_clai
     if (!is.character(id) || length(id) != 1L || is.na(id) || !nzchar(id)) {
         stop("`id` must be a single non-empty character string.")
     }
+    # When claim auditing is on, the recorded `claim_level` of each finding is
+    # the engine-derived value, never the model's word. The original request is
+    # kept on the finding as `requested_claim_level` so a downgrade is visible
+    # rather than silent, and the ceiling's `reasons` travel with the finding
+    # so a level is never quoted without its basis. This is the change that
+    # makes `claim_level` on a recorded finding a function of the evidence,
+    # not of the model's self-report.
+    recorded_findings <- result$findings
+    if (isTRUE(audit_claims) && !is.null(audit) && length(audit$findings)) {
+        recorded_findings <- lapply(seq_along(recorded_findings), function(i) {
+            finding <- recorded_findings[[i]]
+            entry <- audit$findings[[min(i, length(audit$findings))]]
+            finding$claim_level <- entry$claim_level
+            finding$requested_claim_level <- entry$requested_claim_level
+            finding$derived_from_ceiling <- isTRUE(entry$derived_from_ceiling)
+            finding$ceiling_reasons <- entry$ceiling_reasons %||% character()
+            finding
+        })
+    }
     context <- result$context
     record <- list(
         id = id,
@@ -147,13 +167,13 @@ RecordAIResult <- function(object, result, id = NULL, active = FALSE, audit_clai
         params = result$metadata,
         artifacts = list(
             answer = result$answer,
-            findings = result$findings,
+            findings = recorded_findings,
             evidence = result$evidence,
             recommendations = result$recommendations,
             proposed_actions = result$proposed_actions
         ),
         summary = list(
-            n_findings = length(result$findings),
+            n_findings = length(recorded_findings),
             n_recommendations = length(result$recommendations),
             n_proposed_actions = length(result$proposed_actions),
             cited_user_decisions = cited_user_decisions
