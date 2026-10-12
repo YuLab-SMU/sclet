@@ -1,6 +1,6 @@
 # Spec: derive finding claim levels from evidence instead of asking the model
 
-Status: accepted for implementation (implemented concurrently; see the benchmark repo for the measurement)
+Status: implemented (`a0a4c82`), measured, and found necessary but NOT sufficient -- see section 4c
 Baseline: `4051f41` (sclet clean; all `ai-claims` tests pass)
 
 ## 1. Problem, measured
@@ -277,6 +277,39 @@ The one thing to keep in view: `RecordAIResult()` no longer refuses an
 against recording one. It is a gate against recording one *at strength*. If a
 future consumer treats "recorded" as "vetted", that reading is now wrong; the
 recorded level is the vetted value, and `requested_claim_level` shows the gap.
+
+## 4c. Measured outcome: necessary, not sufficient
+
+Four real runs on pbmc3k after this change landed (`sclet` `a0a4c82`; records in
+`sclet-benchmark-ai/results/derived_claim_levels.jsonl`) produced **zero
+upgrades**, including in the two conditions built to exercise the upgrade path.
+The `with_evidence` condition carried `ev:findallmarkers` with the ceiling
+`allowed` at `associated`, verified in the record, so a finding citing it would
+have been raised. None did.
+
+Checked directly against a live call: on an object carrying
+`ev:findallmarkers`, the model emitted **0 findings with `evidence_refs`** out of
+12 and 19, and every finding at `hypothesis`.
+
+So the diagnosis in section 1 was incomplete. It said the ladder was inert
+because the model always takes the default level. The model also supplies no
+evidence references -- and the ceiling reasons about *evidence*, so without a
+reference there is nothing to reason about and the derivation correctly lands
+every finding at `hypothesis` through its "no refs" path.
+
+This spec therefore fixes the right half and cannot, on its own, make
+`claim_level` informative. That is a property of the result, not a defect in the
+implementation, and it is worth stating plainly rather than leaving the reader
+to infer that the change underperformed.
+
+The remaining question is open, and section 3's rejection still applies: do not
+instruct the model to cite evidence and claim more strongly, because its current
+non-fabrication is a measured virtue and that instruction trades it for a
+number. The plausible routes are (a) have the engine attach the evidence a
+finding relates to, since it knows which evidence each step created, leaving the
+model only to describe; or (b) accept that `claim_level` stays at the floor for
+interpretive reviews and stop treating the field as informative. Both need their
+own spec.
 
 ## 5. Risk
 
