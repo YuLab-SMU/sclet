@@ -198,6 +198,31 @@ Verified end to end, not just at the schema level:
   `value_reference_unresolvable` message now lists `variable_features` among
   the step's exposed fields, which is how the model learns the right spelling.
 
-Not measured online. The four rejections are historical evidence from
-`execute_plan`; whether a real model now reaches for the correct spelling has
-not been re-measured, and that is a billed run to decide separately.
+## 8. Online measurement (2026-10-13, real provider) -- partial confirmation
+
+Two fresh `plan_success_criteria` and `execute_plan` records on pbmc3k
+(`deepseek-chat`), read back directly:
+
+- **The field name is in the model's vocabulary now.** First attempt in the
+  `plan_success_criteria` run (2026-10-13 22:33): `step_3 uses
+  ${step_2.variable_features}` -- the model reaches for `variable_features`
+  itself, missing only the `.output` segment. The historical four spellings
+  (`required_hvg`, `hvg`, bare `${step_2.output}`, `${step_2}`) never named the
+  field. The `value_reference_malformed` message told it the exact syntax
+  ("write `${step_2.output.variable_features}` instead") -- acceptance
+  criterion 2's teaching behaviour is working as designed -- but one repair
+  round did not fix it and the plan was rejected (`plan_valid = FALSE`,
+  `executed = FALSE`).
+- **No reference has completed end to end on a real model yet.** The
+  `execute_plan` success run (22:30) omitted `features` entirely
+  (`scale_used_hvg_subset = FALSE`, ScaleData densified all 32,738 genes), so
+  the resolved-promise path (acceptance criterion 1) is proven offline only.
+
+So the fix removed the capability gap the 4/4 measurement showed -- the model
+is no longer reaching for something that does not exist -- and the remaining
+barrier is syntax precision (`${step.field}` vs `${step.output.field}`), which
+the malformed-reference error now spells out verbatim. Whether that error plus
+repair converges on a valid referencing plan is a measurement for a larger
+repetition sample (this is 1 attempt of it), and the plan-repair loop's
+behaviour on malformed references is now a known open thread for the
+`spec-ai-plan-repair.md` owners.

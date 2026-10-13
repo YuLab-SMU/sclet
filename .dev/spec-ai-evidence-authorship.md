@@ -205,9 +205,41 @@ carries both the raised level and the attached id. With two nodes:
 `attachment_rule = "ambiguous_multiple_candidates"`, level stays
 `hypothesis`, status `ok` -- the floor holds exactly as before.
 
-No online re-measurement. Whether the real model's findings on pbmc3k are now
-routed through the attached sole node (`interpret_evidence_refs` records show
-`audit_status: downgraded` already, from the `3cd9af6` claim-level shifts) is a
-separate billed question. Criterion 2 -- the anti-guessing behaviour -- is the
-load-bearing one for that next measurement: on a real pipeline object with
-several nodes, authorship must do nothing and report it.
+## 9. Online measurement (2026-10-13, real provider)
+
+Re-run `derived_claim_levels` against pbmc3k (`deepseek-chat`, six records).
+The fixture's `with_evidence` condition carries exactly one node
+(`ev:findallmarkers`, `associated`) -- the case criterion 1 fires on -- and
+`without_evidence` is the control. Read back from the records, not from the
+run's self-report:
+
+| condition | task | requested | recorded | upgrades | attached |
+|---|---|---|---|---|---|
+| with_evidence | qc_review | observed x6, associated x1 | associated x7 | **6** | 4 sole + 3 cited |
+| with_evidence | explain_analysis | observed x8, measured x3, hypothesis x2 | associated x13 | **12** | 6 sole + 7 cited |
+| with_evidence | status | observed x9, associated x1 | associated x10 | **9** | 6 sole + 4 cited |
+| without_evidence | all three | observed / measured | hypothesis x8/x13/x11 | 0 (down 8/11/11) | 0, rule `none` |
+
+Against the section-4c baseline of the same spec this closes (`0 of 23 and 0
+of 13`, every finding `hypothesis`): the ceiling now reaches the record, and
+the control condition still lands every over-requested finding on the floor
+with `attachment_rule = none` -- both directions of the calibration are
+observable in one batch. The rule name persists into the ledger
+(`post_record_attachment_rules` mixes `sole_evidence_node` and `model_cited`).
+
+Two observations this raises for the next spec:
+
+- **The model now self-requests strong levels.** It asked `observed`/`measured`
+  for structural facts (object dimensions, assay names) on the evidence object
+  and the ceiling RAISED them to `associated` (6/7, 12/13). That is the
+  derivation's documented "a request below the ceiling is raised to it" rule
+  (`spec-ai-derived-claim-levels.md` section 2), not an authorship defect --
+  but for a finding that merely reports what it saw, `associated` is arguably a
+  worse label than `observed`. Whether the ladder should ever raise a request,
+  or only clamp, is a design question for the multi-node extension.
+- **Criterion 2 remains unmeasured online.** The fixture has one node, so the
+  ambiguous case never arose on a real provider. On a real multi-node pipeline
+  object authorship must do nothing and say so; that is the load-bearing
+  measurement the multi-node extension spec should carry.
+
+Still not measured online: a real provider on a MULTI-node object.

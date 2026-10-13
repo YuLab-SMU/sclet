@@ -1,6 +1,6 @@
 # Spec: name `success_criteria` and `stop_conditions` in the structured-output schema
 
-Status: ready for implementation
+Status: implemented (490836e) and measured online (2026-10-13)
 Baseline: `3cd9af6` (all `test-ai-*.R` pass; `make check` 0/0/0)
 
 ## 1. Problem, measured
@@ -101,14 +101,33 @@ kind measured for `evidence_refs` and fixed in `3cd9af6`:
   not try to make a bare "cluster and find markers" goal produce them. The
   measured 0/16 is a legitimate model judgement about that goal, not a defect
   to engineer away.
-- It does not re-run the benchmark. The measurement here is the correction of
-  the recorded claim plus the schema-level tests; an online re-measurement
-  (both goal shapes, via `sclet-benchmark-ai`) is a separate, billed step and
-  should be decided on its own.
+- It did not, at writing time, include an online re-measurement. One was run
+  on 2026-10-13; the result is section 5.
+
+## 5. Online measurement (2026-10-13, real provider)
+
+One fresh `execute_plan` record on pbmc3k (`deepseek-chat`), with the
+**bare pipeline goal** -- the same goal whose 16 historical records produced
+`n_success_criteria = 0` in every one of them (the correction this spec was
+written around):
+
+- record 21 (22:30): `n_success_criteria = 5`, plan valid, 8/8 steps executed.
+- The same batch's `plan_success_criteria` record (the criterion-friendly goal)
+  produced 6 criteria, inside the historical 4-8 range -- no regression from
+  narrowing `z_any()` to a declared shape.
+
+So the schema + prompt change moved the bare-goal case from 0/16 to 5, on one
+sample. That is a signal, not a rate: one run does not establish the
+probability, and the run cannot say whether the plan validated first-try or
+after a repair round -- the action did not record `repair_rounds_used` on the
+success path at the time, a gap since fixed (`aaac346`). The honest reading:
+the declared criterion shape made the model reach for criteria even on a goal
+that never asks for acceptance; how reliably needs repetitions before the
+number is quotable.
 - It does not touch `stop_conditions` semantics beyond giving them the same
   declared shape they already have in the normalizer.
 
-## 5. Risk
+## 6. Risk
 
 Narrowing `z_any()` to a declared object can only reject output the local
 validator would have rejected anyway; the risk is a provider refusing a shape

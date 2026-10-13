@@ -311,15 +311,23 @@ model only to describe; or (b) accept that `claim_level` stays at the floor for
 interpretive reviews and stop treating the field as informative. Both need their
 own spec.
 
-**Closed for route (a).** `.dev/spec-ai-evidence-authorship.md` implements it:
-the engine attaches the evidence a finding relates to when the mapping is
-forced (sole completed non-decision node), and declines otherwise. Measured
-offline: a `hypothesis` finding that cited nothing on a one-node object is now
-recorded at that node's own level (`associated`) with
-`evidence_refs_attached = TRUE` and the rule name recorded beside it; on a
-two-node object the floor holds and the refusal is reported. `claim_level` is
-no longer a constant -- but it varies with what the ENGINE can attach, not with
-what the model claims, which is exactly the asymmetry §3's rejection demanded.
+**Closed for route (a), and now measured online.**
+`.dev/spec-ai-evidence-authorship.md` implements it: the engine attaches the
+evidence a finding relates to when the mapping is forced (sole completed
+non-decision node), and declines otherwise. Offline: a `hypothesis` finding
+that cited nothing on a one-node object is recorded at that node's own level
+(`associated`) with `evidence_refs_attached = TRUE` and the rule name recorded
+beside it; on a two-node object the floor holds and the refusal is reported.
+Online (2026-10-13, `sclet-benchmark-ai` `derived_claim_levels.jsonl`): the
+zero-upgrade rows above became 6/7, 12/13 and 9/10 upgrades on the
+`with_evidence` condition, while the `without_evidence` control still lands
+every over-requested finding on `hypothesis`. `claim_level` is no longer a
+constant -- it varies with what the ENGINE can attach, not with what the model
+claims, which is exactly the asymmetry §3's rejection demanded. The remaining
+question the online data raises is the one this spec's rule settled offline
+and the real model re-opened: requests BELOW the ceiling are raised to it, so
+a finding that self-reports `observed` for a structural fact gets recorded at
+`associated`. See section 9 of the authorship spec.
 
 ## 5. Risk
 
