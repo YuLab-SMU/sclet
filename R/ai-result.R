@@ -105,11 +105,10 @@ validate_sclet_ai_result <- function(result, error = TRUE) {
             }
         }
         if (is.list(result$findings) && length(result$findings)) {
-            allowed_severity <- c("info", "low", "warning", "high", "error")
-            allowed_claim <- c(
-                "observed", "measured", "estimated", "associated",
-                "consistent_with", "suggestive", "hypothesis", "causal"
-            )
+            # Read the vocabulary from the same helpers the structured-output
+            # schema uses (ai-adapter.R), so the two cannot drift apart.
+            allowed_severity <- sclet_ai_finding_severities()
+            allowed_claim <- sclet_ai_finding_claim_levels()
             for (i in seq_along(result$findings)) {
                 finding <- result$findings[[i]]
                 if (!is.list(finding)) {

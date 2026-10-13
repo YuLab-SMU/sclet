@@ -128,6 +128,37 @@ sclet_ai_native_tools <- function(tools) {
     })
 }
 
+# Claim levels a finding may carry. The single source of truth: the
+# structured-output schema below and the local validator in ai-result.R both
+# read this list, so they cannot drift apart.
+sclet_ai_finding_claim_levels <- function() {
+    c(
+        "observed", "measured", "estimated", "associated",
+        "consistent_with", "suggestive", "hypothesis", "causal"
+    )
+}
+
+# Severities a finding may carry, likewise shared with the local validator.
+sclet_ai_finding_severities <- function() {
+    c("info", "low", "warning", "high", "error")
+}
+
+# The instruction that gives the model the vocabulary for evidence_refs.
+# The schema field alone does not get filled: measured 2026-10-12 on pbmc3k,
+# 0 of 12 (AIReviewQC) and 0 of 19 (AIStatus) findings carried evidence_refs
+# even when the evidence id was present in the context. The model described
+# the evidence correctly in prose but had no output channel told to cite it.
+sclet_ai_evidence_citation_instruction <- function() {
+    paste(
+        "When the supplied ledger records ai_evidence nodes (records with",
+        "type 'ai_evidence', ids such as 'ev:...'), every finding that rests on",
+        "one of them must list that node's id in the finding's evidence_refs",
+        "field, verbatim. Cite only ids that appear in the supplied ledger;",
+        "never invent an evidence id.",
+        sep = " "
+    )
+}
+
 # A reusable native structured-output schema for future callers. Tool/JSON mode
 # is selected by aisdk itself; the local result validator remains authoritative.
 sclet_ai_native_result_schema <- function() {
@@ -139,7 +170,15 @@ sclet_ai_native_result_schema <- function() {
         aisdk::z_object,
         list(
             answer = aisdk::z_string(nullable = TRUE),
-            findings = aisdk::z_array(aisdk::z_any()),
+            findings = aisdk::z_array(aisdk::z_object(
+                id = aisdk::z_string(nullable = TRUE),
+                statement = aisdk::z_string(nullable = TRUE),
+                description = aisdk::z_string(nullable = TRUE),
+                severity = aisdk::z_enum(sclet_ai_finding_severities(), nullable = TRUE),
+                claim_level = aisdk::z_enum(sclet_ai_finding_claim_levels(), nullable = TRUE),
+                evidence_refs = aisdk::z_array(aisdk::z_string(), nullable = TRUE),
+                .additional_properties = TRUE
+            )),
             evidence = aisdk::z_array(aisdk::z_any()),
             warnings = aisdk::z_array(aisdk::z_any()),
             recommendations = aisdk::z_array(aisdk::z_any()),
@@ -286,6 +325,7 @@ sclet_ai_call <- function(
         "Use only the supplied ledger facts and clearly label uncertainty.",
         "Do not claim causality unless the evidence explicitly supports it.",
         if (!is.null(system_prompt)) system_prompt else "",
+        sclet_ai_evidence_citation_instruction(),
         "Structured analysis ledger:",
         paste(utils::capture.output(dput(context)), collapse = "\n"),
         sep = "\n\n"
@@ -406,6 +446,7 @@ sclet_ai_call <- function(
             system = paste(
                 "Return only an object matching the supplied schema.",
                 "Use claim_level values conservatively; causal claims require evidence_refs.",
+                sclet_ai_evidence_citation_instruction(),
                 sep = "\n"
             ),
             mode = "tool",
