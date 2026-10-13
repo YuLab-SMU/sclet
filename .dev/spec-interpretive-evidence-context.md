@@ -1,6 +1,6 @@
 # Spec: let the interpretive context carry evidence ids
 
-Status: accepted for implementation
+Status: implemented and measured (2026-10-13)
 Baseline: `9c24bd0`
 
 ## 1. Problem, measured
@@ -58,16 +58,32 @@ see evidence when the caller names it, and otherwise does not).
 ## 4. Acceptance criteria
 
 1. `sclet_ai_context(sce_with_evidence, target = "qc", detail = "full")`
-   contains `ev:findallmarkers` as a string.
-2. Same for `target = "status"`.
+   contains `ev:findallmarkers` as a string. — **met**: the benchmark's
+   `evidence_id_in_context` reads FALSE before, TRUE after (commit `174f3b1`),
+   for both `qc_review` and `status`.
+2. Same for `target = "status"`. — **met**: same run, `status`
+   `evidence_id_in_context` FALSE -> TRUE.
 3. Same size-order of context (no large expansion beyond the evidence entries).
+   — **met**: the context grew by the evidence entries only; the bounded
+   summary is what `174f3b1` restored and then re-scoped, and no target changed
+   size class.
 4. `sclet_ai_sanitize_context()` produces no new warnings and no new redactions
-   on the `qc`/`status` contexts, compared with before.
+   on the `qc`/`status` contexts, compared with before. — **met by tests**: the
+   privacy suite passes unchanged (`test-ai-privacy.R`,
+   `test-ai-context-evidence.R`); `make check` 0/0/0.
 5. `AIReviewQC()` and `AIStatus()` on the same object produce findings whose
    `evidence_refs` can be non-empty -- i.e. the vocabulary is at least available
-   to the model.
+   to the model. — **met, and this is the criterion that needed the second
+   commit**: the first commit made the vocabulary *available* and the model
+   still cited 0 of 14 and 0 of 23 findings, so `3cd9af6` had to name
+   `evidence_refs` in the finding schema and instruct the model to fill it.
+   After both: 3 of 7 (`qc_review`) and 6 of 16 (`status`) findings cite
+   `ev:findallmarkers`, zero invented.
 6. `make check` 0/0/0, and the existing `test-ai-privacy.R` and
-   `test-ai-claims.R` still pass.
+   `test-ai-claims.R` still pass. — **met**: `make check` 0 errors / 0 warnings
+   / 0 notes, full suite 2617 pass / 0 fail, including `test-ai-privacy.R`,
+   `test-ai-claims.R`, `test-ai-evidence.R` and the new
+   `test-ai-findings-schema.R` (5 scenarios, 36 assertions).
 
 ## 5. Risk
 
@@ -83,3 +99,61 @@ Benchmark: `R/actions/interpret_evidence_refs.R` in `sclet-benchmark-ai`,
 measuring before/after whether `AIReviewQC`/`AIStatus` findings carry
 `evidence_refs`, on the same pbmc3k object. The current baseline is 0/12 and
 0/19.
+
+## 7. Outcome (measured 2026-10-13)
+
+Benchmark `sclet-benchmark-ai`, action `interpret_evidence_refs`, fixture
+pbmc3k = 2700 cells x 32738 genes, real pipeline normalize -> HVG -> PCA -> kNN
+-> louvain 7 clusters -> `FindAllMarkers` producing evidence node
+`ev:findallmarkers`, model `deepseek-chat`, records in
+`results/interpret_evidence_refs.jsonl`.
+
+| run | evidence id in context | findings citing `ev:findallmarkers` | reason |
+|---|---|---|---|
+| before (motivating run, earlier 2026-10-13) | FALSE | 0 of 14 (`qc_review`), 0 of 23 (`status`) | -- |
+| intermediate (`174f3b1` only) | TRUE | 0 of 14, 0 of 23 | `model_did_not_cite` |
+| after (`174f3b1` + `3cd9af6`) | TRUE | 3 of 7, 6 of 16 | `model_cited_correctly` |
+
+What each step actually proves:
+
+- The **before** run is the spec's premise reproduced on a live pipeline: with
+  no evidence id in context, citation is impossible, not merely discouraged.
+- The **intermediate** run is the important negative result. Exposing the ids
+  was **necessary but not sufficient**. The model described the record
+  correctly in prose -- "the only evidence record (ev:findallmarkers) is
+  claim_level = 'associated', kind = 'deterministic_summary'" -- and still
+  cited 0 of 14 and 0 of 23 findings. The cause is mechanical:
+  `evidence_refs` was declared `z_array(z_any())` in
+  `sclet_ai_native_result_schema()`, so the field had no output channel and the
+  model had nowhere to put the id it clearly knew.
+- The **after** run closes it. `3cd9af6` names `id`, `statement`,
+  `description`, `severity`, `claim_level`, `evidence_refs` in the finding
+  schema (enums shared with the local validator via
+  `sclet_ai_finding_claim_levels()` / `sclet_ai_finding_severities()`), and
+  `sclet_ai_evidence_citation_instruction()` tells the model to fill it with
+  ids present in the supplied ledger, verbatim. `citation_improved: TRUE` and
+  `reason: model_cited_correctly` for both targets.
+
+Zero invalid citations: every cited id resolves to the real evidence node. The
+citations are precise rather than blanket. Findings that are structural truths
+-- dimensions, preprocessing methods, missing prerequisites -- carry no
+`evidence_refs` at all. Every finding that rests on the FindAllMarkers summary
+cites the node, and some state its limit in the finding text itself ("Claim
+level is associated, not causal"; "No causal, trajectory, velocity, or
+perturbation conclusions are supported by the recorded evidence"). Claim levels
+stop being a constant: the before run put all 14 and all 23 findings at
+`hypothesis`, the after run splits them into observed / associated / hypothesis
+(qc: 5 observed + 1 associated + 1 hypothesis; status: 13 observed + 3
+associated), with `audit_status: downgraded` where the model over-reached. The
+claim-ladder chain the spec set out to repair now has live inputs.
+
+One collateral finding, worth recording because it was not in the plan: the
+in-progress context change had bounded `ai_evidence` summaries to
+id/kind/claim_level/status for any non-`report` target, which stripped
+`$source`, `$values`, `$dependency_group` and `$scope` from *internal* ledger
+readers. `RecordAIEvidence`, `ValidateAIEvidenceRefs` and
+`sclet_ai_claim_ceiling` all call `GetAnalysisLedger()` with `target = NULL`,
+so ~222 tests failed. `sclet_ai_target_exposes_full_evidence()` in
+`R/ai-context.R` returns TRUE when no target is requested, restoring full
+evidence for internal consumers while the bounded view stays in force on the
+interpretive path.
