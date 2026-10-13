@@ -111,14 +111,31 @@ test_that("suggestive is held to the consistent_with bar and hypothesis needs no
     expect_equal(suggestive$findings[[1L]]$allowed_claim_level, "associated")
     expect_equal(suggestive$findings[[1L]]$requested_claim_level, "suggestive")
 
-    # a hypothesis is explicitly speculative and asserts nothing
+    # A hypothesis is explicitly speculative and asserts nothing. On this
+    # single-node object the engine now attaches that node on the finding's
+    # behalf (`.dev/spec-ai-evidence-authorship.md`), so the finding is raised
+    # to the node's own level and the movement is reported as a correction.
     hypothesis <- sclet:::sclet_ai_audit_result_claims(sce, list(
         findings = list(list(claim_level = "hypothesis"))
     ))
-    expect_equal(hypothesis$status, "ok")
+    expect_true(hypothesis$findings[[1L]]$evidence_refs_attached)
+    expect_equal(hypothesis$findings[[1L]]$claim_level, "associated")
+
+    # The "asserts nothing" contract still holds whenever the engine cannot
+    # attach: a hypothesis on an object with two nodes stays at the floor and
+    # the audit reports nothing to fix.
+    sce_multi <- sclet_ai_claim_test_node(sce, "ev:b", source = "srcB", claim = "associated")
+    hypothesis_multi <- sclet:::sclet_ai_audit_result_claims(sce_multi, list(
+        findings = list(list(claim_level = "hypothesis"))
+    ))
+    expect_false(hypothesis_multi$findings[[1L]]$evidence_refs_attached)
+    expect_equal(hypothesis_multi$status, "ok")
+    expect_equal(hypothesis_multi$findings[[1L]]$claim_level, "hypothesis")
 })
 
 test_that("a consistent_with finding with no evidence_refs lands at hypothesis as a downgrade", {
+    # No evidence on the object at all, so nothing can be attached and the
+    # "no refs" path is exercised cleanly.
     sce <- sclet_ai_claim_test_object()
     audit <- sclet:::sclet_ai_audit_result_claims(sce, list(
         findings = list(list(claim_level = "consistent_with"))
@@ -128,11 +145,33 @@ test_that("a consistent_with finding with no evidence_refs lands at hypothesis a
     # floor for a finding that asserts nothing), not a hard failure. The
     # old `overclaimed` + `"cites no evidence_refs"` problem string is no
     # longer emitted; the per-entry `status = "downgraded"` carries it.
+    expect_false(audit$findings[[1L]]$evidence_refs_attached)
     expect_equal(audit$status, "downgraded")
     expect_equal(audit$findings[[1L]]$claim_level, "hypothesis")
     expect_equal(audit$findings[[1L]]$requested_claim_level, "consistent_with")
     expect_equal(audit$findings[[1L]]$ceiling_status, "no_refs")
     expect_equal(audit$findings[[1L]]$status, "downgraded")
+})
+
+test_that("authorship raises a no-ref finding to a sole node's level instead of the floor", {
+    # The complement of the test above, and the behaviour
+    # `.dev/spec-ai-evidence-authorship.md` exists to produce: when the engine
+    # can attach exactly one node, the request is raised to that node's own
+    # level rather than dropped to the floor.
+    sce <- sclet_ai_claim_test_object()
+    sce <- sclet_ai_claim_test_node(sce, "ev:a", source = "srcA", claim = "associated")
+    audit <- sclet:::sclet_ai_audit_result_claims(sce, list(
+        findings = list(list(claim_level = "consistent_with"))
+    ))
+    expect_true(audit$findings[[1L]]$evidence_refs_attached)
+    expect_equal(audit$findings[[1L]]$attachment_rule, "sole_evidence_node")
+    expect_equal(audit$findings[[1L]]$claim_level, "associated")
+    # The ceiling reports "downgraded" because the REQUEST (consistent_with)
+    # sits above what one node can carry (associated). The point of authorship
+    # is that the finding is raised off the floor to that ceiling rather than
+    # dropped to `hypothesis` for want of a reference.
+    expect_equal(audit$findings[[1L]]$ceiling_status, "downgraded")
+    expect_equal(audit$findings[[1L]]$allowed_claim_level, "associated")
 })
 
 test_that("record_claims auditing refuses to write an over-claimed result to the ledger", {

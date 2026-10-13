@@ -311,6 +311,16 @@ model only to describe; or (b) accept that `claim_level` stays at the floor for
 interpretive reviews and stop treating the field as informative. Both need their
 own spec.
 
+**Closed for route (a).** `.dev/spec-ai-evidence-authorship.md` implements it:
+the engine attaches the evidence a finding relates to when the mapping is
+forced (sole completed non-decision node), and declines otherwise. Measured
+offline: a `hypothesis` finding that cited nothing on a one-node object is now
+recorded at that node's own level (`associated`) with
+`evidence_refs_attached = TRUE` and the rule name recorded beside it; on a
+two-node object the floor holds and the refusal is reported. `claim_level` is
+no longer a constant -- but it varies with what the ENGINE can attach, not with
+what the model claims, which is exactly the asymmetry §3's rejection demanded.
+
 ## 5. Risk
 
 The main risk is **over-correcting in the other direction**: if the engine

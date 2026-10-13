@@ -77,6 +77,61 @@ sclet_copilot <- function(sce, question, model = NULL) {
     result$answer %||% ""
 }
 
+# The evidence ids a set of findings cites, read by EXACT name.
+#
+# `finding$evidence_refs` is not safe here: R's `$` does partial matching on
+# lists, and the recorded finding also carries `evidence_refs_attached`
+# (logical). A finding without refs therefore returned the attached FLAG, and
+# `as.character(FALSE)` became the literal id "FALSE", which
+# `ValidateAIEvidenceRefs()` then rejected -- so every result whose findings
+# cited nothing failed to record. `[[` does not partial-match.
+sclet_ai_finding_refs <- function(findings) {
+    refs <- unlist(lapply(findings, function(finding) {
+        if (!is.list(finding)) return(character())
+        if (!"evidence_refs" %in% names(finding)) return(character())
+        as.character(finding[["evidence_refs"]] %||% character())
+    }), use.names = FALSE)
+    unique(refs[nzchar(refs)])
+}
+
+# Build the findings as they will be recorded. Applies the claim audit's
+# derived levels and, when the engine attached an evidence reference on a
+# finding's behalf, carries that reference onto the recorded finding. The
+# attachment is re-run here rather than read back from the audit because the
+# audit reports only THAT an attachment happened, not the resulting id -- and a
+# raised `claim_level` whose stated basis is absent from the ledger would be
+# exactly the kind of unsupported claim the audit exists to prevent. See
+# `.dev/spec-ai-evidence-authorship.md`.
+sclet_ai_recorded_findings <- function(object, result, audit, audit_claims) {
+    findings <- result$findings
+    if (!isTRUE(audit_claims) || is.null(audit) || !length(audit$findings)) {
+        return(findings)
+    }
+    lapply(seq_along(findings), function(i) {
+        finding <- findings[[i]]
+        entry <- audit$findings[[min(i, length(audit$findings))]]
+        # Exact-name read via the helper even though a raw finding cannot carry
+        # `evidence_refs_attached` yet: this loop WRITES that flag below, so a
+        # second pass over recorded findings would partial-match, and the guard
+        # costs nothing here (see `sclet_ai_finding_refs()` for the trap).
+        if (is.list(finding) && isTRUE(entry$evidence_refs_attached) &&
+            !length(sclet_ai_finding_refs(list(finding)))) {
+            attachment <- sclet_ai_attach_finding_evidence(object, finding)
+            if (isTRUE(attachment$attached)) {
+                finding$evidence_refs <- attachment$finding$evidence_refs
+            }
+        }
+        if (is.list(finding)) {
+            finding$claim_level <- entry$claim_level
+            finding$requested_claim_level <- entry$requested_claim_level
+            finding$derived_from_ceiling <- isTRUE(entry$derived_from_ceiling)
+            finding$ceiling_reasons <- entry$ceiling_reasons %||% character()
+            finding$evidence_refs_attached <- isTRUE(entry$evidence_refs_attached)
+        }
+        finding
+    })
+}
+
 #' Record a structured AI result in the analysis ledger
 #'
 #' @param object A `SingleCellExperiment` object.
@@ -101,9 +156,15 @@ RecordAIResult <- function(object, result, id = NULL, active = FALSE, audit_clai
                 call. = FALSE)
         }
     }
-    all_refs <- unique(unlist(lapply(result$findings, function(f) {
-        if (is.list(f)) as.character(f$evidence_refs %||% character()) else character()
-    }), use.names = FALSE))
+    # The recorded findings first, because when claim auditing is on the engine
+    # may have ATTACHED an evidence reference on a finding's behalf
+    # (see `.dev/spec-ai-evidence-authorship.md`). That reference has to travel
+    # with the recorded finding -- otherwise the ledger would show a raised
+    # claim whose stated basis is missing -- and it has to be included in the
+    # resolvability check below, so an attached id is held to exactly the same
+    # bar as one the model cited.
+    recorded_findings <- sclet_ai_recorded_findings(object, result, audit, audit_claims)
+    all_refs <- sclet_ai_finding_refs(recorded_findings)
     if (isTRUE(audit_claims) && length(all_refs)) {
         # Deliberately no `fingerprint` argument: this check only asks whether
         # each cited evidence id resolves to a real, completed evidence node on
@@ -142,18 +203,6 @@ RecordAIResult <- function(object, result, id = NULL, active = FALSE, audit_clai
     # so a level is never quoted without its basis. This is the change that
     # makes `claim_level` on a recorded finding a function of the evidence,
     # not of the model's self-report.
-    recorded_findings <- result$findings
-    if (isTRUE(audit_claims) && !is.null(audit) && length(audit$findings)) {
-        recorded_findings <- lapply(seq_along(recorded_findings), function(i) {
-            finding <- recorded_findings[[i]]
-            entry <- audit$findings[[min(i, length(audit$findings))]]
-            finding$claim_level <- entry$claim_level
-            finding$requested_claim_level <- entry$requested_claim_level
-            finding$derived_from_ceiling <- isTRUE(entry$derived_from_ceiling)
-            finding$ceiling_reasons <- entry$ceiling_reasons %||% character()
-            finding
-        })
-    }
     context <- result$context
     record <- list(
         id = id,

@@ -67,6 +67,91 @@ sclet_ai_finding_allowed_level <- function(claim_level) {
     claim_level
 }
 
+# Attach the evidence a finding rests on, when the mapping is forced.
+# See `.dev/spec-ai-evidence-authorship.md`.
+#
+# The problem this solves: `sclet_ai_derive_finding_claim_level()` is correct
+# and the ceiling it consults is computed from evidence -- but with no
+# `evidence_refs` on the finding there is nothing to reason about, so every
+# finding lands at `hypothesis` through the "no refs" path. Measured on pbmc3k
+# (`sclet-benchmark-ai/results/derived_claim_levels.jsonl`, 2026-10-13): the two
+# `with_evidence` conditions had `derivation_available = TRUE`, the object
+# carried `ev:findallmarkers` and the ceiling was `allowed`, and still 0 of 23
+# and 0 of 13 findings moved -- because none cited anything.
+#
+# Why this is narrow on purpose: attaching evidence RAISES a claim, and an
+# unsupported claim reported as clean is worse than the honest floor this
+# replaces. The ceiling is the minimum over the cited nodes' own claim levels,
+# so authorship cannot manufacture strength -- but it can still attach the
+# WRONG node, and a finding about cell-cycle phase on an object whose only node
+# is about markers would then look supported. So the rule attaches only when
+# there is exactly one candidate and no choice to make, and otherwise leaves the
+# finding alone. Under-attaching is the safe direction: a finding the engine
+# cannot map keeps the floor, which is today's behaviour.
+#
+# Returns a list with the (possibly updated) `finding`, a logical `attached`,
+# and the `rule` name that decided it. When `attached` is TRUE the finding's
+# `evidence_refs` holds the sole node's id; the flag itself is not written onto
+# the finding here -- `sclet_ai_recorded_findings()` and the audit entry are the
+# places that record `evidence_refs_attached`.
+sclet_ai_attach_finding_evidence <- function(object, finding) {
+    if (!is.list(finding)) {
+        return(list(finding = finding, attached = FALSE, rule = "none"))
+    }
+    # Two requested levels must not gain a reference, and the check has to come
+    # before anything else:
+    #
+    #  - `causal` is banned outright. Attaching evidence to it would supply the
+    #    very reference `validate_sclet_ai_result()` demands for a causal claim
+    #    ("causal claim requires evidence_refs"), turning a result the engine
+    #    rejects into one it accepts -- the ban defeated by helpfulness.
+    #  - `estimated` is a provenance statement (a value was modelled, not
+    #    measured), orthogonal to the evidence ladder. The derivation returns
+    #    that verdict before consulting evidence at all, so a reference here
+    #    would be attached to a finding whose level ignores it.
+    requested <- as.character(finding$claim_level %||% "hypothesis")[[1L]]
+    if (requested %in% c("causal", "estimated")) {
+        return(list(finding = finding, attached = FALSE, rule = "requested_level_excluded"))
+    }
+    # The model's own citation is authoritative for what it cited. Never
+    # overwrite it, even when a single node makes the engine's guess easy.
+    existing <- as.character(
+        if ("evidence_refs" %in% names(finding)) finding[["evidence_refs"]] else character()
+    )
+    existing <- existing[nzchar(existing)]
+    if (length(existing)) {
+        return(list(finding = finding, attached = FALSE, rule = "model_cited"))
+    }
+    if (!inherits(object, "SingleCellExperiment")) {
+        return(list(finding = finding, attached = FALSE, rule = "none"))
+    }
+    nodes <- tryCatch(sclet_ai_evidence_get_all(object), error = function(e) list())
+    if (!length(nodes)) {
+        return(list(finding = finding, attached = FALSE, rule = "none"))
+    }
+    completed <- vapply(nodes, function(node) {
+        identical(as.character(node$status %||% "completed"), "completed")
+    }, logical(1L))
+    nodes <- nodes[completed]
+    # A user decision is not support for a finding. The ceiling already
+    # separates these; excluding them here keeps the two rules aligned.
+    is_decision <- vapply(nodes, function(node) {
+        sclet_ai_evidence_kind_is_user_decision(node$kind %||% "")
+    }, logical(1L))
+    nodes <- nodes[!is_decision]
+    if (length(nodes) != 1L) {
+        # Zero candidates: nothing to attach. Two or more: attaching would be a
+        # guess, and the honest answer is the floor.
+        return(list(
+            finding = finding,
+            attached = FALSE,
+            rule = if (!length(nodes)) "no_candidates" else "ambiguous_multiple_candidates"
+        ))
+    }
+    finding$evidence_refs <- names(nodes)[[1L]]
+    list(finding = finding, attached = TRUE, rule = "sole_evidence_node")
+}
+
 # Derive the claim level a finding should be recorded at, given the recorded
 # evidence on the object. See `.dev/spec-ai-derived-claim-levels.md` for the
 # derivation rule. The returned list has:
@@ -126,8 +211,18 @@ sclet_ai_derive_finding_claim_level <- function(object, finding) {
         ))
     }
 
-    refs <- if (is.list(finding)) finding$evidence_refs else NULL
+    # `[[` rather than `$`: a recorded finding also carries
+    # `evidence_refs_attached` (logical), and `$` partial-matches, so a finding
+    # with no refs would hand the ladder the flag `FALSE` as if it were an
+    # evidence id -- which the ceiling then rejects as unknown, silently
+    # pinning the finding to the floor for the wrong reason.
+    refs <- if (is.list(finding) && "evidence_refs" %in% names(finding)) {
+        finding[["evidence_refs"]]
+    } else {
+        NULL
+    }
     refs <- as.character(refs %||% character())
+    refs <- refs[nzchar(refs)]
 
     # 3a. no refs: the audit's previously-suggested floor was `observed`,
     # but the spec requires `hypothesis` as the correct floor for a finding
@@ -260,6 +355,10 @@ sclet_ai_audit_result_claims <- function(object, result) {
     for (i in seq_along(findings)) {
         finding <- findings[[i]]
         requested <- if (is.list(finding)) as.character(finding$claim_level %||% "hypothesis")[[1L]] else "hypothesis"
+        # Authorship runs first: a finding that gains a reference gains its
+        # derived level in the same pass, because the derivation reads refs.
+        attachment <- sclet_ai_attach_finding_evidence(object, finding)
+        finding <- attachment$finding
         derivation <- sclet_ai_derive_finding_claim_level(object, finding)
         derived <- derivation$claim_level
 
@@ -288,6 +387,12 @@ sclet_ai_audit_result_claims <- function(object, result) {
             allowed_claim_level = derived,
             ceiling_status = derivation$ceiling_status,
             ceiling_reasons = derivation$ceiling_reasons,
+            # Authorship, made visible rather than laundered into the verdict.
+            # A reader must be able to tell a reference the model cited from one
+            # the engine attached on its behalf, because only the former is
+            # evidence the model actually reasoned about.
+            evidence_refs_attached = isTRUE(attachment$attached),
+            attachment_rule = as.character(attachment$rule %||% "none"),
             status = entry_status,
             problems = character()
         )
