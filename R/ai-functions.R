@@ -127,6 +127,10 @@ sclet_ai_recorded_findings <- function(object, result, audit, audit_claims) {
             finding$derived_from_ceiling <- isTRUE(entry$derived_from_ceiling)
             finding$ceiling_reasons <- entry$ceiling_reasons %||% character()
             finding$evidence_refs_attached <- isTRUE(entry$evidence_refs_attached)
+            # The rule name travels with the flag, so a ledger reader can tell
+            # WHY: the sole node was attached, the model cited for itself, or
+            # the engine declined to guess among several.
+            finding$evidence_attachment_rule <- as.character(entry$attachment_rule %||% "none")
         }
         finding
     })

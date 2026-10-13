@@ -198,6 +198,25 @@ test_that("the recorded finding carries the attached reference and its level", {
     expect_identical(as.character(finding$evidence_refs), "ev:only")
     expect_true(finding$evidence_refs_attached)
     expect_true(finding$derived_from_ceiling)
+    # The rule name is persisted alongside the flag, so a ledger reader can
+    # tell WHY the reference is there -- the sole node was attachable -- not
+    # merely that something attached.
+    expect_identical(finding$evidence_attachment_rule, "sole_evidence_node")
+})
+
+test_that("a model-cited finding records its rule as model_cited, not absent", {
+    # The rule field distinguishes the two ways a reference can arrive: the
+    # flag alone says "not attached", but a reader also wants to know the
+    # citation was the model's own.
+    sce <- add_evidence(authorship_fixture(), "ev:only")
+    result <- new_sclet_ai_result(
+        task = "qc_review", answer = "a",
+        findings = list(authorship_finding(evidence_refs = "ev:only"))
+    )
+    recorded <- RecordAIResult(sce, result, id = "rec_cited")
+    finding <- sclet:::sclet_get_state(recorded)$analyses[["rec_cited"]]$artifacts$findings[[1L]]
+    expect_false(isTRUE(finding$evidence_refs_attached))
+    expect_identical(finding$evidence_attachment_rule, "model_cited")
 })
 
 test_that("an over-claimed causal result is still refused", {
