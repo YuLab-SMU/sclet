@@ -928,7 +928,11 @@ sclet_ai_plan_once <- function(
         "names a step of THIS plan via its `step_id` (use the step's id from",
         "the proposed_actions list). source = \"evidence\" names an",
         "`evidence_id` the plan is expected to write.",
-        "Check must be one of: \"exists\", \"equals\", \"gte\", \"lte\", \"in\".",
+        paste0(
+            "Check must be one of: ",
+            paste(sprintf('"%s"', sclet_ai_criterion_checks()), collapse = ", "),
+            "."
+        ),
         "Any check other than \"exists\" also requires BOTH `field` and",
         "`value`. Prefer a `field` the referenced step's execution output",
         "actually carries, so the criterion can be evaluated: n_features,",

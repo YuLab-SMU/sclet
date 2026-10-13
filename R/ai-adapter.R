@@ -143,6 +143,20 @@ sclet_ai_finding_severities <- function() {
     c("info", "low", "warning", "high", "error")
 }
 
+# Where a plan-level criterion takes its value from. The single source of
+# truth for the structured-output schema and for `ValidateAIPlan()`, which
+# branches on these two strings (R/ai-planning.R).
+sclet_ai_criterion_sources <- function() {
+    c("action_output", "evidence")
+}
+
+# The comparisons a criterion may ask for. Shared the same way: the schema
+# below, the planning prompt, and the validator's "requires field and value"
+# rule all read this list. "exists" is the only check that needs neither.
+sclet_ai_criterion_checks <- function() {
+    c("exists", "equals", "gte", "lte", "in")
+}
+
 # The instruction that gives the model the vocabulary for evidence_refs.
 # The schema field alone does not get filled: measured 2026-10-12 on pbmc3k,
 # 0 of 12 (AIReviewQC) and 0 of 19 (AIStatus) findings carried evidence_refs
@@ -155,6 +169,30 @@ sclet_ai_evidence_citation_instruction <- function() {
         "one of them must list that node's id in the finding's evidence_refs",
         "field, verbatim. Cite only ids that appear in the supplied ledger;",
         "never invent an evidence id.",
+        sep = " "
+    )
+}
+
+# The instruction that tells the model when a plan-level criterion is worth
+# proposing. `success_criteria` and `stop_conditions` were `z_any()` in the
+# structured schema until 2026-10-13, so a model that decided to express
+# "the clusters should be supported by markers" had nowhere to write it and
+# fell back to prose in the rationale (measured 0 of 16 plans in
+# sclet-benchmark-ai's execute_plan log, against 4-8 criteria per plan once
+# the goal asked for something rejectable). Permissive by design: P0.1's rule
+# that a plan with zero criteria stays valid is unchanged.
+sclet_ai_criterion_instruction <- function() {
+    paste(
+        "When a proposed step produces something that can be verified after",
+        "execution -- a reduction, a graph, a clustering with named groups, a",
+        "marker table, an evidence node -- include a success_criterion naming",
+        "it, and include a stop_condition when a wrong result should halt the",
+        "plan. Use source = \"action_output\" with the step's id for anything",
+        "this plan produces, or source = \"evidence\" with an evidence_id it is",
+        "expected to write. Use check = \"exists\" when presence is enough;",
+        "\"equals\", \"gte\", \"lte\" and \"in\" additionally require both field",
+        "and value. Never require a criterion: if the plan produces nothing",
+        "verifiable, omit both lists rather than inventing criteria.",
         sep = " "
     )
 }
@@ -183,9 +221,30 @@ sclet_ai_native_result_schema <- function() {
             warnings = aisdk::z_array(aisdk::z_any()),
             recommendations = aisdk::z_array(aisdk::z_any()),
             proposed_actions = aisdk::z_array(aisdk::z_any()),
-            success_criteria = aisdk::z_array(aisdk::z_any()),
-            stop_conditions = aisdk::z_array(aisdk::z_any())
+            success_criteria = aisdk::z_array(sclet_ai_native_criterion_schema()),
+            stop_conditions = aisdk::z_array(sclet_ai_native_criterion_schema())
         )
+    )
+}
+
+# The declared shape of one plan-level criterion (used by both
+# `success_criteria` and `stop_conditions`, which normalize identically).
+# Every field is nullable -- a criterion that needs no value still validates
+# -- and additional properties are kept so task-specific extras survive.
+# Without this shape the field was `z_any()`: the planning prompt describes
+# criteria in prose, but the structured stage that actually builds the plan
+# gave the model nowhere to write them (measured 0 of 16 plans).
+sclet_ai_native_criterion_schema <- function() {
+    aisdk::z_object(
+        id = aisdk::z_string(nullable = TRUE),
+        description = aisdk::z_string(nullable = TRUE),
+        source = aisdk::z_enum(sclet_ai_criterion_sources(), nullable = TRUE),
+        step_id = aisdk::z_string(nullable = TRUE),
+        evidence_id = aisdk::z_string(nullable = TRUE),
+        check = aisdk::z_enum(sclet_ai_criterion_checks(), nullable = TRUE),
+        field = aisdk::z_string(nullable = TRUE),
+        value = aisdk::z_any(),
+        .additional_properties = TRUE
     )
 }
 
@@ -326,6 +385,7 @@ sclet_ai_call <- function(
         "Do not claim causality unless the evidence explicitly supports it.",
         if (!is.null(system_prompt)) system_prompt else "",
         sclet_ai_evidence_citation_instruction(),
+        sclet_ai_criterion_instruction(),
         "Structured analysis ledger:",
         paste(utils::capture.output(dput(context)), collapse = "\n"),
         sep = "\n\n"
@@ -447,6 +507,7 @@ sclet_ai_call <- function(
                 "Return only an object matching the supplied schema.",
                 "Use claim_level values conservatively; causal claims require evidence_refs.",
                 sclet_ai_evidence_citation_instruction(),
+                sclet_ai_criterion_instruction(),
                 sep = "\n"
             ),
             mode = "tool",
