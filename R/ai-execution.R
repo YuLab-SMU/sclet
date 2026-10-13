@@ -93,6 +93,74 @@ sclet_ai_vector_param <- function(value, type = c("character", "integer")) {
     suppressWarnings(as.integer(value))
 }
 
+# Is this selector value a promise that can only be resolved once the
+# producing step has run, rather than a value that can be checked now?
+#
+# `variable_features` is declared in `find_variable_features`' output_schema as
+# the marker "hvg": the static form must not carry 2000 gene names into every
+# planning context, so the real set only exists after the step executes. A
+# downstream step therefore writes
+# `features = "${step_2.output.variable_features}"`, and
+# `sclet_ai_project_plan_value()` deliberately leaves that reference
+# unprojected -- projecting it would substitute the meaningless marker and hand
+# validation a literal it could not act on.
+#
+# So exactly one form reaches here: the well-formed reference. `prerequisites`
+# says yes on the strength of the shape, and
+# `sclet_ai_resolve_deferred_selector()` turns it into the real gene set in the
+# handler, which is what keeps validation and execution in agreement. A literal
+# `"hvg"` typed by a model is not a reference and is rejected here, exactly as
+# the gene selector rejects it.
+sclet_ai_is_deferred_gene_selector <- function(value) {
+    !is.null(sclet_ai_deferred_selector_field(value))
+}
+
+# The `<field>` of a deferred gene-selector reference, or NULL when the value is
+# an ordinary selector. Only the exact `${step.output.field}` shape counts: a
+# bare `${step}` or `${step.output}` is a malformed reference that must keep its
+# own error message, and a gene vector or a prose description is not a promise.
+sclet_ai_deferred_selector_field <- function(value) {
+    if (is.null(value) || !is.character(value) || length(value) != 1L) {
+        return(NULL)
+    }
+    if (!grepl("^\\$\\{[^}]+\\}$", value)) {
+        return(NULL)
+    }
+    path <- strsplit(sub("^\\$\\{", "", sub("\\}$", "", value)), "\\.", fixed = FALSE)[[1L]]
+    if (length(path) != 3L || !identical(path[[2L]], "output")) {
+        return(NULL)
+    }
+    if (!identical(path[[3L]], "variable_features")) {
+        return(NULL)
+    }
+    path[[3L]]
+}
+
+# Resolve a deferred selector to real row names, using the object the step is
+# about to run against. This is what makes the validation-time acceptance
+# honest: `prerequisites` says yes because the reference is well-formed, and
+# here the marker becomes the actual gene set the model was pointing at.
+#
+# A value that is not a deferred reference is returned untouched, so ordinary
+# gene vectors, range notation and row names keep flowing to the selector
+# unchanged.
+sclet_ai_resolve_deferred_selector <- function(object, value, arg = "features") {
+    field <- sclet_ai_deferred_selector_field(value)
+    if (is.null(field) || !identical(field, "variable_features")) {
+        return(value)
+    }
+    features <- tryCatch(VariableFeatures(object), error = function(e) e)
+    if (inherits(features, "error") || !length(features)) {
+        stop(
+            "Deferred selector for `", arg, "` could not be resolved: ",
+            "the object carries no variable-feature set. Run ",
+            "find_variable_features (or FindVariableFeatures) before this step.",
+            call. = FALSE
+        )
+    }
+    as.character(features)
+}
+
 #' Prerequisite-friendly wrapper around [sclet_ai_gene_selector()]
 #'
 #' Returns `TRUE` when the selector resolves (or is absent) and the problem
@@ -512,7 +580,21 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 returns = "sce",
                 output_schema = list(
                     required_commands = "FindVariableFeatures",
-                    required_hvg = TRUE
+                    required_hvg = TRUE,
+                    # A referenceable name for the set itself. The static value
+                    # is a marker, not the genes: `output_schema` is exposed
+                    # statically through `available_actions` before any step has
+                    # run, so promising real gene names here would push 2000 of
+                    # them into every planning context. The real set is written
+                    # into the execution summary by
+                    # `sclet_ai_execution_summary()` once it exists, and the
+                    # projection resolves ${step.output.variable_features} from
+                    # there. Downstream steps (scale_data$features,
+                    # run_pca$subset_row) are `character_vector`, so a prose
+                    # description used to pass the schema check and die in the
+                    # gene selector -- measured as 4 rejections in 4 spellings
+                    # on pbmc3k (sclet-benchmark-ai, execute_plan).
+                    variable_features = "hvg"
                 ),
                 allowed_state_types = character(),
                 estimated_cost = "medium",
@@ -523,7 +605,11 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 description = "Scale an assay and register the scaled layer.",
                 handler = function(object, params) ScaleData(
                     object,
-                    features = sclet_ai_gene_selector(object, params$features, arg = "features"),
+                    features = sclet_ai_gene_selector(
+                        object,
+                        sclet_ai_resolve_deferred_selector(object, params$features, "features"),
+                        arg = "features"
+                    ),
                     assay = params$assay %||% "logcounts"
                 ),
                 input_schema = list(
@@ -541,6 +627,9 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     # the handler will -- means the model is told at validation
                     # time and the repair loop can fix it, instead of the plan
                     # validating and then dying at execution.
+                    if (sclet_ai_is_deferred_gene_selector(params$features)) {
+                        return(TRUE)
+                    }
                     sclet_ai_selector_problem(object, params$features, "features")
                 },
                 returns = "sce",
@@ -561,7 +650,11 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 description = "Compute and register a PCA reduction.",
                 handler = function(object, params) RunPCA(
                     object,
-                    subset_row = sclet_ai_gene_selector(object, params$subset_row, arg = "subset_row"),
+                    subset_row = sclet_ai_gene_selector(
+                        object,
+                        sclet_ai_resolve_deferred_selector(object, params$subset_row, "subset_row"),
+                        arg = "subset_row"
+                    ),
                     exprs_values = params$exprs_values %||% NULL,
                     layer = params$layer %||% NULL,
                     ncomponents = params$ncomponents %||% 50
@@ -580,6 +673,9 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         return(paste0("PCA source assay/layer is not available: ", source))
                     }
                     if (!length(available)) return("at least one assay is required")
+                    if (sclet_ai_is_deferred_gene_selector(params$subset_row)) {
+                        return(TRUE)
+                    }
                     sclet_ai_selector_problem(object, params$subset_row, "subset_row")
                 },
                 returns = "sce",
@@ -1727,6 +1823,21 @@ sclet_ai_execution_summary <- function(value, descriptor = NULL) {
         if (!is.null(active_ident)) summary$active_ident <- active_ident
         active_graph <- tryCatch(DefaultGraph(value), error = function(e) NULL)
         if (!is.null(active_graph)) summary$active_graph <- active_graph
+
+        # The variable-feature set, as an observation rather than a declaration.
+        # Written before the contract-key fill so the static marker in
+        # `output_schema` ("hvg") is replaced by the real gene names and never
+        # copied into the summary -- the fill in the loop below only adds keys
+        # that are still absent. Only this action promises the field, so the
+        # selector is a name check rather than a descriptor lookup: the summary
+        # is built from the returned object, and `find_variable_features` is
+        # the action that produces an HVG set on it.
+        hvg_set <- if (isTRUE((descriptor %||% list())$name == "find_variable_features")) {
+            tryCatch(VariableFeatures(value), error = function(e) NULL)
+        } else {
+            NULL
+        }
+        if (!is.null(hvg_set) && length(hvg_set)) summary$variable_features <- as.character(hvg_set)
 
         # Declared contract keys fill whatever the observations did not already
         # establish. An observation must never be overwritten by a declaration.

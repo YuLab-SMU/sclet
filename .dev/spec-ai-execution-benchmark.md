@@ -169,6 +169,20 @@ Two findings deliberately left open:
   able to check the value, and leave the execution-time contract as the
   authority. New API surface, so it gets its own spec.
 
+  **Implemented.** `.dev/spec-ai-hvg-reference.md`, landed as
+  `find_variable_features` declaring a `variable_features` output field plus
+  `sclet_ai_is_deferred_gene_selector()` for the deferred acceptance. Two
+  details were decided against the measurement rather than from it: the static
+  `output_schema` value is the marker `"hvg"`, not the gene names, because
+  `output_schema` reaches `available_actions` before any step runs and 2000
+  symbols there would enter every planning context; the real set appears only
+  in the execution summary. And `ScaleData()` with a subset keeps the full
+  assay, writing only the selected rows (`R/preprocessing.R`), so the
+  acceptance check is on the layer's recorded `features` and on which rows
+  changed -- an earlier draft asserted the assay was narrowed, which the
+  package does not do. All four rejected spellings above are still rejected,
+  and their error now names `variable_features`.
+
 The limit that applies regardless: one fixture, one provider. The plan is
 always the same seven-action pipeline, so this does not test execution of
 `run_integration`, `run_annotation`, `run_trajectory`, `run_velocity`, or the

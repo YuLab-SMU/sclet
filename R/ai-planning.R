@@ -130,10 +130,25 @@ sclet_ai_project_plan_value <- function(value, planned_outputs) {
             if (!is.list(current) || is.null(current[[field]])) return(value)
             current <- current[[field]]
         }
+        # A deferred promise is not projected. The static value of such a field
+        # is a marker ("hvg") that stands for a set which only exists after the
+        # producing step runs, so substituting it here would hand validation a
+        # meaningless literal -- `scale_data(features = "hvg")` -- that neither
+        # the gene selector nor the handler could act on. Passing the reference
+        # through instead lets `prerequisites` recognise it as a promise, and
+        # the handler resolves it against the real object at execution time.
+        if (sclet_ai_is_deferred_promise(current)) return(value)
         return(current)
     }
     if (is.list(value)) return(lapply(value, sclet_ai_project_plan_value, planned_outputs = planned_outputs))
     value
+}
+
+# Is this a static output_schema value standing in for something that only
+# exists after execution? The marker is deliberately a scalar string so it
+# cannot be mistaken for a real gene vector.
+sclet_ai_is_deferred_promise <- function(value) {
+    is.character(value) && length(value) == 1L && identical(value, "hvg")
 }
 sclet_ai_plan_capabilities <- function(object) {
     state <- sclet_get_state(object)
