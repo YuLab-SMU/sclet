@@ -49,14 +49,6 @@ sclet_ai_claim_dependency_reasons <- function(all_nodes, a, b) {
     }
     reasons
 }
-#' Finding claim levels that must cite independent support
-#'
-#' A finding at `"hypothesis"` is explicitly speculative and self-limiting, so
-#' it needs no evidence to be recorded: it asserts nothing. The levels that
-#' actually assert something beyond one node's own claim level are the ones
-#' gated here, plus `"causal"`, which is banned outright below.
-sclet_ai_findings_needing_support <- c("consistent_with", "suggestive", "causal")
-
 # Map a finding's claim level onto the strongest evidence ceiling it may cite.
 # "suggestive" sits one step above "consistent_with" on the finding ladder, so
 # it must clear the same bar. "causal" never reaches here: it is rejected
@@ -67,33 +59,27 @@ sclet_ai_finding_allowed_level <- function(claim_level) {
     claim_level
 }
 
-# Attach the evidence a finding rests on, when the mapping is forced.
-# See `.dev/spec-ai-evidence-authorship.md`.
+# Attach evidence ONLY by transcribing what the finding already named.
+# See `.dev/spec-ai-evidence-authorship-v2.md`.
 #
-# The problem this solves: `sclet_ai_derive_finding_claim_level()` is correct
-# and the ceiling it consults is computed from evidence -- but with no
-# `evidence_refs` on the finding there is nothing to reason about, so every
-# finding lands at `hypothesis` through the "no refs" path. Measured on pbmc3k
-# (`sclet-benchmark-ai/results/derived_claim_levels.jsonl`, 2026-10-13): the two
-# `with_evidence` conditions had `derivation_available = TRUE`, the object
-# carried `ev:findallmarkers` and the ceiling was `allowed`, and still 0 of 23
-# and 0 of 13 findings moved -- because none cited anything.
+# v1 attached the sole completed node to any finding that cited nothing. That
+# was measured defective: on a one-node object it attached `ev:findallmarkers`
+# to a finding asserting "no doublet detection was recorded" and raised
+# hypothesis -> associated with audit n_problems = 0 -- the engine manufacturing
+# a basis for a claim that evidence is ABSENT. And the census
+# (`.dev/evidence-node-census.md`) shows a standard pipeline ends with exactly
+# one node in 7 of 7 real records, so v1's refuse-on-multiple safety branch
+# almost never fired while its attach branch was the common case.
 #
-# Why this is narrow on purpose: attaching evidence RAISES a claim, and an
-# unsupported claim reported as clean is worse than the honest floor this
-# replaces. The ceiling is the minimum over the cited nodes' own claim levels,
-# so authorship cannot manufacture strength -- but it can still attach the
-# WRONG node, and a finding about cell-cycle phase on an object whose only node
-# is about markers would then look supported. So the rule attaches only when
-# there is exactly one candidate and no choice to make, and otherwise leaves the
-# finding alone. Under-attaching is the safe direction: a finding the engine
-# cannot map keeps the floor, which is today's behaviour.
-#
-# Returns a list with the (possibly updated) `finding`, a logical `attached`,
-# and the `rule` name that decided it. When `attached` is TRUE the finding's
-# `evidence_refs` holds the sole node's id; the flag itself is not written onto
-# the finding here -- `sclet_ai_recorded_findings()` and the audit entry are the
-# places that record `evidence_refs_attached`.
+# v2 never attributes. It transcribes: the finding's own prose must name an
+# evidence id, as a whole token, and exactly one. That is deterministic (string
+# equality against ids the ledger owns, not keyword heuristics about meaning),
+# it works on multi-node objects -- selection comes from the model's own words,
+# so two nodes no longer force a decline -- and it deletes the false-attachment
+# class instead of narrowing it: a finding that names no node keeps the floor.
+# The cost is yield: measured on the existing single-node records, 5 of 51
+# cite-nothing findings (10%) qualify, against 51 under v1. The lower yield is
+# the point; the other 46 were the defect firing.
 sclet_ai_attach_finding_evidence <- function(object, finding) {
     if (!is.list(finding)) {
         return(list(finding = finding, attached = FALSE, rule = "none"))
@@ -114,7 +100,7 @@ sclet_ai_attach_finding_evidence <- function(object, finding) {
         return(list(finding = finding, attached = FALSE, rule = "requested_level_excluded"))
     }
     # The model's own citation is authoritative for what it cited. Never
-    # overwrite it, even when a single node makes the engine's guess easy.
+    # overwrite it, and never second-guess it by scanning prose.
     existing <- as.character(
         if ("evidence_refs" %in% names(finding)) finding[["evidence_refs"]] else character()
     )
@@ -138,18 +124,68 @@ sclet_ai_attach_finding_evidence <- function(object, finding) {
     is_decision <- vapply(nodes, function(node) {
         sclet_ai_evidence_kind_is_user_decision(node$kind %||% "")
     }, logical(1L))
-    nodes <- nodes[!is_decision]
-    if (length(nodes) != 1L) {
-        # Zero candidates: nothing to attach. Two or more: attaching would be a
-        # guess, and the honest answer is the floor.
-        return(list(
-            finding = finding,
-            attached = FALSE,
-            rule = if (!length(nodes)) "no_candidates" else "ambiguous_multiple_candidates"
-        ))
+    ids <- names(nodes)[!is_decision]
+    if (!length(ids)) {
+        return(list(finding = finding, attached = FALSE, rule = "none"))
     }
-    finding$evidence_refs <- names(nodes)[[1L]]
-    list(finding = finding, attached = TRUE, rule = "sole_evidence_node")
+    named <- sclet_ai_findings_naming_ids(finding, ids)
+    if (length(named) == 1L) {
+        finding$evidence_refs <- named[[1L]]
+        return(list(finding = finding, attached = TRUE, rule = "prose_named_unique"))
+    }
+    list(
+        finding = finding,
+        attached = FALSE,
+        rule = if (!length(named)) "no_prose_reference" else "ambiguous_prose_reference"
+    )
+}
+
+# Which candidate ids the finding names in its own prose, as whole tokens.
+#
+# Only the human-readable fields are scanned: `statement` and `description`.
+# Scanning the whole finding would match ids the finding already carries in
+# structure, which the caller has ruled out, and would let an id smuggled in via
+# a task-specific extra field look like a citation.
+sclet_ai_findings_naming_ids <- function(finding, ids) {
+    text <- paste(
+        c(
+            as.character(finding$statement %||% ""),
+            as.character(finding$description %||% "")
+        ),
+        collapse = " "
+    )
+    if (!nzchar(text) || !length(ids)) return(character())
+    hit <- vapply(ids, function(id) sclet_ai_prose_names_token(text, id), logical(1L))
+    ids[hit]
+}
+
+# Does `text` mention `token` as a whole token?
+#
+# `fixed = TRUE`, so the id's own punctuation (`:`, `_`) is compared literally
+# and no escaping is needed -- an escaped dynamic pattern was tried first and
+# `gsub`-escaping it threw a TRE compile error on the `{}` metacharacters,
+# which is exactly the class of landmine this avoids. A match counts as whole
+# only when neither neighbour is a word character, so `ev:markers` does NOT
+# match inside `ev:markers_extra`, and neither does it match inside
+# `xev:findallmarkers`. Offsets are byte-based while `substring` is
+# character-based; they coincide for the ASCII ids the ledger generates, which
+# is the case this guards, and a non-ASCII neighbour only ever widens what
+# counts as a boundary -- the conservative direction.
+sclet_ai_prose_names_token <- function(text, token) {
+    if (!is.character(token) || length(token) != 1L || !nzchar(token)) {
+        return(FALSE)
+    }
+    starts <- gregexpr(token, text, fixed = TRUE)[[1L]]
+    if (starts[[1L]] == -1L) return(FALSE)
+    tl <- nchar(token)
+    n <- nchar(text)
+    is_word <- function(ch) nzchar(ch) && grepl("[A-Za-z0-9_]", ch)
+    any(vapply(as.integer(starts), function(s) {
+        before <- if (s > 1L) substring(text, s - 1L, s - 1L) else ""
+        after_at <- s + tl
+        after <- if (after_at <= n) substring(text, after_at, after_at) else ""
+        !(is_word(before) || is_word(after))
+    }, logical(1L)))
 }
 
 # Derive the claim level a finding should be recorded at, given the recorded
@@ -280,22 +316,39 @@ sclet_ai_derive_finding_claim_level <- function(object, finding) {
         ))
     }
 
-    # 3c. The derived level is a function of the EVIDENCE, not a copy of the
-    # model's word. The ceiling is the strongest level the cited evidence can
-    # carry, and it is computed as the minimum over the supporting nodes' own
-    # claim levels -- so taking it can never assert more than the evidence
-    # already declares for itself.
+    # 3c. The derived level CLAMPS the model's request to what the evidence can
+    # carry, and raises only from the floor.
     #
-    # It is deliberately NOT min(requested, ceiling): capping at the request
-    # would let a model that always answers `hypothesis` pin every finding to
-    # the floor, which is exactly the state this change exists to fix (114 of
-    # 114 measured findings were `hypothesis`). A request BELOW the ceiling is
-    # raised to the ceiling; a request ABOVE it is lowered to the ceiling. The
-    # request is always preserved in `requested_claim_level`, so the movement
-    # stays visible either way.
+    # The ceiling is the strongest level the cited evidence can carry -- the
+    # minimum over the supporting nodes' own claim levels -- so clamping to it
+    # can never assert more than the evidence declares for itself.
+    #
+    # v1 took the ceiling for every finding, discarding the request entirely.
+    # That was justified by one measurement: 114 of 114 findings said
+    # `hypothesis`, so `min()` would have been inert. The 2026-10-13 batch
+    # retired that premise -- the model now volunteers `observed` and `measured`
+    # (24 of 30 evidence-condition findings) -- and taking the ceiling anyway
+    # turned a rank-1 "I looked at this" into a rank-3 relational claim:
+    # `observed -> associated` x15 and `measured -> associated` x3, which is
+    # over-claiming manufactured by the engine.
+    #
+    # But the floor must stay exempt, or the exemption's whole purpose is
+    # defeated: `hypothesis` asserts nothing and ranks 0, so a plain `min()`
+    # pins every floor request at the floor and an attached reference buys
+    # nothing -- reproducing the 0-of-23 / 0-of-13 zero-movement result. Under
+    # v2 attachment, a floor request with evidence is one the model named in
+    # its own prose, so raising it is transcription, not attribution.
+    #
+    # The request is always preserved in `requested_claim_level`, and the audit
+    # reports which way the level moved, so the movement stays visible either
+    # way.
+    mapped <- sclet_ai_finding_allowed_level(requested)
+    req_rank <- sclet_ai_claim_rank(mapped)
+    if (is.na(req_rank)) req_rank <- 0L
     ceiling_rank <- sclet_ai_claim_rank(ceiling$ceiling_claim_level)
     if (is.na(ceiling_rank)) ceiling_rank <- 0L
-    derived <- if (ceiling_rank < 1L) "hypothesis" else sclet_ai_claim_from_rank(ceiling_rank)
+    final_rank <- if (req_rank < 1L) ceiling_rank else min(req_rank, ceiling_rank)
+    derived <- if (final_rank < 1L) "hypothesis" else sclet_ai_claim_from_rank(final_rank)
     list(
         claim_level = derived,
         requested_claim_level = requested,
@@ -351,7 +404,8 @@ sclet_ai_audit_result_claims <- function(object, result) {
     }
     problems <- character()
     audit <- list()
-    n_downgraded <- 0L
+    n_raised <- 0L
+    n_lowered <- 0L
     for (i in seq_along(findings)) {
         finding <- findings[[i]]
         requested <- if (is.list(finding)) as.character(finding$claim_level %||% "hypothesis")[[1L]] else "hypothesis"
@@ -362,10 +416,12 @@ sclet_ai_audit_result_claims <- function(object, result) {
         derivation <- sclet_ai_derive_finding_claim_level(object, finding)
         derived <- derivation$claim_level
 
-        # Per-entry verdict:
-        #  - `causal` -> overclaimed (hard ban)
-        #  - derivation differs from request -> downgraded (correction)
-        #  - otherwise -> ok
+        # Per-entry verdict. Direction is reported, not flattened: v1 called
+        # every movement `downgraded` and counted it in `n_downgraded`, so a
+        # `observed -> associated` UPGRADE was labelled a downgrade and the
+        # benchmark logs read `audit_status = downgraded` on rows carrying 12
+        # upgrades and 0 downgrades. `causal` keeps `overclaimed`: the ban is
+        # never a silent correction.
         entry_status <- "ok"
         if (isTRUE(derivation$refused)) {
             entry_status <- "overclaimed"
@@ -375,8 +431,19 @@ sclet_ai_audit_result_claims <- function(object, result) {
                 "Use 'hypothesis' at most."
             ))
         } else if (!identical(requested, derived)) {
-            entry_status <- "downgraded"
-            n_downgraded <- n_downgraded + 1L
+            req_rank <- sclet_ai_claim_rank(sclet_ai_finding_allowed_level(requested))
+            der_rank <- sclet_ai_claim_rank(derived)
+            # `hypothesis` is not on the evidence ladder (rank NA) and asserts
+            # nothing, so it sits below every real level by definition.
+            if (is.na(req_rank)) req_rank <- 0L
+            if (is.na(der_rank)) der_rank <- 0L
+            if (der_rank > req_rank) {
+                entry_status <- "raised"
+                n_raised <- n_raised + 1L
+            } else {
+                entry_status <- "corrected"
+                n_lowered <- n_lowered + 1L
+            }
         }
 
         entry <- list(
@@ -398,14 +465,23 @@ sclet_ai_audit_result_claims <- function(object, result) {
         )
         audit[[length(audit) + 1L]] <- entry
     }
+    # Overall status reports the worst kind of movement seen, with direction
+    # preserved: `corrected` (something was lowered) outranks `raised`
+    # (something was lifted to its ceiling) outranks `ok`. v1 flattened both
+    # into `downgraded`, which read as a failure on rows that were mostly
+    # legitimate raises. `n_downgraded` is kept as an alias of `n_lowered` so
+    # existing readers do not silently see a NULL.
     overall_status <- if (length(problems)) "overclaimed"
-        else if (n_downgraded > 0L) "downgraded"
+        else if (n_lowered > 0L) "corrected"
+        else if (n_raised > 0L) "raised"
         else "ok"
     list(
         status = overall_status,
         findings = audit,
         n_problems = length(problems),
-        n_downgraded = n_downgraded,
+        n_raised = n_raised,
+        n_lowered = n_lowered,
+        n_downgraded = n_lowered,
         problems = problems
     )
 }

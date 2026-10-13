@@ -78,8 +78,9 @@ test_that("a consistent_with finding needs evidence that reaches the ceiling", {
     # Updated for spec `spec-ai-derived-claim-levels.md`: a finding that
     # exceeds the ceiling is now a `downgraded` (correction), not an
     # `overclaimed` (violation). The corrected level is `associated` (the
-    # ceiling), recorded as `claim_level` on the audit entry.
-    expect_equal(audit$status, "downgraded")
+    # ceiling), recorded as `claim_level` on the audit entry. v2 reports the
+    # direction: a downward move is `corrected`, an upward one `raised`.
+    expect_equal(audit$status, "corrected")
     expect_equal(audit$findings[[1L]]$claim_level, "associated")
     expect_equal(audit$findings[[1L]]$requested_claim_level, "consistent_with")
     expect_true(audit$findings[[1L]]$derived_from_ceiling)
@@ -104,33 +105,35 @@ test_that("suggestive is held to the consistent_with bar and hypothesis needs no
         findings = list(list(claim_level = "suggestive", evidence_refs = "ev:a"))
     ))
     # Updated for `spec-ai-derived-claim-levels.md`: a `suggestive` finding
-    # that exceeds the ceiling is now a `downgraded` (correction). The
-    # derived level is `associated` (ceiling), not `suggestive`.
-    expect_equal(suggestive$status, "downgraded")
+    # that exceeds the ceiling is a correction. The derived level is
+    # `associated` (ceiling), not `suggestive`. v2 names a downward move
+    # `corrected`.
+    expect_equal(suggestive$status, "corrected")
     expect_equal(suggestive$findings[[1L]]$claim_level, "associated")
     expect_equal(suggestive$findings[[1L]]$allowed_claim_level, "associated")
     expect_equal(suggestive$findings[[1L]]$requested_claim_level, "suggestive")
 
-    # A hypothesis is explicitly speculative and asserts nothing. On this
-    # single-node object the engine now attaches that node on the finding's
-    # behalf (`.dev/spec-ai-evidence-authorship.md`), so the finding is raised
-    # to the node's own level and the movement is reported as a correction.
+    # A hypothesis is explicitly speculative and asserts nothing. Under v2
+    # (.dev/spec-ai-evidence-authorship-v2.md) the engine no longer attaches a
+    # sole node automatically -- v1 did and it was measured attaching evidence
+    # to findings that assert the opposite of what it carries. A cite-nothing,
+    # name-nothing finding keeps the floor whatever the node count; a finding
+    # that NAMES the node in its own prose is transcribed and raised.
     hypothesis <- sclet:::sclet_ai_audit_result_claims(sce, list(
         findings = list(list(claim_level = "hypothesis"))
     ))
-    expect_true(hypothesis$findings[[1L]]$evidence_refs_attached)
-    expect_equal(hypothesis$findings[[1L]]$claim_level, "associated")
+    expect_false(hypothesis$findings[[1L]]$evidence_refs_attached)
+    expect_equal(hypothesis$findings[[1L]]$claim_level, "hypothesis")
+    expect_equal(hypothesis$status, "ok")
 
-    # The "asserts nothing" contract still holds whenever the engine cannot
-    # attach: a hypothesis on an object with two nodes stays at the floor and
-    # the audit reports nothing to fix.
-    sce_multi <- sclet_ai_claim_test_node(sce, "ev:b", source = "srcB", claim = "associated")
-    hypothesis_multi <- sclet:::sclet_ai_audit_result_claims(sce_multi, list(
-        findings = list(list(claim_level = "hypothesis"))
+    named <- sclet:::sclet_ai_audit_result_claims(sce, list(
+        findings = list(list(claim_level = "hypothesis",
+            statement = "as ev:a records, the result is stable"))
     ))
-    expect_false(hypothesis_multi$findings[[1L]]$evidence_refs_attached)
-    expect_equal(hypothesis_multi$status, "ok")
-    expect_equal(hypothesis_multi$findings[[1L]]$claim_level, "hypothesis")
+    expect_true(named$findings[[1L]]$evidence_refs_attached)
+    expect_equal(named$findings[[1L]]$attachment_rule, "prose_named_unique")
+    expect_equal(named$findings[[1L]]$claim_level, "associated")
+    expect_equal(named$findings[[1L]]$status, "raised")
 })
 
 test_that("a consistent_with finding with no evidence_refs lands at hypothesis as a downgrade", {
@@ -144,34 +147,39 @@ test_that("a consistent_with finding with no evidence_refs lands at hypothesis a
     # is a `downgraded` (the derived level is `hypothesis` -- the correct
     # floor for a finding that asserts nothing), not a hard failure. The
     # old `overclaimed` + `"cites no evidence_refs"` problem string is no
-    # longer emitted; the per-entry `status = "downgraded"` carries it.
+    # longer emitted; the per-entry `status = "corrected"` carries it.
     expect_false(audit$findings[[1L]]$evidence_refs_attached)
-    expect_equal(audit$status, "downgraded")
+    expect_equal(audit$status, "corrected")
     expect_equal(audit$findings[[1L]]$claim_level, "hypothesis")
     expect_equal(audit$findings[[1L]]$requested_claim_level, "consistent_with")
     expect_equal(audit$findings[[1L]]$ceiling_status, "no_refs")
-    expect_equal(audit$findings[[1L]]$status, "downgraded")
+    expect_equal(audit$findings[[1L]]$status, "corrected")
 })
 
-test_that("authorship raises a no-ref finding to a sole node's level instead of the floor", {
-    # The complement of the test above, and the behaviour
-    # `.dev/spec-ai-evidence-authorship.md` exists to produce: when the engine
-    # can attach exactly one node, the request is raised to that node's own
-    # level rather than dropped to the floor.
+test_that("authorship lifts a FLOOR request that names the sole node", {
+    # v2 replacement for the v1 "attach any cite-nothing finding" behaviour,
+    # which was measured attaching evidence to findings that assert evidence is
+    # ABSENT (`.dev/analysis-authorship-attachment-risk.md`). Now the lift
+    # happens only when the finding's prose names the node, and only for a
+    # request at the floor; a `consistent_with` request that names the node is
+    # CLAMPED down to the ceiling instead.
     sce <- sclet_ai_claim_test_object()
     sce <- sclet_ai_claim_test_node(sce, "ev:a", source = "srcA", claim = "associated")
-    audit <- sclet:::sclet_ai_audit_result_claims(sce, list(
-        findings = list(list(claim_level = "consistent_with"))
+    floor_audit <- sclet:::sclet_ai_audit_result_claims(sce, list(
+        findings = list(list(claim_level = "hypothesis",
+            statement = "ev:a corroborates the clustering"))
     ))
-    expect_true(audit$findings[[1L]]$evidence_refs_attached)
-    expect_equal(audit$findings[[1L]]$attachment_rule, "sole_evidence_node")
-    expect_equal(audit$findings[[1L]]$claim_level, "associated")
-    # The ceiling reports "downgraded" because the REQUEST (consistent_with)
-    # sits above what one node can carry (associated). The point of authorship
-    # is that the finding is raised off the floor to that ceiling rather than
-    # dropped to `hypothesis` for want of a reference.
-    expect_equal(audit$findings[[1L]]$ceiling_status, "downgraded")
-    expect_equal(audit$findings[[1L]]$allowed_claim_level, "associated")
+    expect_true(floor_audit$findings[[1L]]$evidence_refs_attached)
+    expect_equal(floor_audit$findings[[1L]]$attachment_rule, "prose_named_unique")
+    expect_equal(floor_audit$findings[[1L]]$claim_level, "associated")
+    expect_equal(floor_audit$findings[[1L]]$status, "raised")
+    # The v1 behaviour is gone: cite-nothing AND name-nothing keeps the floor
+    # even on a one-node object.
+    silent <- sclet:::sclet_ai_audit_result_claims(sce, list(
+        findings = list(list(claim_level = "hypothesis"))
+    ))
+    expect_false(silent$findings[[1L]]$evidence_refs_attached)
+    expect_equal(silent$findings[[1L]]$claim_level, "hypothesis")
 })
 
 test_that("record_claims auditing refuses to write an over-claimed result to the ledger", {
@@ -245,8 +253,8 @@ test_that("a finding citing an unknown evidence ref is reported, not crashed on"
     # a `downgraded` (correction) rather than a hard failure. The audit
     # lands the finding at `hypothesis` and surfaces the unsupported reason
     # via `ceiling_reasons`. The audit must still not crash on a stale
-    # ref -- that is the property this test guards.
-    expect_equal(audit$status, "downgraded")
+    # ref -- that is the property this test guards. v2 vocabulary: corrected.
+    expect_equal(audit$status, "corrected")
     expect_equal(audit$findings[[1L]]$claim_level, "hypothesis")
     expect_equal(audit$findings[[1L]]$allowed_claim_level, "hypothesis")
     expect_equal(audit$findings[[1L]]$ceiling_status, "unsupported")
