@@ -329,6 +329,22 @@ and the real model re-opened: requests BELOW the ceiling are raised to it, so
 a finding that self-reports `observed` for a structural fact gets recorded at
 `associated`. See section 9 of the authorship spec.
 
+**And that question is now closed, against this spec's §4a step 4.** v2
+(`.dev/spec-ai-evidence-authorship-v2.md`, sclet `8960962`) changed the
+derivation to CLAMP a request to the ceiling and raise it only from the floor:
+`observed` is recorded at `observed` (rank-1 "I looked at this" is no longer
+overwritten into a rank-3 relational claim), while `hypothesis` still takes the
+ceiling so attachment is not inert. This is the faithful reading of §4a step 4,
+which prescribed `min(requested, ceiling)`; the implementation had over-corrected
+to always-ceiling on the strength of the 114/114-`hypothesis` measurement, and
+the 2026-10-13 batch retired that premise (the model now volunteers
+`observed`/`measured`). The audit also now reports direction
+(`ok`/`raised`/`corrected`) instead of labelling every move `downgraded`. So
+neither the zero-movement problem (route (a)'s attachment survives, with the
+floor exempt) nor the engine-manufactured over-claim (the raise is confined to
+the floor) is live; the decision memo `.dev/analysis-claim-raise-vs-clamp.md`
+records the enumeration.
+
 ## 5. Risk
 
 The main risk is **over-correcting in the other direction**: if the engine
