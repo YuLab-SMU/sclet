@@ -705,6 +705,16 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 ),
                 prerequisites = function(object, params, planned = NULL) {
                     reduction <- params$reduction %||% planned$active_reduction %||% DefaultReduction(object)
+                    # Scalar guard first: `${step_N.output.<field>}` naming a
+                    # multi-valued schema key resolves (after projection) to a
+                    # vector, and `!reduction %in% available` on length > 1
+                    # raises a bare condition error instead of returning a
+                    # validation message. Found 2026-10-14 via the integration
+                    # benchmark (a plan referencing run_integration's
+                    # three-value allowed_reductions).
+                    if (length(reduction) > 1L || (!is.null(reduction) && !is.character(reduction))) {
+                        return("reduction must be a single reduction name")
+                    }
                     available <- planned$reductions %||% SingleCellExperiment::reducedDimNames(object)
                     if (is.null(reduction) || !reduction %in% available) {
                         return("a valid source reduction is required; run run_pca first")
@@ -742,6 +752,13 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 ),
                 prerequisites = function(object, params, planned = NULL) {
                     reduction <- params$reduction %||% planned$active_reduction %||% DefaultReduction(object) %||% "PCA"
+                    # Same scalar guard as run_umap: a projected multi-valued
+                    # reference arrives as a vector and made the %in% test
+                    # below raise "condition has length > 1" (measured
+                    # 2026-10-14 via the integration benchmark).
+                    if (length(reduction) > 1L || !is.character(reduction)) {
+                        return("reduction must be a single reduction name")
+                    }
                     available <- planned$reductions %||% SingleCellExperiment::reducedDimNames(object)
                     if (!reduction %in% available) {
                         return(paste0("reduction is not available: ", reduction))

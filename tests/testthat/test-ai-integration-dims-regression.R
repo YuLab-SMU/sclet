@@ -164,3 +164,52 @@ test_that("a plan referencing the planned integration reduction validates and ex
     expect_identical(ex$status, "completed")
     expect_true("corrected" %in% SingleCellExperiment::reducedDimNames(ex$object))
 })
+
+test_that("a projected multi-valued reduction reference gives a message, not a crash", {
+    # The 4th layer, found in the live L5 record (remaining_errors = "the
+    # condition has length > 1"): a plan referencing run_integration's
+    # THREE-valued allowed_reductions projects to a length-3 vector, and the
+    # unguarded `%in%` test then raised inside prerequisites. Validation's
+    # tryCatch had turned the raise into the opaque
+    # "prerequisite check failed: <conditionMessage>"; the guard converts it
+    # back into an actionable "prerequisites not met" message the repair loop
+    # can act on (the shape sclet_ai_selector_problem set for features).
+    sce <- integration_regression_object()
+    reg <- AIDefaultExecutionRegistry(sce, include = "all")
+    plan <- new_sclet_ai_plan(task = "vec", actions = two_batch_pipeline(list(
+        method = "fastMNN", batch = "batch")))
+    # simulate what projection hands to prerequisites AFTER resolving
+    # ${s2.output.allowed_reductions}: a length-3 character
+    projected <- c("corrected", "HARMONY", "scVI")
+    for (nm in c("find_neighbors", "run_umap")) {
+        prereq <- reg[[nm]]$prerequisites
+        out <- tryCatch(
+            prereq(sce,
+                params <- list(reduction = projected, dims = as.integer(1:5),
+                    k = 10L),
+                planned = list(reductions = c("PCA", projected),
+                    reduction_dims = list(PCA = 30L), assays = "logcounts")),
+            error = function(e) e)
+        expect_true(is.character(out) && !inherits(out, "error"),
+            info = nm)
+        expect_true(grepl("single reduction", out), info = nm)
+    }
+    # and the plan-level path through ValidateAIPlan still produces a
+    # "prerequisites not met" entry rather than a "prerequisite check failed"
+    # crash entry.
+    plan2 <- new_sclet_ai_plan(task = "vec2", actions = list(
+        list(id = "s1", action = "normalize_data", params = list(), depends_on = character()),
+        list(id = "s2", action = "find_variable_features",
+            params = list(nfeatures = 30L), depends_on = "s1"),
+        list(id = "s2b", action = "run_integration",
+            params = list(method = "fastMNN", batch = "batch"), depends_on = "s2"),
+        list(id = "s3", action = "find_neighbors",
+            params = list(reduction = "${s2b.output.allowed_reductions}",
+                dims = as.integer(1:5), k = 10L), depends_on = "s2b")))
+    v <- ValidateAIPlan(plan2, object = ConfirmAIDesignSemantics(
+        sce, design = list(batch = "batch")), registry = reg, strict = FALSE)
+    expect_false(v$valid)
+    msg <- paste(v$errors, collapse = " | ")
+    expect_true(grepl("prerequisites not met", msg, fixed = TRUE))
+    expect_false(grepl("prerequisite check failed", msg, fixed = TRUE))
+})
