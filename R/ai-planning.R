@@ -174,6 +174,18 @@ sclet_ai_apply_planned_output <- function(planned, descriptor, params) {
     schema <- descriptor$output_schema %||% list()
     planned$assays <- unique(c(planned$assays, as.character(schema$required_assays %||% character())))
     planned$reductions <- unique(c(planned$reductions, as.character(schema$required_reductions %||% character())))
+    # `allowed_reductions` lists names the step MAY register (method-dependent
+    # -- run_integration registers corrected, HARMONY or the scVI reduction).
+    # Planning must know those exist: measured 2026-10-14,
+    # `find_neighbors(reduction = "HARMONY")` after a `run_integration` step
+    # failed validation with "reduction is not available: HARMONY" although
+    # execution really does register it -- nothing read `allowed_reductions`.
+    # This is deferred projection, the same treatment as `planned$active_ident`:
+    # validation accepts the promise because the step declares it, and the
+    # execution-time contract (the prerequisite's real reducedDimNames check)
+    # remains the authority if the plan picked a method whose reduction is
+    # absent.
+    planned$reductions <- unique(c(planned$reductions, as.character(schema$allowed_reductions %||% character())))
     planned$graphs <- unique(c(planned$graphs, as.character(schema$required_graphs %||% character())))
     if (isTRUE(schema$required_hvg)) planned$hvg <- TRUE
     if (length(schema$active_assay)) planned$active_assay <- schema$active_assay

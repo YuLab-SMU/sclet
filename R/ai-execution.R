@@ -747,9 +747,26 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         return(paste0("reduction is not available: ", reduction))
                     }
                     dims <- if (is.null(params$dims)) NULL else sclet_ai_vector_param(params$dims, "integer")
-                    max_dim <- planned$reduction_dims[[reduction]] %||%
-                        ncol(SingleCellExperiment::reducedDim(object, reduction))
-                    if (is.null(dims) || any(dims < 1L) || any(dims > max_dim)) {
+                    # When the reduction is only PLANNED (registered by an
+                    # upstream step, e.g. HARMONY from run_integration), the
+                    # object does not carry it yet and neither does
+                    # `planned$reduction_dims` -- and `[[` on a missing name
+                    # THROWS rather than returning NULL, so even the `%||%`
+                    # fallback could not save it (the `invalid subscript 'type'`
+                    # error was from inside reducedDim after the first throw was
+                    # bypassed; both layers must be guarded). The third layer of
+                    # the same deferred-projection gap found 2026-10-14. Skip
+                    # the upper bound when the dimension count is not knowable
+                    # at planning time; execution stays the authority.
+                    rd <- planned$reduction_dims
+                    max_dim <- if (!is.null(rd) && reduction %in% names(rd)) {
+                        rd[[reduction]]
+                    } else {
+                        tryCatch(ncol(SingleCellExperiment::reducedDim(object, reduction)),
+                            error = function(e) NULL)
+                    }
+                    if (is.null(dims) || any(dims < 1L) ||
+                        (!is.null(max_dim) && any(dims > max_dim))) {
                         return("dims must be within the selected reduction")
                     }
                     TRUE
@@ -874,7 +891,11 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 requires_confirmation = TRUE,
                 output_schema = list(
                     required_states = list(integration = "any_qualified"),
-                    allowed_reductions = c("HARMONY", "scVI")
+                    # Measured per method on this machine (2026-10-14, offline):
+                    # fastMNN registers "corrected", Harmony registers
+                    # "HARMONY". scVI (unused here) registers "scVI". fastMNN
+                    # ignores the `name` parameter and keeps "corrected".
+                    allowed_reductions = c("corrected", "HARMONY", "scVI")
                 ),
                 mutates_object = TRUE,
                 allowed_state_types = c("integration", "reduction"),
