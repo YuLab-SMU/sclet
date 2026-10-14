@@ -7,7 +7,7 @@
 - **当前基础**：`GetAnalysisLedger()`、结构化 `sclet_ai_result`、`AIPlanAnalysis()`、`ValidateAIPlan()`、`ExecuteAIPlan()`、`RunAIPlan()`、`RunAIAnalysis()`、`AskAI()` 和 native action registry 已实现
 - **不在本 Spec 内**：外部 agent、多 agent 协作、任意 R 代码执行、把完整表达矩阵直接发送给模型
 - **重要状态说明**：本文是高级 AI 分析架构提案与分阶段路线图。`GetAIProfile()`、第一批 deterministic diagnostics、`AIInvestigate()`、`RecordAIEvidence()`、`ValidateAIEvidenceRefs()`、payload sanitizer、只读 `CompareAIAnalyses()`、`RunIntegrationRoutes()`（真实多路线执行 + baseline/metrics 登记）、`AIDefaultExecutionRegistry` integration/annotation/rare_cell/trajectory/velocity group、`ConfirmAIDesignSemantics()`（骨架指纹 + 逐列值签名双重防伪的 design 确认闸门）、`check_annotation_readiness()`、`run_de_test`/`run_annotation`（reference 显式必填、evidence claim_level 限定为 associated/consistent_with、不覆盖 Idents、不含逐细胞原始值）、`sclet_ai_evidence_independence()`、默认 `enforce_privacy=TRUE` 的 `sclet_ai_call` UX、`dependency_group` hash、scope 越界与 cross-kind 互引拒绝、P0.1 plan success criteria / candidate routes contract（`new_sclet_ai_plan()` 的 `assumptions`/`candidate_routes`/`selected_route`/`success_criteria`/`risks` 五个可选字段、`ValidateAIPlan()` 的 criterion 可解析性/完整性/路由一致性检查、`ExecuteAIPlan()` 的 `success_assessment` 只读评估）、P2 plan stop conditions / data-scale sanity / human confirmations（`new_sclet_ai_plan()` 的 `stop_conditions` 第六个可选字段、`ValidateAIPlan()` 的 `stop_condition_unresolvable`/`stop_condition_incomplete`/`data_scale_incompatible` 检查与 `human_confirmations` 只读派生、`ExecuteAIPlan()` dry-run 的 `success_criteria_preview`/`stop_conditions_preview`/`human_confirmations` 预览字段）、P3 evidence-linked report（`RecordAIResult()` 的 evidence-reference 可解析性检查——对所有 `claim_level` 的 finding 都检查其 `evidence_refs` 能否解析，受同一个 `audit_claims` 参数门控；`summary$cited_user_decisions` 字段——记录 finding 实际引用的 `user_decision` evidence ids；`RunAIAnalysis()` 的 `report$success_assessment` 与 opt-in `interpret = FALSE` 参数——当 `interpret = TRUE` 且执行完成时调用 `AIExplainAnalysis()` 并将结果存入 `report$interpretation`）、P5 velocity 三个切片（`check_velocity_readiness()`、`run_velocity`、`sclet_ai_record_velocity_evidence()`、`compare_trajectory_velocity_evidence()` 以及对应的 execution-robustness / interpret / privacy 回归覆盖）均已实现；T1–T6（真实 integration routes、evidence graph integration、strict privacy enforcement、文档同步）已实现；仍未实现的是 CellRank / fate、spatial / multimodal action catalog、trajectory 多 root 比较、plan 层 claim ceiling 接入，以及多 agent 协作。
-- **trajectory / velocity 已实现范围**：trajectory 第一批已实现：`check_trajectory_readiness()`（只回答“cluster + 可用 embedding 是否齐备”，**不输出任何起点/root 建议**）、只读的 `summarize_trajectory_cluster_order()`（只描述 cluster 在嵌入维度上的分布，`root_suggested` 恒为 `FALSE`）、`AIDefaultExecutionRegistry` 的 `trajectory` group（`run_trajectory`，包装 `RunSlingshot()`，`group` 与 `start_cluster` 均必填，缺失/NULL/空/不存在的 root 分别被 `start_cluster_missing`/`start_cluster_unknown` 拒绝）、以及 `claim_level = "consistent_with"` 的聚合 evidence（只含 lineage 数量、pseudotime 分位数与匿名化 `cluster_N` 起点编码，不含逐细胞向量，`pseudotime_is_absolute_time = FALSE`）。velocity 也已实现：`check_velocity_readiness()`、`run_velocity`、`sclet_ai_record_velocity_evidence()`，以及只读的 `compare_trajectory_velocity_evidence()`；对应 execution robustness / interpret / privacy 回归测试均已补齐。**尚未覆盖**：`compare_trajectory_roots` 多 root 比较、`run_fate_analysis`、CellRank / fate、spatial 和 multimodal 的执行 action（需要额外后端或更复杂依赖，留给后续批次）。
+- **trajectory / velocity 已实现范围**：trajectory 第一批已实现：`check_trajectory_readiness()`（只回答“cluster + 可用 embedding 是否齐备”，**不输出任何起点/root 建议**）、只读的 `summarize_trajectory_cluster_order()`（只描述 cluster 在嵌入维度上的分布，`root_suggested` 恒为 `FALSE`）、`AIDefaultExecutionRegistry` 的 `trajectory` group（`run_trajectory`，包装 `RunSlingshot()`，`group` 与 `start_cluster` 均必填，缺失/NULL/空/不存在的 root 分别被 `start_cluster_missing`/`start_cluster_unknown` 拒绝）、`claim_level = "consistent_with"` 的聚合 evidence（只含 lineage 数量、pseudotime 分位数与匿名化 `cluster_N` 起点编码，不含逐细胞向量，`pseudotime_is_absolute_time = FALSE`），以及只读的 `compare_trajectory_roots()`（跨多个已完成 trajectory run 比较匿名化 root hypothesis、lineage 数量与相对 spread，不自动选根、不读逐细胞 pseudotime）。velocity 也已实现：`check_velocity_readiness()`、`run_velocity`、`sclet_ai_record_velocity_evidence()`，以及只读的 `compare_trajectory_velocity_evidence()`；对应 execution robustness / interpret / privacy 回归测试均已补齐。**尚未覆盖**：`run_fate_analysis`、CellRank / fate、spatial 和 multimodal 的执行 action（需要额外后端或更复杂依赖，留给后续批次）。
 - **rare-cell / doublet 证据链已实现范围**：`check_rare_cell_readiness()`（cluster 分配、PCA reduction、doublet 证据缺失的显式说明）、只聚合不下结论的 `summarize_small_cluster_evidence()`（QC / doublet / marker / sample replication 四类独立信号 + 计数；**每一类只有对该群体“有信息量”时才计数**：marker 需按群体归因并通过 `pvalue_cutoff`/`logfc_threshold`/`min_up_genes`，QC 列需有变化且群体内外都被观测，doublet 需覆盖两侧，sample replication 需至少两个样本标签）、`AIDefaultExecutionRegistry` 的 `rare_cell` group（`run_doublet_detection`、`run_rare_cell_detection`）、按独立信号数量分级的 evidence `claim_level`（0 个信号不登记 evidence、1 个信号降级为 `associated` 并标 `low_confidence = TRUE`、≥2 个信号才 `consistent_with`；evidence 登记失败改为通过非 evidence 的 note 通道报告，不再静默吞掉），以及“只标注不删除”的红线。**尚未覆盖**：ambient RNA（decontX）作为独立信号本轮刻意不纳入；`compare_rare_cell_evidence` 已实现（按同一对象内的记录 population label 做只读 recurrence summary，不声称细胞级重叠或生物学身份）；删除/合并稀有群体的独立 action 明确不在本轮范围内。文中“建议”“拟支持”“应”表示未来 contract；“当前”只指本文件列出的已实现能力。
 
 ## P0. API 职责映射（路线冻结，2026-10-07）
@@ -303,12 +303,10 @@ check_integration_readiness(sce, design = list(...))
 当前仍未实现、仅在本 Spec 中提出的 API 包括：
 
 ```r
-compare_trajectory_roots()
-run_velocity()
 run_fate_analysis()
 ```
 
-`CompareAIAnalyses()`、`RunBasicWorkflow()`、`compare_rare_cell_evidence()` 已实现；`AIInvestigate()` 是有意保持只读的 facade，不是未完成的执行 stub。
+`CompareAIAnalyses()`、`RunBasicWorkflow()`、`compare_rare_cell_evidence()`、`compare_trajectory_roots()` 与 `run_velocity()` 已实现；`AIInvestigate()` 是有意保持只读的 facade，不是未完成的执行 stub。
 
 当前包中已有部分高级底层算法，例如 integration、marker/DE、rare-cell、trajectory、velocity、spatial 和 multimodal 相关函数。后续重点不是重复实现这些算法，而是为它们补充 AI-native adapter、设计语义校验、确定性诊断、结果比较、evidence refs 和 provenance contract。
 
@@ -656,7 +654,7 @@ compare_rare_cell_evidence     # 已实现（只读 recurrence summary，不声�
 ```text
 check_trajectory_inputs            # check_trajectory_readiness()（已实现）
 run_trajectory                     # run_trajectory（已实现，start_cluster 必填）
-compare_trajectory_roots           # 尚未实现
+compare_trajectory_roots           # 已实现（只读、多 root 假设比较，不自动选根）
 run_velocity                       # 已实现（需 spliced/unspliced）
 compare_velocity_with_trajectory   # 已实现（compare_trajectory_velocity_evidence()）
 run_fate_analysis                  # 尚未实现（依赖 velocity 输出）
@@ -1331,7 +1329,7 @@ identical(Sys.getenv("SCLET_RUN_ONLINE_TESTS"), "true")
 
 - 更完整的 sample / batch / condition 语义确认交互式 UX（`sclet_ai_format_clarification()` 结构化呈现、`sclet_ai_record_clarification_response()` 以 `user_decision` 留痕、`ResolveAIClarifications()` 交互式问答闭环均已实现；尚未实现的只是非终端形态的 UI，例如 Shiny / 网页端确认界面）；
 - rare-cell / doublet 剩余项（第一批与只读多路线 recurrence summary 已实现，见上）：decontX ambient RNA 作为独立信号，以及任何删除/合并稀有群体的 action（明确不在当前范围）；
-- trajectory 剩余项（trajectory readiness + root-confirmed 执行、velocity readiness/execution/evidence/cross-check 均已实现，见上）：`compare_trajectory_roots` 多 root 比较、`run_fate_analysis`（依赖 velocity 输出）、以及 CellRank / fate 的 action contract；
+- trajectory 剩余项（trajectory readiness + root-confirmed 执行、velocity readiness/execution/evidence/cross-check、多 root 只读比较均已实现，见上）：`run_fate_analysis`（依赖 velocity 输出），以及 CellRank / fate 的 action contract；
 - spatial 和 multimodal action catalog；
 - hypothesis、success criteria 的 plan-level 执行与验证；
 - advanced mode 的用户体验；
@@ -1373,9 +1371,8 @@ P0–P1 与 Phase C 的首批任务均已完成（含只读骨架 + 真实执行
 下一批开发建议转入 Phase D / P5 之后的剩余能力：
 
 9. **velocity / CellRank / fate 扩展**：在已完成的 `check_velocity_readiness()`、`run_velocity`、evidence 与 cross-check 基础上，补 `run_fate_analysis` 与更完整的 fate / CellRank contract。
-10. **trajectory 多 root 比较**：补 `compare_trajectory_roots`，把“多个生物学起点假设”纳入只读比较层，而不是自动选根。
-11. **spatial / multimodal action catalog**：为已有底层算法补齐 AI-native adapter、readiness、证据与 provenance contract。
-12. **plan-level claim ceiling 与 advanced-mode UX**：把 ceiling 预校验接入 plan / investigate 层，并补齐高级模式的人机交互体验。
+10. **spatial / multimodal action catalog**：为已有底层算法补齐 AI-native adapter、readiness、证据与 provenance contract。
+11. **plan-level claim ceiling 与 advanced-mode UX**：把 ceiling 预校验接入 plan / investigate 层，并补齐高级模式的人机交互体验。
 
 此外已提供 `RunBasicWorkflow()` 基础 facade、结构化 clarification UX（`sclet_ai_format_clarification()` 呈现、`sclet_ai_record_clarification_response()` 以 `user_decision` evidence 留痕、`ResolveAIClarifications()` 交互闭环），以及跨证据 claim ceiling（`sclet_ai_claim_ceiling()`）。
 

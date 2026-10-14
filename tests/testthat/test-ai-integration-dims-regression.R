@@ -79,11 +79,14 @@ test_that("a plan carrying dims still executes (the parameter is inert, not fata
 })
 
 test_that("the handler does not forward dims to RunIntegration", {
-    # Pin the mechanism, not just the outcome: the forwarding line was the bug.
-    src <- paste(readLines("R/ai-execution.R"), collapse = "\n")
-    handler <- substr(src,
-        regexpr("run_integration = AIAction", src),
-        regexpr("run_integration = AIAction", src) + 900L)
+    # Pin the mechanism, not just the outcome: inspect the registered handler
+    # body rather than reading a source file path that is unavailable during
+    # installed-package checks.
+    reg <- AIDefaultExecutionRegistry(
+        SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 3L, 3L))),
+        include = "all"
+    )
+    handler <- paste(deparse(body(reg$run_integration$handler)), collapse = "\n")
     expect_false(grepl("dims = dims", handler, fixed = TRUE))
     # and RunIntegration genuinely has no such formal argument
     fmls <- names(formals(sclet::RunIntegration))
