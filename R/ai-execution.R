@@ -806,6 +806,8 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     method <- match.arg(params$method %||% "fastMNN", c("fastMNN", "Harmony", "scVI"))
                     batch <- params$batch
                     features <- sclet_ai_gene_selector(object, params$features, arg = "features")
+                    # Parsed and validated (it is in input_schema) but not
+                    # forwarded -- see the note at the RunIntegration() call.
                     dims <- if (!is.null(params$dims)) sclet_ai_vector_param(params$dims, "integer") else NULL
                     RunIntegration(
                         object,
@@ -814,8 +816,17 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         features = features,
                         layer = params$layer %||% NULL,
                         reduction = params$reduction %||% NULL,
-                        name = params$name %||% tolower(method),
-                        dims = dims
+                        name = params$name %||% tolower(method)
+                        # `dims` is deliberately NOT forwarded:
+                        # RunIntegration() has no such argument and chooses the
+                        # reduction itself, so forwarding it raised
+                        # `unused argument (dims = ...)` on every call -- found
+                        # offline via the integration benchmark dry run, where
+                        # the action failed before any provider was involved.
+                        # The parameter still validates against `input_schema`,
+                        # so a plan may carry it; it is simply inert here.
+                        # Whether it should instead select the reduction
+                        # dimensions is a separate decision.
                     )
                 },
                 input_schema = list(
