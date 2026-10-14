@@ -226,3 +226,29 @@ repair converges on a valid referencing plan is a measurement for a larger
 repetition sample (this is 1 attempt of it), and the plan-repair loop's
 behaviour on malformed references is now a known open thread for the
 `spec-ai-plan-repair.md` owners.
+
+## 9. Online update (2026-10-14, real provider)
+
+`execute_plan` re-run x5 under a degraded environment (3 recorded, 2 lost to
+provider-side hangs -- see sclet-benchmark-ai `docs/action-coverage.md`,
+2026-10-14 finding). The decision-relevant data from the three records:
+
+- The model **writes the correct reference syntax after one repair round**:
+  lines 23/24 show `plan_steps` with
+  `features=${step_2.output.variable_features}` and
+  `subset_row=${step_2.output.variable_features}` (`n_reference_steps = 2`),
+  after first attempts used `${step_2.variable_features}`. The teach-on-rejection
+  error text is demonstrably read and applied.
+- But both repaired plans stayed `invalid_plan` with 1 residual error that no
+  field recorded -- a benchmark gap now closed (`remaining_errors`,
+  sclet-benchmark-ai `31b48fa`). What the residual was remains unknown.
+- The one executed plan (line 22) omitted `features` entirely
+  (`scale_used_hvg_subset = FALSE`), so **the end-to-end resolved-promise
+  execution on live model output is STILL unmeasured**, after 6 executed
+  attempts across two batches. The offline end-to-end (test-ai-hvg-reference)
+  remains the only proof of criterion 1.
+
+Net: the capability-gap half of the claim is confirmed on live models (the
+model can and does name the field correctly); the usage-completion half is
+still pending, now blocked by an unrecorded residual error, whose recorder
+exists as of `31b48fa` for the next batch.

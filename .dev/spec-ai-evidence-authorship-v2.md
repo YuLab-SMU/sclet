@@ -1,6 +1,6 @@
 # Spec v2: attach only what the finding names, and clamp instead of overwrite
 
-Status: ready for implementation
+Status: implemented (8960962) and measured online (2026-10-14, section 7)
 Baseline: `cd1427a` (all `test-ai-*.R` pass; `make check` 0/0/0)
 Supersedes: the attachment rule and the derivation rule of
 `.dev/spec-ai-evidence-authorship.md` (v1) and `.dev/spec-ai-derived-claim-levels.md` §4a step 4
@@ -173,3 +173,67 @@ entirely and the ledger goes back to `hypothesis` everywhere, indistinguishable
 from a regression in the derivation. Mitigation is reporting: `n_raised` and the
 `attachment_rule` counts make "0 attempts" visible, and the benchmark records
 both. The opposite risk -- over-attaching -- is what v1 had, and it is measured.
+
+## 7. Online measurement (2026-10-14, real provider) -- the spec's open question, answered as "yes, but rarely"
+
+`sclet-benchmark-ai` ran `R/actions/authorship_multinode.R` once on pbmc3k
+(`deepseek-chat`): {one_node, multi_node} x {qc_review, status}. The
+`multi_node` condition was reached with no provider call -- a second NAMED
+analysis step on the same object (`ev:findallmarkers` + `ev:detest_4_vs_5`,
+`n_independent_groups = 2`), confirming the census rule offline. Records read
+back line by line by the Lead, 39 usable findings across three measured rows:
+
+| condition / task | findings | attached | model_cited | declined (no_prose_reference) | **attached_without_node_mention** | floor_held |
+|---|---|---|---|---|---|---|
+| one_node / qc_review | 6 | **1** | 1 | 4 | **0** | TRUE |
+| one_node / status | 13 | 0 | 4 | 9 | **0** | TRUE |
+| multi_node / status | 20 | 0 | 4 | 16 | **0** | TRUE |
+
+(The fourth row, multi_node/qc_review, has no measurement: the provider returned
+findings with `severity` values off the schema's enum and
+`validate_sclet_ai_result()` refused the whole result -- `ok = FALSE`, one billed
+call spent, zero records. That is the apparatus refusing rather than laundering,
+and it is recorded, not smoothed over.)
+
+**The adjudication question section 5 left open -- does a real model name node
+ids in prose? -- answers YES, so v2 is not a permanent floor.** The single
+attached finding named `ev:findallmarkers` in its `statement` while leaving
+`evidence_refs` empty, and the engine completed the citation
+(`rule = prose_named_unique`, `hypothesis -> associated`,
+`entry_status = raised`). Independently cross-checked by the harness's own
+regex-free matcher.
+
+**But the yield is 1 of 39 (about 2.5%), below the 10% bound computed offline.**
+The reason is worth recording because it changes how the feature should be
+talked about: `model_cited` is 4, 1 and 4 per row. The model now frequently
+fills the structured field directly (the `3cd9af6` schema + instruction work),
+which leaves transcription nothing to do. The 10% offline figure came from
+records made before that change. So v2's live value is small and correctly
+sized: it catches the residue, not the main flow.
+
+**Both new rules did their half, and the split is visible in the data.** On the
+two-node `status` row, requests were `observed` x18 + `associated` x2; recorded
+were `observed` x2 + `hypothesis` x16 + `associated` x2 (`entry_status_counts =
+corrected:16, ok:4`). The 16 `corrected` rows are all `no_prose_reference`
+declines -- the ATTACHMENT rule refusing to ground eighteen structural
+self-reports, which under v1 on a one-node object would have been raised to
+`associated` wholesale (the section-10 defect class). The 2 `ok` rows recording
+`observed` unchanged are model-cited findings whose CLAMP held at their own
+request rather than taking the `associated` ceiling -- under v1's
+always-ceiling those two would also have been inflated. `floor_held = TRUE` on
+every row and `n_attached_without_node_mention = 0` throughout: the C5 class is
+confirmed closed on live output.
+
+**Criterion 3's selection path is still unexercised.** On the multi-node row the
+two findings that named exactly one id had *already cited* it structurally
+(the rule counts sum to 20 with `model_cited = 4`, so no declined finding named
+precisely one node). So "two nodes, prose names one, engine selects it" remains
+verified only offline (spec section 7's hand-built object). Reaching it live
+needs a model that names an id it did not cite, on a two-node object -- a
+specific, still-unobserved combination.
+
+**Section 5's fallback is not triggered.** Route (b) -- treat `claim_level` as
+uninformative for interpretive reviews -- was contingent on the model never
+naming ids. It does, in prose and in the field, so v2 stays as specified; the
+honest revision is that the feature is a *residue catcher* rather than the main
+citation mechanism, and that the structured field is where the real traffic is.

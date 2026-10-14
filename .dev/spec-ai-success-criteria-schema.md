@@ -134,3 +134,13 @@ validator would have rejected anyway; the risk is a provider refusing a shape
 it previously accepted. Mitigation is the same as `3cd9af6`: all fields
 nullable, additional properties retained, and the full existing suite plus the
 structured-summary mock tests run before landing.
+
+## 6. Online rates, 2026-10-14
+
+Three fresh `execute_plan` records on the same bare goal (two more lost to an
+environment window; honest denominator 3): `n_success_criteria` = **4, 7, 5** --
+criteria now on **3/3 runs** against the historical **0/16**. Still small-n,
+still on a provider-healthy sample only, but the direction that section 5 left
+as "a signal, not a rate" is now a 3-of-3 rate on three attempts. The one
+executed plan (4 criteria) completed 7/7 steps with `n_missing_artifacts = 0`,
+consistent with the criteria machinery not interfering with execution.
