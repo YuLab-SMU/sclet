@@ -249,6 +249,25 @@ provider-side hangs -- see sclet-benchmark-ai `docs/action-coverage.md`,
   remains the only proof of criterion 1.
 
 Net: the capability-gap half of the claim is confirmed on live models (the
-model can and does name the field correctly); the usage-completion half is
-still pending, now blocked by an unrecorded residual error, whose recorder
-exists as of `31b48fa` for the next batch.
+model can and does name the field correctly); the usage-completion half was
+still pending, blocked by an unrecorded residual error (recorder added in
+`31b48fa`).
+
+**Closed 2026-10-14, second batch (provider healthy).** End-to-end acceptance
+criterion 1 is satisfied on a real model's own output, via `run_pca`:
+`execute_plan.jsonl` line 25 shows the first attempt writing
+`${step_2.variable_features}`, the malformed error teaching the syntax, and the
+repaired plan **executing** with
+`run_pca(subset_row = ${step_2.output.variable_features})` — 7/7 steps
+completed, `n_missing_artifacts = 0`, `validation_error_counts = 3,0`. The
+promise is made real by the model and resolved by the engine, outside of any
+test harness. Caveats, stated as they are: that plan omitted `scale_data`
+(normalize -> HVG -> PCA -> UMAP -> neighbors -> clusters -> DE), so the
+specific "scaled layer restricted to the HVG set" state — `scale_used_hvg_subset
+= TRUE` — remains **unmeasured** on live output (the other two records in the
+batch show `FALSE`: the model uses the HVG set for PCA instead, or omits it);
+and the earlier `6,1` / `3,1` residual errors are still undiagnosed, because
+every repair in this batch converged (3,0 / 0,0 / 0,0) and `remaining_errors`
+stayed empty. Also from this batch: on the bare goal that historically emitted
+0 criteria in 16 runs, the model emitted 4/7/5 across yesterday and 7/9/5 today
+(6/6 of the recent record).

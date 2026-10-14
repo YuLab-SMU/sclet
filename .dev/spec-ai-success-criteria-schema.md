@@ -137,10 +137,13 @@ structured-summary mock tests run before landing.
 
 ## 6. Online rates, 2026-10-14
 
-Three fresh `execute_plan` records on the same bare goal (two more lost to an
-environment window; honest denominator 3): `n_success_criteria` = **4, 7, 5** --
-criteria now on **3/3 runs** against the historical **0/16**. Still small-n,
-still on a provider-healthy sample only, but the direction that section 5 left
-as "a signal, not a rate" is now a 3-of-3 rate on three attempts. The one
-executed plan (4 criteria) completed 7/7 steps with `n_missing_artifacts = 0`,
-consistent with the criteria machinery not interfering with execution.
+Six fresh `execute_plan` records on the same bare goal across two batches
+(yesterday's 3, of which 2 more attempts were lost to a provider/environment
+window; today's 3, all healthy): `n_success_criteria` = **4, 7, 5, 7, 9, 5** --
+criteria on **6/6 runs** against the historical **0/16**. All three of today's
+plans executed to completion (7/7, 8/8, 8/8 steps, `n_missing_artifacts = 0`),
+so the criteria machinery is confirmed not to interfere with execution on live
+output either. Still one provider and one fixture, and the sample is
+convenience-sampled to healthy windows -- but the direction that section 5 left
+as "a signal, not a rate" is now a 6-of-6 rate, and the highest value observed
+(9) is above the whole historical executed range.
