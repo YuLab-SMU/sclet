@@ -1291,7 +1291,18 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     if (!is.character(reduction) || length(reduction) != 1L || !nzchar(reduction)) {
                         return("reduction_invalid: 'reduction' must be a single non-empty reduction name")
                     }
-                    available <- tryCatch(SingleCellExperiment::reducedDimNames(object), error = function(e) character())
+                    # planned$reductions first (deferred projection): a valid
+                    # plan runs run_pca in an earlier step and the reduction
+                    # only exists in the planned view at validation time.
+                    # Reading reducedDimNames() alone made any plan putting
+                    # run_rare_cell_detection after run_pca fail with
+                    # "reduction 'PCA' is not available" -- found offline by
+                    # the doublet/rare benchmark dry run 2026-10-14 before a
+                    # billed call, with nothing wrong in the plan.
+                    available <- unique(c(
+                        as.character(planned$reductions %||% character()),
+                        tryCatch(SingleCellExperiment::reducedDimNames(object),
+                            error = function(e) character())))
                     if (!reduction %in% available) {
                         return(paste0(
                             "reduction_missing: reduction '", reduction,
@@ -1401,7 +1412,18 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         ))
                     }
                     reduction <- params$reduction %||% "UMAP"
-                    available <- tryCatch(SingleCellExperiment::reducedDimNames(object), error = function(e) character())
+                    # Same deferred-projection treatment as
+                    # run_rare_cell_detection's prerequisite (both found the
+                    # same way): at validation time the reduction exists only
+                    # in planned$reductions. This trajectory branch is fixed by
+                    # the same pattern but NOT end-to-end measured in the
+                    # 2026-10-14 wave (its engine package monocle3 is not
+                    # installed here); run_doublet_rare_bench.R covers the rare
+                    # half.
+                    available <- unique(c(
+                        as.character(planned$reductions %||% character()),
+                        tryCatch(SingleCellExperiment::reducedDimNames(object),
+                            error = function(e) character())))
                     if (!reduction %in% available) {
                         return(paste0(
                             "reduction_missing: reduction '", reduction,
