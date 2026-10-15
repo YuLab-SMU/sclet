@@ -434,17 +434,16 @@ test_that("AIDefaultExecutionRegistry has trajectory group only when explicitly 
     expect_true("run_trajectory" %in% names(all_registry))
 })
 
-test_that("the trajectory registry contains no cellrank, fate, spatial, multimodal or regvelo execution actions", {
-    ## P5 velocity readiness slice intentionally adds run_velocity (see
-    ## .dev/spec-p5-velocity-readiness.md); this guard is narrowed to the
-    ## domains still explicitly paused by the roadmap (P5 recommended order:
-    ## velocity -> trajectory/velocity interpretation -> CellRank/fate ->
-    ## spatial -> multimodal).
+test_that("the full registry includes fate but still excludes paused spatial, multimodal and regvelo actions", {
+    ## P5/P6 slices intentionally add run_velocity and run_fate_analysis; this
+    ## guard now covers only the domains that remain explicitly paused by the
+    ## roadmap (spatial, multimodal, regvelo).
     sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 2L, 4L)))
     registry <- AIDefaultExecutionRegistry(sce, include = "all")
     expect_length(names(registry), length(unique(names(registry))))
     expect_true("run_velocity" %in% names(registry))
-    expect_false(any(grepl("cellrank|fate|spatial|multimodal|regvelo",
+    expect_true("run_fate_analysis" %in% names(registry))
+    expect_false(any(grepl("spatial|multimodal|regvelo",
         names(registry), ignore.case = TRUE)))
 })
 

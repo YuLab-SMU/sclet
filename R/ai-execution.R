@@ -464,7 +464,7 @@ sclet_ai_action_param_type_problems <- function(params, schema) {
 #' @param include Character vector of action groups. Supported groups are
 #'   `"read"`, `"preprocess"`, `"dimred"`, `"graph"`, `"cluster"`,
 #'   `"integration"`, `"annotation"`, `"rare_cell"`, `"trajectory"`,
-#'   `"velocity"`, and `"all"`. Defaults to `"read"`.
+#'   `"velocity"`, `"fate"`, and `"all"`. Defaults to `"read"`.
 #' @return A `sclet_ai_execution_registry` containing the requested actions.
 #' @export
 AIDefaultExecutionRegistry <- function(object, include = "read") {
@@ -472,7 +472,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
         stop("`object` must be a SingleCellExperiment.")
     }
     include <- unique(as.character(include))
-    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "rare_cell", "trajectory", "velocity", "all")
+    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "rare_cell", "trajectory", "velocity", "fate", "all")
     if (!length(include) || any(!include %in% allowed_groups)) {
         stop("`include` must contain only: ", paste(allowed_groups, collapse = ", "))
     }
@@ -1510,6 +1510,113 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 ),
                 mutates_object = TRUE,
                 allowed_state_types = c("velocity", "ai_evidence"),
+                estimated_cost = "high",
+                idempotent = FALSE
+            )
+        ))
+    }
+    if ("fate" %in% include) {
+        actions <- c(actions, list(
+            run_fate_analysis = AIAction(
+                name = "run_fate_analysis",
+                description = "Estimate terminal states and fate probabilities with CellRank from recorded RNA velocity and record a bounded aggregate evidence node.",
+                handler = function(object, params) {
+                    name <- params$name %||% "cellfate"
+                    cluster_key <- params$cluster_key %||%
+                        tryCatch(ActiveIdent(object), error = function(e) NULL)
+                    result <- RunCellFate(
+                        object,
+                        method = params$method %||% "CellRank",
+                        reduction = params$reduction %||% "PCA",
+                        cluster_key = cluster_key,
+                        velocity_id = params$velocity_id,
+                        backend = params$backend %||% "basilisk",
+                        python = params$python,
+                        name = name
+                    )
+                    sclet_ai_record_fate_evidence(
+                        result,
+                        name = name,
+                        cluster_key = cluster_key
+                    )
+                },
+                input_schema = list(
+                    method = "character",
+                    reduction = "character",
+                    cluster_key = "character",
+                    velocity_id = "character",
+                    backend = "character",
+                    python = "character",
+                    name = "character"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    records <- sclet_get_state_records(object, "velocity")
+                    completed <- vapply(records, function(record) {
+                        identical(as.character(record$status)[[1L]], "completed")
+                    }, logical(1L))
+                    completed_ids <- names(records)[completed]
+                    if (!length(completed_ids)) {
+                        return(paste0(
+                            "velocity_record_missing: run_fate_analysis requires a completed velocity record; ",
+                            "run run_velocity first. Available velocity records: ",
+                            paste(names(records), collapse = ", ")
+                        ))
+                    }
+                    velocity_id <- params$velocity_id
+                    if (!is.null(velocity_id) && !velocity_id %in% completed_ids) {
+                        return(paste0(
+                            "velocity_id_unknown: velocity record '", velocity_id,
+                            "' is not a completed velocity record. Available completed velocity records: ",
+                            paste(completed_ids, collapse = ", ")
+                        ))
+                    }
+                    cluster_key <- params$cluster_key %||%
+                        tryCatch(ActiveIdent(object), error = function(e) NULL)
+                    columns <- colnames(SummarizedExperiment::colData(object))
+                    if (is.null(cluster_key) || !is.character(cluster_key) ||
+                        length(cluster_key) != 1L || !nzchar(trimws(cluster_key)) ||
+                        !cluster_key %in% columns) {
+                        return(paste0(
+                            "cluster_key_missing: run_fate_analysis requires a cluster column in colData; ",
+                            "supply 'cluster_key' or run FindClusters() first. Available columns: ",
+                            paste(columns, collapse = ", ")
+                        ))
+                    }
+                    reduction <- params$reduction %||% "PCA"
+                    available <- unique(c(
+                        as.character(planned$reductions %||% character()),
+                        tryCatch(SingleCellExperiment::reducedDimNames(object),
+                            error = function(e) character())))
+                    if (!reduction %in% available) {
+                        return(paste0(
+                            "reduction_missing: reduction '", reduction,
+                            "' is not available; run the corresponding dimensionality reduction first. ",
+                            "Available reductions: ", paste(available, collapse = ", ")
+                        ))
+                    }
+                    if (!base::requireNamespace("reticulate", quietly = TRUE)) {
+                        return("fate_backend_unavailable: reticulate is required for run_fate_analysis; install via install.packages('reticulate')")
+                    }
+                    backend <- params$backend %||% "basilisk"
+                    if (identical(backend, "basilisk") &&
+                        !base::requireNamespace("basilisk", quietly = TRUE)) {
+                        return("optional_package_missing: basilisk is required for backend 'basilisk'; install via BiocManager::install('basilisk')")
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                requires_confirmation = TRUE,
+                output_schema = list(
+                    required_states = list(trajectory = "any", ai_evidence = "any"),
+                    note = paste(
+                        "Terminal states and absorption probabilities are CellRank model estimates computed from the",
+                        "velocity kernel and the supplied cluster labels; they are not measured cell fate and are not",
+                        "temporal ground truth. They depend on the chosen method, reduction, cluster annotation and",
+                        "velocity estimates. No cell is removed or filtered by this action."
+                    )
+                ),
+                mutates_object = TRUE,
+                allowed_state_types = c("trajectory", "ai_evidence"),
                 estimated_cost = "high",
                 idempotent = FALSE
             )

@@ -219,7 +219,14 @@ test_that("sclet_ai_record_clarification_response writes a user_decision evidenc
     # the answer text itself is never written to the ledger
     expect_false(any(grepl("batch", node, fixed = TRUE)))
     # and the node is retrievable through the normal evidence query
-    expect_true("ev:clarification_q1_a11" %in% names(sclet:::sclet_ai_evidence_get_all(updated)))
+    actions <- sort(unique(names(AIDefaultExecutionRegistry(updated, include = "all"))))
+    expected_id <- paste0(
+        "ev:clarification_q",
+        match("design_batch", sclet:::sclet_ai_clarification_question_ids()),
+        "_a",
+        match("run_integration", actions)
+    )
+    expect_true(expected_id %in% names(sclet:::sclet_ai_evidence_get_all(updated)))
 })
 
 test_that("clarification recording never stores the free-text answer", {
