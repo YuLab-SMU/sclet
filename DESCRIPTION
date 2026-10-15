@@ -97,6 +97,7 @@ Suggests:
     Seurat,
     SingleR,
     slingshot,
+    SpatialExperiment,
     SVP,
     SuperCell,
     testthat (>= 3.0.0),
@@ -142,6 +143,8 @@ Collate:
     'ai-execution.R'
     'ai-fate.R'
     'ai-fate-drivers.R'
+    'ai-spatial.R'
+    'ai-multimodal.R'
     'ai-integration-routes.R'
     'ai-functions.R'
     'ai-investigate.R'

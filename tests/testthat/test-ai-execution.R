@@ -434,17 +434,33 @@ test_that("AIDefaultExecutionRegistry has trajectory group only when explicitly 
     expect_true("run_trajectory" %in% names(all_registry))
 })
 
-test_that("the full registry includes fate but still excludes paused spatial, multimodal and regvelo actions", {
-    ## P5/P6 slices intentionally add run_velocity and run_fate_analysis; this
-    ## guard now covers only the domains that remain explicitly paused by the
-    ## roadmap (spatial, multimodal, regvelo).
+test_that("the full registry exposes no spatial, multimodal or regvelo computation action", {
+    ## Each slice intentionally adds its own computation action as it lands
+    ## (run_velocity, run_fate_analysis). The domains still paused by the
+    ## roadmap are spatial, multimodal and regvelo -- but the guard must test
+    ## that no *computation* action exists for them, not that the substring is
+    ## absent. The spatial/multimodal batches deliberately shipped read-only
+    ## catalog actions (inspect_*_readiness, summarize_*_evidence,
+    ## compare_*), so a substring check now fails on exactly the actions that
+    ## were designed to be safe. Mutation is what this guard is about.
     sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 2L, 4L)))
     registry <- AIDefaultExecutionRegistry(sce, include = "all")
     expect_length(names(registry), length(unique(names(registry))))
     expect_true("run_velocity" %in% names(registry))
     expect_true("run_fate_analysis" %in% names(registry))
-    expect_false(any(grepl("spatial|multimodal|regvelo",
-        names(registry), ignore.case = TRUE)))
+
+    paused_domains <- grepl("spatial|multimodal|regvelo", names(registry), ignore.case = TRUE)
+    mutation_actions <- names(registry)[paused_domains & grepl("^run_", names(registry))]
+    expect_equal(mutation_actions, character(0))
+
+    ## The read-only catalog actions for those domains are expected, and none
+    ## of them may mutate the object -- that is what makes them safe to ship
+    ## ahead of the computation actions.
+    catalog <- names(registry)[paused_domains]
+    expect_true(length(catalog) > 0L)
+    expect_false(any(vapply(registry[catalog], function(action) {
+        isTRUE(action$mutates_object) || isTRUE(action$requires_confirmation)
+    }, logical(1L))))
 })
 
 sclet_ai_test_trajectory_object <- function(n_cells = 80L) {
