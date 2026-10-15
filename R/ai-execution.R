@@ -1571,7 +1571,16 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         identical(as.character(record$status)[[1L]], "completed")
                     }, logical(1L))
                     completed_ids <- names(records)[completed]
-                    if (!length(completed_ids)) {
+                    # A plan chaining run_velocity -> run_fate_analysis has no
+                    # velocity record at validation time, because nothing has
+                    # executed yet. The projected id of the earlier step is the
+                    # promise; RunCellRank() still stops if it turns out broken,
+                    # and that surfaces as this step failing rather than as a
+                    # silently empty result.
+                    planned_velocity <- as.character(
+                        planned$state_records$velocity %||% character())
+                    usable <- unique(c(completed_ids, planned_velocity))
+                    if (!length(usable)) {
                         return(paste0(
                             "velocity_record_missing: run_fate_analysis requires a completed velocity record; ",
                             "run run_velocity first. Available velocity records: ",
@@ -1579,11 +1588,14 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         ))
                     }
                     velocity_id <- params$velocity_id
-                    if (!is.null(velocity_id) && !velocity_id %in% completed_ids) {
+                    if (!is.null(velocity_id) && !velocity_id %in% usable) {
                         return(paste0(
                             "velocity_id_unknown: velocity record '", velocity_id,
-                            "' is not a completed velocity record. Available completed velocity records: ",
-                            paste(completed_ids, collapse = ", ")
+                            "' is neither a completed velocity record nor produced by an earlier step of ",
+                            "this plan. Available completed velocity records: ",
+                            paste(completed_ids, collapse = ", "),
+                            if (length(planned_velocity)) paste0(
+                                "; planned: ", paste(planned_velocity, collapse = ", ")) else ""
                         ))
                     }
                     cluster_key <- params$cluster_key %||%
@@ -2053,6 +2065,19 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         error = function(e) NULL
                     )
                     before_created <- before$created_at %||% NA_character_
+                    # The marker-table gate may have been skipped at
+                    # validation time: in a chained plan the detest record was
+                    # only a promise then. Now the upstream step has really run,
+                    # so apply the same helper here. Without this, a chain whose
+                    # DE table has no cluster column would validate, run, write
+                    # a degenerate one-group record and report success, because
+                    # RunEnrichment() warns rather than errors in that case and
+                    # the record it writes is non-empty.
+                    shape_problem <- sclet_ai_enrichment_marker_problem(
+                        object, params$detest_id)
+                    if (!is.null(shape_problem)) {
+                        stop(shape_problem, call. = FALSE)
+                    }
                     result <- RunEnrichment(
                         object,
                         id = params$detest_id,
@@ -2099,32 +2124,47 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 prerequisites = function(object, params, planned = NULL) {
                     detest <- tryCatch(get_detest(object, params$detest_id),
                         error = function(e) NULL)
-                    if (is.null(detest)) {
-                        return(paste0(
-                            "detest_state_missing: run_enrichment is computed from a completed ",
-                            "differential-expression marker table; run RunDEtest() first",
-                            if (!is.null(params$detest_id)) {
-                                paste0(" (requested detest id '", as.character(params$detest_id),
-                                    "' is not a completed record)")
-                            } else {
-                                ""
-                            }, "."
-                        ))
+                    # TRUE only when the record is on the object right now, so
+                    # its contents can be inspected. A chained plan has only a
+                    # promise (see below), which is not the same thing and must
+                    # not be treated as if it were.
+                    record_available <- !is.null(detest)
+                    if (!record_available) {
+                        # A plan that chains run_de_test -> run_enrichment
+                        # cannot have its upstream record at validation time,
+                        # because nothing has executed yet. The projection in
+                        # sclet_ai_planned_state_records() is the promise that
+                        # an earlier step registers it, and the handler
+                        # re-checks the marker table for real at execution.
+                        planned_detest <- as.character(
+                            planned$state_records$detest %||% character())
+                        requested <- params$detest_id
+                        if (length(requested) == 1L && nzchar(requested)) {
+                            if (!requested %in% planned_detest) {
+                                return(paste0(
+                                    "detest_state_missing: run_enrichment is computed from a completed ",
+                                    "differential-expression marker table; run RunDEtest() first. ",
+                                    "Requested detest id '", as.character(requested),
+                                    "' is neither an existing record nor produced by an earlier step of ",
+                                    "this plan. Planned detest records: ",
+                                    if (length(planned_detest)) paste(planned_detest, collapse = ", ") else "none", "."
+                                ))
+                            }
+                        } else if (!length(planned_detest)) {
+                            return(paste0(
+                                "detest_state_missing: run_enrichment is computed from a completed ",
+                                "differential-expression marker table; run RunDEtest() first."
+                            ))
+                        }
                     }
-                    markers <- detest$artifacts$result
-                    marker_columns <- if (is.data.frame(markers) || is.matrix(markers)) {
-                        colnames(as.data.frame(markers))
-                    } else {
-                        character()
-                    }
-                    if (!"cluster" %in% tolower(marker_columns)) {
-                        return(paste0(
-                            "cluster_identity_missing: run_enrichment groups markers by cluster, but the ",
-                            "detest marker table carries no cluster column, so RunEnrichment() would label ",
-                            "every marker as one pooled group and compare it against itself, warning rather ",
-                            "than erroring. Re-run RunDEtest() so the table retains each marker's cluster. ",
-                            "Available marker columns: ", paste(marker_columns, collapse = ", "), "."
-                        ))
+                    # The marker table's shape can only be judged once the
+                    # record exists. When it is merely planned, this gate is
+                    # skipped here and the handler applies the same helper
+                    # after the upstream step has really run.
+                    if (record_available) {
+                        problem <- sclet_ai_enrichment_marker_problem(
+                            object, params$detest_id)
+                        if (!is.null(problem)) return(problem)
                     }
                     db <- params$db %||% "GO"
                     if (!is.character(db) || length(db) != 1L || !db %in% c("GO", "KEGG")) {

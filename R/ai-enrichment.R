@@ -385,3 +385,36 @@ summarize_enrichment_evidence <- function(object, name = NULL) {
         )
     )
 }
+
+# The marker-table shape gate, shared by the action's prerequisite and its
+# handler.
+#
+# A plan that chains run_de_test -> run_enrichment cannot be checked at
+# validation time: validation runs before anything executes, so the marker
+# table does not exist yet and the promise of it is all that can be known. This
+# is what makes the execution-time re-check load-bearing rather than
+# redundant -- a table without a cluster column makes RunEnrichment() pool
+# every marker into one group, warn, and return a meaningless comparison that
+# still looks like a successful run.
+sclet_ai_enrichment_marker_problem <- function(object, detest_id = NULL) {
+    detest <- tryCatch(get_detest(object, detest_id), error = function(e) NULL)
+    if (is.null(detest)) {
+        return(NULL)
+    }
+    markers <- detest$artifacts$result
+    columns <- if (is.data.frame(markers) || is.matrix(markers)) {
+        colnames(as.data.frame(markers))
+    } else {
+        character()
+    }
+    if (!"cluster" %in% tolower(columns)) {
+        return(paste0(
+            "cluster_identity_missing: run_enrichment groups markers by cluster, but the ",
+            "detest marker table carries no cluster column, so RunEnrichment() would label ",
+            "every marker as one pooled group and compare it against itself, warning rather ",
+            "than erroring. Re-run RunDEtest() so the table retains each marker's cluster. ",
+            "Available marker columns: ", paste(columns, collapse = ", "), "."
+        ))
+    }
+    NULL
+}

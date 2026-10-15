@@ -152,6 +152,7 @@ sclet_ai_is_deferred_promise <- function(value) {
 }
 sclet_ai_plan_capabilities <- function(object) {
     state <- sclet_get_state(object)
+    records <- state$states$records %||% list()
     list(
         assays = SummarizedExperiment::assayNames(object),
         reductions = SingleCellExperiment::reducedDimNames(object),
@@ -166,7 +167,51 @@ sclet_ai_plan_capabilities <- function(object) {
         active_assay = sclet_get_active_assay(object),
         active_reduction = tryCatch(DefaultReduction(object), error = function(e) NULL),
         active_graph = tryCatch(DefaultGraph(object), error = function(e) NULL),
-        active_ident = tryCatch(ActiveIdent(object), error = function(e) NULL)
+        active_ident = tryCatch(ActiveIdent(object), error = function(e) NULL),
+        # Record ids already on the object, keyed by state type. A step that
+        # consumes an upstream record reads this, and steps that produce one
+        # add to it as the walk proceeds, so a dependency inside a single plan
+        # is visible to validation without executing anything. Without it a
+        # chain such as run_de_test -> run_enrichment can never validate,
+        # because at validation time no detest record exists yet -- measured by
+        # test-ai-single-cell-chain.R.
+        state_records = lapply(records, function(by_id) names(by_id %||% list()))
+    )
+}
+
+# Which analysis-state records a step will register, keyed by state type.
+#
+# A step that consumes an upstream record needs to see records that earlier
+# steps in the SAME plan will produce, because validation runs before anything
+# executes. These id rules mirror the corresponding handlers -- run_de_test
+# registers "findallmarkers" for an all-cluster test and "detest" for a
+# targeted one unless a name is given -- and test-ai-single-cell-chain.R asserts
+# the projection equals what the action really registers, so a handler whose id
+# rule drifts fails there rather than silently disabling this projection.
+sclet_ai_planned_state_records <- function(descriptor, params) {
+    if (is.null(descriptor)) return(list())
+    name <- descriptor$name
+    provided <- params$name
+    single <- function(type, default) {
+        id <- if (is.character(provided) && length(provided) == 1L && nzchar(provided)) {
+            provided
+        } else {
+            default
+        }
+        stats::setNames(list(id), type)
+    }
+    switch(name,
+        run_de_test = {
+            # Mirrors the handler: an explicit name wins, otherwise the id
+            # depends on whether this is an all-cluster marker test.
+            default <- if (is.null(params$ident.1)) "findallmarkers" else "detest"
+            single("detest", default)
+        },
+        run_enrichment = single("enrichment", "enrichment"),
+        run_velocity = single("velocity", "velocity"),
+        run_fate_analysis = single("trajectory", "cellfate"),
+        run_doublet_detection = list(preprocess = "doublet_finder"),
+        list()
     )
 }
 
@@ -195,6 +240,15 @@ sclet_ai_apply_planned_output <- function(planned, descriptor, params) {
     if (identical(descriptor$name, "run_pca")) {
         planned$reduction_dims$PCA <- sclet_ai_coerce_integer(params$ncomponents, default = 50L)
         planned$active_reduction <- "PCA"
+    }
+    # Add the records this step will register, so a later step in the same plan
+    # can depend on them. Deferred projection again: validation accepts the
+    # promise, and if the step really fails to register, its own execution-time
+    # contract (or the next step's execution) is still the authority.
+    produced <- sclet_ai_planned_state_records(descriptor, params)
+    for (type in names(produced)) {
+        existing <- planned$state_records[[type]] %||% character()
+        planned$state_records[[type]] <- unique(c(existing, as.character(produced[[type]])))
     }
     planned
 }
