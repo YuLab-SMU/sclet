@@ -464,7 +464,7 @@ sclet_ai_action_param_type_problems <- function(params, schema) {
 #' @param include Character vector of action groups. Supported groups are
 #'   `"read"`, `"preprocess"`, `"dimred"`, `"graph"`, `"cluster"`,
 #'   `"integration"`, `"annotation"`, `"rare_cell"`, `"trajectory"`,
-#'   `"velocity"`, `"fate"`, `"spatial"`, `"multimodal"`, and `"all"`.
+#'   `"velocity"`, `"fate"`, `"spatial"`, `"multimodal"`, `"enrichment"`, and `"all"`.
 #'   Defaults to `"read"`.
 #' @return A `sclet_ai_execution_registry` containing the requested actions.
 #' @export
@@ -473,7 +473,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
         stop("`object` must be a SingleCellExperiment.")
     }
     include <- unique(as.character(include))
-    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "rare_cell", "trajectory", "velocity", "fate", "spatial", "multimodal", "all")
+    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "rare_cell", "trajectory", "velocity", "fate", "spatial", "multimodal", "enrichment", "all")
     if (!length(include) || any(!include %in% allowed_groups)) {
         stop("`include` must contain only: ", paste(allowed_groups, collapse = ", "))
     }
@@ -2006,6 +2006,150 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 mutates_object = FALSE,
                 allowed_state_types = c("multimodal"),
                 estimated_cost = "low",
+                idempotent = TRUE
+            )
+        ))
+    }
+    if ("enrichment" %in% include) {
+        actions <- c(actions, list(
+            run_enrichment = AIAction(
+                name = "run_enrichment",
+                description = paste(
+                    "Summarize a completed differential-expression marker table into enrichment categories",
+                    "with clusterProfiler, and register bounded aggregate evidence for it. The marker table",
+                    "and its cluster column are required: enrichment is an interpretation layer over the DE",
+                    "result, not a second measurement of it. The database, ontology, key type and the",
+                    "significance cutoffs are the user's biological modelling choices and are never picked",
+                    "or recommended here. No gene symbol and no category name or accession is recorded as",
+                    "evidence; the full result stays in the state record for get_enrichment()."
+                ),
+                handler = function(object, params) {
+                    name <- params$name %||% "enrichment"
+                    # A re-run that produces nothing must not be reported as a
+                    # success: RunEnrichment() warns and returns the object
+                    # unchanged when no marker passes the cutoffs, when the
+                    # marker table has no p-value column (whose comparison
+                    # yields logical(0), the same zero-row outcome), or when it
+                    # lacks a logFC column. Comparing the record's created_at
+                    # before and after distinguishes "this call wrote a result"
+                    # from "a stale record from an earlier call is still here".
+                    before <- tryCatch(
+                        sclet_get_state_record(object, "enrichment", name),
+                        error = function(e) NULL
+                    )
+                    before_created <- before$created_at %||% NA_character_
+                    result <- RunEnrichment(
+                        object,
+                        id = params$detest_id,
+                        p_val_cutoff = params$p_val_cutoff %||% 0.05,
+                        logfc_cutoff = params$logfc_cutoff %||% 0.25,
+                        db = params$db %||% "GO",
+                        orgDb = params$orgDb %||% "org.Hs.eg.db",
+                        keyType = params$keyType %||% "SYMBOL",
+                        ont = params$ont %||% "BP",
+                        name = name
+                    )
+                    after <- tryCatch(
+                        sclet_get_state_record(result, "enrichment", name),
+                        error = function(e) NULL
+                    )
+                    wrote_record <- !is.null(after) &&
+                        !identical(as.character(after$created_at %||% NA_character_),
+                            as.character(before_created))
+                    if (!wrote_record) {
+                        stop(paste0(
+                            "enrichment_no_result: run_enrichment produced no enrichment record '", name,
+                            "'. Either no marker passed p_val_cutoff / logfc_cutoff, or the marker table",
+                            " lacks a p-value or logFC column for the cutoffs to be applied. Lower the",
+                            " cutoffs, or re-run RunDEtest() so the marker table carries them. Nothing",
+                            " was registered as evidence and no claim is supported by this step."
+                        ), call. = FALSE)
+                    }
+                    sclet_ai_record_enrichment_evidence(
+                        result,
+                        name = name,
+                        detest_id = params$detest_id
+                    )
+                },
+                input_schema = list(
+                    detest_id = "character",
+                    db = "character",
+                    orgDb = "character",
+                    keyType = "character",
+                    ont = "character",
+                    p_val_cutoff = "number",
+                    logfc_cutoff = "number",
+                    name = "character"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    detest <- tryCatch(get_detest(object, params$detest_id),
+                        error = function(e) NULL)
+                    if (is.null(detest)) {
+                        return(paste0(
+                            "detest_state_missing: run_enrichment is computed from a completed ",
+                            "differential-expression marker table; run RunDEtest() first",
+                            if (!is.null(params$detest_id)) {
+                                paste0(" (requested detest id '", as.character(params$detest_id),
+                                    "' is not a completed record)")
+                            } else {
+                                ""
+                            }, "."
+                        ))
+                    }
+                    markers <- detest$artifacts$result
+                    marker_columns <- if (is.data.frame(markers) || is.matrix(markers)) {
+                        colnames(as.data.frame(markers))
+                    } else {
+                        character()
+                    }
+                    if (!"cluster" %in% tolower(marker_columns)) {
+                        return(paste0(
+                            "cluster_identity_missing: run_enrichment groups markers by cluster, but the ",
+                            "detest marker table carries no cluster column, so RunEnrichment() would label ",
+                            "every marker as one pooled group and compare it against itself, warning rather ",
+                            "than erroring. Re-run RunDEtest() so the table retains each marker's cluster. ",
+                            "Available marker columns: ", paste(marker_columns, collapse = ", "), "."
+                        ))
+                    }
+                    db <- params$db %||% "GO"
+                    if (!is.character(db) || length(db) != 1L || !db %in% c("GO", "KEGG")) {
+                        return(paste0(
+                            "db_invalid: run_enrichment accepts db = \"GO\" or \"KEGG\"; got '",
+                            paste(as.character(db), collapse = ", "), "'. The database is a modelling ",
+                            "choice and is never selected automatically."
+                        ))
+                    }
+                    org_db <- params$orgDb %||% "org.Hs.eg.db"
+                    missing_packages <- c(
+                        if (!base::requireNamespace("clusterProfiler", quietly = TRUE)) "clusterProfiler" else NULL,
+                        if (is.character(org_db) && length(org_db) == 1L && nzchar(org_db) &&
+                            !base::requireNamespace(org_db, quietly = TRUE)) org_db else NULL
+                    )
+                    if (length(missing_packages)) {
+                        return(paste0(
+                            "enrichment_package_missing: run_enrichment needs ",
+                            paste(missing_packages, collapse = " and "),
+                            "; install it via BiocManager::install()."
+                        ))
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                requires_confirmation = TRUE,
+                output_schema = list(
+                    required_states = list(enrichment = "any", ai_evidence = "any"),
+                    note = paste(
+                        "Enrichment categories are derived from the DE marker table and are model output,",
+                        "not independent measurements: they inherit that table's thresholds and confounders,",
+                        "and the recorded evidence declares the DE node as its parent so a claim ceiling",
+                        "keeps counting the two as a single line of support. No gene symbol, category name",
+                        "or category accession enters the evidence layer, and no cutoff, database or",
+                        "ontology is recommended by this action."
+                    )
+                ),
+                mutates_object = TRUE,
+                allowed_state_types = c("detest", "enrichment", "ai_evidence"),
+                estimated_cost = "medium",
                 idempotent = TRUE
             )
         ))

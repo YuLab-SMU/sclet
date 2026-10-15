@@ -145,6 +145,7 @@ Collate:
     'ai-fate-drivers.R'
     'ai-spatial.R'
     'ai-multimodal.R'
+    'ai-enrichment.R'
     'ai-integration-routes.R'
     'ai-functions.R'
     'ai-investigate.R'
