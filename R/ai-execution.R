@@ -1619,10 +1619,200 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 allowed_state_types = c("trajectory", "ai_evidence"),
                 estimated_cost = "high",
                 idempotent = FALSE
+            ),
+            confirm_fate_terminal_states = AIAction(
+                name = "confirm_fate_terminal_states",
+                description = paste(
+                    "Record the user's own explicit terminal-state interpretation for a CellRank result.",
+                    "The terminal states named here are a user-chosen interpretation layer over the model output,",
+                    "supplied by the user and merely checked against the codes actually present in the stored",
+                    "terminal-state column. Confirming them records a decision; it does not make them measured",
+                    "biology. This action never picks, suggests, ranks or guesses a terminal state itself."
+                ),
+                handler = function(object, params) {
+                    resolved <- sclet_ai_resolve_cellrank_record(object, params$cellrank_id)
+                    sclet_ai_record_fate_terminal_state_confirmation(
+                        object,
+                        cellrank_id = resolved$id,
+                        terminal_state_codes = sclet_ai_validated_terminal_state_codes(
+                            object, resolved$record, params$terminal_state_codes
+                        )
+                    )
+                },
+                input_schema = list(
+                    cellrank_id = "character",
+                    terminal_state_codes = list(type = "character_vector", required = TRUE),
+                    rationale_code = "character"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    resolved <- sclet_ai_resolve_cellrank_record(object, params$cellrank_id)
+                    if (!is.null(resolved$message)) return(resolved$message)
+                    codes <- params$terminal_state_codes
+                    if (is.null(codes) || !length(codes)) {
+                        return(paste0(
+                            "terminal_state_codes_missing: confirm_fate_terminal_states requires the user to name the",
+                            " terminal states explicitly, e.g. terminal_state_codes = c(\"cluster_1\"). This action never",
+                            " picks a terminal state for the user."
+                        ))
+                    }
+                    codes <- sclet_ai_vector_param(codes, "character")
+                    if (!length(codes) || any(is.na(codes)) || any(!nzchar(trimws(codes)))) {
+                        return(paste0(
+                            "terminal_state_codes_missing: terminal_state_codes must be a non-empty character vector",
+                            " with no blank entry."
+                        ))
+                    }
+                    valid <- sclet_ai_terminal_state_codes(object, resolved$record)
+                    unknown <- setdiff(codes, valid)
+                    if (length(unknown)) {
+                        return(paste0(
+                            "terminal_state_unknown: terminal state code(s) ", paste(unknown, collapse = ", "),
+                            " are not present in the stored terminal-state column. Valid codes: ",
+                            if (length(valid)) paste(valid, collapse = ", ") else "(none)"
+                        ))
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                requires_confirmation = TRUE,
+                output_schema = list(
+                    required_states = list(trajectory = "any", ai_evidence = "any"),
+                    note = paste(
+                        "The confirmed terminal states are the USER's interpretation layer over CellRank's model",
+                        "output, not a measurement. Confirming them records a decision and does not make them",
+                        "measured biology or temporal ground truth. They are validated against the codes present in",
+                        "the stored terminal-state column, and this action never picks, suggests, ranks or guesses",
+                        "which states are terminal. No cell is removed or filtered."
+                    )
+                ),
+                mutates_object = TRUE,
+                allowed_state_types = c("trajectory", "ai_evidence"),
+                estimated_cost = "low",
+                idempotent = TRUE
+            ),
+            summarize_fate_drivers = AIAction(
+                name = "summarize_fate_drivers",
+                description = paste(
+                    "Read-only bounded summary of the CellRank lineage drivers for one user-specified lineage.",
+                    "It reports aggregate statistics only and withholds gene identity; it never ranks lineages,",
+                    "never nominates a \"best\" lineage, and never writes an evidence node or mutates the object."
+                ),
+                handler = function(object, params) {
+                    summarize_fate_lineage_drivers(
+                        object,
+                        id = params$cellrank_id,
+                        lineage = params$lineage,
+                        top_n = params$top_n %||% 10L
+                    )
+                },
+                input_schema = list(
+                    cellrank_id = "character",
+                    lineage = "character",
+                    top_n = "integer"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    resolved <- sclet_ai_resolve_cellrank_record(object, params$cellrank_id)
+                    if (!is.null(resolved$message)) return(resolved$message)
+                    drivers <- resolved$record$artifacts$lineage_drivers
+                    if (is.null(drivers) || !is.data.frame(drivers) || !nrow(drivers)) {
+                        return(paste0(
+                            "lineage_driver_table_missing: the CellRank record '", resolved$id,
+                            "' has no stored lineage driver table; rerun the fate analysis with driver computation",
+                            " available before summarizing drivers."
+                        ))
+                    }
+                    TRUE
+                },
+                returns = "value",
+                requires_confirmation = FALSE,
+                output_schema = list(
+                    required_states = list(trajectory = "any", ai_evidence = "any"),
+                    note = paste(
+                        "Read-only: reports bounded aggregate statistics for one lineage the user named, and",
+                        "deliberately withholds gene identity. It never ranks lineages, never nominates a",
+                        "\"best\" lineage, and writes no evidence node; the object is not mutated."
+                    )
+                ),
+                mutates_object = FALSE,
+                allowed_state_types = c("trajectory", "ai_evidence"),
+                estimated_cost = "low",
+                idempotent = TRUE
             )
         ))
     }
     AIExecutionRegistry(actions)
+}
+
+# Resolve the CellRank trajectory record a fate action should act on.
+#
+# Returns list(id = <record id>, record = <record>, message = NULL) on success,
+# or list(id = NULL, record = NULL, message = "<typed reason>") when no usable
+# record exists. Only completed records whose method is "CellRank" (or whose
+# artifacts$analysis_key is "cellrank", matching
+# sclet_ai_record_fate_evidence()) count. A record id supplied by the user must
+# name one of those exactly.
+sclet_ai_resolve_cellrank_record <- function(object, cellrank_id = NULL) {
+    records <- tryCatch(sclet_get_state_records(object, "trajectory"), error = function(e) list())
+    is_cellrank <- vapply(records, function(record) {
+        identical(as.character(record$status)[[1L]], "completed") &&
+            (identical(as.character(record$method %||% ""), "CellRank") ||
+                identical(as.character(record$artifacts$analysis_key %||% ""), "cellrank") ||
+                identical(tolower(as.character(record$artifacts$analysis_key %||% "")), "cellrank"))
+    }, logical(1L))
+    ids <- names(records)[is_cellrank]
+    if (!length(ids)) {
+        return(list(id = NULL, record = NULL, message = paste0(
+            "cellrank_record_missing: no completed CellRank trajectory record is available; ",
+            "run run_fate_analysis first. Available trajectory records: ",
+            if (length(records)) paste(names(records), collapse = ", ") else "(none)"
+        )))
+    }
+    if (!is.null(cellrank_id) && (!is.character(cellrank_id) || length(cellrank_id) != 1L ||
+        is.na(cellrank_id) || !nzchar(trimws(cellrank_id)))) {
+        return(list(id = NULL, record = NULL, message = paste0(
+            "cellrank_id_unknown: cellrank_id must be a single non-empty record id. ",
+            "Available CellRank records: ", paste(ids, collapse = ", ")
+        )))
+    }
+    if (!is.null(cellrank_id) && !cellrank_id %in% ids) {
+        return(list(id = NULL, record = NULL, message = paste0(
+            "cellrank_id_unknown: trajectory record '", cellrank_id,
+            "' is not a completed CellRank record. Available CellRank records: ",
+            paste(ids, collapse = ", ")
+        )))
+    }
+    id <- if (is.null(cellrank_id)) ids[[1L]] else cellrank_id
+    list(id = id, record = records[[id]], message = NULL)
+}
+
+# The terminal-state codes actually present in the record's stored
+# terminal-state column.
+#
+# Codes are derived exactly as sclet_ai_record_fate_evidence() derives them --
+# paste0("cluster_", seq_along(unique(<column values>))) -- so a code the user
+# supplies can only be accepted when it names a state the stored result really
+# carries. The set is returned verbatim; nothing here orders or scores states.
+sclet_ai_terminal_state_codes <- function(object, record) {
+    terminal_state_column <- as.character(record$artifacts$terminal_state_col %||% "")
+    if (length(terminal_state_column) != 1L || !nzchar(terminal_state_column)) return(character())
+    coldata <- tryCatch(SummarizedExperiment::colData(object), error = function(e) NULL)
+    if (is.null(coldata) || !terminal_state_column %in% colnames(coldata)) return(character())
+    labels <- as.character(coldata[[terminal_state_column]])
+    labels <- unique(labels[!is.na(labels) & nzchar(labels)])
+    if (!length(labels)) return(character())
+    paste0("cluster_", seq_along(labels))
+}
+
+# Validate user-supplied terminal-state codes, returning them unchanged.
+#
+# This is the handler-side twin of the terminal_state_unknown prerequisite: it
+# re-checks rather than repairing, and preserves the user's own ordering and
+# selection. Codes that the stored result does not carry are dropped, so a
+# confirmation can never smuggle in a state the model output does not contain.
+sclet_ai_validated_terminal_state_codes <- function(object, record, codes) {
+    codes <- sclet_ai_vector_param(codes, "character")
+    valid <- sclet_ai_terminal_state_codes(object, record)
+    unique(codes[codes %in% valid])
 }
 sclet_ai_record_trajectory_evidence <- function(object, name, group, start_cluster, reduction) {
     record <- sclet_get_state_record(object, "trajectory", name)

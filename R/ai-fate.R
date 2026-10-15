@@ -222,3 +222,81 @@ sclet_ai_record_fate_evidence <- function(object, name, cluster_key) {
         error = function(e) object
     )
 }
+
+# Sanitize a record id for use inside an evidence id.
+#
+# A record id can be a user-supplied string and therefore may carry a path, a
+# file name or a private sample name. The evidence id must be stable and must
+# never echo that text back, so anything outside [A-Za-z0-9_-] collapses to "_"
+# and the result is truncated. Collisions are harmless here: an identical
+# sanitized id means an identical record id, which is the idempotent case.
+sclet_ai_evidence_id_token <- function(value) {
+    token <- as.character(value %||% "")
+    token <- token[[1L]]
+    if (is.na(token) || !nzchar(token)) return("unknown")
+    token <- gsub("[^A-Za-z0-9_-]+", "_", token)
+    token <- gsub("_+", "_", token)
+    token <- gsub("^_+|_+$", "", token)
+    if (!nzchar(token)) return("unknown")
+    substr(token, 1L, 48L)
+}
+
+# Record the user's own explicit terminal-state confirmation for a CellRank run.
+#
+# This records a USER DECISION, not a finding about biology. The node's
+# claim_level is therefore "observed" -- a statement of what the user chose --
+# and never "consistent_with" or "associated", which would assert something
+# about the data. The only thing entering `values` is the count of confirmed
+# states, the anonymized state codes the user named, and boolean flags; the
+# cellrank record id, the colData column text and any free-text rationale are
+# never stored. Mirroring sclet_ai_record_clarification_response(), free text is
+# deliberately absent so the payload stays inside sclet_ai_evidence_value_ok()
+# without a special case.
+#
+# This function never picks, suggests, ranks or guesses a terminal state: it
+# records exactly the codes it is handed, after dropping any code the stored
+# result does not actually carry. An empty confirmation records nothing rather
+# than inventing a state.
+sclet_ai_record_fate_terminal_state_confirmation <- function(object, cellrank_id, terminal_state_codes) {
+    if (!inherits(object, "SingleCellExperiment")) {
+        stop("object must be a SingleCellExperiment", call. = FALSE)
+    }
+    # Resolve defensively: a confirmation that cannot be tied to a completed
+    # CellRank record leaves the object untouched rather than writing an
+    # orphaned decision into the ledger.
+    record <- tryCatch(
+        sclet_ai_resolve_cellrank_record(object, cellrank_id),
+        error = function(e) list(id = NULL, record = NULL, message = "unresolved")
+    )
+    if (is.null(record$id) || is.null(record$record)) return(object)
+    # The resolved id names a completed record; it is safe to use as `source`.
+    source_id <- record$id
+    codes <- sclet_ai_vector_param(terminal_state_codes, "character")
+    codes <- codes[!is.na(codes)]
+    codes <- trimws(codes)
+    codes <- codes[nzchar(codes)]
+    # Only anonymized codes may ever enter evidence, and only codes the stored
+    # result really carries. Anything else is dropped -- never repaired, never
+    # guessed, never replaced by a similar-looking state.
+    codes <- codes[grepl("^(group|cluster|condition|sample|route)_[0-9]+$", codes)]
+    valid <- sclet_ai_terminal_state_codes(object, record$record)
+    codes <- unique(codes[codes %in% valid])
+    if (!length(codes)) return(object)
+    values <- list(
+        n_confirmed_terminal_states = as.integer(length(codes)),
+        confirmed_terminal_state_codes = codes,
+        cellrank_record_confirmed = TRUE,
+        raw_values_included = FALSE,
+        free_text_recorded = FALSE
+    )
+    evidence <- list(
+        id = paste0("ev:fate_terminal_", sclet_ai_evidence_id_token(source_id)),
+        kind = "user_decision",
+        values = values,
+        claim_level = "observed"
+    )
+    tryCatch(
+        RecordAIEvidence(object, evidence, source = source_id, parents = character(), scope = NULL),
+        error = function(e) object
+    )
+}

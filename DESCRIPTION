@@ -141,6 +141,7 @@ Collate:
     'ai-evidence.R'
     'ai-execution.R'
     'ai-fate.R'
+    'ai-fate-drivers.R'
     'ai-integration-routes.R'
     'ai-functions.R'
     'ai-investigate.R'
