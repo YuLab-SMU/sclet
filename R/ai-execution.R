@@ -465,7 +465,7 @@ sclet_ai_action_param_type_problems <- function(params, schema) {
 #'   `"read"`, `"preprocess"`, `"dimred"`, `"graph"`, `"cluster"`,
 #'   `"integration"`, `"annotation"`, `"rare_cell"`, `"trajectory"`,
 #'   `"velocity"`, `"fate"`, `"spatial"`, `"multimodal"`, `"enrichment"`,
-#'   `"communication"`, and `"all"`. Defaults to `"read"`.
+#'   `"communication"`, `"milo"`, and `"all"`. Defaults to `"read"`.
 #' @return A `sclet_ai_execution_registry` containing the requested actions.
 #' @export
 AIDefaultExecutionRegistry <- function(object, include = "read") {
@@ -473,7 +473,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
         stop("`object` must be a SingleCellExperiment.")
     }
     include <- unique(as.character(include))
-    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "rare_cell", "trajectory", "velocity", "fate", "spatial", "multimodal", "enrichment", "communication", "all")
+    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "rare_cell", "trajectory", "velocity", "fate", "spatial", "multimodal", "enrichment", "communication", "milo", "all")
     if (!length(include) || any(!include %in% allowed_groups)) {
         stop("`include` must contain only: ", paste(allowed_groups, collapse = ", "))
     }
@@ -2315,6 +2315,147 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 ),
                 mutates_object = TRUE,
                 allowed_state_types = c("communication", "ai_evidence"),
+                estimated_cost = "high",
+                idempotent = TRUE
+            )
+        ))
+    }
+    if ("milo" %in% include) {
+        actions <- c(actions, list(
+            run_milo = AIAction(
+                name = "run_milo",
+                description = paste(
+                    "Test differential abundance of neighbourhoods with Milo/miloR and register one",
+                    "bounded evidence node. The sample and condition design roles are mandatory: this",
+                    "action never guesses which colData column plays which role, and they must be",
+                    "declared through ConfirmAIDesignSemantics() naming the columns yourself. Only",
+                    "neighbourhood counts and FDR quantiles reach the evidence layer; the design frame,",
+                    "the model formula and every sample or condition label stay in the state record."
+                ),
+                handler = function(object, params) {
+                    name <- params$name %||% "milo"
+                    # Same silent-path discipline as enrichment and CCI: Milo
+                    # can reach testNhoods and write a record with nothing
+                    # usable in it, so created_at is compared before and after
+                    # and an absent record is a typed failure, not a success.
+                    before <- sclet_get_state_records(object, "milo")
+                    before_created <- vapply(before, function(record) {
+                        as.character(record$created_at %||% "")
+                    }, character(1L))
+                    result <- RunMilo(
+                        object,
+                        sample_col = params$sample_col,
+                        condition_col = params$condition_col,
+                        covariates = params$covariates,
+                        contrasts = params$contrasts,
+                        prop = params$prop %||% 0.1,
+                        name = name
+                    )
+                    after <- sclet_get_state_records(result, "milo")
+                    created_after <- vapply(after, function(record) {
+                        as.character(record$created_at %||% "")
+                    }, character(1L))
+                    written <- names(created_after)[vapply(names(created_after), function(id) {
+                        previous <- if (id %in% names(before_created)) before_created[[id]] else ""
+                        !identical(created_after[[id]], previous)
+                    }, logical(1L))]
+                    if (!length(written)) {
+                        stop(paste0(
+                            "milo_no_result: run_milo wrote no milo record for name '", name,
+                            "', so nothing can be reported or claimed from it. Check that the design ",
+                            "columns resolve and that the neighbourhood graph was built, then re-run."
+                        ), call. = FALSE)
+                    }
+                    sclet_ai_record_milo_evidence(result, name = written[[1L]])
+                },
+                input_schema = list(
+                    sample_col = list(type = "character", required = TRUE),
+                    condition_col = list(type = "character", required = TRUE),
+                    covariates = "character_vector",
+                    contrasts = "character_vector",
+                    prop = "number",
+                    name = "character"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    if (!base::requireNamespace("miloR", quietly = TRUE)) {
+                        return(paste0(
+                            "milo_package_missing: run_milo needs miloR; ",
+                            "install it via BiocManager::install('miloR')."
+                        ))
+                    }
+                    columns <- colnames(SummarizedExperiment::colData(object))
+                    reductions <- tryCatch(SingleCellExperiment::reducedDimNames(object),
+                        error = function(e) character())
+                    if (!"PCA" %in% reductions) {
+                        return(paste0(
+                            "reduction_missing: run_milo builds its neighbourhood graph on a PCA ",
+                            "embedding; run RunPCA() first. Available reductions: ",
+                            paste(reductions, collapse = ", "), "."
+                        ))
+                    }
+                    for (role in c("sample_col", "condition_col")) {
+                        value <- params[[role]]
+                        plain <- role
+                        if (is.null(value) || !is.character(value) || length(value) != 1L ||
+                                !nzchar(trimws(value))) {
+                            return(paste0(
+                                plain, "_missing: run_milo requires the '", plain,
+                                "' column name to be supplied explicitly; the design role is never ",
+                                "guessed from column names. Available colData columns: ",
+                                paste(columns, collapse = ", "), "."
+                            ))
+                        }
+                        if (!value %in% columns) {
+                            return(paste0(
+                                plain, "_not_in_colData: '", value, "' is not a colData column. ",
+                                "Available colData columns: ", paste(columns, collapse = ", "), "."
+                            ))
+                        }
+                    }
+                    if (is.null(params$contrasts) || !length(params$contrasts)) {
+                        return(paste0(
+                            "contrasts_missing: run_milo needs explicit contrasts, e.g. ",
+                            "\"trtA - ctrl\". The condition contrast is a statement about the design, ",
+                            "not something to infer. Distinct condition values: ",
+                            paste(utils::head(unique(as.character(
+                                SummarizedExperiment::colData(object)[[params$condition_col]]
+                            )), 8L), collapse = ", "), "."
+                        ))
+                    }
+                    # Design semantics gate, shared with run_integration rather
+                    # than forked: the user's own declaration must cover both
+                    # roles, mapped onto the role names Milo uses.
+                    confirmation <- tryCatch(sclet_ai_find_design_confirmation(object, design = list(
+                        sample = params$sample_col,
+                        condition = params$condition_col
+                    )), error = function(e) NULL)
+                    if (is.null(confirmation)) {
+                        return(paste0(
+                            "design_semantics_not_confirmed: call ConfirmAIDesignSemantics(object, ",
+                            "design = list(sample = '", params$sample_col,
+                            "', condition = '", params$condition_col,
+                            "')) before running Milo. Differential abundance attributes neighbourhoods ",
+                            "to samples and contrasts between conditions, so both roles must be the ",
+                            "user's own declaration; no column is inferred here."
+                        ))
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                requires_confirmation = TRUE,
+                output_schema = list(
+                    required_states = list(milo = "any", ai_evidence = "any"),
+                    note = paste(
+                        "Differential abundance results are associations between neighbourhoods and",
+                        "conditions under a chosen graph and test; they are not causal and not",
+                        "measured effects. Counts and FDR quantiles only reach the evidence layer;",
+                        "the design frame, model formula and all sample or condition labels stay in",
+                        "the state record. Every Milo node on an object shares a dependency group, so",
+                        "a second contrast over the same graph is not a second line of support."
+                    )
+                ),
+                mutates_object = TRUE,
+                allowed_state_types = c("reduction", "milo", "ai_evidence"),
                 estimated_cost = "high",
                 idempotent = TRUE
             )

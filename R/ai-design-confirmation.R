@@ -18,8 +18,8 @@ ConfirmAIDesignSemantics <- function(object, design) {
             ". Supported roles are: batch, condition, subject, sample."
         )
     }
-    if (!("batch" %in% roles)) {
-        stop("`design` must contain at minimum a 'batch' role.")
+    if (!length(roles)) {
+        stop("`design` must map at least one role to a colData column name.")
     }
     cd <- SummarizedExperiment::colData(object)
     cd_names <- colnames(cd)
@@ -107,13 +107,37 @@ sclet_ai_design_fingerprint <- function(object) {
     }, error = function(e) NULL)
 }
 
-sclet_ai_find_design_confirmation <- function(object, batch) {
+# Resolve a design confirmation from the action's point of view.
+#
+# Passing `design = list(role = column, ...)` checks that this object carries a
+# confirmation whose design map COVERS every role the action needs, on this
+# fingerprint and with the same per-column value signature. `role %in%
+# names(confirmed_map)` rather than equality, so a confirmation made for a
+# richer design (batch + condition + sample) still satisfies an action needing
+# only two of them: the user's declaration was not scoped to one action, and
+# re-asking after a different step confirmed more roles would be theatre. The
+# value signature is checked over the CONFIRMED map, so the check is that the
+# columns the user attested to still hold the values they attested to.
+#
+# The named-argument form below is kept for run_integration's existing call.
+sclet_ai_find_design_confirmation <- function(object, design = NULL, batch = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {
         return(NULL)
     }
     if (!requireNamespace("SummarizedExperiment", quietly = TRUE)) {
         return(NULL)
     }
+    if (is.null(design)) {
+        if (is.null(batch)) {
+            return(NULL)
+        }
+        design <- list(batch = batch)
+    }
+    if (!is.list(design) || is.null(names(design)) || !length(design) ||
+            any(!nzchar(as.character(names(design) %||% character())))) {
+        return(NULL)
+    }
+    wanted_roles <- names(design)
     records <- tryCatch(
         sclet_get_state_records(object, "ai_design_confirmation"),
         error = function(e) list()
@@ -129,7 +153,17 @@ sclet_ai_find_design_confirmation <- function(object, batch) {
             next
         }
         design_role_map <- summary$design %||% list()
-        if (!identical(as.character(design_role_map$batch %||% ""), as.character(batch))) {
+        if (!all(wanted_roles %in% names(design_role_map))) {
+            next
+        }
+        # A role the action names must point at the same column the user
+        # confirmed it against, so confirming batch = "donor" cannot be
+        # satisfied by a later claim that batch = "lane".
+        mismatched <- wanted_roles[!vapply(wanted_roles, function(role) {
+            identical(as.character(design_role_map[[role]] %||% ""),
+                as.character(design[[role]] %||% ""))
+        }, logical(1L))]
+        if (length(mismatched)) {
             next
         }
         if (!is.null(summary$design_value_key)) {
@@ -141,4 +175,11 @@ sclet_ai_find_design_confirmation <- function(object, batch) {
         return(rec)
     }
     NULL
+}
+
+# The roles a design confirmation currently covers, for error messages that
+# need to say what is still missing rather than restate the whole schema.
+sclet_ai_design_confirmation_roles <- function(confirmation) {
+    if (is.null(confirmation)) return(character())
+    as.character(names(confirmation$summary$design %||% list()))
 }

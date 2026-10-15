@@ -200,3 +200,286 @@ check_de_readiness <- function(object, group = NULL) {
         )
     )
 }
+
+# ---------------------------------------------------------------------------
+# C3: Milo (differential abundance) readiness and evidence
+# ---------------------------------------------------------------------------
+
+# A design confirmation the user already made, restricted to the roles an
+# action needs. Returns the role->column map or NULL when nothing on this
+# object both covers those roles and still matches its recorded value
+# signature. This is the user's own declaration being read back, never a guess
+# about which column "is the sample".
+sclet_ai_design_declaration <- function(object, roles) {
+    records <- tryCatch(sclet_get_state_records(object, "ai_design_confirmation"),
+        error = function(e) list())
+    if (!length(records)) return(NULL)
+    design_fp <- as.character(sclet_ai_design_fingerprint(object))
+    for (id in names(records)) {
+        summary <- records[[id]]$summary %||% list()
+        if (!identical(as.character(summary$object_fingerprint %||% ""), design_fp)) next
+        design_map <- summary$design %||% list()
+        if (!all(roles %in% names(design_map))) next
+        if (!is.null(summary$design_value_key)) {
+            current <- sclet_ai_design_value_key(object, design_map)
+            if (is.null(current) || !identical(current, summary$design_value_key)) next
+        }
+        return(design_map[roles])
+    }
+    NULL
+}
+
+# Milo's design roles come from the caller or from a confirmation the user
+# already recorded -- never from us pattern-matching column names.
+sclet_ai_milo_design_roles <- function(object, sample_col = NULL, condition_col = NULL) {
+    columns <- colnames(SummarizedExperiment::colData(object))
+    clean <- function(value) {
+        if (is.character(value) && length(value) == 1L && nzchar(value) && value %in% columns) {
+            value
+        }
+    }
+    caller_sample <- clean(sample_col)
+    caller_condition <- clean(condition_col)
+    declared <- sclet_ai_design_declaration(object, c("sample", "condition"))
+    sample <- caller_sample %||% declared$sample
+    condition <- caller_condition %||% declared$condition
+    confirmed <- if (!is.null(sample) && !is.null(condition)) {
+        !is.null(tryCatch(
+            sclet_ai_find_design_confirmation(object, design = list(
+                sample = sample, condition = condition)),
+            error = function(e) NULL))
+    } else {
+        FALSE
+    }
+    list(
+        sample = sample,
+        condition = condition,
+        caller_supplied = !is.null(caller_sample) && !is.null(caller_condition),
+        confirmed = confirmed
+    )
+}
+
+#' Check whether an object is ready for differential-abundance testing
+#'
+#' Reports whether miloR is installed, whether a PCA embedding exists, and
+#' whether the sample and condition design roles are known -- supplied here or
+#' declared through an earlier \code{ConfirmAIDesignSemantics()} call. It never
+#' guesses which colData column plays which design role and never recommends
+#' one: that mapping is the user's own statement about the experiment, which is
+#' what the confirmation gate exists to pin down.
+#'
+#' @param object A \code{SingleCellExperiment} object.
+#' @param sample_col Optional column name the caller intends as the sample.
+#' @param condition_col Optional column name the caller intends as the
+#'   condition.
+#' @return A read-only readiness summary list.
+#' @export
+check_milo_readiness <- function(object, sample_col = NULL, condition_col = NULL) {
+    if (!inherits(object, "SingleCellExperiment")) {
+        stop("object must be a SingleCellExperiment", call. = FALSE)
+    }
+    columns <- colnames(SummarizedExperiment::colData(object))
+    reductions <- tryCatch(SingleCellExperiment::reducedDimNames(object),
+        error = function(e) character())
+    pca_available <- "PCA" %in% reductions
+    milo_available <- base::requireNamespace("miloR", quietly = TRUE)
+
+    roles <- sclet_ai_milo_design_roles(object, sample_col, condition_col)
+    design_known <- !is.null(roles$sample) && !is.null(roles$condition)
+    n_samples <- 0L
+    n_conditions <- 0L
+    if (design_known) {
+        coldata <- SummarizedExperiment::colData(object)
+        n_samples <- length(unique(as.character(coldata[[roles$sample]])))
+        n_conditions <- length(unique(as.character(coldata[[roles$condition]])))
+    }
+    # Milo attributes neighbourhood counts to samples, so fewer than two of
+    # either factor leaves nothing to contrast. Two is a floor, not advice.
+    design_testable <- design_known && n_samples >= 2L && n_conditions >= 2L
+
+    records <- tryCatch(sclet_get_state_records(object, "milo"), error = function(e) list())
+    if (is.null(records)) records <- list()
+    milo_ids <- names(records)
+
+    questions <- character()
+    if (!milo_available) {
+        questions <- c(questions,
+            "The 'miloR' package is not installed; install it via BiocManager::install('miloR').")
+    }
+    if (!pca_available) {
+        questions <- c(questions, paste0(
+            "No PCA embedding is available and Milo builds its neighbourhood graph on one; run RunPCA() ",
+            "first. Available reductions: ",
+            if (length(reductions)) paste(reductions, collapse = ", ") else "none", "."
+        ))
+    }
+    if (!design_known) {
+        missing_roles <- c(if (is.null(roles$sample)) "sample" else NULL,
+            if (is.null(roles$condition)) "condition" else NULL)
+        questions <- c(questions, paste0(
+            "The design role(s) ", paste(missing_roles, collapse = " and "), " are not declared for this ",
+            "object. Declare them yourself with ConfirmAIDesignSemantics(object, design = list(...)), or ",
+            "pass the column names explicitly. No column is guessed or recommended here. Available ",
+            "colData columns: ", paste(columns, collapse = ", "), "."
+        ))
+    } else if (!design_testable) {
+        questions <- c(questions, paste0(
+            "The declared design has ", n_samples, " sample(s) and ", n_conditions,
+            " condition(s); differential abundance needs at least two of each, or there is no ",
+            "replication to attribute neighbourhood counts to."
+        ))
+    } else if (roles$caller_supplied && !roles$confirmed) {
+        # The columns are known and testable, but run_milo still refuses
+        # without a confirmation, so readiness must refuse to say "ready": a
+        # diagnostic that green-lights an action the gate will block is worse
+        # than one that blocks, because the planner acts on the green light.
+        questions <- c(questions, paste0(
+            "The sample and condition roles resolve to real columns but were never confirmed as design ",
+            "roles; call ConfirmAIDesignSemantics(object, design = list(sample = '", roles$sample,
+            "', condition = '", roles$condition, "')) so that mapping is your own declaration."
+        ))
+    }
+
+    ready <- milo_available && pca_available && design_testable && isTRUE(roles$confirmed)
+    list(
+        status = if (ready) "ready_for_diagnostic" else "not_ready",
+        checks = list(
+            milo_package_available = milo_available,
+            pca_reduction_available = pca_available,
+            available_reductions = reductions,
+            sample_column_resolved = roles$sample,
+            condition_column_resolved = roles$condition,
+            design_roles_confirmed = isTRUE(roles$confirmed),
+            design_roles_supplied_by_caller = isTRUE(roles$caller_supplied),
+            n_samples = as.integer(n_samples),
+            n_conditions = as.integer(n_conditions),
+            milo_record_available = length(milo_ids) > 0L,
+            available_milo_ids = milo_ids,
+            raw_values_included = FALSE
+        ),
+        blocked_actions = if (ready) character() else "milo",
+        questions = questions,
+        notes = paste(
+            "Neither the sample column nor the condition column is guessed: design roles come from the",
+            "caller or from a prior ConfirmAIDesignSemantics() declaration, because that mapping is the",
+            "user's own statement about the experiment. Differential abundance results are associations",
+            "between neighbourhoods and conditions under a chosen graph and test, not causal or measured",
+            "effects, and no per-neighbourhood or per-cell value is returned here."
+        )
+    )
+}
+
+# A count that cannot be determined is reported as NA, not 0: a zero reads as
+# the measured verdict "no samples observed", while NA says "this was not
+# recorded", which is the honest statement when a record omits it.
+sclet_ai_milo_count_or_na <- function(value) {
+    if (is.null(value) || !length(value)) return(NA_integer_)
+    number <- suppressWarnings(as.integer(value[[1L]]))
+    if (is.na(number)) NA_integer_ else number
+}
+
+# Distinct levels of one design column, or NA when the column is unknown. The
+# labels themselves never leave here -- only the count does.
+sclet_ai_milo_level_count <- function(object, column) {
+    if (is.null(column) || !length(column)) return(NA_integer_)
+    coldata <- tryCatch(SummarizedExperiment::colData(object), error = function(e) NULL)
+    if (is.null(coldata) || !column %in% colnames(coldata)) return(NA_integer_)
+    values <- tryCatch(as.character(coldata[[column]]), error = function(e) NULL)
+    if (is.null(values)) return(NA_integer_)
+    as.integer(length(unique(values[!is.na(values)])))
+}
+
+# Every Milo node on an object shares a dependency group: the runs use one
+# neighbourhood graph over one design, so a second contrast is not a second
+# independent line of support.
+sclet_ai_milo_dependency_group <- function(object, roles) {
+    coldata <- SummarizedExperiment::colData(object)
+    sizes <- integer(0)
+    for (column in c(roles$sample, roles$condition)) {
+        if (!is.null(column) && column %in% colnames(coldata)) {
+            sizes <- c(sizes, as.integer(sort(table(as.character(coldata[[column]])))))
+        }
+    }
+    if (!length(sizes)) sizes <- as.integer(ncol(object))
+    payload <- paste0(sizes, collapse = ",")
+    if (base::requireNamespace("digest", quietly = TRUE)) {
+        return(paste0("milo_", substring(digest::digest(payload, algo = "sha256"), 1L, 32L)))
+    }
+    paste0("milo_", substring(payload, 1L, 32L))
+}
+
+# Bounded facts from a Milo record. Only numeric test columns of the DA table
+# are read; design_df, the formula and every sample/condition label stay put.
+sclet_ai_milo_table_facts <- function(record) {
+    da <- record$artifacts$da_results
+    if (is.null(da)) return(NULL)
+    table <- tryCatch(as.data.frame(da), error = function(e) NULL)
+    if (is.null(table)) return(NULL)
+    columns <- tolower(colnames(table))
+    fdr_column <- colnames(table)[columns %in% c("fdr", "adj.p.value", "padj")][1L]
+    p_column <- colnames(table)[columns %in% "pvalue"][1L]
+    fdr <- if (!is.na(fdr_column)) suppressWarnings(as.numeric(table[[fdr_column]])) else numeric()
+    fdr <- fdr[is.finite(fdr)]
+    p_value <- if (!is.na(p_column)) suppressWarnings(as.numeric(table[[p_column]])) else numeric()
+    p_value <- p_value[is.finite(p_value)]
+    fdr_quantiles <- if (length(fdr)) {
+        round(unname(stats::quantile(fdr, c(0.25, 0.5, 0.75))), 8L)
+    } else {
+        rep(NA_real_, 3L)
+    }
+    list(
+        n_da_results = as.integer(nrow(table)),
+        n_significant = as.integer(sum(fdr < 0.05)),
+        fdr_quantile_25 = as.numeric(fdr_quantiles[[1L]]),
+        fdr_median = as.numeric(fdr_quantiles[[2L]]),
+        fdr_quantile_75 = as.numeric(fdr_quantiles[[3L]]),
+        p_value_median = if (length(p_value)) round(stats::median(p_value), 8L) else NA_real_
+    )
+}
+
+#' Record a bounded evidence node for a differential-abundance run
+#'
+#' Registers neighbourhood counts and FDR quantiles only. The design frame, the
+#' model formula and any sample or condition label stay in the state record:
+#' those are the user's experimental metadata, and an evidence node is eligible
+#' to leave the process as provider context. Every Milo node on an object shares
+#' a dependency group, so a second contrast over the same graph is not treated
+#' as a second independent line of support.
+#'
+#' @param object A \code{SingleCellExperiment} object.
+#' @param name Milo record id.
+#' @return The object with one \code{ev:milo_<name>} node appended, or
+#'   unchanged when no Milo record exists.
+#' @keywords internal
+#' @noRd
+sclet_ai_record_milo_evidence <- function(object, name) {
+    record <- tryCatch(sclet_get_state_record(object, "milo", name), error = function(e) NULL)
+    if (is.null(record)) return(object)
+    facts <- sclet_ai_milo_table_facts(record)
+    if (is.null(facts)) return(object)
+    roles <- sclet_ai_milo_design_roles(object,
+        sample_col = record$inputs$sample_col,
+        condition_col = record$inputs$condition_col)
+    record_summary <- record$summary %||% list()
+    covariates <- record$inputs$covariates
+    evidence <- list(
+        id = paste0("ev:milo_", name),
+        kind = "deterministic_summary",
+        values = c(facts, list(
+            # NA when the role is unknown: 0 would read as a measured verdict
+            # of "no conditions" instead of "this could not be determined".
+            n_samples = sclet_ai_milo_count_or_na(record_summary$n_samples),
+            n_conditions = sclet_ai_milo_level_count(object, roles$condition),
+            n_contrasts = sclet_ai_milo_count_or_na(length(record$artifacts$contrasts %||% character())),
+            has_covariates = length(as.character(covariates %||% character())) > 0L,
+            neighbourhood_estimates_are_model_based = TRUE,
+            raw_values_included = FALSE
+        )),
+        claim_level = "associated",
+        dependency_group = sclet_ai_milo_dependency_group(object, roles)
+    )
+    tryCatch(
+        RecordAIEvidence(object, evidence, source = name, parents = character(), scope = NULL),
+        error = function(e) object
+    )
+}

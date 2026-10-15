@@ -245,3 +245,232 @@ test_that("the batch C diagnostics mutate nothing", {
         expect_equal(names(sclet:::sclet_ai_evidence_get_all(object)), evidence)
     }
 })
+
+## -- C3: Milo ---------------------------------------------------------------
+## RunMilo is mocked, not because mocking is convenient but because it cannot
+## run here: miloR's testNhoods fails with `subscript out of bounds` on
+## synthetic counts at any size tested (60 and 240 cells, refined off, wide
+## prop), and the failure happens inside the third-party fitting step. A test
+## that drove it would be asserting against miloR's data requirements rather
+## than against this contract. The mocked run writes a DA table with the real
+## column names, so the recorder, the dependency grouping, the ceiling and the
+## summary all execute for real over it.
+
+sclet_ai_test_milo_da <- function(n = 40L) {
+    data.frame(
+        Nhood = seq_len(n),
+        LogFC = stats::rnorm(n),
+        PValue = (seq_len(n) / (n + 1)) * 0.4,
+        FDR = (seq_len(n) / (n + 1)) * 0.4,
+        stringsAsFactors = FALSE
+    )
+}
+
+sclet_ai_test_milo_object <- function(n_cells = 60L, n_genes = 200L, n_samples = 6L) {
+    counts <- matrix(rpois(n_genes * n_cells, lambda = 5L),
+        nrow = n_genes, ncol = n_cells,
+        dimnames = list(paste0("gene_", seq_len(n_genes)), paste0("c", seq_len(n_cells))))
+    sce <- SingleCellExperiment::SingleCellExperiment(assays = list(counts = counts))
+    sce$sample <- factor(rep(paste0("mouse", seq_len(n_samples)), length.out = n_cells))
+    sce$condition <- factor(rep(c("ctrl", "trt"), each = n_cells / 2L))
+    SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(
+        stats::rnorm(n_cells * 5L), nrow = n_cells, ncol = 5L,
+        dimnames = list(colnames(sce), NULL))
+    sce
+}
+
+sclet_ai_test_milo_store <- function(object, name = "milo", da = sclet_ai_test_milo_da(),
+                                     sample_col = "sample", condition_col = "condition") {
+    sclet_set_analysis_state(
+        object = object, type = "milo", id = name, method = "miloR",
+        inputs = list(sample_col = sample_col, condition_col = condition_col, covariates = NULL),
+        artifacts = list(analysis_key = "milo", da_results = da,
+            design_df = data.frame(sample = "mouse1", condition = "ctrl"),
+            formula = "~0 + condition", contrasts = "trt - ctrl"),
+        params = list(prop = 0.1),
+        summary = list(n_nhood_results = nrow(da), n_samples = 6L),
+        active = TRUE
+    )
+}
+
+sclet_ai_test_milo_plan <- function(object, params) {
+    registry <- AIDefaultExecutionRegistry(object, include = c("read", "milo"))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "milo",
+        context_fingerprint = GetAnalysisLedger(object)$fingerprint,
+        actions = list(list(id = "m1", action = "run_milo", params = as.list(params)))
+    )
+    list(registry = registry, validation = ValidateAIPlan(plan, object = object,
+        registry = registry, strict = FALSE))
+}
+
+test_that("Milo readiness and the run_milo gate never disagree", {
+    object <- sclet_ai_test_milo_object()
+    params <- list(sample_col = "sample", condition_col = "condition",
+        contrasts = "trt - ctrl")
+
+    ## Columns resolve and the design is testable, but nothing was confirmed:
+    ## both layers must refuse. A diagnostic that green-lights an action the
+    ## gate blocks is worse than one that blocks, because the planner acts on
+    ## the green light.
+    before <- check_milo_readiness(object, sample_col = "sample", condition_col = "condition")
+    gate_before <- sclet_ai_test_milo_plan(object, params)$validation
+    expect_equal(before$status, "not_ready")
+    expect_false(gate_before$valid)
+    expect_true(any(grepl("design_semantics_not_confirmed", gate_before$errors)))
+    expect_true(any(grepl("ConfirmAIDesignSemantics", before$questions)))
+    ## The gate names the exact call, so the AI can self-repair.
+    expect_true(any(grepl("sample = 'sample'", gate_before$errors, fixed = TRUE)))
+
+    confirmed <- ConfirmAIDesignSemantics(object,
+        design = list(sample = "sample", condition = "condition"))
+    after <- check_milo_readiness(confirmed, sample_col = "sample", condition_col = "condition")
+    gate_after <- sclet_ai_test_milo_plan(confirmed, params)$validation
+    expect_equal(after$status, "ready_for_diagnostic")
+    expect_true(gate_after$valid)
+
+    ## Roles read from the confirmation alone, with no columns passed here.
+    expect_equal(check_milo_readiness(confirmed)$status, "ready_for_diagnostic")
+
+    ## Nothing declared at all.
+    expect_equal(check_milo_readiness(object)$status, "not_ready")
+    ## A column that is not in colData.
+    expect_equal(check_milo_readiness(object, sample_col = "nosuch",
+        condition_col = "condition")$status, "not_ready")
+})
+
+test_that("a confirmation is void once the design values change", {
+    object <- sclet_ai_test_milo_object()
+    confirmed <- ConfirmAIDesignSemantics(object,
+        design = list(sample = "sample", condition = "condition"))
+    ## Same column names, different mapping: the user confirmed something that
+    ## is no longer true, so neither layer may trust it.
+    tampered <- confirmed
+    tampered$condition <- factor(rep(c("alpha", "beta"), each = 30L))
+    expect_equal(check_milo_readiness(tampered, sample_col = "sample",
+        condition_col = "condition")$status, "not_ready")
+    gate <- sclet_ai_test_milo_plan(tampered, list(sample_col = "sample",
+        condition_col = "condition", contrasts = "beta - alpha"))$validation
+    expect_false(gate$valid)
+    expect_true(any(grepl("design_semantics_not_confirmed", gate$errors)))
+})
+
+test_that("Milo never infers a design role from a plausible column name", {
+    ## A column literally named "sample" exists, and readiness must not use it
+    ## as a role just because the name matches.
+    object <- sclet_ai_test_milo_object()
+    object$donor <- object$sample
+    result <- check_milo_readiness(object)
+    expect_equal(result$status, "not_ready")
+    expect_null(result$checks$sample_column_resolved)
+    expect_false(isTRUE(result$checks$design_roles_confirmed))
+    ## The question offers the mechanism, never a guess.
+    expect_true(any(grepl("No column is guessed or recommended", result$questions)))
+})
+
+test_that("run_milo registers bounded evidence with no design labels", {
+    object <- sclet_ai_test_milo_object()
+    confirmed <- ConfirmAIDesignSemantics(object,
+        design = list(sample = "sample", condition = "condition"))
+    params <- list(sample_col = "sample", condition_col = "condition",
+        contrasts = "trt - ctrl", name = "milo_run")
+    plan <- sclet_ai_test_milo_plan(confirmed, params)
+    expect_true(plan$validation$valid)
+
+    executed <- with_mocked_bindings(
+        ExecuteAIPlan(confirmed, plan$validation$plan, plan$registry,
+            validation = plan$validation, dry_run = FALSE,
+            confirmation = plan$validation$confirmation_token),
+        RunMilo = function(sce, ...) sclet_ai_test_milo_store(sce, name = "milo_run"),
+        .package = "sclet"
+    )
+    expect_equal(executed$status, "completed")
+    node <- sclet:::sclet_ai_evidence_get_all(executed$object)[["ev:milo_milo_run"]]
+    expect_false(is.null(node))
+    expect_equal(node$claim_level, "associated")
+    expect_equal(node$values$n_samples, 6L)
+    expect_equal(node$values$n_conditions, 2L)
+    expect_false(isTRUE(node$values$raw_values_included))
+    expect_true(isTRUE(node$values$neighbourhood_estimates_are_model_based))
+
+    ## The identity ban is absolute here: sample and condition labels are the
+    ## user's experimental metadata.
+    values_text <- paste(vapply(node$values, function(v) paste(v, collapse = ","),
+        character(1)), collapse = "|")
+    for (label in c("mouse1", "mouse2", "ctrl", "trt", "~0 + condition", "miloR")) {
+        expect_false(grepl(label, values_text, fixed = TRUE))
+    }
+    ## POSITIVE CONTROL: those labels really do exist upstream, in the very
+    ## artifacts the recorder declined to copy, so the scan above is not
+    ## passing because the patterns are unfindable anywhere.
+    stored <- sclet_get_state_record(executed$object, "milo", "milo_run")
+    upstream <- paste(capture.output(str(stored$artifacts)), collapse = "\n")
+    expect_true(grepl("mouse1", upstream, fixed = TRUE))
+    expect_true(grepl("ctrl", upstream, fixed = TRUE))
+    ## No per-neighbourhood vector may reach evidence: a DA row per value would
+    ## be exactly nrow(da) long.
+    for (value in node$values) {
+        expect_true(length(value) < 40L)
+    }
+})
+
+test_that("two Milo contrasts over one graph are one line of support", {
+    object <- sclet_ai_test_milo_object()
+    confirmed <- ConfirmAIDesignSemantics(object,
+        design = list(sample = "sample", condition = "condition"))
+    first <- sclet:::sclet_ai_record_milo_evidence(
+        sclet_ai_test_milo_store(confirmed, name = "milo_a"), "milo_a")
+    second <- sclet:::sclet_ai_record_milo_evidence(
+        sclet_ai_test_milo_store(first, name = "milo_b"), "milo_b")
+    ceiling <- check_claim_ceiling(second,
+        evidence_ids = c("ev:milo_milo_a", "ev:milo_milo_b"))
+    expect_equal(ceiling$n_independent_groups, 1L)
+
+    ## CONTROL: an unrelated second source really is a second line.
+    unrelated <- RecordAIEvidence(second, list(
+        id = "ev:milo_control", kind = "deterministic_summary",
+        values = list(n_observed = 3L, raw_values_included = FALSE),
+        claim_level = "associated"), source = NULL, parents = character(), scope = NULL)
+    control <- check_claim_ceiling(unrelated,
+        evidence_ids = c("ev:milo_milo_a", "ev:milo_control"))
+    expect_equal(control$n_independent_groups, 2L)
+})
+
+test_that("a Milo run that wrote no record surfaces milo_no_result", {
+    object <- sclet_ai_test_milo_object()
+    confirmed <- ConfirmAIDesignSemantics(object,
+        design = list(sample = "sample", condition = "condition"))
+    params <- list(sample_col = "sample", condition_col = "condition",
+        contrasts = "trt - ctrl", name = "milo_empty")
+    plan <- sclet_ai_test_milo_plan(confirmed, params)
+    expect_true(plan$validation$valid)
+    executed <- with_mocked_bindings(
+        ExecuteAIPlan(confirmed, plan$validation$plan, plan$registry,
+            validation = plan$validation, dry_run = FALSE,
+            confirmation = plan$validation$confirmation_token),
+        RunMilo = function(sce, ...) sce,
+        .package = "sclet"
+    )
+    expect_equal(executed$status, "failed")
+    messages <- unlist(lapply(executed$results, function(step) step$error))
+    expect_true(any(grepl("milo_no_result", messages)))
+    expect_false("ev:milo_milo_empty" %in%
+        names(sclet:::sclet_ai_evidence_get_all(executed$object)))
+})
+
+test_that("the Milo recorder tolerates a record with no usable table", {
+    object <- sclet_ai_test_milo_object()
+    fingerprint <- GetAnalysisLedger(object)$fingerprint
+    record <- sclet_set_analysis_state(object = object, type = "milo", id = "milo_x",
+        method = "miloR", inputs = list(), artifacts = list(), params = list(),
+        summary = list(), active = TRUE)
+    expect_identical(sclet:::sclet_ai_record_milo_evidence(record, "milo_x"), record)
+    expect_length(sclet:::sclet_ai_evidence_get_all(record), 0L)
+    ## And unknown design roles report NA, never a fabricated zero.
+    recorded <- sclet:::sclet_ai_record_milo_evidence(
+        sclet_ai_test_milo_store(object, name = "milo_role",
+            sample_col = NULL, condition_col = NULL), "milo_role")
+    values <- sclet:::sclet_ai_evidence_get_all(recorded)[["ev:milo_milo_role"]]$values
+    expect_true(is.na(values$n_conditions))
+    expect_equal(GetAnalysisLedger(object)$fingerprint, fingerprint)
+})
