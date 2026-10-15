@@ -483,3 +483,76 @@ sclet_ai_record_milo_evidence <- function(object, name) {
         error = function(e) object
     )
 }
+
+#' Summarize Milo results in bounded form without claiming a conclusion
+#'
+#' Read-only companion to \code{RunMilo()}: it reports the same neighbourhood
+#' counts and FDR quantiles the evidence node carries and writes nothing, so an
+#' agent can reason about a differential-abundance run, or about whether one is
+#' even possible, without executing anything. It never ranks neighbourhoods,
+#' never names a sample or condition label, and never recommends a design column,
+#' a contrast or a graph parameter.
+#'
+#' @param object A \code{SingleCellExperiment} object.
+#' @param id Optional Milo record id. When \code{NULL}, the active one.
+#' @return A read-only summary list.
+#' @export
+summarize_milo_evidence <- function(object, id = NULL) {
+    if (!inherits(object, "SingleCellExperiment")) {
+        stop("object must be a SingleCellExperiment", call. = FALSE)
+    }
+    unavailable <- function(reason) {
+        list(
+            status = "not_available", reason = reason, n_records = 0L,
+            claim_level = "associated", recommendation = NULL,
+            raw_values_included = FALSE,
+            caveats = "No differential abundance is reported and no design label is named."
+        )
+    }
+    records <- tryCatch(sclet_get_state_records(object, "milo"), error = function(e) list())
+    if (is.null(records)) records <- list()
+    if (!length(records)) return(unavailable("no_milo_record"))
+
+    resolved_id <- if (!is.null(id) && nzchar(id)) as.character(id)[[1L]] else {
+        tryCatch(sclet_get_active_state(object, "milo"), error = function(e) NULL)
+    }
+    if (is.null(resolved_id) || !resolved_id %in% names(records)) {
+        return(unavailable("no_milo_record"))
+    }
+    record <- records[[resolved_id]]
+    facts <- sclet_ai_milo_table_facts(record)
+    if (is.null(facts)) return(unavailable("no_milo_results"))
+
+    roles <- sclet_ai_milo_design_roles(object,
+        sample_col = record$inputs$sample_col,
+        condition_col = record$inputs$condition_col)
+    record_summary <- record$summary %||% list()
+    list(
+        status = "available",
+        milo_id = resolved_id,
+        available_milo_ids = names(records),
+        n_da_results = facts$n_da_results,
+        n_significant = facts$n_significant,
+        fdr_quantile_25 = facts$fdr_quantile_25,
+        fdr_median = facts$fdr_median,
+        fdr_quantile_75 = facts$fdr_quantile_75,
+        p_value_median = facts$p_value_median,
+        n_samples = sclet_ai_milo_count_or_na(record_summary$n_samples),
+        n_conditions = sclet_ai_milo_level_count(object, roles$condition),
+        n_contrasts = sclet_ai_milo_count_or_na(length(record$artifacts$contrasts %||% character())),
+        evidence_node_recorded = paste0("ev:milo_", resolved_id) %in%
+            names(tryCatch(sclet_ai_evidence_get_all(object), error = function(e) list())),
+        claim_level = "associated",
+        recommendation = NULL,
+        raw_values_included = FALSE,
+        caveats = paste(
+            "Differential abundance results are associations between neighbourhoods and conditions",
+            "under a chosen graph, library-size normalisation and test; they are not causal effects and",
+            "not measured quantities. A non-significant neighbourhood is not evidence of no difference,",
+            "because the graph and the FDR procedure both depend on the design the user declared. Only",
+            "counts and quantiles are reported: no per-neighbourhood value, no design frame contents",
+            "and no sample or condition label is included, and the full DA table stays in the state",
+            "record for R-side access."
+        )
+    )
+}

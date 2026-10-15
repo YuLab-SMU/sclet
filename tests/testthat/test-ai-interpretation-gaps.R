@@ -474,3 +474,48 @@ test_that("the Milo recorder tolerates a record with no usable table", {
     expect_true(is.na(values$n_conditions))
     expect_equal(GetAnalysisLedger(object)$fingerprint, fingerprint)
 })
+
+## -- C3b: the read-only Milo summary ---------------------------------------
+## Every other stage in this line has an exported read-only summary, and Milo
+## was the one whose bounded facts could not be reached without executing
+## something. These assertions also pin the two things the summary exists to
+## guarantee: it writes nothing, and it leaks no design label.
+test_that("summarize_milo_evidence is bounded, label-free and writes nothing", {
+    object <- sclet_ai_test_milo_object()
+    fingerprint <- GetAnalysisLedger(object)$fingerprint
+
+    absent <- summarize_milo_evidence(object)
+    expect_equal(absent$status, "not_available")
+    expect_equal(absent$reason, "no_milo_record")
+    expect_null(absent$recommendation)
+
+    stored <- sclet_ai_test_milo_store(object, name = "milo_sum")
+    stored <- sclet:::sclet_ai_record_milo_evidence(stored, "milo_sum")
+    summary <- summarize_milo_evidence(stored, id = "milo_sum")
+    expect_equal(summary$status, "available")
+    expect_equal(summary$n_da_results, 40L)
+    expect_equal(summary$n_samples, 6L)
+    expect_equal(summary$n_conditions, 2L)
+    expect_true(summary$evidence_node_recorded)
+    expect_equal(summary$claim_level, "associated")
+    expect_null(summary$recommendation)
+    expect_false(isTRUE(summary$raw_values_included))
+
+    ## Design labels and the model formula are the user's experimental metadata
+    ## and the shape of their model: neither may appear.
+    dumped <- paste(capture.output(str(summary)), collapse = "\n")
+    for (label in c("mouse1", "mouse2", "ctrl", "trt", "~0 + condition")) {
+        expect_false(grepl(label, dumped, fixed = TRUE))
+    }
+    ## POSITIVE CONTROL: the same labels are present in the record's own
+    ## artifacts, so the scan above is not passing on unfindable patterns.
+    upstream <- paste(capture.output(str(
+        sclet_get_state_record(stored, "milo", "milo_sum")$artifacts)), collapse = "\n")
+    expect_true(grepl("mouse1", upstream, fixed = TRUE))
+    expect_true(grepl("ctrl", upstream, fixed = TRUE))
+
+    ## Strictly read-only: neither the summary nor the absent-record path may
+    ## touch the ledger.
+    expect_equal(GetAnalysisLedger(object)$fingerprint, fingerprint)
+    expect_length(sclet:::sclet_ai_evidence_get_all(object), 0L)
+})
