@@ -1234,9 +1234,19 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
         actions <- c(actions, list(
             run_doublet_detection = AIAction(
                 name = "run_doublet_detection",
-                description = "Score doublets with scDblFinder and store per-cell doublet class/score in colData.",
+                description = paste(
+                    "Score doublets with scDblFinder, store per-cell doublet class/score in colData, and",
+                    "register one bounded evidence node (aggregate counts and score quantiles) so the call",
+                    "is citable from the ledger. The class label is one classifier's estimate, not a",
+                    "measurement of doubleness, and no cell is removed or filtered.",
+                    "No per-cell score or class vector enters the evidence node."
+                ),
                 handler = function(object, params) {
-                    RunDoubletFinder(object)
+                    scored <- RunDoubletFinder(object)
+                    # The preprocess record id is fixed by RunDoubletFinder, so
+                    # the evidence id is stable and a re-run degrades to a no-op
+                    # inside the recorder rather than duplicating or erroring.
+                    sclet_ai_record_doublet_evidence(scored, name = "doublet_finder")
                 },
                 input_schema = list(),
                 prerequisites = function(object, params, planned = NULL) {
@@ -1251,11 +1261,16 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 returns = "sce",
                 requires_confirmation = TRUE,
                 output_schema = list(
-                    required_states = list(preprocess = "any"),
-                    note = "Per-cell doublet calls are added to colData. No cell is removed or filtered by this action."
+                    required_states = list(preprocess = "any", ai_evidence = "any"),
+                    note = paste(
+                        "Per-cell doublet calls are added to colData. No cell is removed or filtered by",
+                        "this action. The registered evidence carries only the number of cells, the number",
+                        "called doublet, that fraction, and score quantiles; a single classifier's call is",
+                        "recorded at claim level 'associated' because nothing independent corroborates it."
+                    )
                 ),
                 mutates_object = TRUE,
-                allowed_state_types = c("preprocess"),
+                allowed_state_types = c("preprocess", "ai_evidence"),
                 estimated_cost = "medium",
                 idempotent = FALSE
             ),

@@ -147,6 +147,7 @@ Collate:
     'ai-multimodal.R'
     'ai-enrichment.R'
     'ai-communication.R'
+    'ai-interpretation-gaps.R'
     'ai-integration-routes.R'
     'ai-functions.R'
     'ai-investigate.R'
