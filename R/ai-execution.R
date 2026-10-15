@@ -464,8 +464,8 @@ sclet_ai_action_param_type_problems <- function(params, schema) {
 #' @param include Character vector of action groups. Supported groups are
 #'   `"read"`, `"preprocess"`, `"dimred"`, `"graph"`, `"cluster"`,
 #'   `"integration"`, `"annotation"`, `"rare_cell"`, `"trajectory"`,
-#'   `"velocity"`, `"fate"`, `"spatial"`, `"multimodal"`, `"enrichment"`, and `"all"`.
-#'   Defaults to `"read"`.
+#'   `"velocity"`, `"fate"`, `"spatial"`, `"multimodal"`, `"enrichment"`,
+#'   `"communication"`, and `"all"`. Defaults to `"read"`.
 #' @return A `sclet_ai_execution_registry` containing the requested actions.
 #' @export
 AIDefaultExecutionRegistry <- function(object, include = "read") {
@@ -473,7 +473,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
         stop("`object` must be a SingleCellExperiment.")
     }
     include <- unique(as.character(include))
-    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "rare_cell", "trajectory", "velocity", "fate", "spatial", "multimodal", "enrichment", "all")
+    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "rare_cell", "trajectory", "velocity", "fate", "spatial", "multimodal", "enrichment", "communication", "all")
     if (!length(include) || any(!include %in% allowed_groups)) {
         stop("`include` must contain only: ", paste(allowed_groups, collapse = ", "))
     }
@@ -2150,6 +2150,157 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 mutates_object = TRUE,
                 allowed_state_types = c("detest", "enrichment", "ai_evidence"),
                 estimated_cost = "medium",
+                idempotent = TRUE
+            )
+        ))
+    }
+    if ("communication" %in% include) {
+        actions <- c(actions, list(
+            run_cci = AIAction(
+                name = "run_cci",
+                description = paste(
+                    "Infer cell-cell interactions with the engine the user names, and register bounded",
+                    "aggregate evidence for it. The method is required and never defaulted: CellChat,",
+                    "CellPhoneDB and NicheNet use different ligand-receptor databases, expression tests and",
+                    "sender/receiver framing, so choosing between them is a modelling decision, not a",
+                    "parameter to fill in. No ligand, receptor or pathway identity is recorded as",
+                    "evidence; the interaction table stays in the analysis layer for get_cci()."
+                ),
+                handler = function(object, params) {
+                    method <- params$method
+                    # Record ids are engine-specific and the caller may omit
+                    # name, so the newly written record is located by comparing
+                    # created_at across communication records rather than
+                    # assumed. This also detects a run that wrote no record.
+                    before <- sclet_get_state_records(object, "communication")
+                    before_created <- vapply(before, function(record) {
+                        as.character(record$created_at %||% "")
+                    }, character(1L))
+                    result <- RunCCI(
+                        object,
+                        method = method,
+                        keep_object = isTRUE(params$keep_object %||% FALSE),
+                        group = params$group,
+                        assay_name = params$assay_name,
+                        layer = params$layer,
+                        name = params$name
+                    )
+                    after <- sclet_get_state_records(result, "communication")
+                    created_after <- vapply(after, function(record) {
+                        as.character(record$created_at %||% "")
+                    }, character(1L))
+                    written <- names(created_after)[vapply(names(created_after), function(id) {
+                        previous <- if (id %in% names(before_created)) {
+                            before_created[[id]]
+                        } else {
+                            ""
+                        }
+                        !identical(created_after[[id]], previous)
+                    }, logical(1L))]
+                    if (!length(written)) {
+                        stop(paste0(
+                            "communication_no_result: run_cci with method '", method,
+                            "' wrote no communication record, so nothing can be reported or claimed from",
+                            " it. Check that the group column resolves to at least two populations with",
+                            " cells in the expression source, then re-run."
+                        ), call. = FALSE)
+                    }
+                    sclet_ai_record_communication_evidence(
+                        result,
+                        name = written[[1L]],
+                        method = method
+                    )
+                },
+                input_schema = list(
+                    method = "character",
+                    group = "character",
+                    assay_name = "character",
+                    layer = "character",
+                    name = "character",
+                    keep_object = "logical"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    engines <- c("CellChat", "CellPhoneDB", "NicheNet")
+                    method <- params$method
+                    if (is.null(method) || !is.character(method) || length(method) != 1L ||
+                            !nzchar(trimws(method))) {
+                        return(paste0(
+                            "method_missing: run_cci requires an explicit method because the engines are",
+                            " not interchangeable (different ligand-receptor databases and statistical tests).",
+                            " Pass one of: ", paste(engines, collapse = ", "),
+                            ". No engine is chosen for the user."
+                        ))
+                    }
+                    if (!method %in% engines) {
+                        return(paste0(
+                            "method_invalid: run_cci accepts method = \"CellChat\", \"CellPhoneDB\" or",
+                            " \"NicheNet\"; got '", method, "'. No engine is substituted automatically."
+                        ))
+                    }
+                    columns <- colnames(SummarizedExperiment::colData(object))
+                    group_key <- params$group %||% tryCatch(ActiveIdent(object), error = function(e) NULL)
+                    if (!is.null(group_key) && !as.character(group_key) %in% columns &&
+                            !identical(as.character(group_key), "colLabels")) {
+                        group_key <- NULL
+                    }
+                    if (is.null(group_key)) {
+                        candidates <- grep("cluster|leiden|louvain|ident", columns,
+                            ignore.case = TRUE, value = TRUE)
+                        if (length(candidates)) group_key <- candidates[[1L]]
+                    }
+                    if (is.null(group_key)) {
+                        return(paste0(
+                            "group_column_missing: run_cci groups cells into sender and receiver",
+                            " populations and none is resolvable; set an active identity or pass 'group'.",
+                            " Available colData columns: ", paste(columns, collapse = ", "), "."
+                        ))
+                    }
+                    if (!length(SummarizedExperiment::assayNames(object))) {
+                        return(
+                            "expression_source_missing: run_cci needs an expression assay and this object has none."
+                        )
+                    }
+                    required_packages <- c(CellChat = "CellChat", CellPhoneDB = "basilisk",
+                        NicheNet = "nichenetr")
+                    if (identical(method, "CellPhoneDB")) {
+                        # CellPhoneDB is the one engine that crosses into Python.
+                        missing_bridge <- c("reticulate", "basilisk")[
+                            !vapply(c("reticulate", "basilisk"),
+                                base::requireNamespace, logical(1L), quietly = TRUE)]
+                        if (length(missing_bridge)) {
+                            return(paste0(
+                                "communication_backend_unavailable: CellPhoneDB runs through ",
+                                paste(missing_bridge, collapse = " and "),
+                                "; install them to use this engine."
+                            ))
+                        }
+                    }
+                    needed <- required_packages[[method]]
+                    if (!base::requireNamespace(needed, quietly = TRUE)) {
+                        return(paste0(
+                            "communication_package_missing: run_cci with method '", method, "' needs the '",
+                            needed, "' package; install it via BiocManager::install('", needed, "')."
+                        ))
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                requires_confirmation = TRUE,
+                output_schema = list(
+                    required_states = list(communication = "any", ai_evidence = "any"),
+                    note = paste(
+                        "Inferred interactions are model estimates computed from expression plus a curated",
+                        "ligand-receptor database; a predicted pair is not evidence that cells signalled, and",
+                        "an absent pair is uninformative because each engine filters against its own database.",
+                        "Only group-flow counts and strength quantiles reach the evidence layer, and every",
+                        "communication run on an object shares a dependency group, so agreement between two",
+                        "engines over the same expression matrix and labels is not two independent lines of",
+                        "support. This action never chooses an engine, and removes or filters no cell."
+                    )
+                ),
+                mutates_object = TRUE,
+                allowed_state_types = c("communication", "ai_evidence"),
+                estimated_cost = "high",
                 idempotent = TRUE
             )
         ))
