@@ -670,3 +670,278 @@ sclet_ai_claim_ceiling <- function(object, evidence_ids = NULL, proposed_claim_l
         raw_values_included = FALSE
     )
 }
+
+#' Check what the recorded evidence can carry, before a claim is made
+#'
+#' `RecordAIResult(audit_claims = TRUE)` enforces the evidence ceiling at the
+#' WRITE gate: it derives the level each finding may be recorded at, and
+#' refuses or downgrades accordingly. This function is the read-only half of
+#' the same contract, for the moments when no claim exists yet: given the
+#' evidence recorded on an object, what is the strongest claim that evidence
+#' can actually carry, and do these proposed claims fit underneath it?
+#'
+#' The ceiling itself is computed by `sclet_ai_claim_ceiling()`, which groups
+#' the supporting nodes into lines of independent support. A single line of
+#' support is capped at `"associated"`, so a lone node can never be upgraded
+#' into a stronger statement; two or more independent lines are required to
+#' reach `"consistent_with"`, and the ceiling is bounded by the weakest
+#' supporting node either way. `user_decision` nodes are excluded, because a
+#' human decision cannot support an AI-generated claim.
+#'
+#' Proposed claims are judged with the same three rules
+#' `sclet_ai_audit_result_claims()` applies. `"causal"` is never an acceptable
+#' AI claim level and is reported `"overclaimed"`, never silently downgraded. A
+#' requested level above the ceiling is reported `"downgraded"` with the
+#' corrected level attached, so the downgrade is visible rather than silent. A
+#' claim citing no resolvable evidence is reported `"unsupported"` and derives
+#' to `"hypothesis"`, the only level that explicitly self-limits and asserts
+#' nothing. In every case the model's original request is preserved in
+#' `requested_claim_level`, so nothing is laundered.
+#'
+#' The ceiling is the STRONGEST the evidence can carry. This function only ever
+#' lowers or preserves a requested level and never raises one: a claim that
+#' fits under the ceiling is reported `"allowed"` at the level it asked for,
+#' not at the ceiling.
+#'
+#' The function is read-only. It records no evidence, writes no finding and
+#' modifies nothing on the object.
+#'
+#' @param object A `SingleCellExperiment` object.
+#' @param claims Optional list of proposed claims, each a list with
+#'   `claim_level` (character) and `evidence_refs` (character vector). `NULL`
+#'   reports only the ceiling of the object.
+#' @param evidence_ids Optional restriction of which evidence nodes to
+#'   consider. Defaults to every completed evidence node on the object.
+#' @return A read-only summary list with `status` of `"read_only"`,
+#'   `ceiling_status` (the underlying ceiling status), `ceiling_claim_level`
+#'   (the strongest level the evidence can carry, or `NULL` when nothing is
+#'   supported), `ceiling_reasons`, the number of independent
+#'   `n_independent_groups`, `n_supporting_nodes`, and
+#'   `raw_values_included = FALSE`. When `claims` is supplied, a `verdicts`
+#'   list is added with one entry per claim, each carrying `claim_level`
+#'   (derived), `requested_claim_level` (the original, preserved),
+#'   `ceiling_status`, `ceiling_reasons` and a `status` of `"allowed"`,
+#'   `"downgraded"`, `"overclaimed"` or `"unsupported"`.
+#' @export
+check_claim_ceiling <- function(object, claims = NULL, evidence_ids = NULL) {
+    if (!inherits(object, "SingleCellExperiment")) {
+        stop("object must be a SingleCellExperiment", call. = FALSE)
+    }
+    evidence_ids <- if (is.null(evidence_ids)) {
+        NULL
+    } else {
+        ids <- as.character(evidence_ids)
+        ids <- ids[!is.na(ids) & nzchar(ids)]
+        if (length(ids)) ids else NULL
+    }
+    ceiling <- tryCatch(
+        sclet_ai_claim_ceiling(object, evidence_ids = evidence_ids),
+        error = function(e) list(
+            status = "unsupported",
+            ceiling_claim_level = NULL,
+            n_nodes = 0L,
+            n_independent_groups = 0L,
+            reasons = conditionMessage(e)
+        )
+    )
+    n_supporting <- as.integer(ceiling$n_nodes %||% 0L) -
+        length(as.character(ceiling$user_decision_nodes %||% character()))
+    if (n_supporting < 0L) n_supporting <- 0L
+    summary <- list(
+        status = "read_only",
+        ceiling_status = ceiling$status,
+        ceiling_claim_level = ceiling$ceiling_claim_level,
+        ceiling_reasons = as.character(ceiling$reasons %||% character()),
+        n_independent_groups = as.integer(ceiling$n_independent_groups %||% 0L),
+        n_supporting_nodes = n_supporting,
+        raw_values_included = FALSE
+    )
+    if (is.null(claims)) return(summary)
+    if (!is.list(claims)) {
+        stop("`claims` must be a list of proposed claims", call. = FALSE)
+    }
+    summary$verdicts <- lapply(claims, function(claim) {
+        sclet_ai_claim_precheck_verdict(object, claim, evidence_ids)
+    })
+    summary
+}
+
+# The per-claim half of `check_claim_ceiling()`. Every branch answers a
+# read-only question, so a malformed claim is reported rather than raised: a
+# pre-check is asked before anything is written, and a malformed question
+# still deserves an answer.
+#
+# The comparison is delegated to `sclet_ai_claim_ceiling()`, whose
+# `proposed_claim_level` argument already reports allowed vs downgraded and
+# whose reasons already state the corrected level. Nothing here re-derives the
+# independent-line grouping or the clamping arithmetic -- it only names the
+# outcomes the pre-check contract asks for, and it only ever lowers a request.
+sclet_ai_claim_precheck_verdict <- function(object, claim, evidence_ids = NULL) {
+    requested <- if (is.list(claim)) {
+        as.character(claim$claim_level %||% "hypothesis")[[1L]]
+    } else {
+        "hypothesis"
+    }
+    if (is.na(requested) || !nzchar(requested)) requested <- "hypothesis"
+    # `[[` rather than `$`: a claim may carry unrelated extra fields, and `$`
+    # partial-matches them (see the same note in
+    # `sclet_ai_derive_finding_claim_level()`).
+    refs <- if (is.list(claim) && "evidence_refs" %in% names(claim)) {
+        claim[["evidence_refs"]]
+    } else {
+        NULL
+    }
+    refs <- as.character(refs %||% character())
+    refs <- refs[!is.na(refs) & nzchar(refs)]
+    if (!is.null(evidence_ids)) refs <- intersect(refs, evidence_ids)
+
+    # 1. `causal`: the hard ban `sclet_ai_derive_finding_claim_level()` also
+    # applies. It is never a silent correction, so the entry is reported
+    # `overclaimed` with the request kept visible, and the derived level is the
+    # floor a banned claim can only land at.
+    if (identical(requested, "causal")) {
+        return(list(
+            claim_level = "hypothesis",
+            requested_claim_level = "causal",
+            ceiling_status = "banned",
+            ceiling_reasons = "causal is not a claim level the AI may assert",
+            status = "overclaimed"
+        ))
+    }
+
+    # 2. `estimated` is a statement about how a value was produced, not a
+    # strength statement. It is orthogonal to the ceiling and passes through
+    # untouched, exactly as the derivation treats it.
+    if (identical(requested, "estimated")) {
+        return(list(
+            claim_level = "estimated",
+            requested_claim_level = "estimated",
+            ceiling_status = "provenance",
+            ceiling_reasons = character(),
+            status = "allowed"
+        ))
+    }
+
+    # 3. Nothing resolvable was cited: the claim asserts nothing without
+    # evidence, so it derives to the floor and is reported as such.
+    if (!length(refs)) {
+        return(list(
+            claim_level = "hypothesis",
+            requested_claim_level = requested,
+            ceiling_status = "no_refs",
+            ceiling_reasons = "no evidence_refs supplied",
+            status = "unsupported"
+        ))
+    }
+
+    # A level outside the evidence ladder (e.g. `hypothesis`) asserts nothing
+    # and ranks below every real level, so it is not a proposal the ceiling can
+    # measure; passing NULL asks only what the evidence can carry.
+    proposed <- sclet_ai_finding_allowed_level(requested)
+    if (is.na(sclet_ai_claim_rank(proposed))) proposed <- NULL
+    ceiling <- tryCatch(
+        sclet_ai_claim_ceiling(object, evidence_ids = refs, proposed_claim_level = proposed),
+        error = function(e) list(
+            status = "unsupported",
+            ceiling_claim_level = NULL,
+            reasons = conditionMessage(e)
+        )
+    )
+
+    # 4. The evidence cannot carry it: unknown, incomplete or
+    # only-`user_decision` references. The floor is reported rather than a
+    # guessed level, and the reason is the ceiling's own message.
+    if (identical(ceiling$status, "unsupported")) {
+        return(list(
+            claim_level = "hypothesis",
+            requested_claim_level = requested,
+            ceiling_status = "unsupported",
+            ceiling_reasons = as.character(ceiling$reasons %||% "no independent support"),
+            status = "unsupported"
+        ))
+    }
+
+    # 5. The request exceeds the ceiling. The corrected level comes from the
+    # ceiling itself, so the downgrade is visible rather than silent.
+    if (identical(ceiling$status, "downgraded")) {
+        return(list(
+            claim_level = ceiling$ceiling_claim_level,
+            requested_claim_level = requested,
+            ceiling_status = ceiling$status,
+            ceiling_reasons = as.character(ceiling$reasons %||% character()),
+            status = "downgraded"
+        ))
+    }
+
+    # 6. The request fits. It is preserved exactly as asked: a pre-check
+    # answers whether the evidence can carry the claim, and the request is
+    # never raised to the ceiling on the way through.
+    list(
+        claim_level = if (is.null(proposed)) requested else proposed,
+        requested_claim_level = requested,
+        ceiling_status = ceiling$status,
+        ceiling_reasons = as.character(ceiling$reasons %||% character()),
+        status = "allowed"
+    )
+}
+
+#' Annotate the findings of a read-only result with the evidence ceiling
+#'
+#' `RecordAIResult(audit_claims = TRUE)` derives and applies the claim level of
+#' every finding at the write gate. The read-only entry points
+#' (`AIInvestigate()`, `AIExplainAnalysis()`, `AIRecommendNextStep()`,
+#' `AskAI()`, `AIStatus()`, `AIReviewQC()`) record nothing, so their findings
+#' would otherwise never be checked against the evidence at all. This is the
+#' shared post-processor that closes that gap: it runs the same audit over a
+#' result's findings and attaches the ceiling verdict to each one.
+#'
+#' The result is returned unchanged except for the annotation. No field of the
+#' model's own is dropped, reordered or rewritten, apart from `claim_level`,
+#' which follows the same derived/requested convention as the write path. A
+#' finding that is not a list, or that names no claim level, is treated as
+#' `"hypothesis"` -- the only level that self-limits and asserts nothing -- and
+#' is never an error: a malformed finding is left un-annotated rather than
+#' allowed to break a read-only entry point.
+#'
+#' The function never records evidence and never modifies the object.
+#'
+#' @param object A `SingleCellExperiment` object.
+#' @param result A list with a `findings` element, or anything else.
+#' @return `result`, with each list-shaped finding carrying the derived
+#'   `claim_level`, `requested_claim_level` (the original, preserved),
+#'   `derived_from_ceiling`, `ceiling_status`, `ceiling_reasons`,
+#'   `evidence_refs_attached` and `attachment_rule`. Results with empty,
+#'   missing or non-list `findings` are returned untouched.
+#' @noRd
+sclet_ai_annotate_findings_ceiling <- function(object, result) {
+    findings <- if (is.list(result)) result$findings else NULL
+    if (!is.list(findings) || !length(findings)) {
+        return(result)
+    }
+    # The audit derives every finding's level from the recorded evidence with
+    # exactly the rules the write gate applies, so the annotation cannot drift
+    # from what `RecordAIResult()` would record. It is read-only, records
+    # nothing, and already guards its own per-finding derivation errors.
+    audit <- tryCatch(sclet_ai_audit_result_claims(object, result), error = function(e) NULL)
+    if (is.null(audit) || !length(audit$findings)) {
+        return(result)
+    }
+    annotated <- findings
+    for (i in seq_along(findings)) {
+        entry <- audit$findings[[i]]
+        finding <- findings[[i]]
+        if (is.null(entry) || !is.list(finding)) next
+        annotated[[i]] <- tryCatch({
+            finding$claim_level <- entry$claim_level %||% "hypothesis"
+            finding$requested_claim_level <- entry$requested_claim_level %||% "hypothesis"
+            finding$derived_from_ceiling <- isTRUE(entry$derived_from_ceiling)
+            finding$ceiling_status <- entry$ceiling_status %||% "no_finding"
+            finding$ceiling_reasons <- as.character(entry$ceiling_reasons %||% character())
+            finding$evidence_refs_attached <- isTRUE(entry$evidence_refs_attached)
+            finding$attachment_rule <- as.character(entry$attachment_rule %||% "none")
+            finding
+        }, error = function(e) finding)
+    }
+    result$findings <- annotated
+    result
+}

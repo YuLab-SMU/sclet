@@ -33,6 +33,15 @@ references unknown step or has empty evidence_id), \code{stop_condition_incomple
 \code{human_confirmations} field is a read-only derived summary listing design
 confirmations already on record (status \code{"confirmed"}) and design
 confirmations the plan still requires (status \code{"required_not_confirmed"}).
+The \code{claim_ceiling} field is a read-only, informational pre-check: the
+strongest claim the evidence already recorded on the object could carry if the
+analysis stopped right now, plus the independent lines of support behind that
+cap. It is a ceiling and never a recommendation, it adds no suggestion or
+ranking, and it never affects \code{valid}, \code{errors}, \code{warnings},
+\code{requires_confirmation} or \code{confirmation_token}. It degrades to
+\code{list(status = "unavailable", reason = ...)} when no object was supplied,
+when the object is not a \code{SingleCellExperiment}, or when the ceiling cannot
+be evaluated.
 }
 \description{
 Validate an AI-generated analysis plan

@@ -432,6 +432,15 @@ new_sclet_ai_plan <- function(
 #'   `human_confirmations` field is a read-only derived summary listing design
 #'   confirmations already on record (status `"confirmed"`) and design
 #'   confirmations the plan still requires (status `"required_not_confirmed"`).
+#'   The `claim_ceiling` field is a read-only, informational pre-check: the
+#'   strongest claim the evidence already recorded on the object could carry if
+#'   the analysis stopped right now, plus the independent lines of support
+#'   behind that cap. It is a ceiling and never a recommendation, it adds no
+#'   suggestion or ranking, and it never affects `valid`, `errors`, `warnings`,
+#'   `requires_confirmation` or `confirmation_token`. It degrades to
+#'   `list(status = "unavailable", reason = ...)` when no object was supplied,
+#'   when the object is not a `SingleCellExperiment`, or when the ceiling
+#'   cannot be evaluated.
 #' @export
 ValidateAIPlan <- function(
     plan,
@@ -824,6 +833,32 @@ ValidateAIPlan <- function(
     } else {
         NULL
     }
+
+    # Read-only pre-check: the strongest claim the evidence already recorded on
+    # this object could carry if the analysis stopped right now. Computed only
+    # after `valid`, `errors`, `requires_confirmation` and `confirmation_token`
+    # are final, so it cannot influence any of them (nor the RNG the token
+    # draws from). `ValidateAIPlan()` runs on the hot path of every plan, so
+    # every failure mode -- no object, a non-`SingleCellExperiment` object, an
+    # unavailable `check_claim_ceiling()`, an error inside the ceiling
+    # evaluation -- degrades to a short `unavailable` status rather than
+    # propagating. A planning failure caused by an informational field would be
+    # a regression.
+    claim_ceiling <- tryCatch(
+        sclet_ai_plan_claim_ceiling(object),
+        error = function(e) {
+            reason <- conditionMessage(e)
+            if (is.null(reason) || length(reason) != 1L) {
+                reason <- NA_character_
+            } else {
+                reason <- as.character(reason)
+            }
+            if (is.na(reason) || !nzchar(reason)) {
+                reason <- "claim ceiling pre-check could not be evaluated"
+            }
+            list(status = "unavailable", reason = substr(reason, 1L, 200L))
+        }
+    )
     validation <- list(
         valid = valid,
         errors = errors,
@@ -832,6 +867,7 @@ ValidateAIPlan <- function(
         context_fingerprint = current_fingerprint %||% plan$context_fingerprint %||% NULL,
         requires_confirmation = requires_confirmation,
         confirmation_token = confirmation_token,
+        claim_ceiling = claim_ceiling,
         plan = plan,
         human_confirmations = human_confirmations,
         checked_at = Sys.time()
@@ -844,6 +880,121 @@ ValidateAIPlan <- function(
         )
     }
     validation
+}
+
+# Read-only claim-ceiling pre-check for a plan (internal)
+#
+# Answers one question and nothing else: if the analysis stopped right now and
+# a report were written from what is already recorded on the object, what is
+# the strongest claim that evidence could carry? It delegates to
+# `check_claim_ceiling()` with no `claims` and no `evidence_ids`, so the answer
+# is derived from the object's currently recorded evidence and from nothing
+# else -- a genuine pre-check, because a planner learns the ceiling before
+# executing a single step.
+#
+# The result is a cap, never a hint: it reports what the evidence can support,
+# never what should be claimed, and it carries no suggestion, recommendation or
+# ranking. Only structural facts are returned -- a claim level, counts of lines
+# of support, and the reasons behind them -- so `raw_values_included` is always
+# `FALSE` and no data value ever reaches this field.
+#
+# Informational only: this function never mutates the object, never records
+# evidence, and never feeds `valid`, `errors` or `warnings`. `ValidateAIPlan()`
+# runs on the hot path of every plan, so every failure mode degrades to
+# `list(status = "unavailable", reason = ...)` instead of propagating -- a
+# planning failure caused by an informational field would be a regression. The
+# failure modes are a missing object, an object that is not a
+# `SingleCellExperiment`, an unavailable `check_claim_ceiling()`, an error
+# raised by the ceiling evaluation, and a result that is not a list or carries
+# no status.
+#
+# @param object The `SingleCellExperiment` the plan was built for, or `NULL`.
+# @return A nested list with `status` (the ceiling evaluation's verdict,
+#   `"unsupported"` or `"allowed"`, or `"unavailable"` when this pre-check
+#   could not run), `ceiling_claim_level` (`NULL` when nothing is supported),
+#   `n_independent_groups`, `n_supporting_nodes`, `reasons` and
+#   `raw_values_included = FALSE`; or
+#   `list(status = "unavailable", reason = ...)` when the pre-check cannot be
+#   evaluated.
+# @noRd
+sclet_ai_plan_claim_ceiling <- function(object) {
+    unavailable <- function(reason) {
+        if (is.null(reason) || length(reason) != 1L) {
+            reason <- NA_character_
+        } else {
+            reason <- as.character(reason)
+        }
+        if (is.na(reason) || !nzchar(reason)) {
+            reason <- "claim ceiling pre-check could not be evaluated"
+        }
+        # A short reason only: this field is informational and stays small.
+        list(status = "unavailable", reason = substr(reason, 1L, 200L))
+    }
+    if (is.null(object)) {
+        return(unavailable("object was not supplied"))
+    }
+    if (!inherits(object, "SingleCellExperiment")) {
+        return(unavailable("object is not a SingleCellExperiment"))
+    }
+    if (!exists("check_claim_ceiling", mode = "function")) {
+        return(unavailable("check_claim_ceiling is not available"))
+    }
+    ceiling <- check_claim_ceiling(object = object, claims = NULL, evidence_ids = NULL)
+    if (!is.list(ceiling)) {
+        return(unavailable("check_claim_ceiling returned no result"))
+    }
+    # `status` mirrors the ceiling evaluation's own verdict vocabulary --
+    # `"unsupported"` when the recorded evidence cannot support any claim at
+    # all, `"allowed"` when a ceiling was computed -- so the plan layer speaks
+    # the same language as the write gate in `RecordAIResult()`. `"unavailable"`
+    # is reserved for this pre-check failing, and is the only value a caller
+    # ever needs to distinguish: the others describe the ceiling itself.
+    status <- if (is.character(ceiling$ceiling_status) && length(ceiling$ceiling_status) == 1L &&
+        !is.na(ceiling$ceiling_status) && nzchar(ceiling$ceiling_status)) {
+        ceiling$ceiling_status
+    } else if (is.character(ceiling$status) && length(ceiling$status) == 1L &&
+        !is.na(ceiling$status) && nzchar(ceiling$status)) {
+        ceiling$status
+    } else {
+        character()
+    }
+    if (!length(status)) {
+        return(unavailable("check_claim_ceiling reported no status"))
+    }
+    # Counts are reported as they are read. A missing or non-numeric count is
+    # `NA_integer_` -- an honest "unknown" -- never a zero, which would read as
+    # a real verdict about how much support exists.
+    count <- function(value, default = NA_integer_) {
+        if (is.null(value) || !is.numeric(value) || length(value) != 1L || is.na(value)) {
+            return(default)
+        }
+        as.integer(value)
+    }
+    reasons <- ceiling$ceiling_reasons
+    if (is.null(reasons)) reasons <- ceiling$reasons
+    reasons <- if (is.character(reasons)) {
+        reasons
+    } else if (is.list(reasons)) {
+        unlist(reasons, use.names = FALSE)
+    } else {
+        character()
+    }
+    reasons <- as.character(reasons)
+    reasons <- reasons[!is.na(reasons) & nzchar(reasons)]
+    list(
+        status = status,
+        ceiling_claim_level = if (is.character(ceiling$ceiling_claim_level) &&
+            length(ceiling$ceiling_claim_level) == 1L &&
+            !is.na(ceiling$ceiling_claim_level) && nzchar(ceiling$ceiling_claim_level)) {
+            ceiling$ceiling_claim_level
+        } else {
+            NULL
+        },
+        n_independent_groups = count(ceiling$n_independent_groups),
+        n_supporting_nodes = count(ceiling$n_supporting_nodes),
+        reasons = reasons,
+        raw_values_included = FALSE
+    )
 }
 
 #' Build the repair prompt block from validation errors

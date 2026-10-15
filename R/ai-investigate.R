@@ -160,5 +160,6 @@ AIInvestigate <- function(
         )
     }
     validate_sclet_ai_result(result)
+    result <- sclet_ai_annotate_result_ceiling(object, result)
     result
 }

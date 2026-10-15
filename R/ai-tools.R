@@ -136,6 +136,45 @@ AIReviewQC <- function(object, model = NULL, structured_output = TRUE, ...) {
     )
 }
 
+# Annotate a read-only AI result with the evidence claim ceiling
+#
+# The read-only entry points (`AIInvestigate()`, `AIExplainAnalysis()`,
+# `AIRecommendNextStep()`) hand their findings to a user who may act on them,
+# so those findings must carry the same ceiling audit that `RecordAIResult()`
+# applies at the write gate -- the gap recorded in
+# `.dev/ai-advanced-analysis-spec.md` ("known still-unresolved gaps"). The
+# audit itself lives in `R/ai-claims.R`; this helper is only the wiring shared
+# by the three call sites, so they behave identically.
+#
+# A failure in the annotation can never break a read-only call. When the audit
+# helper is missing or raises, the result is returned un-annotated with
+# `metadata$claim_ceiling_applied = FALSE`, so a caller can tell "annotated"
+# from "annotation unavailable" rather than have the difference swallowed. The
+# audited value is accepted only when it is a superset of the result passed in,
+# so a mis-shaped audit return cannot corrupt the result, and the result class
+# is restored when the audit drops it.
+sclet_ai_annotate_result_ceiling <- function(object, result) {
+    applied <- FALSE
+    if (exists("sclet_ai_annotate_findings_ceiling", mode = "function", inherits = TRUE)) {
+        annotated <- tryCatch(
+            sclet_ai_annotate_findings_ceiling(object, result),
+            error = function(e) NULL
+        )
+        if (is.list(annotated) && is.list(annotated$findings) &&
+            all(names(result) %in% names(annotated))) {
+            if (inherits(result, "sclet_ai_result") && !inherits(annotated, "sclet_ai_result")) {
+                class(annotated) <- class(result)
+            }
+            result <- annotated
+            applied <- TRUE
+        }
+    }
+    metadata <- result$metadata %||% list()
+    metadata$claim_ceiling_applied <- applied
+    result$metadata <- metadata
+    result
+}
+
 #' Ask the AI to explain a recorded analysis
 #'
 #' @param object A `SingleCellExperiment` object.
@@ -150,7 +189,7 @@ AIReviewQC <- function(object, model = NULL, structured_output = TRUE, ...) {
 AIExplainAnalysis <- function(object, type = NULL, id = NULL, model = NULL, structured_output = TRUE, ...) {
     target <- type %||% id
     context <- sclet_ai_context(object, target = target, detail = "full")
-    sclet_ai_call(
+    result <- sclet_ai_call(
         task = "analysis_explanation",
         context = context,
         tools = sclet_ai_tool_registry(object),
@@ -163,6 +202,7 @@ AIExplainAnalysis <- function(object, type = NULL, id = NULL, model = NULL, stru
         ),
         ...
     )
+    sclet_ai_annotate_result_ceiling(object, result)
 }
 
 #' Ask the AI to recommend a conservative next analysis step
@@ -189,7 +229,7 @@ AIRecommendNextStep <- function(object, model = NULL, structured_output = TRUE, 
         detail = "summary",
         registry = registry
     )
-    sclet_ai_call(
+    result <- sclet_ai_call(
         task = "next_step_recommendation",
         context = context,
         tools = sclet_ai_tool_registry(object),
@@ -214,4 +254,5 @@ AIRecommendNextStep <- function(object, model = NULL, structured_output = TRUE, 
         ),
         ...
     )
+    sclet_ai_annotate_result_ceiling(object, result)
 }
