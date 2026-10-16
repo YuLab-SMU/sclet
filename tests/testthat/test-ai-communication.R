@@ -99,6 +99,27 @@ sclet_ai_test_cci_engine_stub <- function(id = "cci1", method = "CellChat",
     }
 }
 
+## Pin the CCI engine gate for the duration of the calling test. The gate asks
+## the real library, so an unpinned test asserts whatever the machine happens to
+## have installed: CI installs nichenetr through its own setup step, while many
+## developer machines do not have it, and CellChat is absent from some. The gate
+## is what is under test here, not this environment, so both branches are forced
+## deterministically: CellChat and basilisk present, nichenetr absent. Every
+## other package keeps its real answer, and the pin is undone when the test ends.
+sclet_ai_test_cci_pin_engines <- function(env = parent.frame()) {
+    real_req_ns <- base::requireNamespace
+    testthat::local_mocked_bindings(
+        requireNamespace = function(package, ...) {
+            if (identical(package, "CellChat")) return(TRUE)
+            if (identical(package, "basilisk")) return(TRUE)
+            if (identical(package, "nichenetr")) return(FALSE)
+            real_req_ns(package, ...)
+        },
+        .package = "base",
+        .env = env
+    )
+}
+
 sclet_ai_test_cci_registry <- function(object) {
     AIDefaultExecutionRegistry(object, include = c("read", "communication"))
 }
@@ -165,6 +186,7 @@ test_that("check_communication_readiness is blocked on a bare object", {
 
 ## -- Block 2: readiness passes and refuses to pick an engine --------------
 test_that("readiness reports the engine count without recommending one", {
+    sclet_ai_test_cci_pin_engines()
     object <- sclet_ai_test_cci_object()
     result <- check_communication_readiness(object)
     expect_equal(result$status, "ready_for_diagnostic")
@@ -188,14 +210,13 @@ test_that("readiness reports the engine count without recommending one", {
 })
 
 ## -- Block 3: a named engine's package gate is per-engine -----------------
-## CellChat is installed here and nichenetr is not (verified), so the two
-## branches of the gate are both exercised for real rather than skipped. The
-## point is that a missing engine blocks WITHOUT steering the user to a
+## The engine gate is pinned so both branches are exercised for real rather than
+## skipped, and so the assertion holds on a machine where CellChat is absent.
+## The point is that a missing engine blocks WITHOUT steering the user to a
 ## different engine.
 test_that("readiness blocks a named engine whose package is missing", {
+    sclet_ai_test_cci_pin_engines()
     object <- sclet_ai_test_cci_object()
-    expect_true(base::requireNamespace("CellChat", quietly = TRUE))
-    expect_false(base::requireNamespace("nichenetr", quietly = TRUE))
 
     ready <- check_communication_readiness(object, method = "CellChat")
     expect_equal(ready$status, "ready_for_diagnostic")
@@ -281,6 +302,7 @@ test_that("two communication engines on shared inputs are not independent eviden
 
 ## -- Block 6: the action runs end to end ----------------------------------
 test_that("run_cci executes with a stubbed engine and records bounded evidence", {
+    sclet_ai_test_cci_pin_engines()
     object <- sclet_ai_test_cci_object()
     registry <- sclet_ai_test_cci_registry(object)
     validation <- sclet_ai_test_cci_plan(object, registry, list(method = "CellChat"))
@@ -306,6 +328,7 @@ test_that("run_cci executes with a stubbed engine and records bounded evidence",
 
 ## -- Block 7: a run that records nothing must not report success ----------
 test_that("a silent engine run surfaces communication_no_result", {
+    sclet_ai_test_cci_pin_engines()
     object <- sclet_ai_test_cci_object()
     registry <- sclet_ai_test_cci_registry(object)
     validation <- sclet_ai_test_cci_plan(object, registry, list(method = "CellChat"))
@@ -326,6 +349,7 @@ test_that("a silent engine run surfaces communication_no_result", {
 
 ## -- Block 8: typed prerequisites -----------------------------------------
 test_that("run_cci refuses to pick an engine and reports typed reasons", {
+    sclet_ai_test_cci_pin_engines()
     object <- sclet_ai_test_cci_object()
     registry <- sclet_ai_test_cci_registry(object)
     ## ValidateAIPlan prefixes errors with "prerequisites not met for action
