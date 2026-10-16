@@ -152,6 +152,104 @@ test_that("structured summary failure falls back to the tool-loop response", {
         identical(x$code, "structured_output_fallback")
     }, logical(1))))
 })
+
+test_that("a structured call without an object fails loudly instead of returning an empty result", {
+    skip_if_not_installed("aisdk")
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 3, ncol = 2))
+    )
+    old <- options(sclet.ai.generate_object = function(...) {
+        structure(
+            list(
+                object = NULL,
+                usage = NULL,
+                raw_text = "the model refused to call the tool",
+                finish_reason = "stop",
+                valid = FALSE,
+                attempts = 2L
+            ),
+            class = "GenerateObjectResult"
+        )
+    })
+    on.exit(options(old), add = TRUE)
+
+    err <- tryCatch(
+        # The privacy sanitizer reports its redactions on this context; that is
+        # unrelated to the missing-object behaviour under test.
+        suppressWarnings(AIInvestigate(sce, "Which populations are supported by evidence?")),
+        error = function(e) e
+    )
+    expect_s3_class(err, "sclet_ai_provider_error")
+    expect_match(conditionMessage(err), "produced no object", fixed = TRUE)
+    expect_match(conditionMessage(err), "attempts=2", fixed = TRUE)
+    # The model's own output is surfaced for diagnosis instead of being discarded.
+    expect_match(conditionMessage(err), "refused to call the tool", fixed = TRUE)
+})
+
+test_that("a structured summary without an object falls back to the tool-loop response", {
+    skip_if_not_installed("aisdk")
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 3, ncol = 2))
+    )
+    agent <- new.env(parent = emptyenv())
+    agent$run <- function(task, max_steps = 10) {
+        list(text = "tool response retained")
+    }
+    old <- options(
+        sclet.ai.create_agent = function(...) agent,
+        sclet.ai.generate_object = function(...) {
+            structure(
+                list(
+                    object = NULL, usage = NULL, raw_text = "gave up",
+                    finish_reason = "stop", valid = FALSE, attempts = 3L
+                ),
+                class = "GenerateObjectResult"
+            )
+        }
+    )
+    on.exit(options(old), add = TRUE)
+
+    result <- AIStatus(sce)
+    expect_s3_class(result, "sclet_ai_result")
+    expect_equal(result$answer, "tool response retained")
+    expect_false(isTRUE(result$metadata$structured_output))
+    expect_true(any(vapply(result$warnings, function(x) {
+        identical(x$code, "structured_output_fallback_no_object")
+    }, logical(1))))
+})
+
+test_that("a missing structured object is an error when fallback is disabled", {
+    skip_if_not_installed("aisdk")
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 3, ncol = 2))
+    )
+    agent <- new.env(parent = emptyenv())
+    agent$run <- function(task, max_steps = 10) {
+        list(text = "tool response retained")
+    }
+    old <- options(
+        sclet.ai.create_agent = function(...) agent,
+        sclet.ai.generate_object = function(...) {
+            structure(
+                list(
+                    object = NULL, usage = NULL, raw_text = "gave up",
+                    finish_reason = "stop", valid = FALSE, attempts = 3L
+                ),
+                class = "GenerateObjectResult"
+            )
+        }
+    )
+    on.exit(options(old), add = TRUE)
+
+    expect_error(
+        AIPlanAnalysis(
+            sce,
+            registry = AIDefaultExecutionRegistry(sce, include = "read"),
+            fallback_on_structure_error = FALSE
+        ),
+        "produced no object"
+    )
+})
 test_that("AI result validation rejects unsupported causal claims", {
     expect_error(
         new_sclet_ai_result(

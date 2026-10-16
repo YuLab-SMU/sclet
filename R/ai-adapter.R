@@ -255,10 +255,9 @@ sclet_ai_schema_types <- function(schema) {
     character()
 }
 
-sclet_ai_validate_schema_node <- function(value, schema, path = "$", present = TRUE) {
+sclet_ai_validate_schema_node <- function(value, schema, path = "$") {
     if (is.null(schema) || !is.list(schema)) return(invisible(TRUE))
     types <- sclet_ai_schema_types(schema)
-    if (!present) return(invisible(TRUE))
     actual <- sclet_ai_schema_type_name(value)
     non_null_types <- setdiff(types, "null")
     if (identical(actual, "null")) {
@@ -515,11 +514,28 @@ sclet_ai_call <- function(
                 parent = e
             )
         )
-        raw <- if (is.list(response) && !is.null(response$object)) {
-            response$object
-        } else {
-            response
+        if (!is.list(response) || is.null(response$object)) {
+            if (inherits(response, "GenerateObjectResult")) {
+                msg <- sprintf(
+                    "aisdk structured call produced no object (valid=%s, attempts=%s, finish_reason=%s).",
+                    if (is.logical(response$valid)) response$valid else "NA",
+                    if (!is.null(response$attempts)) response$attempts else "NA",
+                    if (!is.null(response$finish_reason)) response$finish_reason else "unknown"
+                )
+                rt <- response$raw_text %||% ""
+                if (is.character(rt) && nzchar(rt)) {
+                    msg <- paste0(
+                        msg,
+                        "\n\nraw_text (truncated to 800 chars):\n",
+                        substr(rt, 1, 800)
+                    )
+                }
+                sclet_ai_error("sclet_ai_provider_error", msg)
+            }
+            sclet_ai_error("sclet_ai_provider_error",
+                "aisdk structured call produced no object.")
         }
+        raw <- response$object
         result <- sclet_ai_normalize_response(
             raw,
             task = task,
@@ -634,14 +650,55 @@ sclet_ai_call <- function(
         result$metadata$structured_output_error <- conditionMessage(structured_response)
         return(sclet_ai_validate_schema(result, schema))
     }
-    structured_object <- if (is.list(structured_response) &&
-        !is.null(structured_response$object)) {
-        structured_response$object
-    } else {
-        structured_response
+    if (is.list(structured_response) && !is.null(structured_response$object)) {
+        structured_object <- structured_response$object
+        structured_result <- sclet_ai_normalize_response(
+            structured_object,
+            task = task,
+            context = context,
+            metadata = list(
+                model = if (is.character(model)) model else NULL,
+                duration_sec = elapsed + as.numeric(difftime(Sys.time(), structured_started, units = "secs")),
+                provider = "aisdk",
+                native_tools = length(native_tools) > 0L,
+                structured_output = TRUE,
+                tool_loop_steps = max_steps,
+                payload_policy = privacy_policy
+            )
+        )
+        return(sclet_ai_validate_schema(structured_result, schema))
+    }
+    if (inherits(structured_response, "GenerateObjectResult")) {
+        msg <- sprintf(
+            "aisdk structured summary produced no object (valid=%s, attempts=%s, finish_reason=%s).",
+            if (is.logical(structured_response$valid)) structured_response$valid else "NA",
+            if (!is.null(structured_response$attempts)) structured_response$attempts else "NA",
+            if (!is.null(structured_response$finish_reason)) structured_response$finish_reason else "unknown"
+        )
+        rt <- structured_response$raw_text %||% ""
+        if (is.character(rt) && nzchar(rt)) {
+            msg <- paste0(
+                msg,
+                "\n\nraw_text (truncated to 800 chars):\n",
+                substr(rt, 1, 800)
+            )
+        }
+        if (!isTRUE(fallback_on_structure_error)) {
+            sclet_ai_error("sclet_ai_provider_error", msg, parent = structured_response)
+        }
+        result$warnings <- c(
+            result$warnings,
+            list(list(
+                code = "structured_output_fallback_no_object",
+                message = msg
+            ))
+        )
+        result$metadata$structured_output <- FALSE
+        result$metadata$structured_output_error <- msg
+        return(sclet_ai_validate_schema(result, schema))
     }
     structured_result <- sclet_ai_normalize_response(
-        structured_object,
+        structured_response,
         task = task,
         context = context,
         metadata = list(
