@@ -103,7 +103,7 @@ test_that("RunAIAnalysis report includes success_assessment from execution", {
     old <- options(sclet.ai.call = function(task, context, ...) {
         list(
             answer = "mock plan",
-            actions = list(list(id = "step1", action = "inspect_status")),
+            proposed_actions = list(list(id = "step1", action = "inspect_status")),
             assumptions = list(),
             candidate_routes = list(),
             selected_route = NULL,
@@ -125,7 +125,7 @@ test_that("RunAIAnalysis with interpret = FALSE does not populate interpretation
     old <- options(sclet.ai.call = function(task, context, ...) {
         list(
             answer = "mock plan",
-            actions = list(list(id = "step1", action = "inspect_status")),
+            proposed_actions = list(list(id = "step1", action = "inspect_status")),
             assumptions = list(),
             candidate_routes = list(),
             selected_route = NULL,
@@ -163,7 +163,7 @@ test_that("RunAIAnalysis with interpret = TRUE populates interpretation on succe
                 list(
                     object = list(
                         answer = "mock plan",
-                        actions = list(list(id = "step1", action = "inspect_status")),
+                        proposed_actions = list(list(id = "step1", action = "inspect_status")),
                         assumptions = list(),
                         candidate_routes = list(),
                         selected_route = NULL,
@@ -225,7 +225,7 @@ test_that("RunAIAnalysis with interpret = TRUE catches interpretation errors", {
                 list(
                     object = list(
                         answer = "mock plan",
-                        actions = list(list(id = "step1", action = "inspect_status")),
+                        proposed_actions = list(list(id = "step1", action = "inspect_status")),
                         assumptions = list(),
                         candidate_routes = list(),
                         selected_route = NULL,

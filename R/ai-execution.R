@@ -1049,7 +1049,21 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 returns = "sce",
                 requires_confirmation = TRUE,
                 output_schema = list(
-                    required_states = list(detest = "any")
+                    required_states = list(detest = "any"),
+                    # A referenceable name for the detest record this step
+                    # registers. Static value is a marker, not the id: the
+                    # schema is exposed through `available_actions` before any
+                    # step has run, and the real id is written into the
+                    # execution summary as an observation (see
+                    # `sclet_ai_execution_summary()`), which is also where the
+                    # `${step.output.detest_id}` projection resolves it from.
+                    # Needed because `run_enrichment` requires `detest_id` and
+                    # no registered action used to expose one -- measured as
+                    # the reason every model-proposed DE -> enrichment chain
+                    # died at validation (sclet-benchmark-ai, 2026-10-16,
+                    # three spellings across three legs). Same defect class as
+                    # `variable_features`, fixed there in 1bddedc.
+                    detest_id = "detest_record_id"
                 ),
                 mutates_object = TRUE,
                 allowed_state_types = c("detest", "ai_evidence"),
@@ -2134,6 +2148,24 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         planned_detest <- as.character(
                             planned$state_records$detest %||% character())
                         requested <- params$detest_id
+                        # A well-formed output reference counts as pointing at
+                        # the promise: `detest_id =
+                        # "${<step>.output.detest_id}"` resolves at execution
+                        # from the producing step's summary, which carries the
+                        # real record id (run_de_test now exposes it).
+                        # Demanding the LITERAL id here rejected every chained
+                        # plan that used the reference -- the exact spelling
+                        # the 2026-10-16 benchmark measured as the only
+                        # legitimate one once detest_id became referenceable.
+                        # The reference shape itself ties the id to a step of
+                        # this plan; execution stays the authority on whether
+                        # that step really registered a detest record.
+                        is_output_reference <- is.character(requested) &&
+                            length(requested) == 1L &&
+                            grepl("^\\$\\{[A-Za-z0-9_.-]+\\.output\\.[A-Za-z0-9_.-]+\\}$", requested)
+                        if (is_output_reference) {
+                            requested <- planned_detest
+                        }
                         if (length(requested) == 1L && nzchar(requested)) {
                             if (!requested %in% planned_detest) {
                                 return(paste0(
@@ -2419,8 +2451,17 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         ))
                     }
                     columns <- colnames(SummarizedExperiment::colData(object))
-                    reductions <- tryCatch(SingleCellExperiment::reducedDimNames(object),
-                        error = function(e) character())
+                    # Deferred projection, same as every other consuming gate:
+                    # a plan that runs run_pca earlier in the SAME plan has not
+                    # executed yet, so `reducedDimNames(object)` is empty at
+                    # validation time and this gate refused every chained milo
+                    # plan (measured 2026-10-16, three records). The planned
+                    # view carries the reductions earlier steps declare, and
+                    # execution stays the authority through RunMilo()'s own
+                    # reducedDim check.
+                    reductions <- planned$reductions %||%
+                        tryCatch(SingleCellExperiment::reducedDimNames(object),
+                            error = function(e) character())
                     if (!"PCA" %in% reductions) {
                         return(paste0(
                             "reduction_missing: run_milo builds its neighbourhood graph on a PCA ",
@@ -2963,6 +3004,20 @@ sclet_ai_execution_summary <- function(value, descriptor = NULL) {
         }
         if (!is.null(hvg_set) && length(hvg_set)) summary$variable_features <- as.character(hvg_set)
 
+        # The detest record id this step registered, as an observation rather
+        # than a declaration -- same pattern as `variable_features` above. The
+        # static marker in `output_schema` ("detest_record_id") is replaced by
+        # the real id, read back from the returned object, so a downstream
+        # `run_enrichment(detest_id = "${step.output.detest_id}")` resolves.
+        # Only run_de_test promises the field, hence the name check.
+        detest_ids <- if (isTRUE((descriptor %||% list())$name == "run_de_test")) {
+            tryCatch(names(sclet_get_state_records(value, "detest")),
+                error = function(e) character())
+        } else {
+            NULL
+        }
+        if (length(detest_ids)) summary$detest_id <- detest_ids[[1L]]
+
         # Declared contract keys fill whatever the observations did not already
         # establish. An observation must never be overwritten by a declaration.
         contract <- (descriptor %||% list())$output_schema %||% list()
@@ -3283,6 +3338,17 @@ ExecuteAIPlan <- function(
                 "The supplied plan validation does not match the current object or plan. Revalidate before execution."
             )
         }
+    }
+    # Backstop to the plan_empty validation rule, for a caller that bypasses
+    # ValidateAIPlan() with a hand-built validation object: executing zero
+    # steps must fail loudly rather than report status="completed" with no
+    # results, which reads as a finished analysis. Measured 2026-10-16; see
+    # the plan_empty comment in ValidateAIPlan().
+    if (!length(plan$actions %||% list())) {
+        sclet_ai_error(
+            "sclet_ai_empty_plan",
+            "The plan has no actions; nothing to execute. Re-propose the plan."
+        )
     }
     if (isTRUE(dry_run)) {
         results <- lapply(plan$actions, function(step) {

@@ -174,9 +174,15 @@ sclet_ai_project_plan_value <- function(value, planned_outputs) {
 
 # Is this a static output_schema value standing in for something that only
 # exists after execution? The marker is deliberately a scalar string so it
-# cannot be mistaken for a real gene vector.
+# cannot be mistaken for a real gene vector or a real record id. `hvg` stands
+# for the variable-feature set; `detest_record_id` stands for the id
+# run_de_test registers (written into the execution summary as an observation,
+# so projecting the marker here would hand the enrichment gate a literal that
+# no planned-record list can contain -- measured as the reason a chained
+# DE -> enrichment plan still failed after detest_id became referenceable).
 sclet_ai_is_deferred_promise <- function(value) {
-    is.character(value) && length(value) == 1L && identical(value, "hvg")
+    is.character(value) && length(value) == 1L &&
+        (identical(value, "hvg") || identical(value, "detest_record_id"))
 }
 sclet_ai_plan_capabilities <- function(object) {
     state <- sclet_get_state(object)
@@ -540,6 +546,22 @@ ValidateAIPlan <- function(
     if (!is.list(actions)) {
         errors <- c(errors, "plan$actions must be a list")
         actions <- list()
+    }
+    # A plan with no actions is not a plan. ValidateAIPlan() used to accept it
+    # (nothing inside can fail) and ExecuteAIPlan() then returned
+    # status="completed" with zero results, so a repair attempt that gave up
+    # and returned nothing was indistinguishable, in every consumer of status,
+    # from an analysis that ran. Measured on a real provider 2026-10-16
+    # (goal_discrimination, the signalling case): the repair round returned a
+    # zero-action plan after the first attempt put an engine placeholder in
+    # run_cci's method, and it validated with validation_error_counts "1,0".
+    if (!length(actions)) {
+        errors <- c(errors, paste0(
+            "plan_empty: the plan has no actions. A plan with zero steps ",
+            "performs no analysis and cannot be executed; re-propose the ",
+            "plan, or if the goal genuinely needs no computation, answer ",
+            "directly instead of planning."
+        ))
     }
     if (is.null(plan$plan_id) || !is.character(plan$plan_id) ||
         length(plan$plan_id) != 1L || !nzchar(plan$plan_id)) {

@@ -735,3 +735,104 @@ test_that("run_annotation writes consistent_with evidence without per-cell vecto
     }, logical(1L)))
     expect_false(isTRUE(per_cell_found))
 })
+
+# ---- Regressions for the 2026-10-16 benchmark findings (sclet-benchmark-ai) --
+
+test_that("a zero-action plan is refused at validation and at execution", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 3, ncol = 2))
+    )
+    registry <- AIDefaultExecutionRegistry(sce, include = "read")
+    plan <- new_sclet_ai_plan(
+        task = "empty_plan_regression",
+        context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+        actions = list()
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+    expect_false(validation$valid)
+    expect_true(any(grepl("plan_empty", validation$errors)))
+
+    # The backstop: even a hand-built validation object that claims the empty
+    # plan is valid must not execute to status="completed" with zero results,
+    # which is what a repair attempt that returned nothing used to produce.
+    forged <- validation
+    forged$valid <- TRUE
+    forged$confirmation_token <- "sclet-confirm-forged"
+    expect_error(
+        ExecuteAIPlan(sce, plan, registry, validation = forged,
+            dry_run = FALSE, confirmation = forged$confirmation_token),
+        class = "sclet_ai_empty_plan"
+    )
+})
+
+test_that("run_milo accepts a PCA promised earlier in the same plan", {
+    # The gate read reducedDimNames(object) only, so every chained milo plan
+    # was refused with reduction_missing at validation although run_pca had
+    # not executed yet -- the deferred projection 54248b3 wired into the
+    # enrichment and fate gates but not this one.
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 3, ncol = 2))
+    )
+    registry <- AIDefaultExecutionRegistry(sce, include = "all")
+    chained <- new_sclet_ai_plan(
+        task = "milo_chain_regression",
+        context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+        actions = list(
+            list(id = "g1", action = "normalize_data"),
+            list(id = "g2", action = "find_variable_features", depends_on = "g1"),
+            list(id = "g3", action = "scale_data", depends_on = "g2"),
+            list(id = "g4", action = "run_pca", params = list(ncomponents = 2L), depends_on = "g3"),
+            list(id = "g5", action = "run_milo",
+                params = list(sample_col = "s", condition_col = "c", contrasts = "a - b"),
+                depends_on = "g4")
+        )
+    )
+    v_chained <- ValidateAIPlan(chained, object = sce, registry = registry)
+    expect_false(any(grepl("reduction_missing", v_chained$errors)))
+    # the plan still fails on its unknown design columns -- that gate is the
+    # point -- but the failure must name the columns, not the reduction
+    expect_true(any(grepl("not_in_colData|_missing", v_chained$errors)))
+
+    # Control: without a planned PCA the reduction gate still fires.
+    bare <- new_sclet_ai_plan(
+        task = "milo_bare_regression",
+        context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+        actions = list(
+            list(id = "g1", action = "run_milo",
+                params = list(sample_col = "s", condition_col = "c", contrasts = "a - b"))
+        )
+    )
+    v_bare <- ValidateAIPlan(bare, object = sce, registry = registry)
+    expect_true(any(grepl("reduction_missing", v_bare$errors)))
+})
+
+test_that("run_de_test exposes detest_id as a referenceable output field", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 3, ncol = 2))
+    )
+    registry <- AIDefaultExecutionRegistry(sce, include = "all")
+    allowed <- sclet:::sclet_ai_referenceable_output_fields(registry[["run_de_test"]])
+    expect_true("detest_id" %in% allowed)
+
+    # The reference the benchmark measured as unreachable must now validate:
+    # run_enrichment(detest_id = ${step.output.detest_id}) after run_de_test.
+    chained <- new_sclet_ai_plan(
+        task = "detest_id_regression",
+        context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+        actions = list(
+            list(id = "g1", action = "normalize_data"),
+            list(id = "g2", action = "find_variable_features", depends_on = "g1"),
+            list(id = "g3", action = "scale_data", depends_on = "g2"),
+            list(id = "g4", action = "run_pca", params = list(ncomponents = 2L), depends_on = "g3"),
+            list(id = "g5", action = "find_neighbors", params = list(dims = 1:2), depends_on = "g4"),
+            list(id = "g6", action = "find_clusters", depends_on = "g5"),
+            list(id = "g7", action = "run_de_test", params = list(name = "markers"), depends_on = "g6"),
+            list(id = "g8", action = "run_enrichment",
+                params = list(detest_id = "${g7.output.detest_id}", name = "enrich_go"),
+                depends_on = "g7")
+        )
+    )
+    v <- ValidateAIPlan(chained, object = sce, registry = registry)
+    expect_false(any(grepl("value_reference_unresolvable", v$errors)))
+    expect_false(any(grepl("detest_state_missing", v$errors)))
+})
