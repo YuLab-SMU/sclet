@@ -464,6 +464,40 @@ sclet_ai_extract_dotted_field <- function(obj, field) {
 #' @param risks Optional character vector or list of known risks.
 #' @param stop_conditions Optional list of named stop-condition descriptors.
 #' @return An object of class `sclet_ai_plan`.
+#'
+#' @details
+#' Exported so that an EXTERNAL agent can drive sclet without the `aisdk`
+#' package: the agent reads the shipped skills (`AISkills()` /
+#' `ReadAISkill()`), writes the plan itself with this constructor, and hands
+#' it to `ValidateAIPlan()` / `ExecuteAIPlan()` -- the same validation,
+#' fingerprint binding, ledger recording and evidence registration a
+#' provider-written plan gets. The AI provider is only required when the
+#' planner itself is a model (`AIPlanAnalysis()`); the engine never is.
+#' The plan's `context_fingerprint` must come from
+#' `GetAnalysisLedger(object)$fingerprint` for the object the plan will run
+#' against, or validation refuses it as stale.
+#'
+#' @examples
+#' \dontrun{
+#' sce <- your_SingleCellExperiment()
+#' plan <- new_sclet_ai_plan(
+#'     task = "pbmc_markers",
+#'     context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+#'     actions = list(
+#'         list(id = "s1", action = "normalize_data"),
+#'         list(id = "s2", action = "find_variable_features",
+#'              params = list(nfeatures = 2000), depends_on = "s1"),
+#'         list(id = "s3", action = "run_de_test",
+#'              params = list(name = "markers"), depends_on = "s2")
+#'     )
+#' )
+#' v <- ValidateAIPlan(plan, object = sce,
+#'     registry = AIDefaultExecutionRegistry(sce, include = "all"))
+#' executed <- RunAIPlan(sce, plan,
+#'     AIDefaultExecutionRegistry(sce, include = "all"),
+#'     dry_run = FALSE, confirm = TRUE)
+#' }
+#' @export
 new_sclet_ai_plan <- function(
     task = "analysis_plan",
     actions = list(),
