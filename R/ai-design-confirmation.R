@@ -1,3 +1,22 @@
+#' Confirm the design-role semantics of colData columns
+#'
+#' Registers the user's own declaration of which colData column plays which
+#' design role (batch, condition, subject, sample). Actions whose meaning
+#' depends on the design -- run_integration, run_milo -- refuse to run until
+#' this is called, and the confirmation is void when the declared column's
+#' values are later reassigned. Roles are never inferred from column names:
+#' a column named \code{sample} is not necessarily the sampling unit.
+#'
+#' This must be exported because it is part of the external-agent path: an
+#' agent driving sclet without aisdk has to make this declaration itself
+#' before any design-gated action can validate. See
+#' \code{inst/skills/sclet-driver/SKILL.md}.
+#'
+#' @param object A SingleCellExperiment.
+#' @param design A named list mapping roles (batch/condition/subject/sample)
+#'   to colData column names, e.g. \code{list(batch = "batch_id")}.
+#' @return The object with the confirmation recorded on its ledger.
+#' @export
 ConfirmAIDesignSemantics <- function(object, design) {
     if (!inherits(object, "SingleCellExperiment")) {
         stop("`object` must be a SingleCellExperiment.")
