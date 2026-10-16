@@ -20,39 +20,42 @@ RunAIAnalysis(
 }
 \arguments{
 \item{object}{A \code{SingleCellExperiment} object.}
+
 \item{goal}{A single natural-language analysis goal.}
+
 \item{model}{Optional aisdk model.}
-\item{confirm}{One of \code{"ask"}, \code{"yes"}, or \code{"no"}. Logical
-\code{TRUE}/\code{FALSE} are also accepted. \code{"ask"} prompts only in
-interactive sessions.}
-\item{registry}{Optional \code{AIExecutionRegistry}. If \code{NULL}, the
-beginner registry includes native preprocessing, dimensional-reduction, graph,
+
+\item{confirm}{One of \code{"ask"}, \code{"yes"}, or \code{"no"}. Logical \code{TRUE}/\code{FALSE}
+are also accepted. \code{"ask"} prompts only in interactive sessions.}
+
+\item{registry}{Optional \code{AIExecutionRegistry}. If \code{NULL}, the beginner
+registry includes the native preprocessing, dimensional-reduction, graph,
 and clustering actions.}
+
 \item{include}{Action groups used to build the default registry.}
+
 \item{structured_output}{Logical. Use structured output for the AI plan.}
+
 \item{fallback_on_structure_error}{Logical. Retain the tool-loop plan if
 structured output fails.}
-\item{record}{Logical. Record execution and the AI plan in the ledger.}
+
+\item{record}{Logical. Record the execution and AI plan in the ledger.}
+
 \item{interpret}{Logical. When \code{TRUE} and the execution completes, call
 \code{AIExplainAnalysis()} on the updated object and store the result in
 \code{report$interpretation}. Defaults to \code{FALSE} so no additional LLM call
 is made unless explicitly requested.}
+
 \item{...}{Additional arguments passed to \code{AIPlanAnalysis()}.}
 }
 \value{
-An object of class \code{sclet_ai_analysis} containing the object, plan,
-validation, dry-run preview, execution, and beginner-facing report. The
-\code{report} field includes \code{success_assessment} (from
-\code{ExecuteAIPlan()}); when \code{interpret = TRUE} and the execution
-completes, \code{report$interpretation} contains the \code{sclet_ai_result}
-from \code{AIExplainAnalysis()} (or \code{report$interpretation_error} if the
-interpretation call failed).
+An object of class \code{sclet_ai_analysis} containing the original or
+updated object, plan, validation, dry-run preview, execution, and report.
 }
 \description{
-Hides the registry, validation, dry-run, and confirmation details behind one
-guided beginner entry point. The AI proposes a plan; sclet validates it against
-the registered action allowlist; the plan is previewed; and execution occurs
-only after explicit approval. In non-interactive sessions with the default
-\code{confirm = "ask"}, the function returns the dry-run preview without
-execution.
+\code{RunAIAnalysis()} hides registry, validation, dry-run, and confirmation details
+behind one guided entry point. It asks the AI for a plan, validates the plan
+against a built-in allowlist, previews the actions, and executes only after
+explicit approval. With \code{confirm = "ask"}, interactive sessions prompt the
+user; non-interactive sessions stop after the dry run.
 }

@@ -10,17 +10,16 @@ AIDefaultExecutionRegistry(object, include = "read")
 \item{object}{A \code{SingleCellExperiment} object.}
 
 \item{include}{Character vector of action groups. Supported groups are
-\code{"read"}, \code{"preprocess"}, \code{"dimred"}, \code{"graph"},
-\code{"cluster"}, \code{"integration"}, \code{"annotation"},
-\code{"rare_cell"}, \code{"trajectory"}, \code{"velocity"}, and
-\code{"all"}. \code{"integration"} enables the unified
-\code{run_integration} execution action. Defaults to \code{"read"}.}
+\code{"read"}, \code{"preprocess"}, \code{"dimred"}, \code{"graph"}, \code{"cluster"},
+\code{"integration"}, \code{"annotation"}, \code{"rare_cell"}, \code{"trajectory"},
+\code{"velocity"}, \code{"fate"}, \code{"spatial"}, \code{"multimodal"}, \code{"enrichment"},
+\code{"communication"}, \code{"milo"}, and \code{"all"}. Defaults to \code{"read"}.}
 }
 \value{
 A \code{sclet_ai_execution_registry} containing the requested actions.
 }
 \description{
 The \code{read} group exposes bounded deterministic ledger views. The optional
-analysis groups wrap existing sclet functions and therefore require the normal
-plan validation and confirmation safeguards.
+analysis groups wrap existing sclet functions and therefore require the
+normal plan validation and confirmation safeguards.
 }

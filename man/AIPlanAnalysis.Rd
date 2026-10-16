@@ -30,7 +30,7 @@ AIPlanAnalysis(
 descriptions, and input schemas are exposed to the model via
 \code{context$available_actions} so proposed actions can reference real,
 registered action names. Also used to validate the returned plan
-(see \code{$validation} below). Defaults to
+(see \verb{$validation} below). Defaults to
 \code{AIDefaultExecutionRegistry(object, include = "all")}.}
 
 \item{max_repair_rounds}{Integer in \code{0:3}. When the first proposal fails
@@ -46,7 +46,22 @@ out-of-range values are an error.}
 \item{...}{Additional arguments passed to \code{sclet_ai_call()}.}
 }
 \value{
-An object of class \code{sclet_ai_plan}.
+An object of class \code{sclet_ai_plan}. The model's proposed actions
+are not guaranteed to be well-formed: it may omit an action name or
+name an action that is not registered. The plan's \verb{$validation} field
+(a non-strict \code{ValidateAIPlan()} result) reports this; check
+\code{plan$validation$valid} before treating \code{plan$actions} as executable,
+or re-run \code{ValidateAIPlan()} explicitly later if the object has
+changed. When repair is enabled, the returned plan is the one with the
+fewest validation errors across all attempts (ties go to the earliest
+attempt); \code{plan$metadata$repair_rounds_used} records how many repair
+calls were made, \code{plan$metadata$validation_error_counts} records
+the error count per attempt (first attempt first), and
+\code{plan$metadata$first_attempt_errors} keeps the first attempt's error
+text -- the only record of what the model got wrong before any repair
+feedback, since the returned plan's own errors are usually empty once
+repair succeeds. This function itself
+never executes proposed actions.
 }
 \description{
 The function only creates a plan. It never executes proposed actions.

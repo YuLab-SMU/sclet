@@ -11,7 +11,7 @@ get_perturbation(object, element = NULL, id = NULL)
 
 \item{element}{optional element name}
 
-\item{id}{optional perturbation record id}
+\item{id}{optional perturbation record id (e.g. \code{"celloracle_<gene>"})}
 }
 \value{
 the full perturbation analysis record, a selected element, or \code{NULL}

@@ -1176,6 +1176,35 @@ sclet_ai_plan_once <- function(
     ...
 ) {
     context <- sclet_ai_context(object, target = "planning", detail = "full", registry = registry)
+    # Domain guidelines, injected from inst/skills. The 2026-10-16 sweep
+    # (sclet-benchmark-ai) measured the gap this closes: the engine validated
+    # and refused correctly, but the model ordered run_rare_cell_detection
+    # before its evidence producers 2/2 times and passed an OrgDb where the
+    # ontology database belongs -- knowledge that lives in the single-cell
+    # guidelines, not in the registry. Selection is keyword-based on the
+    # goal; everything matches a NULL goal. The injection costs at most
+    # ~17k characters, small against the planning context itself (8,760
+    # characters for 32738 x 2700, measured); the option is the escape
+    # hatch for cost-sensitive callers.
+    skill_block <- local({
+        if (!isTRUE(getOption("sclet.ai.use_skills", TRUE))) return("")
+        topics <- if (!is.null(goal) && length(goal) == 1L && nzchar(trimws(goal))) {
+            sclet_ai_goal_skill_topics(goal)
+        } else {
+            NULL
+        }
+        block <- sclet_ai_skill_context(topics)
+        if (!nzchar(block)) return("")
+        paste0(
+            "\n\n## Single-cell analysis guidelines (shipped skills)\n\n",
+            "The following guidelines describe how single-cell analyses are ",
+            "ordered and what each registered action requires. They are ",
+            "guidelines, not overrides: the engine's validation remains the ",
+            "authority, and these tell you how to stay on the right side of ",
+            "it on the first attempt.\n\n",
+            block, "\n"
+        )
+    })
     base_prompt <- paste(
         "Propose a conservative analysis plan from the supplied ledger.",
         if (!is.null(goal) && length(goal) == 1L && nzchar(trimws(goal))) {
@@ -1239,10 +1268,12 @@ sclet_ai_plan_once <- function(
         sep = "\n"
     )
     repair_block <- sclet_ai_repair_prompt_block(repair_errors)
+    # Repair block goes AFTER the skill block: the repair attempt's most
+    # urgent information is what it got wrong, and the skills are background.
     system_prompt <- if (length(repair_block)) {
-        paste(c(base_prompt, "", repair_block), collapse = "\n")
+        paste(c(base_prompt, skill_block, "", repair_block), collapse = "\n")
     } else {
-        base_prompt
+        paste0(base_prompt, skill_block)
     }
     result <- sclet_ai_call(
         task = "analysis_plan",

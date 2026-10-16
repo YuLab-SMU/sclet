@@ -8,16 +8,20 @@ AskAI(object, question, model = NULL, structured_output = TRUE, ...)
 }
 \arguments{
 \item{object}{A \code{SingleCellExperiment} object.}
+
 \item{question}{A single natural-language question.}
+
 \item{model}{Optional aisdk model.}
+
 \item{structured_output}{Logical. Use structured output when available.}
+
 \item{...}{Additional arguments passed to \code{sclet_ai_call()}.}
 }
 \value{
 A structured \code{sclet_ai_result}.
 }
 \description{
-Provides the beginner-facing read-only conversational interface. The question
-is sent together with the bounded analysis ledger; the complete expression
-matrix is not copied into the AI context and no analysis action is executed.
+\code{AskAI()} is the beginner-facing read-only conversational interface. It sends
+the question together with the bounded analysis ledger, never the complete
+expression matrix, and returns a structured \code{sclet_ai_result}.
 }

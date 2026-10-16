@@ -17,19 +17,12 @@ RecordAIResult(object, result, id = NULL, active = FALSE, audit_claims = TRUE)
 \code{FALSE} so recording a review does not change the active analysis view.}
 
 \item{audit_claims}{Logical. Audit each finding against the claim ceiling of
-the recorded evidence and refuse to record an over-claimed result. Defaults to
-\code{TRUE} so a finding can never be written to the ledger at a strength the
-evidence does not support. When \code{TRUE}, also validates that all
-\code{evidence_refs} cited by findings can be resolved against the current
-ledger (via \code{ValidateAIEvidenceRefs()}); unresolvable references cause
-recording to fail with an error.}
+the recorded evidence and refuse to record an over-claimed result. Defaults
+to \code{TRUE} so a finding can never be written to the ledger at a strength the
+evidence does not support.}
 }
 \value{
-The updated \code{SingleCellExperiment} object. The recorded entry's
-\code{summary} field includes \code{n_findings}, \code{n_recommendations},
-\code{n_proposed_actions}, and \code{cited_user_decisions} (a character vector
-of evidence ids with \code{kind = "user_decision"} that the result's findings
-actually cited; always present, possibly empty).
+The updated \code{SingleCellExperiment} object.
 }
 \description{
 Record a structured AI result in the analysis ledger
