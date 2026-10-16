@@ -110,7 +110,53 @@ test_that("run_integration action has standard schema fields", {
     expect_true("method" %in% names(schema))
     expect_true(is.character(schema$method) && length(schema$method) > 1L)
     expect_true(all(c("fastMNN", "Harmony", "scVI") %in% schema$method))
+    expect_false("dims" %in% names(schema))
     expect_false(".design_confirmed" %in% names(schema))
+})
+
+test_that("cached validation cannot authorize a modified plan", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 5L, ncol = 4L))
+    )
+    registry <- AIExecutionRegistry(list(
+        mark_a = AIAction(
+            name = "mark_a",
+            handler = function(object, params) {
+                SummarizedExperiment::colData(object)$marker <- rep("A", ncol(object))
+                object
+            },
+            returns = "sce",
+            mutates_object = TRUE,
+            allowed_state_types = character()
+        ),
+        mark_b = AIAction(
+            name = "mark_b",
+            handler = function(object, params) {
+                SummarizedExperiment::colData(object)$marker <- rep("B", ncol(object))
+                object
+            },
+            returns = "sce",
+            mutates_object = TRUE,
+            allowed_state_types = character()
+        )
+    ))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "tamper",
+        actions = list(list(id = "step1", action = "mark_a", params = list()))
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+    expect_true(validation$valid)
+    expect_match(validation$plan_fingerprint, "^sclet-ai-plan-")
+
+    tampered <- plan
+    tampered$actions[[1L]]$action <- "mark_b"
+    expect_error(
+        ExecuteAIPlan(sce, tampered, registry, validation = validation,
+            dry_run = FALSE, confirmation = validation$confirmation_token,
+            record = FALSE),
+        class = "sclet_ai_stale_plan"
+    )
+    expect_null(SummarizedExperiment::colData(sce)$marker)
 })
 
 test_that("run_integration rejects plans that only self-declare design confirmation", {

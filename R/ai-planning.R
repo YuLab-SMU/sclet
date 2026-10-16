@@ -119,6 +119,34 @@ sclet_ai_plan_id <- function(task = "analysis_plan") {
     paste(c("plan", task, stamp, suffix), collapse = "_")
 }
 
+# Stable digest of every plan field that can affect validation or execution.
+# `digest` is suggested rather than imported, so retain a deterministic base-R
+# fallback for installations without it. Sorting named lists makes harmless
+# element-order differences irrelevant while preserving action/list order.
+sclet_ai_plan_fingerprint <- function(plan) {
+    canonical <- function(value) {
+        if (is.list(value)) {
+            nms <- names(value)
+            if (!is.null(nms)) {
+                ord <- order(nms)
+                value <- value[ord]
+                names(value) <- nms[ord]
+            }
+            return(lapply(value, canonical))
+        }
+        if (is.atomic(value)) return(unname(value))
+        value
+    }
+    serialized <- serialize(canonical(plan), NULL, version = 2L)
+    if (requireNamespace("digest", quietly = TRUE)) {
+        return(paste0("sclet-ai-plan-", digest::digest(serialized, algo = "sha256", serialize = FALSE)))
+    }
+    path <- tempfile("sclet-ai-plan-")
+    on.exit(unlink(path), add = TRUE)
+    writeBin(as.raw(serialized), path)
+    paste0("sclet-ai-plan-", unname(tools::md5sum(path)))
+}
+
 sclet_ai_project_plan_value <- function(value, planned_outputs) {
     if (is.character(value) && length(value) == 1L && grepl("^\\$\\{[^}]+\\}$", value)) {
         token <- sub("^\\$\\{", "", sub("\\}$", "", value))
@@ -918,6 +946,10 @@ ValidateAIPlan <- function(
         errors = errors,
         warnings = unique(warnings[nzchar(warnings)]),
         plan_id = plan$plan_id %||% NULL,
+        # Bind validation (and its confirmation token) to the complete normalized
+        # plan, not just the caller-controlled plan_id. ExecuteAIPlan() compares
+        # this digest before honoring a cached validation result.
+        plan_fingerprint = sclet_ai_plan_fingerprint(plan),
         context_fingerprint = current_fingerprint %||% plan$context_fingerprint %||% NULL,
         requires_confirmation = requires_confirmation,
         confirmation_token = confirmation_token,

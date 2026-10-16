@@ -143,25 +143,16 @@ sclet_ai_finding_severities <- function() {
     c("info", "low", "warning", "high", "error")
 }
 
-# Where a plan-level criterion takes its value from. The single source of
-# truth for the structured-output schema and for `ValidateAIPlan()`, which
-# branches on these two strings (R/ai-planning.R).
+# Where a plan-level criterion may derive its value from.
 sclet_ai_criterion_sources <- function() {
     c("action_output", "evidence")
 }
 
-# The comparisons a criterion may ask for. Shared the same way: the schema
-# below, the planning prompt, and the validator's "requires field and value"
-# rule all read this list. "exists" is the only check that needs neither.
+# The comparisons a criterion may ask for.
 sclet_ai_criterion_checks <- function() {
     c("exists", "equals", "gte", "lte", "in")
 }
 
-# The instruction that gives the model the vocabulary for evidence_refs.
-# The schema field alone does not get filled: measured 2026-10-12 on pbmc3k,
-# 0 of 12 (AIReviewQC) and 0 of 19 (AIStatus) findings carried evidence_refs
-# even when the evidence id was present in the context. The model described
-# the evidence correctly in prose but had no output channel told to cite it.
 sclet_ai_evidence_citation_instruction <- function() {
     paste(
         "When the supplied ledger records ai_evidence nodes (records with",
@@ -173,14 +164,6 @@ sclet_ai_evidence_citation_instruction <- function() {
     )
 }
 
-# The instruction that tells the model when a plan-level criterion is worth
-# proposing. `success_criteria` and `stop_conditions` were `z_any()` in the
-# structured schema until 2026-10-13, so a model that decided to express
-# "the clusters should be supported by markers" had nowhere to write it and
-# fell back to prose in the rationale (measured 0 of 16 plans in
-# sclet-benchmark-ai's execute_plan log, against 4-8 criteria per plan once
-# the goal asked for something rejectable). Permissive by design: P0.1's rule
-# that a plan with zero criteria stays valid is unchanged.
 sclet_ai_criterion_instruction <- function() {
     paste(
         "When a proposed step produces something that can be verified after",
@@ -229,11 +212,6 @@ sclet_ai_native_result_schema <- function() {
 
 # The declared shape of one plan-level criterion (used by both
 # `success_criteria` and `stop_conditions`, which normalize identically).
-# Every field is nullable -- a criterion that needs no value still validates
-# -- and additional properties are kept so task-specific extras survive.
-# Without this shape the field was `z_any()`: the planning prompt describes
-# criteria in prose, but the structured stage that actually builds the plan
-# gave the model nowhere to write them (measured 0 of 16 plans).
 sclet_ai_native_criterion_schema <- function() {
     aisdk::z_object(
         id = aisdk::z_string(nullable = TRUE),
@@ -246,6 +224,104 @@ sclet_ai_native_criterion_schema <- function() {
         value = aisdk::z_any(),
         .additional_properties = TRUE
     )
+}
+
+sclet_ai_schema_error <- function(path, expected, actual) {
+    sclet_ai_error(
+        "sclet_ai_invalid_output",
+        paste0("AI output schema mismatch at `", path, "`: expected ", expected,
+            ", got ", actual, ".")
+    )
+}
+
+sclet_ai_schema_type_name <- function(value) {
+    if (is.null(value)) return("null")
+    if (is.factor(value)) return("string")
+    if (is.logical(value)) return("boolean")
+    if (is.integer(value)) return("integer")
+    if (is.numeric(value)) return("number")
+    if (is.character(value)) return("string")
+    if (is.list(value)) return("object")
+    "unsupported value"
+}
+
+sclet_ai_schema_types <- function(schema) {
+    type <- schema$type %||% NULL
+    if (is.null(type)) return(character())
+    if (is.character(type)) return(type)
+    if (is.list(type) && all(vapply(type, is.character, logical(1)))) {
+        return(unlist(type, use.names = FALSE))
+    }
+    character()
+}
+
+sclet_ai_validate_schema_node <- function(value, schema, path = "$", present = TRUE) {
+    if (is.null(schema) || !is.list(schema)) return(invisible(TRUE))
+    types <- sclet_ai_schema_types(schema)
+    if (!present) return(invisible(TRUE))
+    actual <- sclet_ai_schema_type_name(value)
+    non_null_types <- setdiff(types, "null")
+    if (identical(actual, "null")) {
+        if (!"null" %in% types && length(types)) {
+            sclet_ai_schema_error(path, paste(types, collapse = " or "), actual)
+        }
+        return(invisible(TRUE))
+    }
+    if (length(non_null_types) && !"any" %in% non_null_types) {
+        compatible <- vapply(non_null_types, function(type) {
+            switch(type,
+                object = identical(actual, "object"),
+                array = is.list(value) && is.null(names(value)),
+                string = identical(actual, "string"),
+                boolean = identical(actual, "boolean"),
+                number = is.numeric(value) && length(value) == 1L && is.finite(value),
+                integer = is.numeric(value) && length(value) == 1L && is.finite(value) && value == floor(value),
+                FALSE
+            )
+        }, logical(1))
+        if (!any(compatible)) {
+            sclet_ai_schema_error(path, paste(non_null_types, collapse = " or "), actual)
+        }
+    }
+
+    if (!is.null(schema$enum)) {
+        choices <- unlist(schema$enum, recursive = TRUE, use.names = FALSE)
+        if (!any(vapply(choices, function(choice) {
+            identical(value, choice) ||
+                (is.numeric(value) && length(value) == 1L && is.numeric(choice) &&
+                    length(choice) == 1L && isTRUE(value == choice))
+        }, logical(1)))) {
+            sclet_ai_schema_error(path, paste0("one of {", paste(choices, collapse = ", "), "}"),
+                paste0("value `", paste(as.character(value), collapse = ","), "`"))
+        }
+    }
+    if ("object" %in% non_null_types && !is.null(schema$properties)) {
+        if (is.null(names(value)) && length(value)) {
+            sclet_ai_schema_error(path, "a named object", "an unnamed list")
+        }
+        properties <- schema$properties
+        required <- schema$required %||% list()
+        required <- unlist(required, recursive = TRUE, use.names = FALSE)
+        missing <- setdiff(required, names(value))
+        if (length(missing)) {
+            sclet_ai_error("sclet_ai_invalid_output",
+                paste0("AI output is missing required fields at `", path, "`: ", paste(missing, collapse = ", "), "."))
+        }
+        extra <- setdiff(names(value), names(properties))
+        if (length(extra) && identical(schema$additionalProperties, FALSE)) {
+            sclet_ai_error("sclet_ai_invalid_output",
+                paste0("AI output has unsupported fields at `", path, "`: ", paste(extra, collapse = ", "), "."))
+        }
+        for (field in intersect(names(value), names(properties))) {
+            sclet_ai_validate_schema_node(value[[field]], properties[[field]], paste0(path, ".", field))
+        }
+    }
+    if ("array" %in% non_null_types && !is.null(schema$items)) {
+        for (i in seq_along(value)) {
+            sclet_ai_validate_schema_node(value[[i]], schema$items, paste0(path, "[", i, "]"))
+        }
+    }
+    invisible(TRUE)
 }
 
 sclet_ai_validate_schema <- function(result, schema) {
@@ -264,6 +340,10 @@ sclet_ai_validate_schema <- function(result, schema) {
         if (isFALSE(checked)) {
             sclet_ai_error("sclet_ai_invalid_output", "AI output failed schema validation.")
         }
+        return(result)
+    }
+    if (inherits(schema, "z_schema")) {
+        sclet_ai_validate_schema_node(result, schema)
         return(result)
     }
     if (is.list(schema) && !is.null(schema$required)) {
@@ -323,6 +403,7 @@ sclet_ai_call <- function(
     }
     dots <- list(...)
     mock <- getOption("sclet.ai.call", default = NULL)
+    if (is.null(mock)) mock <- getOption("sclet.ai.adapter", NULL)
     privacy_policy <- NULL
     if (!length(enforce_privacy) || !is.logical(enforce_privacy) || is.na(enforce_privacy)) {
         enforce_privacy <- TRUE
@@ -556,4 +637,3 @@ sclet_ai_call <- function(
     )
     sclet_ai_validate_schema(structured_result, schema)
 }
-

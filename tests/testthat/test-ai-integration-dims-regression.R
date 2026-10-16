@@ -1,14 +1,7 @@
-# Regression: run_integration must execute, and must not forward the inert
-# `dims` parameter to RunIntegration().
-#
-# Found offline (2026-10-14) by the integration benchmark's dry run before any
-# provider was involved: the handler forwarded `dims = dims` to
-# RunIntegration(), which has no such argument, so every call raised
-# `unused argument (dims = ...)` -- the action could not succeed on any plan,
-# with any parameters, regardless of model behaviour. The fix removed the
-# forwarding; this file pins both halves: execution now completes, and a plan
-# that DOES carry `dims` (the parameter is still declared in `input_schema`)
-# also completes rather than dying on the unused argument.
+# Regression: run_integration must execute without an inert `dims` argument.
+# RunIntegration() chooses dimensions internally; accepting `dims` in the AI
+# schema silently discarded user intent, so the parameter is now rejected at
+# plan validation rather than accepted and ignored.
 
 # Minimal two-batch object: raw counts, a real batch column, no design
 # confirmation (the benchmark fixture covers the confirmation prerequisite).
@@ -59,38 +52,24 @@ test_that("run_integration executes end to end and registers its reduction", {
     expect_equal(ncol(ex$object), ncol(sce))
 })
 
-test_that("a plan carrying dims still executes (the parameter is inert, not fatal)", {
-    # The exact pre-fix failure: `dims` in the params reached RunIntegration()
-    # as an unused argument. A plan may still carry it -- it is declared in
-    # input_schema -- so it must be accepted and simply ignored.
+test_that("a plan cannot silently request unsupported integration dims", {
     sce <- integration_regression_object()
     sce <- ConfirmAIDesignSemantics(sce, design = list(batch = "batch"))
     reg <- AIDefaultExecutionRegistry(sce, include = "all")
     plan <- new_sclet_ai_plan(task = "reg_dims", actions = two_batch_pipeline(list(
         method = "fastMNN", batch = "batch", dims = as.integer(1:20))))
     v <- ValidateAIPlan(plan, object = sce, registry = reg, strict = FALSE)
-    expect_true(v$valid, info = paste(v$errors, collapse = "; "))
-
-    ex <- ExecuteAIPlan(sce, plan, reg, validation = v, dry_run = FALSE,
-        confirmation = v$confirmation_token, record = FALSE)
-    integ <- Filter(function(r) identical(r$action, "run_integration"), ex$results)
-    expect_identical(integ[[1L]]$status, "completed")
-    expect_true("corrected" %in% SingleCellExperiment::reducedDimNames(ex$object))
+    expect_false(v$valid)
+    expect_true(any(grepl("unknown parameter.*dims", v$errors)))
 })
 
-test_that("the handler does not forward dims to RunIntegration", {
-    # Pin the mechanism, not just the outcome: inspect the registered handler
-    # body rather than reading a source file path that is unavailable during
-    # installed-package checks.
+test_that("integration dimensions are not advertised as a supported AI parameter", {
     reg <- AIDefaultExecutionRegistry(
         SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 3L, 3L))),
         include = "all"
     )
-    handler <- paste(deparse(body(reg$run_integration$handler)), collapse = "\n")
-    expect_false(grepl("dims = dims", handler, fixed = TRUE))
-    # and RunIntegration genuinely has no such formal argument
-    fmls <- names(formals(sclet::RunIntegration))
-    expect_false("dims" %in% fmls)
+    expect_false("dims" %in% names(reg$run_integration$input_schema))
+    expect_false("dims" %in% names(formals(sclet::RunIntegration)))
 })
 
 # --- Deferred projection of planned-only reductions (2026-10-14) ------------

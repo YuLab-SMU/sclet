@@ -841,9 +841,13 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     method <- match.arg(params$method %||% "fastMNN", c("fastMNN", "Harmony", "scVI"))
                     batch <- params$batch
                     features <- sclet_ai_gene_selector(object, params$features, arg = "features")
-                    # Parsed and validated (it is in input_schema) but not
-                    # forwarded -- see the note at the RunIntegration() call.
-                    dims <- if (!is.null(params$dims)) sclet_ai_vector_param(params$dims, "integer") else NULL
+                    # RunIntegration() chooses the dimensions internally and
+                    # has no `dims` argument. Reject a supplied value during
+                    # plan validation rather than silently accepting an inert
+                    # parameter that gives the user/model a false impression.
+                    if (!is.null(params$dims)) {
+                        stop("`run_integration` does not support `dims`; omit it so RunIntegration() can choose internally.", call. = FALSE)
+                    }
                     RunIntegration(
                         object,
                         method = method,
@@ -852,23 +856,14 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         layer = params$layer %||% NULL,
                         reduction = params$reduction %||% NULL,
                         name = params$name %||% tolower(method)
-                        # `dims` is deliberately NOT forwarded:
-                        # RunIntegration() has no such argument and chooses the
-                        # reduction itself, so forwarding it raised
-                        # `unused argument (dims = ...)` on every call -- found
-                        # offline via the integration benchmark dry run, where
-                        # the action failed before any provider was involved.
-                        # The parameter still validates against `input_schema`,
-                        # so a plan may carry it; it is simply inert here.
-                        # Whether it should instead select the reduction
-                        # dimensions is a separate decision.
                     )
                 },
                 input_schema = list(
                     batch = list(type = "character", required = TRUE),
                     method = c("fastMNN", "Harmony", "scVI"),
                     name = "character",
-                    dims = "integer_vector",
+                    # Intentionally no `dims`: RunIntegration chooses this
+                    # internally, so the plan must not advertise a no-op input.
                     features = "character_vector",
                     layer = "character",
                     reduction = "character"
@@ -3278,7 +3273,9 @@ ExecuteAIPlan <- function(
             sclet_ai_error("sclet_ai_invalid_plan", "The supplied plan validation is not valid.")
         }
         current_fingerprint <- GetAnalysisLedger(object)$fingerprint
+        current_plan_fingerprint <- sclet_ai_plan_fingerprint(plan)
         if (!identical(as.character(validation$plan_id), as.character(plan$plan_id)) ||
+            !identical(as.character(validation$plan_fingerprint), current_plan_fingerprint) ||
             (!is.null(validation$context_fingerprint) &&
                 !identical(as.character(validation$context_fingerprint), as.character(current_fingerprint)))) {
             sclet_ai_error(

@@ -35,6 +35,52 @@ test_that("finding schema names evidence_refs and the claim-level ladder", {
     expect_true("hypothesis" %in% declared)
 })
 
+test_that("local schema validation rejects missing, mistyped and invalid enum values", {
+    skip_if_not_installed("aisdk")
+    schema <- aisdk::z_object(
+        name = aisdk::z_string(),
+        count = aisdk::z_number(),
+        enabled = aisdk::z_boolean(nullable = TRUE),
+        level = aisdk::z_enum(c("low", "high")),
+        tags = aisdk::z_array(aisdk::z_string()),
+        nested = aisdk::z_object(code = aisdk::z_integer())
+    )
+    valid <- list(
+        name = "analysis", count = 2L, enabled = NULL, level = "low",
+        tags = list("a", "b"), nested = list(code = 3L)
+    )
+    expect_identical(sclet:::sclet_ai_validate_schema(valid, schema), valid)
+    expect_error(
+        sclet:::sclet_ai_validate_schema(valid, function(x) stop("custom validator failed")),
+        class = "sclet_ai_invalid_output"
+    )
+
+    invalid_cases <- list(
+        missing = valid[names(valid) != "name"],
+        wrong_type = within(valid, count <- "two"),
+        invalid_enum = within(valid, level <- "medium"),
+        invalid_array_item = within(valid, tags <- list("ok", 2L)),
+        invalid_nested = within(valid, nested <- list(code = "three"))
+    )
+    for (bad in invalid_cases) {
+        expect_error(
+            sclet:::sclet_ai_validate_schema(bad, schema),
+            class = "sclet_ai_invalid_output"
+        )
+    }
+
+    strict_schema <- aisdk::z_object(name = aisdk::z_string())
+    expect_error(
+        sclet:::sclet_ai_validate_schema(c(name = "ok", surprise = "x"), strict_schema),
+        class = "sclet_ai_invalid_output"
+    )
+    permissive_schema <- aisdk::z_object(name = aisdk::z_string(), .additional_properties = TRUE)
+    expect_identical(
+        sclet:::sclet_ai_validate_schema(list(name = "ok", extra = 1L), permissive_schema),
+        list(name = "ok", extra = 1L)
+    )
+})
+
 test_that("the local validator accepts every level the schema declares", {
     # The two vocabularies are read from one helper (ai-adapter.R), so a level
     # the provider is allowed to emit can never be rejected by the validator.
