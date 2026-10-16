@@ -302,6 +302,15 @@ sclet_ai_validate_schema_node <- function(value, schema, path = "$", present = T
         properties <- schema$properties
         required <- schema$required %||% list()
         required <- unlist(required, recursive = TRUE, use.names = FALSE)
+        # aisdk's z_object marks every property required, including fields
+        # declared `nullable = TRUE`. The local result contract treats those
+        # as omittable ("a criterion that needs no value still validates"),
+        # so a nullable field may be absent locally; when present it may be
+        # null or must match its type.
+        nullable_fields <- names(properties)[vapply(properties, function(prop) {
+            "null" %in% sclet_ai_schema_types(prop)
+        }, logical(1))]
+        required <- setdiff(required, nullable_fields)
         missing <- setdiff(required, names(value))
         if (length(missing)) {
             sclet_ai_error("sclet_ai_invalid_output",
@@ -343,7 +352,17 @@ sclet_ai_validate_schema <- function(result, schema) {
         return(result)
     }
     if (inherits(schema, "z_schema")) {
-        sclet_ai_validate_schema_node(result, schema)
+        # A normalized sclet_ai_result always carries the wrapper fields
+        # task/context/metadata on top of the structured payload the schema
+        # describes. Validate the schema-relevant payload only, so the local
+        # check does not reject fields the schema never meant to constrain.
+        value <- result
+        if (inherits(result, "sclet_ai_result")) {
+            declared <- names(schema$properties %||% list())
+            undeclared_wrapper <- setdiff(c("task", "context", "metadata"), declared)
+            value <- result[setdiff(names(result), undeclared_wrapper)]
+        }
+        sclet_ai_validate_schema_node(value, schema)
         return(result)
     }
     if (is.list(schema) && !is.null(schema$required)) {

@@ -946,10 +946,18 @@ ValidateAIPlan <- function(
         errors = errors,
         warnings = unique(warnings[nzchar(warnings)]),
         plan_id = plan$plan_id %||% NULL,
-        # Bind validation (and its confirmation token) to the complete normalized
-        # plan, not just the caller-controlled plan_id. ExecuteAIPlan() compares
-        # this digest before honoring a cached validation result.
-        plan_fingerprint = sclet_ai_plan_fingerprint(plan),
+        # Bind validation (and its confirmation token) to the complete
+        # normalized plan, not just the caller-controlled plan_id.
+        # ExecuteAIPlan() normalizes plan$actions before it re-fingerprints,
+        # so the digest here must be computed over the SAME normalized shape
+        # (default-filled max_retries / requires_confirmation / params ...),
+        # otherwise every not-yet-normalized caller plan is misrejected as
+        # sclet_ai_stale_plan.
+        plan_fingerprint = {
+            fingerprinted <- plan
+            fingerprinted$actions <- normalized
+            sclet_ai_plan_fingerprint(fingerprinted)
+        },
         context_fingerprint = current_fingerprint %||% plan$context_fingerprint %||% NULL,
         requires_confirmation = requires_confirmation,
         confirmation_token = confirmation_token,

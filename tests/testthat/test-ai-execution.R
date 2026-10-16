@@ -159,6 +159,36 @@ test_that("cached validation cannot authorize a modified plan", {
     expect_null(SummarizedExperiment::colData(sce)$marker)
 })
 
+test_that("a valid raw (not pre-normalized) plan is not misrejected as stale", {
+    # Regression: ValidateAIPlan fingerprinted the caller's raw plan while
+    # ExecuteAIPlan fingerprints the plan AFTER normalizing plan$actions
+    # (default-filling max_retries, requires_confirmation, params, ...).
+    # The two digests differed for any not-yet-normalized plan, so every
+    # valid plan failed with sclet_ai_stale_plan on a non-dry run.
+    set.seed(1)
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(rpois(40, 5), nrow = 10, ncol = 4))
+    )
+    SummarizedExperiment::colData(sce)$celltype <- rep(c("a", "b"), each = 2)
+    registry <- AIDefaultExecutionRegistry(sce, include = "read")
+    action <- names(registry)[[1L]]
+    raw_plan <- list(
+        plan_id = "plan_raw_shape",
+        task = "raw",
+        # Deliberately NOT run through sclet_ai_normalize_plan_actions: no
+        # requires_confirmation / max_retries / depends_on defaults.
+        actions = list(list(id = "step1", action = action, params = list()))
+    )
+    validation <- ValidateAIPlan(raw_plan, object = sce, registry = registry)
+    expect_true(validation$valid)
+    executed <- ExecuteAIPlan(
+        sce, raw_plan, registry, validation = validation,
+        dry_run = FALSE, confirmation = validation$confirmation_token,
+        record = FALSE
+    )
+    expect_s3_class(executed, "sclet_ai_execution")
+})
+
 test_that("run_integration rejects plans that only self-declare design confirmation", {
     set.seed(1)
     sce <- SingleCellExperiment::SingleCellExperiment(

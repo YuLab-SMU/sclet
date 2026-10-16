@@ -50,6 +50,12 @@ test_that("local schema validation rejects missing, mistyped and invalid enum va
         tags = list("a", "b"), nested = list(code = 3L)
     )
     expect_identical(sclet:::sclet_ai_validate_schema(valid, schema), valid)
+    # Nullable fields (enabled) may be omitted entirely, like the native
+    # result schema's nullable finding fields.
+    expect_error(
+        sclet:::sclet_ai_validate_schema(valid[names(valid) != "enabled"], schema),
+        NA
+    )
     expect_error(
         sclet:::sclet_ai_validate_schema(valid, function(x) stop("custom validator failed")),
         class = "sclet_ai_invalid_output"
@@ -78,6 +84,36 @@ test_that("local schema validation rejects missing, mistyped and invalid enum va
     expect_identical(
         sclet:::sclet_ai_validate_schema(list(name = "ok", extra = 1L), permissive_schema),
         list(name = "ok", extra = 1L)
+    )
+})
+
+test_that("schema validation ignores sclet_ai_result wrapper fields", {
+    # Regression: a normalized sclet_ai_result always carries task/context/
+    # metadata alongside the structured payload. The native result schema does
+    # not declare them, so a naive recursive check rejected every valid result
+    # with "unsupported fields: task, context, metadata".
+    skip_if_not_installed("aisdk")
+    schema <- sclet:::sclet_ai_native_result_schema()
+    result <- sclet:::sclet_ai_normalize_response(
+        list(
+            answer = "structured answer",
+            findings = list(list(
+                statement = "s", severity = "info", claim_level = "observed"
+            )),
+            evidence = list(), warnings = list(),
+            recommendations = list(), proposed_actions = list()
+        ),
+        task = "status_review",
+        context = list(schema_version = "1.0", fingerprint = "f")
+    )
+    expect_s3_class(result, "sclet_ai_result")
+    expect_error(sclet:::sclet_ai_validate_schema(result, schema), NA)
+    # Real payload violations must still be caught through the wrapper.
+    bad <- result
+    bad$findings[[1L]]$claim_level <- "proven"
+    expect_error(
+        sclet:::sclet_ai_validate_schema(bad, schema),
+        class = "sclet_ai_invalid_output"
     )
 })
 
