@@ -116,6 +116,32 @@ steps 4-5 (it validates internally); use it for the common case and
   performs no analysis. If the goal genuinely needs no computation, answer
   directly instead of proposing an empty plan.
 
+## Resuming across processes (no resident session required)
+
+The ledger lives ON the object, so the whole analysis state survives
+`saveRDS()`. An agent does not need a resident R session: each interaction
+can be a fresh `Rscript` that reads the object, plans the next stage against
+the fingerprint it carries, executes, and saves it back. Verified end to
+end: phase 1 (pipeline + markers) in one process, `saveRDS`, phase 2
+(enrichment) in a fresh process reading the object back -- fingerprint
+identical, records readable, ceiling computable.
+
+Two rules when resuming:
+
+- **Reference records, not past steps.** A plan may only reference steps of
+  ITS OWN plan; `${old_plan_step.output.detest_id}` across a save/load
+  boundary is refused (`depends on unknown step(s)`). Read what is on the
+  object (`GetAnalysisLedger(sce)`, or the state records) and name the
+  record id literally: `detest_id = "markers"`.
+- **Re-validate every time.** The fingerprint binds the plan to the object
+  state it was validated against, which is exactly what makes the
+  stateless pattern safe: an object edited between processes cannot accept
+  a plan written against the old state.
+
+A resident session (`callr::r_session`, or an R process the agent keeps
+talking to) saves fixture load time and lets the agent inspect objects
+interactively, but it is an optimization, not a requirement.
+
 ## Recovering from validation errors
 
 Validation errors are the repair loop, one round, done by you:
