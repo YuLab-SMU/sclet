@@ -391,6 +391,12 @@ sclet_ai_test_rare_object <- function(n_cells = 60L) {
     set.seed(11L)
     counts <- matrix(rpois(50L * n_cells, lambda = 5L), nrow = 50L, ncol = n_cells,
         dimnames = list(paste0("gene_", seq_len(50L)), paste0("cell_", seq_len(n_cells))))
+    # A real subpopulation (genes 1-8 elevated in 6 cells): the corrected
+    # seeding rule finds density PEAKS, so a pure-noise blob collapses into
+    # one group with no rare populations and the claim-graded evidence tests
+    # would have nothing to grade. The injection gives the algorithm a peak
+    # to find, which is what the graded-evidence contract is about.
+    counts[1:8, 1:6] <- counts[1:8, 1:6] + 40L
     sce <- SingleCellExperiment::SingleCellExperiment(list(counts = counts))
     sce <- NormalizeData(sce)
     sce <- FindVariableFeatures(sce, nfeatures = 30L)

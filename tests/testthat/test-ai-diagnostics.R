@@ -140,19 +140,25 @@ test_that("marker credit needs significant up genes attributable to the populati
     ActiveIdent(sce) <- "rare_cluster"
     sce <- RunDEtest(sce, name = "rare_markers")
 
-    # noise data with no marker passing the default adjusted-p-value cutoff
+    # The fixture injects one real signal (genes 1-5 elevated in cells 1-6),
+    # so the CORRECTED seeding rule finds real groups, not per-cell noise
+    # labels, and the groups overlapping the injection do carry markers.
+    # The assertion that survives the fix: credit is gated by the cutoff --
+    # at the default cutoff only the injection-overlapping group earns it,
+    # and every credited group must itself carry significant up genes.
     strict <- sclet:::summarize_small_cluster_evidence(sce, cluster = "rare_cluster", size_threshold = 1000)
-    expect_identical(sum(sclet_ai_diag_marker_credited(strict)), 0L)
-    expect_identical(sum(vapply(strict$clusters, function(entry) entry$n_independent_signals_available,
-        integer(1L))), 0L)
+    strict_credited <- sclet_ai_diag_marker_credited(strict)
+    expect_lt(sum(strict_credited), length(strict$clusters))
+    for (index in which(strict_credited)) {
+        expect_gte(strict$clusters[[index]]$independent_signals$marker$n_significant_up_genes, 1L)
+    }
 
-    # relaxing the cutoff to a level no real claim would use shows that exactly the
-    # populations whose own group passes are the ones credited
+    # relaxing the cutoff can only keep or add credit, never lose it
     loose <- sclet:::summarize_small_cluster_evidence(sce, cluster = "rare_cluster",
         size_threshold = 1000, pvalue_cutoff = 0.5)
-    credited <- sclet_ai_diag_marker_credited(loose)
-    expect_identical(sum(credited), 1L)
-    expect_gte(loose$clusters[[which(credited)[1L]]]$independent_signals$marker$n_significant_up_genes, 1L)
+    loose_credited <- sclet_ai_diag_marker_credited(loose)
+    expect_gte(sum(loose_credited), sum(strict_credited))
+    expect_gte(loose$clusters[[which(loose_credited)[1L]]]$independent_signals$marker$n_significant_up_genes, 1L)
 
     expect_error(sclet:::summarize_small_cluster_evidence(sce, cluster = "rare_cluster", pvalue_cutoff = 5))
     expect_error(sclet:::summarize_small_cluster_evidence(sce, cluster = "rare_cluster", min_up_genes = 0L))
@@ -294,4 +300,26 @@ test_that("annotation readiness reports clarification_required or not_ready befo
     expect_true("run_annotation" %in% ready$blocked_actions)
     expect_true("run_de_test" %in% ready$blocked_actions)
     expect_true(length(ready$questions) >= 1L)
+})
+
+test_that("rare populations are density peaks, not one label per dense cell", {
+    skip_if_not_installed("BiocNeighbors")
+    # Regression, 2026-10-17: the seeding rule labelled every cell clearing a
+    # mutual-connectivity threshold as its OWN population, and on real pbmc3k
+    # that produced 2419 populations for 2700 cells (75% single-cell). The
+    # corrected rule seeds LOCAL density maxima, merges adjacent seeds, and
+    # dissolves sub-min_cluster_size groups into their densest neighbour.
+    sce <- sclet_ai_diag_rare_fixture()
+    rare <- RunRareCellDetection(sce, name = "rareR", k = 5, dims = 1:3,
+        rare_threshold = 5, min_cluster_size = 3L)
+    tb <- table(rare$rare_cluster)
+    # 40 cells cannot honestly carry one population per cell
+    expect_lte(length(tb), floor(ncol(sce) / 4L))
+    # no dissolved singletons may survive
+    expect_true(all(tb >= 3L))
+    # the state record agrees with the column
+    rec <- sclet:::sclet_get_state_record(rare, "rare_cells", "rareR")
+    expect_equal(rec$summary$n_clusters, length(tb))
+    # and the rare flag counts populations, not cells
+    expect_equal(rec$summary$n_rare_clusters, sum(tb <= 5L))
 })

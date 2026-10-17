@@ -12,6 +12,7 @@ RunRareCellDetection(
   k = 20,
   q_threshold = 0.25,
   rare_threshold = 10,
+  min_cluster_size = 3L,
   name = "rareq"
 )
 }
@@ -31,6 +32,13 @@ is considered a high-density seed. Range 0-1. Defaults to 0.25.}
 
 \item{rare_threshold}{Integer. Clusters with ≤ this many cells are flagged
 as rare. Defaults to 10.}
+
+\item{min_cluster_size}{Integer. Seed groups smaller than this are dissolved
+into their densest neighbouring seed group rather than reported as
+populations. A one-cell "population" is a density artefact, not a
+population, and reporting thousands of them -- one per high-connectivity
+cell, which is what the previous seeding rule did -- made the record
+uninterpretable. Defaults to 3.}
 
 \item{name}{Analysis record id. Defaults to \code{"rareq"}.}
 }

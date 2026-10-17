@@ -192,13 +192,20 @@ plot_perturbation_ranking <- function(object, n = 20, fill_color = "steelblue") 
 #'   is considered a high-density seed. Range 0-1. Defaults to 0.25.
 #' @param rare_threshold Integer. Clusters with ≤ this many cells are flagged
 #'   as rare. Defaults to 10.
+#' @param min_cluster_size Integer. Seed groups smaller than this are dissolved
+#'   into their densest neighbouring seed group rather than reported as
+#'   populations. A one-cell "population" is a density artefact, not a
+#'   population, and reporting thousands of them -- one per high-connectivity
+#'   cell, which is what the previous seeding rule did -- made the record
+#'   uninterpretable. Defaults to 3.
 #' @param name Analysis record id. Defaults to `"rareq"`.
 #'
 #' @return Updated SingleCellExperiment with `rare_cluster` in colData.
 #' @export
 RunRareCellDetection <- function(sce, method = c("density"),
     reduction = "PCA", dims = 1:20, k = 20,
-    q_threshold = 0.25, rare_threshold = 10, name = "rareq") {
+    q_threshold = 0.25, rare_threshold = 10, min_cluster_size = 3L,
+    name = "rareq") {
     method <- match.arg(method)
     stopifnot(is(sce, "SingleCellExperiment"))
     stopifnot(is.character(name) && nzchar(name))
@@ -243,22 +250,72 @@ RunRareCellDetection <- function(sce, method = c("density"),
         }
         q_values <- mutual_counts / k
 
-        seeds <- which(q_values >= q_threshold)
+        # Seeding rule, rewritten 2026-10-17 after the external-agent run on
+        # pbmc3k produced 2419 "populations" for 2700 cells -- 75% of them
+        # one cell. Two compounding defects:
+        #
+        # 1. `q_values >= q_threshold` is a THRESHOLD, but with k=10-20 on a
+        #    compact PCA embedding the mutual-connectivity distribution sits
+        #    near 1 (median 0.6, 99th pct 1.0), so thousands of cells clear
+        #    any lenient threshold. Every one of them became a seed.
+        # 2. Each seed was labelled with its OWN row index
+        #    (`cluster[seeds] <- as.character(seeds)`), so n_seeds seeds meant
+        #    n_seeds populations before any merging -- adjacent seeds were
+        #    never consolidated, though by construction they are dense cells
+        #    sitting next to other dense cells.
+        #
+        # The corrected rule: a seed is a LOCAL density maximum -- denser than
+        # the median of its own neighbours -- which is the property "rare
+        # population" actually needs, and adjacent seeds are merged into one
+        # group via their mutual kNN links before any label propagates. The
+        # old threshold survives as a FLOOR (a local maximum below q_threshold
+        # is not a seed), so the parameter keeps its meaning and its default.
+        n_cells_use <- length(q_values)
+        # q_values[matrix] returns a FLAT vector on R >= 4.4 (matrix indexing
+        # drops dimensions for atomic vectors), so rebuild the neighbours-by-
+        # cell layout explicitly: row i is cell i's neighbours' Q values, and
+        # the row median is the neighbourhood baseline cell i is compared
+        # against.
+        neighbour_q <- matrix(
+            q_values[as.vector(knn$index[seq_len(n_cells_use), , drop = FALSE])],
+            nrow = n_cells_use, ncol = ncol(knn$index), byrow = TRUE)
+        local_max <- q_values > apply(neighbour_q, 1L, stats::median)
+        seeds <- which(local_max & q_values >= q_threshold)
         n_seeds <- length(seeds)
 
         cli::cli_alert_info(
-            "Found {.val {n_seeds}} high-density seeds (Q >= {.val {q_threshold}})"
+            "Found {.val {n_seeds}} density local maxima (Q >= {.val {q_threshold}})"
         )
 
         if (n_seeds == 0) {
             warning(
-                "No high-density seeds found with Q >= ", q_threshold,
+                "No density local maxima found with Q >= ", q_threshold,
                 ". All cells assigned to cluster 1."
             )
             cluster <- rep("1", n_cells)
         } else {
+            # Merge adjacent seeds: two seeds that are kNN neighbours of each
+            # other belong to the same density peak, not two populations.
+            if (n_seeds > 1L) {
+                seed_idx <- knn$index[seeds, , drop = FALSE]
+                seed_pos <- matrix(
+                    match(as.vector(seed_idx), as.character(seeds)),
+                    nrow = n_seeds, ncol = ncol(seed_idx))
+                seed_adj <- matrix(0L, n_seeds, n_seeds)
+                for (i in seq_len(n_seeds)) {
+                    hit <- seed_pos[i, ]
+                    hit <- hit[!is.na(hit) & hit != i]
+                    seed_adj[i, hit] <- 1L
+                }
+                seed_groups <- igraph::components(
+                    igraph::graph_from_adjacency_matrix(seed_adj,
+                        mode = "max"))$membership
+            } else {
+                seed_groups <- setNames(1L, seeds)
+            }
+            group_ids <- as.integer(factor(seed_groups))
             cluster <- rep(NA_character_, n_cells)
-            cluster[seeds] <- as.character(seeds)
+            cluster[seeds] <- as.character(group_ids)
 
             for (iter in seq_len(5)) {
                 for (i in seq_len(n_cells)) {
@@ -277,10 +334,44 @@ RunRareCellDetection <- function(sce, method = c("density"),
             cluster <- as.character(cluster)
         }
 
-        sce$rare_cluster <- cluster
-
         cluster_counts <- sort(table(cluster))
         n_clusters <- length(cluster_counts)
+
+        # Dissolve sub-min_cluster_size populations into their densest
+        # neighbouring population. A label with one cell is where the cell
+        # happened to sit, not a population; propagating thousands of them
+        # into the evidence layer (each graded independently!) is how the
+        # 2026-10-17 run recorded 2419 rare nodes for 2700 cells.
+        if (length(min_cluster_size) == 1L && min_cluster_size > 1L) {
+            small <- names(cluster_counts)[cluster_counts < min_cluster_size]
+            if (length(small)) {
+                for (s in small) {
+                    members <- which(cluster == s)
+                    if (!length(members)) next
+                    nb <- unique(as.vector(knn$index[members, , drop = FALSE]))
+                    nb <- nb[cluster[nb] %in% names(cluster_counts)[
+                        cluster_counts >= min_cluster_size]]
+                    if (!length(nb)) next
+                    sink <- names(sort(table(cluster[nb]), decreasing = TRUE))[[1L]]
+                    cluster[members] <- sink
+                }
+                cluster <- as.character(as.factor(cluster))
+                cluster_counts <- sort(table(cluster))
+                n_clusters <- length(cluster_counts)
+                cli::cli_alert_info(
+                    "Dissolved {.val {length(small)}} group{?s} below
+                    min_cluster_size={.val {min_cluster_size}} into their
+                    densest neighbours"
+                )
+            }
+        }
+
+        # Written AFTER dissolution: the local `cluster` is the final labelling,
+        # and assigning it before the dissolve loop is how the first version of
+        # this fix printed "Dissolved 4 groups" while the column kept the
+        # dissolved labels -- the message and the artifact disagreed.
+        sce$rare_cluster <- cluster
+
         rare_clusters <- names(cluster_counts[cluster_counts <= rare_threshold])
 
         sce <- sclet_set_analysis(
