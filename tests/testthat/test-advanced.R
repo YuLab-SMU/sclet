@@ -37,6 +37,8 @@ test_that("RunSlingshot works", {
         # sce <- RunSlingshot(sce, cluster.labels=colLabels(sce))
         # expect_true(!is.null(sce@metadata$slingshot))
     }
-    expect_true(TRUE)
+    # The body above is a hand-run snippet with its assertions commented out;
+    # keep it as documentation, but do not report a green test that cannot fail.
+    skip("RunSlingshot on a colLabels fixture: hand-verified, not automated yet")
 })
 

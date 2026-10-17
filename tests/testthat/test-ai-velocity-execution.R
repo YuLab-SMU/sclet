@@ -244,7 +244,3 @@ test_that("run_velocity preserves ncol and colnames of the input object", {
     expect_identical(colnames(result$object), original_colnames)
 })
 
-## -- Scenario 8: full suite regression guard --
-test_that("existing tests still pass (regression guard placeholder)", {
-    expect_true(TRUE)
-})

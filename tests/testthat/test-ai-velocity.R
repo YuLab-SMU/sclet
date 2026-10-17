@@ -276,13 +276,9 @@ test_that("run_velocity validates and executes without any ConfirmAIDesignSemant
         }, logical(1L))))
 })
 
-## -- Scenario 12: full suite regression guard --
-## (covered by running the whole test suite; this test is a placeholder
-## that always passes, serving as a reminder that the full suite must be green)
-test_that("existing tests still pass (regression guard placeholder)", {
-    expect_true(TRUE)
-})
 
+## -- Scenario 12 was a placeholder test (expect_true(TRUE)); removed as part of
+## -- the 2026-10-18 test tidy-up. The full suite run is the regression guard.
 ## -- Scenario 13: privacy regression guard --
 test_that("velocity evidence passes through AIStatus without privacy warnings", {
     skip_if_not_installed("velociraptor")
