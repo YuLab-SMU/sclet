@@ -908,6 +908,33 @@ test_that("a placeholder reference is refused at validation, before any step run
     expect_true(grepl("reference_invalid", conditionMessage(err), fixed = TRUE))
 })
 
+test_that("a near-miss celldex name is refused at validation, not in the handler", {
+    ## Shape-based parsing cannot know which names celldex exports:
+    ## `BlueprintENCODEData` normalizes fine (ends with "Data") and the real
+    ## export is `BlueprintEncodeData`. Before the export check, that typo
+    ## passed validation and failed inside the handler -- after the upstream
+    ## steps had run.
+    skip_if_not_installed("SingleR")
+    skip_if_not_installed("celldex")
+    expect_equal(
+        sclet:::sclet_celldex_reference_name("BlueprintENCODEData"),
+        "BlueprintENCODEData"
+    )
+    sce <- annotation_test_object()
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "annotation"))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "annotate",
+        actions = list(list(id = "a1", action = "run_annotation",
+            params = list(ref = "BlueprintENCODEData", labels = "label.main")))
+    )
+    err <- tryCatch(ValidateAIPlan(plan, object = sce, registry = registry, strict = TRUE),
+        error = function(e) e)
+    expect_s3_class(err, "sclet_ai_invalid_plan")
+    expect_true(grepl("reference_invalid", conditionMessage(err), fixed = TRUE))
+    expect_true(grepl("not a dataset exported by celldex",
+        conditionMessage(err), fixed = TRUE))
+})
+
 # ---- Regressions for the 2026-10-16 benchmark findings (sclet-benchmark-ai) --
 
 test_that("a zero-action plan is refused at validation and at execution", {

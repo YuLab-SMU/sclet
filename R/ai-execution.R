@@ -1080,6 +1080,15 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         # reference; the literal spelling a model writes must
                         # not decide whether an otherwise-planned run executes.
                         ref_name <- sclet_celldex_reference_name(ref_arg)
+                        if (!is.null(ref_name) && !requireNamespace("celldex", quietly = TRUE)) {
+                            # Name the missing package rather than calling the
+                            # reference unsupported: the latter reads as the
+                            # user's mistake and suggests no repair.
+                            stop(paste0(
+                                "celldex is required to resolve ref='", ref_arg, "'; install it via ",
+                                "BiocManager::install('celldex') or pass a SummarizedExperiment ref directly."
+                            ), call. = FALSE)
+                        }
                         fun <- if (is.null(ref_name)) NULL else sclet_celldex_dataset(ref_name)
                         if (is.null(fun)) {
                             stop(paste0(
@@ -1274,8 +1283,25 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     if (!real_req_ns("SingleR", quietly = TRUE)) {
                         return("optional_package_missing: SingleR is required for run_annotation; install via BiocManager::install('SingleR')")
                     }
-                    if (ref_is_name && !is.null(ref_name) && !real_req_ns("celldex", quietly = TRUE)) {
-                        return(paste0("optional_package_missing: celldex is required to resolve ref='", ref_arg, "'; install via BiocManager::install('celldex')"))
+                    if (ref_is_name && !is.null(ref_name)) {
+                        if (!real_req_ns("celldex", quietly = TRUE)) {
+                            return(paste0("optional_package_missing: celldex is required to resolve ref='", ref_arg, "'; install via BiocManager::install('celldex')"))
+                        }
+                        # `sclet_celldex_reference_name()` accepts the SHAPE of a
+                        # dataset name; only celldex knows which names exist. A
+                        # near-miss that ends in "Data" (e.g. BlueprintENCODEData
+                        # for BlueprintEncodeData) otherwise passes validation and
+                        # fails in the handler -- after the upstream steps have
+                        # run, which is the class of failure this benchmark paid
+                        # for twice.
+                        if (is.null(sclet_celldex_dataset(ref_name))) {
+                            return(paste0(
+                                "reference_invalid: '", ref_arg, "' is not a dataset exported by ",
+                                "celldex. Use a real celldex dataset (e.g. HumanPrimaryCellAtlasData, ",
+                                "MonacoImmuneData, BlueprintEncodeData) or pass a ",
+                                "SummarizedExperiment/matrix reference directly."
+                            ))
+                        }
                     }
                     TRUE
                 },
