@@ -1299,6 +1299,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         k = params$k %||% 20,
                         q_threshold = params$q_threshold %||% 0.25,
                         rare_threshold = rare_threshold,
+                        min_cluster_size = params$min_cluster_size %||% 3L,
                         name = name
                     )
                     sclet_ai_record_rare_cell_evidence(result, name, rare_threshold)
@@ -1309,6 +1310,10 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     k = "integer",
                     q_threshold = "number",
                     rare_threshold = "integer",
+                    # Density artefacts below this size are dissolved into
+                    # their densest neighbour instead of being reported as
+                    # populations (the 2419-for-2700-cells defect).
+                    min_cluster_size = "integer",
                     name = "character"
                 ),
                 prerequisites = function(object, params, planned = NULL) {
