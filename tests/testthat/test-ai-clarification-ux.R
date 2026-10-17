@@ -255,3 +255,29 @@ test_that("the clarification engine list is the one RunCCI actually accepts", {
     expect_false(is.null(sclet:::sclet_ai_clarification_answer_problem(
         "cci_method", "LIANA", sce)))
 })
+
+## -- a second answer to the same question is not silently dropped -----------
+
+test_that("re-answering a question records a second decision instead of colliding", {
+    sce <- clarification_test_object()
+    first <- sclet:::sclet_ai_record_clarification_response(
+        sce, "cci_method", "CellChat", "run_cci")
+    second <- sclet:::sclet_ai_record_clarification_response(
+        first, "cci_method", "NicheNet", "run_cci")
+
+    nodes <- clarification_test_evidence(second)
+    expect_length(nodes, 2L)
+    summaries <- vapply(nodes, function(node) as.character(node$summary), character(1L))
+    expect_true(any(grepl("CellChat", summaries, fixed = TRUE)))
+    expect_true(any(grepl("NicheNet", summaries, fixed = TRUE)))
+    ids <- vapply(nodes, function(node) as.character(node$id), character(1L))
+    expect_equal(length(unique(ids)), 2L)
+    ## The first answer keeps the plain id; the second is suffixed.
+    expect_true(any(grepl("ev:clarification_q9_a14$", ids)))
+    expect_true(any(grepl("ev:clarification_q9_a14_2$", ids)))
+    ## Both reach the planner, in order, so the latest choice is visible too.
+    context <- sclet:::sclet_ai_context(second, target = "planning")
+    ctx_summaries <- vapply(context$analysis_story$user_decisions,
+        function(x) as.character(x$summary %||% ""), character(1L))
+    expect_true(any(grepl("NicheNet", ctx_summaries, fixed = TRUE)))
+})

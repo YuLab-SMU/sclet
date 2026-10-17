@@ -1167,6 +1167,18 @@ sclet_ai_repair_prompt_block <- function(errors) {
         "validation against the registry and the object; it was NOT executed",
         "and must not be treated as having run. Fix ONLY the problems listed",
         "below; preserve the rest of the plan unchanged.",
+        # The loop keeps the attempt with the fewest errors, so a repair that
+        # fixes the reported error while breaking an unrelated step scores WORSE
+        # than doing nothing: the candidate is discarded and the round is spent.
+        # Measured in this benchmark: one run went 1 -> 4 errors, another 1 -> 1
+        # (the same error repeated), and both burned a round to end up where
+        # they started. Saying this explicitly is cheaper than a smarter
+        # selector, because the failure is in what the model was asked to do.
+        "A repair that introduces a NEW error is worse than leaving the reported",
+        "one alone: the attempt is scored by its total error count, so the",
+        "version with fewer errors is kept and yours may be discarded. Change",
+        "only the steps implicated by the errors below; leave every other step",
+        "exactly as it was, including its id, action name, and parameters.",
         "Validation errors (verbatim):",
         paste0("- ", errors),
         "If a step cannot be fixed using only the registered actions and",

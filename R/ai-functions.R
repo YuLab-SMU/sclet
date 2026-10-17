@@ -986,11 +986,36 @@ sclet_ai_record_clarification_response <- function(object, question_id, answer, 
         raw_values_included = FALSE
     )
     evidence <- list(
-        id = paste0("ev:clarification_q", question_code, "_a", action_code),
+        id = sclet_ai_clarification_evidence_id(object, question_code, action_code),
         kind = "user_decision",
         values = values,
         claim_level = "observed",
         summary = public$text
     )
     RecordAIEvidence(object, evidence, source = NULL, parents = character(), scope = NULL)
+}
+
+# The evidence id for one clarification answer, made unique by observation.
+#
+# The obvious id -- ev:clarification_q<question>_a<action> -- is fixed per
+# question and blocked action, so a SECOND answer to the same question (the
+# user changed their mind, or the engine hit the same gate in a later round)
+# collided with the first. `RecordAIEvidence()` refuses a duplicate id, and
+# `ResolveAIClarifications()` records inside a tryCatch, so the second answer
+# was silently dropped: the transcript said "recorded" while the ledger kept
+# only the first, stale choice. The first answer keeps the plain id (existing
+# records and tests depend on it); later answers gain a numeric suffix.
+sclet_ai_clarification_evidence_id <- function(object, question_code, action_code) {
+    base <- paste0("ev:clarification_q", question_code, "_a", action_code)
+    existing <- tryCatch(
+        names(sclet_ai_evidence_get_all(object)),
+        error = function(e) character()
+    )
+    if (!base %in% existing) return(base)
+    index <- 1L
+    repeat {
+        index <- index + 1L
+        candidate <- paste0(base, "_", index)
+        if (!candidate %in% existing) return(candidate)
+    }
 }

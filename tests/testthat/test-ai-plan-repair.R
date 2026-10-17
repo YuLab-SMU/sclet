@@ -347,6 +347,16 @@ test_that("sclet_ai_repair_prompt_block content (scenario 10)", {
     expect_true(grepl("input_schema", joined))
     expect_true(grepl("type|TYPE", joined))
 
+    ## A repair that fixes the listed error while breaking an unrelated step is
+    ## discarded by the loop (it keeps the attempt with the fewest errors), so
+    ## the prompt has to say that out loud. Measured 2026-10-17: one run went
+    ## 1 -> 4 errors and another repeated the same error, both burning a round.
+    expect_true(grepl("introduces a NEW error", joined, fixed = TRUE))
+    expect_true(grepl("worse than leaving the reported", joined, fixed = TRUE))
+    expect_true(grepl("only the steps implicated", joined, fixed = TRUE))
+    expect_true(grepl("including its id, action name, and parameters", joined,
+        fixed = TRUE))
+
     empty_null <- sclet:::sclet_ai_repair_prompt_block(NULL)
     expect_true(length(empty_null) == 0L)
     empty_char <- sclet:::sclet_ai_repair_prompt_block(character(0))
