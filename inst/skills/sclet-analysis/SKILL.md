@@ -87,7 +87,9 @@ it never guesses:
 
 - `run_cci` requires `method` (CellChat / CellPhoneDB / NicheNet). The
   engines use different ligand-receptor databases and statistical tests, so
-  "CellChat" is not the safe default, it is one choice among several.
+  "CellChat" is not the safe default, it is one choice among several. If
+  `context$analysis_story$user_decisions` records an engine, the choice has
+  already been made: pass that engine.
 - `run_enrichment` requires `db` (GO or KEGG) and takes `orgDb`/`keyType`/
   `ont`. `db` takes the ontology *database* name, not the annotation
   package: `"GO"` or `"KEGG"`, never `"org.Hs.eg.db"` -- the OrgDb goes in
@@ -115,7 +117,10 @@ Refusals are information, and they are the system working as designed:
   `ref = "<celldex::MonacoImmuneData>"` is accepted and normalized, but a
   description of the object (`"<MonacoImmuneData SummarizedExperiment, Entrez
   rownames>"`) is not a value and is refused -- measured 2026-10-17, where two
-  of four attempts died on exactly that distinction.
+  of four attempts died on exactly that distinction. If
+  `context$analysis_story$user_decisions` records the reference (and labels
+  column), the user has already chosen: use that value instead of asking
+  again.
 - No `spatialCoords` / no multimodal records: the spatial and multimodal
   read-only actions report readiness honestly. Do not plan a spatial
   analysis for a non-spatial object.

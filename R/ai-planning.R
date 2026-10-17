@@ -1187,6 +1187,22 @@ sclet_ai_repair_prompt_block <- function(errors) {
     )
 }
 
+# A recorded user choice (a reference dataset, a communication engine, a
+# design column) is settled for the planner. Without this line the model could
+# read `analysis_story$user_decisions` and still ask again or substitute its
+# own preference, which is what happened before the clarification channel
+# existed: the engine retried the same blocked parameter until the repair
+# budget ran out. Split into a helper so the text is unit-testable -- the
+# prompt itself is assembled inline.
+sclet_ai_user_decision_prompt_line <- function() {
+    paste(
+        "Choices recorded in `context$analysis_story$user_decisions` -- a",
+        "reference dataset, a communication engine, a design or cluster column --",
+        "are settled. Use them in the matching parameter, do not ask for that",
+        "choice again, and do not substitute your own preference for it."
+    )
+}
+
 #' One-shot plan proposal (internal)
 #'
 #' Extracts the body of [AIPlanAnalysis()] so the repair loop and the
@@ -1251,6 +1267,7 @@ sclet_ai_plan_once <- function(
         "`params` list using only the parameter names listed in that action's",
         "input_schema. Do not invent action names. If no listed action fits",
         "a needed step, say so in your rationale instead of inventing one.",
+        sclet_ai_user_decision_prompt_line(),
         "Pass each parameter a real value of the declared type: a bare JSON",
         "number for integer/numeric (ncomponents = 50, NOT \"50\", NOT",
         "\"<integer>\", NOT \"e.g. 50\"), a single JSON string for character, and",

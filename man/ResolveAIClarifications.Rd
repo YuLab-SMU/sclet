@@ -29,7 +29,11 @@ function.}
 }
 \value{
 A list with the updated \code{object}, a \code{status}, and a \code{transcript} of
-per-question \code{resolved} / \code{skipped} / \code{invalid} outcomes.
+per-question \code{resolved} / \code{skipped} / \code{invalid} outcomes. Each
+resolved entry distinguishes \code{applied} (something was written to the object
+through a confirmation or an applier) from \code{recorded} (the answer was
+written to the ledger as a \code{user_decision} node); a plan-parameter answer is
+recorded without being applied.
 }
 \description{
 Presents the structured questions produced by \code{sclet_ai_format_clarification()}
@@ -42,11 +46,20 @@ answered.
 \details{
 The function never answers on the user's behalf. It proposes no default column,
 no default cluster and no default reference, and an empty answer is treated as
-"not answered" rather than being filled in. Answers are only applied when the
-question type has a real confirmation function (\code{design_batch} goes through
-\code{ConfirmAIDesignSemantics()}); other question types describe plan parameters,
-so they are recorded for the audit trail and returned for the caller to feed back
-into its plan.
+"not answered" rather than being filled in. An answer that the blocked action
+would not accept is reported as \code{invalid} and is neither applied nor
+recorded (for example an engine name that \code{run_cci} does not register, or a
+labels column that is not an identifier).
+
+Answers are applied through an existing confirmation mechanism where one exists
+(\code{design_batch} goes through \code{ConfirmAIDesignSemantics()}). Every
+accepted answer is recorded as a \code{user_decision} evidence node; when the
+answer is a public vocabulary term (an engine, a celldex dataset, an existing
+column, an anonymized cluster code) the node's summary names it, and that
+summary is what the planner reads on the next round as
+\code{analysis_story$user_decisions}. That is the channel by which "the engine
+asked, the user answered" stops being a transcript the caller has to thread back
+into its own goal text.
 
 In a non-interactive session without an \code{ask} function the function refuses to
 prompt and returns \code{status = "needs_interactive"} without modifying the object

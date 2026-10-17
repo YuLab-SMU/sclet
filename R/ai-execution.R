@@ -2410,7 +2410,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     keep_object = "logical"
                 ),
                 prerequisites = function(object, params, planned = NULL) {
-                    engines <- c("CellChat", "CellPhoneDB", "NicheNet")
+                    engines <- sclet_ai_clarification_engines()
                     method <- params$method
                     if (is.null(method) || !is.character(method) || length(method) != 1L ||
                             !nzchar(trimws(method))) {

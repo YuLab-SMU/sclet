@@ -958,6 +958,45 @@ list(
   指向不存在 colData 列的答案记为 `invalid`，既不写 confirmation 也不写 decision。
   只有 `design_batch` 会自动应用（经 `ConfirmAIDesignSemantics()`），其余问题描述的是 plan 参数，
   仅留痕并交还给调用方回填 plan（可用 `apply_answer` 钩子接管）。
+
+**2026-10-17 补强（第 4 项：把"问过"变成"问过且下一轮用得上"）**
+
+上面那层的缺口有两个，都由真实 benchmark 记录指出：`run_cci` 引擎缺失（`method_missing` /
+`method_invalid`）在 question catalog 里没有对应项；以及用户回答后，答案只留在 transcript
+里，planning 上下文读不到——`ai_evidence` 记录在 target 过滤中归入 `status`，所以
+`analysis_story$user_decisions` 在 planning 上下文里恒为空，调用方只能把答案手抄回 goal 文本
+（这正是 `run_annotation` 参考选择只能写进 goal 的原因）。补强内容：
+
+- catalog 增加 `cci_method`（`method_missing` / `method_invalid`，blocked_action `run_cci`），
+  问题文本只列出 CellChat / CellPhoneDB / NicheNet，不代选。
+- `sclet_ai_record_clarification_response()` 在答案是**公开词表**时把答案写进 evidence 的
+  `summary`：引擎名、celldex 数据集名、对象上已存在的 colData/assay/reduction 名、或已匿名化的
+  `cluster_N` 编码。其余答案记为"answered, value withheld"，自由文本仍不进入 ledger；数值
+  `values` 只增 `answer_is_public_vocabulary` 与 `answer_code` 两个字段。
+- `sclet_ai_build_analysis_story()` 的 `user_decisions` 改为直接读对象原始 state，而不是
+  target 过滤后的记录；因此 planning 上下文（模型实际看到的那份）里会出现
+  "user chose cci_method = CellChat"。这里必须读原始 state：`sclet_ai_evidence_get_all()`
+  会重建整个 ledger，而 ledger 又构建 story，二者互递归（实测单次 context 构建 25 s，改为
+  直接读 state 后 0.06 s）。
+- `ResolveAIClarifications()` 对 `cci_method` / `annotation_reference` / `annotation_labels`
+  先按被阻动作自己的词表校验答案，不合法记为 `invalid` 且不写 evidence；合法答案才留痕。
+- planning prompt 增加一条：`context$analysis_story$user_decisions` 里记录的选择是已定的，
+  必须用于对应参数、不得重复提问、不得换成自己的偏好。
+- 判定逻辑仍未改动：`ValidateAIPlan()` / 各 action 的 `prerequisites` / `check_*_readiness()`
+  行为不变，回归测试断言 `run_cci` 缺 method 时仍报 `method_missing` 且格式化只复制错误。
+
+审核补强（同一轮）：
+
+- 引擎词表收敛为一处：`sclet_ai_clarification_engines()` 现在被 `check_communication_readiness()`、
+  `sclet_ai_communication_method_code()` 与 `run_cci` 的 prerequisite 共同调用，并由测试钉住它
+  等于 `RunCCI()` 的 `method` 形式默认值（那才是 `match.arg()` 实际接受的集合）。此前四处各写一份
+  字面量，澄清层注释却声称"一处定义"。
+- transcript 语义修正：已解决项现在区分 `applied`（真的通过确认或 `apply_answer` 写入了对象）与
+  `recorded`（答案写入了 `user_decision` evidence）。引擎/参考这类 plan 参数答案此前被报成
+  `applied = TRUE`，读起来像对象被修改过。
+- skill 文本与新通道对齐：`inst/skills/sclet-analysis/SKILL.md` 在 `run_cci` 与 annotation 两处
+  明确"若 `analysis_story$user_decisions` 已记录选择，则直接使用该值、不要重复提问"，避免
+  技能层"用户必须选"的措辞把已经做出的选择又挡回去。
   非交互会话且未提供 `ask` 时拒绝提示，直接返回 `needs_interactive` 且不改动对象。
 
 

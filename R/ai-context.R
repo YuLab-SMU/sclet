@@ -453,14 +453,29 @@ sclet_ai_build_analysis_story <- function(object, records, status) {
     }
 
     user_decisions <- list()
-    ai_evidence_records <- state_records[["ai_evidence"]]
-    if (is.list(ai_evidence_records) && length(ai_evidence_records)) {
-        for (nm in names(ai_evidence_records)) {
-            rec <- ai_evidence_records[[nm]]
-            summary <- rec$summary
+    # Read user decisions from the object's raw state, not from the
+    # target-filtered record list.
+    #
+    # The target filter decides which records a given context includes, and
+    # `ai_evidence` is classified under the `status` target -- so a planning
+    # context used to receive an EMPTY user_decisions list even when the user
+    # had answered a clarification question. That made the clarification loop
+    # cosmetic: the answer was recorded, and then the next planning round could
+    # not see it, which is precisely the gap the structured-clarification work
+    # was meant to close.
+    #
+    # Raw state, not sclet_ai_evidence_get_all(): the latter builds a full
+    # ledger, which builds this story, which would call it again. Only the id,
+    # a timestamp and a bounded summary string are copied, so this adds no
+    # cell-level or free-form data to the context.
+    raw_state <- tryCatch(sclet_get_state(object), error = function(e) list())
+    raw_evidence <- raw_state$states$records$ai_evidence %||% list()
+    if (is.list(raw_evidence) && length(raw_evidence)) {
+        for (nm in names(raw_evidence)) {
+            rec <- raw_evidence[[nm]]
+            summary <- if (is.list(rec)) rec$summary else NULL
             if (!is.list(summary)) summary <- list()
-            kind <- summary$kind
-            if (!identical(kind, "user_decision")) next
+            if (!identical(summary$kind, "user_decision")) next
             decision_summary <- summary$summary
             if (is.null(decision_summary) || !is.character(decision_summary) || !length(decision_summary)) {
                 decision_summary <- "user decision recorded"
@@ -468,7 +483,7 @@ sclet_ai_build_analysis_story <- function(object, records, status) {
                 decision_summary <- as.character(decision_summary)[1L]
             }
             user_decisions[[length(user_decisions) + 1L]] <- list(
-                id = as.character(rec$id %||% nm),
+                id = as.character(summary$id %||% nm),
                 created_at = if (is.null(summary$created_at)) NULL else as.character(summary$created_at),
                 summary = decision_summary
             )

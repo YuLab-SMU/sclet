@@ -519,25 +519,35 @@ sclet_ai_clarification_catalog <- function() {
         question_id = c(
             "design_batch", "annotation_reference", "annotation_labels",
             "trajectory_root", "trajectory_root_unknown", "trajectory_group",
-            "reduction", "counts_assay", "unclassified"
+            "reduction", "counts_assay", "cci_method", "cci_method",
+            "unclassified"
         ),
         pattern = c(
             "design_semantics_not_confirmed", "reference_missing", "labels_missing",
             "start_cluster_missing", "start_cluster_unknown", "group_column_missing",
-            "reduction_missing", "counts_assay_missing", ""
+            "reduction_missing", "counts_assay_missing", "method_missing",
+            "method_invalid", ""
         ),
         blocked_action = c(
             "run_integration", "run_annotation", "run_annotation",
             "run_trajectory", "run_trajectory", "run_trajectory",
-            "run_trajectory", "run_doublet_detection", "unknown"
+            "run_trajectory", "run_doublet_detection", "run_cci", "run_cci",
+            "unknown"
         ),
         related_function = c(
             "ConfirmAIDesignSemantics", "run_annotation", "run_annotation",
             "run_trajectory", "run_trajectory", "run_trajectory",
-            "run_trajectory", "NormalizeData", NA_character_
+            "run_trajectory", "NormalizeData", "run_cci", "run_cci",
+            NA_character_
         ),
         stringsAsFactors = FALSE
     )
+}
+
+# Engine vocabulary `run_cci` validates against. One definition, so a recorded
+# clarification answer can be checked against the same list the action enforces.
+sclet_ai_clarification_engines <- function() {
+    c("CellChat", "CellPhoneDB", "NicheNet")
 }
 
 sclet_ai_clarification_question_ids <- function() {
@@ -584,8 +594,104 @@ sclet_ai_clarification_text <- function(question_id) {
             "A step was blocked because the object has no 'counts' assay. ",
             "Supply a counts assay, for example by reading raw data with Read10X()."
         ),
+        cci_method = paste0(
+            "A cell-cell communication step was blocked because the engine was not chosen. ",
+            "Which engine should be used: CellChat, CellPhoneDB or NicheNet? ",
+            "Pass it explicitly as the 'method' parameter of run_cci; the engines use ",
+            "different ligand-receptor databases, so this assistant will not choose one for you."
+        ),
         "The plan was rejected by an existing validation rule and needs a human decision before it can run."
     )
+}
+
+# Can a clarification answer be written into the ledger and into the planning
+# context?
+#
+# The clarification layer records "the user was asked and answered" as a
+# user_decision evidence node, and that node's summary is what the planner sees
+# in `analysis_story$user_decisions` on the next round. Writing the answer
+# itself is therefore only allowed when it belongs to a bounded public
+# vocabulary: an engine name from the fixed engine list, a celldex dataset
+# name, a colData / assay / reduction name that already exists on the object, or
+# an already-anonymized `cluster_N` code. Anything else -- free prose, a sample
+# name, a path -- is recorded as "answered, value withheld", so the audit can
+# see that a choice was made without the ledger absorbing the text.
+sclet_ai_clarification_public_answer <- function(question_id, answer, object) {
+    if (!is.character(answer) || length(answer) != 1L || is.na(answer) || !nzchar(answer)) {
+        return(list(public = FALSE, code = 0L, text = "answered, value withheld"))
+    }
+    question_id <- as.character(question_id)[[1L]]
+    public <- FALSE
+    code <- 0L
+    if (identical(question_id, "cci_method")) {
+        engines <- sclet_ai_clarification_engines()
+        code <- match(answer, engines)
+        public <- !is.na(code)
+        if (is.na(code)) code <- 0L
+    } else if (identical(question_id, "annotation_reference")) {
+        public <- !is.null(sclet_celldex_reference_name(answer))
+    } else if (identical(question_id, "annotation_labels")) {
+        public <- grepl("^[A-Za-z][A-Za-z0-9._]{0,63}$", answer)
+    } else if (identical(question_id, "trajectory_root")) {
+        public <- grepl("^(cluster|group|sample|condition|route)_[0-9]+$", answer)
+    } else if (identical(question_id, "design_batch") ||
+            identical(question_id, "trajectory_group") ||
+            identical(question_id, "group_column")) {
+        public <- answer %in% colnames(SummarizedExperiment::colData(object))
+    } else if (identical(question_id, "reduction")) {
+        public <- answer %in% SingleCellExperiment::reducedDimNames(object)
+    } else if (identical(question_id, "counts_assay")) {
+        public <- answer %in% SummarizedExperiment::assayNames(object)
+    }
+    text <- if (isTRUE(public)) {
+        paste0("user chose ", question_id, " = ", answer)
+    } else {
+        paste0("user answered ", question_id, " (value withheld)")
+    }
+    list(public = isTRUE(public), code = as.integer(code), text = text)
+}
+
+# Why an answer cannot be accepted for a question, or NULL when it can.
+#
+# This checks the answer against the vocabulary the blocked action itself would
+# accept; it does not decide anything the action does not. Used by
+# ResolveAIClarifications() so a typo is reported as `invalid` instead of being
+# recorded as if the user had made a usable choice.
+sclet_ai_clarification_answer_problem <- function(question_id, answer, object) {
+    question_id <- as.character(question_id)[[1L]]
+    if (identical(question_id, "design_batch")) {
+        if (!answer %in% colnames(SummarizedExperiment::colData(object))) {
+            return("answer is not an existing colData column")
+        }
+        return(NULL)
+    }
+    if (identical(question_id, "cci_method")) {
+        if (!answer %in% sclet_ai_clarification_engines()) {
+            return(paste0(
+                "answer is not one of the registered engines: ",
+                paste(sclet_ai_clarification_engines(), collapse = ", ")
+            ))
+        }
+        return(NULL)
+    }
+    if (identical(question_id, "annotation_reference")) {
+        name <- sclet_celldex_reference_name(answer)
+        if (is.null(name)) {
+            return("answer is not a celldex dataset name")
+        }
+        if (requireNamespace("celldex", quietly = TRUE) &&
+                is.null(sclet_celldex_dataset(name))) {
+            return(paste0("answer names '", name, "', which celldex does not export"))
+        }
+        return(NULL)
+    }
+    if (identical(question_id, "annotation_labels")) {
+        if (!grepl("^[A-Za-z][A-Za-z0-9._]{0,63}$", answer)) {
+            return("answer is not a single identifier-shaped labels column name")
+        }
+        return(NULL)
+    }
+    NULL
 }
 
 
@@ -657,11 +763,20 @@ sclet_ai_format_clarification <- function(validation_errors, readiness_results =
 #'
 #' The function never answers on the user's behalf. It proposes no default
 #' column, no default cluster and no default reference, and an empty answer is
-#' treated as "not answered" rather than being filled in. Answers are only
-#' applied when the question type has a real confirmation function
-#' (`design_batch` goes through `ConfirmAIDesignSemantics()`); other question
-#' types describe plan parameters, so they are recorded for the audit trail
-#' and returned for the caller to feed back into its plan.
+#' treated as "not answered" rather than being filled in. An answer that the
+#' blocked action would not accept is reported as `invalid` and is neither
+#' applied nor recorded (for example an engine name that `run_cci` does not
+#' register, or a labels column that is not an identifier).
+#'
+#' Answers are applied through an existing confirmation mechanism where one
+#' exists (`design_batch` goes through `ConfirmAIDesignSemantics()`). Every
+#' accepted answer is recorded as a `user_decision` evidence node; when the
+#' answer is a public vocabulary term (an engine, a celldex dataset, an existing
+#' column, an anonymized cluster code) the node's summary names it, and that
+#' summary is what the planner reads on the next round as
+#' `analysis_story$user_decisions`. That is the channel by which "the engine
+#' asked, the user answered" stops being a transcript the caller has to thread
+#' back into its own goal text.
 #'
 #' In a non-interactive session without an `ask` function the function refuses
 #' to prompt and returns `status = "needs_interactive"` without modifying the
@@ -680,7 +795,11 @@ sclet_ai_format_clarification <- function(validation_errors, readiness_results =
 #'   confirmation function.
 #' @param record Logical. Record accepted answers as `user_decision` evidence.
 #' @return A list with the updated `object`, a `status`, and a `transcript` of
-#'   per-question `resolved` / `skipped` / `invalid` outcomes.
+#'   per-question `resolved` / `skipped` / `invalid` outcomes. Each resolved
+#'   entry distinguishes `applied` (something was written to the object through
+#'   a confirmation or an applier) from `recorded` (the answer was written to
+#'   the ledger as a `user_decision` node); a plan-parameter answer is recorded
+#'   without being applied.
 #' @export
 ResolveAIClarifications <- function(
     object,
@@ -745,22 +864,33 @@ ResolveAIClarifications <- function(
             )
             next
         }
-        # a design confirmation answer must name a real column before anything
-        # is written; an unusable answer is reported, never confirmed
+        # An unusable answer is reported as invalid, never recorded as if the
+        # user had made a usable choice. The design branch also performs the
+        # confirmation itself; the other branches only need the answer checked
+        # against the vocabulary their action accepts.
+        problem <- sclet_ai_clarification_answer_problem(question_id, answer, object)
+        if (!is.null(problem)) {
+            invalid <- c(invalid, question_id)
+            transcript[[length(transcript) + 1L]] <- list(
+                id = question_id, outcome = "invalid", applied = FALSE,
+                reason = problem
+            )
+            next
+        }
+        applied <- FALSE
         if (identical(question_id, "design_batch")) {
-            columns <- colnames(SummarizedExperiment::colData(object))
-            if (!answer %in% columns) {
-                invalid <- c(invalid, question_id)
-                transcript[[length(transcript) + 1L]] <- list(
-                    id = question_id, outcome = "invalid", applied = FALSE,
-                    reason = "answer is not an existing colData column"
-                )
-                next
-            }
             object <- ConfirmAIDesignSemantics(object, design = list(batch = answer))
+            applied <- TRUE
         } else if (is.function(apply_answer)) {
             object <- apply_answer(object, question, answer)
+            applied <- TRUE
         }
+        # `applied` says whether something was written to the OBJECT through a
+        # confirmation or an applier. A recorded-only answer (a plan parameter
+        # such as the communication engine) is `recorded = TRUE` but
+        # `applied = FALSE`: nothing on the object changed, and reporting it as
+        # applied made the transcript read like a modification that never
+        # happened.
         if (isTRUE(record)) {
             object <- tryCatch(
                 sclet_ai_record_clarification_response(
@@ -774,7 +904,7 @@ ResolveAIClarifications <- function(
         }
         resolved <- c(resolved, question_id)
         transcript[[length(transcript) + 1L]] <- list(
-            id = question_id, outcome = "resolved", applied = TRUE,
+            id = question_id, outcome = "resolved", applied = applied,
             blocked_action = blocked, recorded = isTRUE(record)
         )
     }
@@ -803,16 +933,22 @@ ResolveAIClarifications <- function(
 #' never performs the confirmation itself: call `ConfirmAIDesignSemantics()` (or
 #' whatever the question's `related_function` is) first, then record the response.
 #'
-#' Free-text answers are deliberately not stored. Only a numeric code identifying
-#' the question, a numeric code identifying which `colData` column the user named,
-#' and boolean flags are written, so the payload stays within the existing
-#' `sclet_ai_evidence_value_ok()` rules without adding a special case to bypass
-#' them.
+#' The answer is written into the node's summary -- which is what the planner
+#' reads back as `analysis_story$user_decisions` -- only when it is a public
+#' vocabulary term: an engine name, a celldex dataset name, an existing
+#' `colData`/assay/reduction name, or an already-anonymized `cluster_N` code.
+#' Any other answer is recorded as "answered, value withheld", so the audit sees
+#' that a choice was made while the ledger does not absorb free text.
+#'
+#' The numeric `values` never carry the text: only codes identifying the
+#' question, the blocked action, the named `colData` column and the answer's
+#' position in the public vocabulary, so the payload stays within the existing
+#' `sclet_ai_evidence_value_ok()` rules without a special case.
 #'
 #' @param object A `SingleCellExperiment` object.
 #' @param question_id Question id from `sclet_ai_format_clarification()`.
-#' @param answer The user's answer. Only used to check whether it names an
-#'   existing `colData` column; the text itself is never recorded.
+#' @param answer The user's answer. Recorded verbatim only when it is a public
+#'   vocabulary term (see Details); otherwise the value is withheld.
 #' @param blocked_action Optional action name that was blocked.
 #' @return The SCE with a `user_decision` evidence node.
 #' @keywords internal
@@ -833,12 +969,19 @@ sclet_ai_record_clarification_response <- function(object, question_id, answer, 
     actions <- sort(unique(names(AIDefaultExecutionRegistry(object, include = "all"))))
     action_code <- if (is.null(blocked_action)) 0L else match(as.character(blocked_action)[[1L]], actions)
     if (is.na(action_code)) action_code <- 0L
+    # The answer is only written when it is a public vocabulary term; see
+    # sclet_ai_clarification_public_answer(). The summary is what the planner
+    # sees as `analysis_story$user_decisions` on the next round, so this is the
+    # channel that turns "the user was asked" into "the user's choice is known".
+    public <- sclet_ai_clarification_public_answer(question_id, answer, object)
     values <- list(
         question_code = as.integer(question_code),
         question_is_known = question_id %in% known,
         blocked_action_code = as.integer(action_code),
         answer_column_index = if (is.na(answer_index)) NA_integer_ else as.integer(answer_index),
         answer_column_present = !is.na(answer_index),
+        answer_is_public_vocabulary = isTRUE(public$public),
+        answer_code = as.integer(public$code),
         free_text_recorded = FALSE,
         raw_values_included = FALSE
     )
@@ -846,7 +989,8 @@ sclet_ai_record_clarification_response <- function(object, question_id, answer, 
         id = paste0("ev:clarification_q", question_code, "_a", action_code),
         kind = "user_decision",
         values = values,
-        claim_level = "observed"
+        claim_level = "observed",
+        summary = public$text
     )
     RecordAIEvidence(object, evidence, source = NULL, parents = character(), scope = NULL)
 }

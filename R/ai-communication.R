@@ -41,7 +41,7 @@ check_communication_readiness <- function(object, method = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {
         stop("object must be a SingleCellExperiment", call. = FALSE)
     }
-    engines <- c("CellChat", "CellPhoneDB", "NicheNet")
+    engines <- sclet_ai_clarification_engines()
     required_packages <- c(CellChat = "CellChat", CellPhoneDB = "basilisk",
         NicheNet = "nichenetr")
 
@@ -263,7 +263,7 @@ sclet_ai_communication_table_facts <- function(table) {
 # The engine is reported as a code, not a string: a character value in evidence
 # must match the anonymized-code pattern, and "CellChat" does not.
 sclet_ai_communication_method_code <- function(method) {
-    engines <- c("CellChat", "CellPhoneDB", "NicheNet")
+    engines <- sclet_ai_clarification_engines()
     index <- match(as.character(method %||% "")[[1L]], engines)
     if (is.na(index)) 0L else as.integer(index)
 }
