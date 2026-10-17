@@ -80,10 +80,37 @@ AIAction <- function(
     descriptor
 }
 
+# Parse an R-style integer range written as one string: "1:10", "c(1:10)",
+# "1 : 10", "-3:3".
+#
+# Why this exists: `dims` (find_neighbors, run_umap, run_velocity) is declared
+# `integer_vector`, and a real model writes it as R source -- `dims="1:30"` --
+# in a large fraction of runs. The variable is untrusted plan output, so the
+# contract has to say which spellings are accepted; the alternative measured in
+# the benchmark was one wasted repair round per run (records 25-26 of
+# ai_plan_repair, records 1 and 4 of run_annotation_bench, fate_chain_bench).
+#
+# Only a range is accepted, and only for vector-typed parameters. A scalar
+# parameter still refuses "50" (a string where a number belongs), a gene
+# selector still refuses "hvg", and the upper bound keeps a typo such as
+# "1:10000000" from expanding into an allocation.
+sclet_ai_range_vector <- function(value) {
+    if (!is.character(value) || length(value) != 1L || is.na(value)) return(NULL)
+    text <- gsub("[[:space:]]+", "", value)
+    match <- regmatches(text, regexec("^c?\\(?(-?[0-9]+):(-?[0-9]+)\\)?$", text))[[1L]]
+    if (!length(match)) return(NULL)
+    from <- suppressWarnings(as.integer(match[[2L]]))
+    to <- suppressWarnings(as.integer(match[[3L]]))
+    if (is.na(from) || is.na(to) || abs(to - from) > 100000L) return(NULL)
+    seq.int(from, to)
+}
+
 sclet_ai_vector_param <- function(value, type = c("character", "integer")) {
     type <- match.arg(type)
     if (is.list(value)) value <- unlist(value, use.names = FALSE)
     if (type == "character") return(as.character(value))
+    ranged <- sclet_ai_range_vector(value)
+    if (!is.null(ranged)) return(as.integer(ranged))
     # Untrusted model output can put a non-numeric value (or a type label such
     # as "integer") where an integer vector is expected. A bare as.integer()
     # still returns NA there but emits "NAs introduced by coercion", which
@@ -398,8 +425,10 @@ sclet_ai_param_type_valid <- function(value, type) {
         character_vector = (is.character(value) && length(value) >= 1L) ||
             (is.list(value) && length(value) >= 1L && all(vapply(value, function(x) is.character(x) && length(x) == 1L, logical(1)))),
         integer_vector = ((is.numeric(value) && length(value) >= 1L && all(value == as.integer(value))) ||
-            (is.list(value) && length(value) >= 1L && all(vapply(value, function(x) is.numeric(x) && length(x) == 1L && x == as.integer(x), logical(1))))),
-        numeric_vector = is.numeric(value) && length(value) >= 1L,
+            (is.list(value) && length(value) >= 1L && all(vapply(value, function(x) is.numeric(x) && length(x) == 1L && x == as.integer(x), logical(1)))) ||
+            !is.null(sclet_ai_range_vector(value))),
+        numeric_vector = (is.numeric(value) && length(value) >= 1L) ||
+            !is.null(sclet_ai_range_vector(value)),
         character = is.character(value) && length(value) == 1L,
         string = is.character(value) && length(value) == 1L,
         logical = is.logical(value) && length(value) == 1L,
