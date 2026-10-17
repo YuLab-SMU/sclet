@@ -1564,11 +1564,35 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         python = params$python,
                         name = name
                     )
-                    sclet_ai_record_fate_evidence(
+                    # The output schema only requires that *some* trajectory
+                    # record exists, which an earlier step could have supplied.
+                    # Verify this action's own result through the same resolver
+                    # the recorder uses, so a run that produced nothing cannot
+                    # be reported as completed.
+                    resolved <- sclet_ai_resolve_cellrank_record(result, cellrank_id = name)
+                    if (is.null(resolved$id)) {
+                        stop(
+                            "fate_no_result: RunCellFate returned without a completed CellRank trajectory record.",
+                            call. = FALSE
+                        )
+                    }
+                    result <- sclet_ai_record_fate_evidence(
                         result,
                         name = name,
                         cluster_key = cluster_key
                     )
+                    evidence_id <- sclet_ai_fate_evidence_id(name)
+                    evidence <- tryCatch(
+                        sclet_ai_evidence_get_all(result)[[evidence_id]],
+                        error = function(e) NULL
+                    )
+                    if (is.null(evidence)) {
+                        stop(
+                            "fate_evidence_missing: CellRank completed but its bounded evidence node was not recorded.",
+                            call. = FALSE
+                        )
+                    }
+                    result
                 },
                 input_schema = list(
                     method = "character",

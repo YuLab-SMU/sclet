@@ -136,14 +136,16 @@ check_fate_readiness <- function(object, reduction = NULL, velocity_id = NULL) {
 # Only aggregate counts and quantiles enter the node; no per-cell vector is
 # ever read into evidence, and no terminal state is ranked or recommended.
 sclet_ai_record_fate_evidence <- function(object, name, cluster_key) {
-    record <- tryCatch(sclet_get_state_record(object, "trajectory", name), error = function(e) NULL)
-    if (is.null(record)) return(object)
-    method <- as.character(record$method %||% "")
-    analysis_key <- as.character(record$artifacts$analysis_key %||% "")
-    is_cellrank <- identical(method, "CellRank") ||
-        identical(analysis_key, "cellrank") ||
-        identical(tolower(analysis_key), "cellrank")
-    if (!is_cellrank) return(object)
+    # One predicate for "this is a usable CellRank result", shared with the
+    # action handler: a duplicated copy drifted once already (it missed the
+    # `status = "completed"` requirement and the lowercased analysis key, so a
+    # lowercase-cased record could be recorded here and rejected there).
+    resolved <- tryCatch(
+        sclet_ai_resolve_cellrank_record(object, cellrank_id = name),
+        error = function(e) list(id = NULL, record = NULL, message = conditionMessage(e))
+    )
+    record <- resolved$record
+    if (is.null(resolved$id) || is.null(record)) return(object)
     coldata <- SummarizedExperiment::colData(object)
     summary <- record$summary %||% list()
     n_terminal_states <- as.integer(summary$n_terminal_states %||% 0L)
@@ -212,15 +214,12 @@ sclet_ai_record_fate_evidence <- function(object, name, cluster_key) {
         values$first_fate_max <- first$max
     }
     evidence <- list(
-        id = paste0("ev:fate_", name),
+        id = sclet_ai_fate_evidence_id(name),
         kind = "deterministic_summary",
         values = values,
         claim_level = "consistent_with"
     )
-    tryCatch(
-        RecordAIEvidence(object, evidence, source = name, parents = character(), scope = NULL),
-        error = function(e) object
-    )
+    RecordAIEvidence(object, evidence, source = name, parents = character(), scope = NULL)
 }
 
 # Sanitize a record id for use inside an evidence id.
@@ -239,6 +238,17 @@ sclet_ai_evidence_id_token <- function(value) {
     token <- gsub("^_+|_+$", "", token)
     if (!nzchar(token)) return("unknown")
     substr(token, 1L, 48L)
+}
+
+# The one evidence id a fate record's bounded summary is stored under.
+#
+# Both the recorder and the action handler ask this function, so the id the
+# handler verifies is by construction the id that was written. They disagreed
+# once: the recorder wrote the raw record id while the handler looked up a
+# sanitized one, so a record named e.g. "fate.1" recorded successfully and then
+# failed the action with a spurious fate_evidence_missing.
+sclet_ai_fate_evidence_id <- function(name) {
+    paste0("ev:fate_", sclet_ai_evidence_id_token(name))
 }
 
 # Record the user's own explicit terminal-state confirmation for a CellRank run.

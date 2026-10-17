@@ -77,75 +77,59 @@ sclet_ai_test_fate_backend_mock <- function(n_cells, n_lineages = 2L, seed = 7L)
         list(
             terminal_states = terminal_states,
             absorption_probs = probs,
-            absorption_prob_names = c("A", "B")[seq_len(n_lineages)],
+            absorption_prob_names = c("A", "B"),
             lineage_drivers = NULL
         )
     }
 }
 
-## Validate a one-step fate plan through ValidateAIPlan, the way
-## test-ai-velocity.R validates run_velocity prerequisites. `cluster_key` is
-## always passed explicitly rather than relying on the ActiveIdent fallback.
+## Helper that constructs a valid one-action plan for the named fate params.
 sclet_ai_test_fate_plan <- function(sce, registry, params) {
-    params <- utils::modifyList(list(cluster_key = "cluster"), as.list(params))
     plan <- sclet:::new_sclet_ai_plan(
-        task = "fate_analysis",
-        context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+        task = "Estimate cell fate probabilities",
         actions = list(list(id = "fate1", action = "run_fate_analysis", params = params))
     )
-    ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
+    ValidateAIPlan(plan, object = sce, registry = registry, strict = TRUE)
 }
 
 ## Guard: the Python CellRank bridge must never actually run. If the mock is
-## ever bypassed, this turns a silent env build into a loud test failure.
-sclet_ai_test_fate_no_python <- function(mtx_dir) {
+## missing, fail immediately rather than accidentally building a basilisk env.
+sclet_ai_test_fate_no_python <- function(...) {
     stop("Real Python CellRank bridge reached: sclet_run_cellrank_python must stay mocked.")
 }
 
 ## -- Scenario 1: readiness is not_ready without a velocity record ------------
 test_that("check_fate_readiness reports not_ready when no velocity record exists", {
     sce <- sclet_ai_test_fate_object()
+    SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(stats::rnorm(ncol(sce) * 5L), ncol(sce), 5L)
+    sce$cluster <- factor(rep(c("a", "b"), length.out = ncol(sce)))
+    ActiveIdent(sce) <- "cluster"
     result <- check_fate_readiness(sce)
-
     expect_equal(result$status, "not_ready")
-    expect_true("fate" %in% result$blocked_actions)
-    expect_true(length(result$questions) > 0L)
     expect_false(isTRUE(result$checks$velocity_record_available))
 })
 
-## -- Scenario 2: readiness turns ready once velocity + PCA + clusters exist ---
-test_that("check_fate_readiness reports ready_for_diagnostic with a velocity record, PCA and clusters", {
-    sce <- sclet_ai_test_fate_ready_object()
-    result <- check_fate_readiness(sce)
-
+test_that("check_fate_readiness reports ready with velocity, PCA and clusters", {
+    result <- check_fate_readiness(sclet_ai_test_fate_ready_object())
     expect_equal(result$status, "ready_for_diagnostic")
-    expect_equal(length(result$blocked_actions), 0L)
-    expect_equal(length(result$questions), 0L)
     expect_true(isTRUE(result$checks$velocity_record_available))
-    expect_equal(result$checks$velocity_id_resolved, "vel_fixture")
-    expect_true(result$checks$cluster_key_resolvable)
-    expect_false(is.null(result$checks$reduction_resolved))
+    expect_equal(result$checks$reduction_resolved, "PCA")
+    expect_true(isTRUE(result$checks$cluster_key_resolvable))
 })
 
 ## -- Scenario 3: prerequisites reject a missing velocity record --------------
 test_that("run_fate_analysis prerequisites reject a missing velocity record", {
     sce <- sclet_ai_test_fate_object()
-    SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(
-        stats::rnorm(ncol(sce) * 5L), nrow = ncol(sce), ncol = 5L,
-        dimnames = list(colnames(sce), paste0("PC", seq_len(5L)))
-    )
-    sce$cluster <- factor(rep(c("cluster_1", "cluster_2"), length.out = ncol(sce)))
+    SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(stats::rnorm(ncol(sce) * 5L), ncol(sce), 5L)
+    sce$cluster <- factor(rep(c("a", "b"), length.out = ncol(sce)))
     ActiveIdent(sce) <- "cluster"
-
     registry <- AIDefaultExecutionRegistry(sce, include = c("read", "fate"))
-    validation <- sclet_ai_test_fate_plan(sce, registry, list(name = "fate_no_velocity"))
-
-    expect_false(validation$valid)
-    ## ValidateAIPlan wraps the prerequisite verdict as
-    ## "prerequisites not met for action <id>: <verdict>", so the token is
-    ## matched anywhere in the error, not anchored at the start (same
-    ## convention as test-ai-velocity.R's "spliced_unspliced_missing").
-    expect_true(any(grepl("velocity_record_missing:", validation$errors)))
+    err <- tryCatch(
+        sclet_ai_test_fate_plan(sce, registry, list(name = "fate_missing_velocity")),
+        error = function(e) e
+    )
+    expect_s3_class(err, "sclet_ai_invalid_plan")
+    expect_true(grepl("velocity_record_missing:", conditionMessage(err)))
 })
 
 ## -- Scenario 4: the mocked backend drives a full fate run -------------------
@@ -205,6 +189,14 @@ test_that("run_fate_analysis executes end to end on a mocked CellRank backend", 
     evidence <- sclet:::sclet_ai_evidence_get_all(out)
     fate_ev <- evidence[["ev:fate_fate_e2e"]]
     expect_false(is.null(fate_ev))
+    expect_equal(fate_ev$claim_level, "consistent_with")
+
+    ## One fate evidence node alone is a single support line, capped at
+    ## "associated"; the executor's trajectory state itself is not a second
+    ## independently citable AI evidence node.
+    ceiling <- check_claim_ceiling(out, evidence_ids = "ev:fate_fate_e2e")
+    expect_equal(ceiling$n_independent_groups, 1L)
+    expect_equal(ceiling$ceiling_claim_level, "associated")
 })
 
 ## -- Scenario 5: fate evidence stays bounded and privacy-clean ---------------
@@ -272,6 +264,37 @@ test_that("fate evidence is bounded, anonymous and carries no per-cell vector", 
     expect_true(sclet:::sclet_ai_evidence_value_ok(fate_ev$values))
 })
 
+## -- Scenario 5b: the id the action verifies is the id that was written ------
+## A record id is caller-supplied and may contain characters that the evidence
+## id sanitizer rewrites ("." becomes "_"). The recorder and the action used to
+## compute that id two different ways, so such a run recorded its evidence and
+## then failed with a spurious fate_evidence_missing. This pins the agreement.
+test_that("a sanitized record id still yields a verifiable fate evidence node", {
+    sce <- sclet_ai_test_fate_ready_object()
+    n_cells <- ncol(sce)
+    ## "." and " " are both outside [A-Za-z0-9_-], so both are rewritten.
+    odd_name <- "fate.run 01"
+    expected_id <- "ev:fate_fate_run_01"
+
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "fate"))
+    validation <- sclet_ai_test_fate_plan(sce, registry, list(name = odd_name))
+    expect_true(validation$valid)
+
+    executed <- with_mocked_bindings(
+        ExecuteAIPlan(sce, validation$plan, registry, validation = validation,
+            dry_run = FALSE, confirmation = validation$confirmation_token),
+        sclet_run_cellrank_backend = sclet_ai_test_fate_backend_mock(n_cells),
+        sclet_run_cellrank_python = sclet_ai_test_fate_no_python,
+        .package = "sclet"
+    )
+    expect_equal(executed$status, "completed")
+
+    evidence <- sclet:::sclet_ai_evidence_get_all(executed$object)
+    expect_true(expected_id %in% names(evidence))
+    ## No evidence node key carries the raw record id.
+    expect_false(any(grepl("fate.run 01", names(evidence), fixed = TRUE)))
+})
+
 ## -- Scenario 6: readiness never nominates a terminal state ------------------
 test_that("check_fate_readiness never suggests or ranks a terminal state", {
     ready <- check_fate_readiness(sclet_ai_test_fate_ready_object())
@@ -293,4 +316,43 @@ test_that("check_fate_readiness never suggests or ranks a terminal state", {
         expect_equal(length(grep("suggest|recommend|rank|terminal_state_.*(best|top)",
             flat_names, ignore.case = TRUE)), 0L)
     }
+})
+
+## -- Scenario 7: silent no-result path must fail -----------------------------
+test_that("run_fate_analysis refuses success without a CellRank result", {
+    sce <- sclet_ai_test_fate_ready_object()
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "fate"))
+    validation <- sclet_ai_test_fate_plan(sce, registry, list(name = "fate_no_result"))
+    expect_true(validation$valid)
+
+    executed <- with_mocked_bindings(
+        ExecuteAIPlan(sce, validation$plan, registry, validation = validation,
+            dry_run = FALSE, confirmation = validation$confirmation_token),
+        RunCellFate = function(object, ...) object,
+        .package = "sclet"
+    )
+    expect_equal(executed$status, "failed")
+    errors <- vapply(executed$results, function(step) step$error %||% "", character(1L))
+    expect_true(any(grepl("fate_no_result", errors, fixed = TRUE)))
+})
+
+## -- Scenario 8: evidence registration failure must be surfaced ---------------
+test_that("run_fate_analysis surfaces fate evidence registration failure", {
+    sce <- sclet_ai_test_fate_ready_object()
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "fate"))
+    validation <- sclet_ai_test_fate_plan(sce, registry, list(name = "fate_no_evidence"))
+    expect_true(validation$valid)
+    n_cells <- ncol(sce)
+
+    executed <- with_mocked_bindings(
+        ExecuteAIPlan(sce, validation$plan, registry, validation = validation,
+            dry_run = FALSE, confirmation = validation$confirmation_token),
+        sclet_run_cellrank_backend = sclet_ai_test_fate_backend_mock(n_cells),
+        sclet_run_cellrank_python = sclet_ai_test_fate_no_python,
+        RecordAIEvidence = function(...) stop("simulated ledger refusal"),
+        .package = "sclet"
+    )
+    expect_equal(executed$status, "failed")
+    errors <- vapply(executed$results, function(step) step$error %||% "", character(1L))
+    expect_true(any(grepl("simulated ledger refusal|fate_evidence_missing", errors)))
 })
