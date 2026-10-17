@@ -1,31 +1,9 @@
 # sclet 1.0.2 / Phase C sync (2026-10-14)
 
-## Release checklist (unresolved)
+> Changelog entries tagged `[REL-NN]` are tracked in issue #29
+> (https://github.com/YuLab-SMU/sclet/issues/29): before release each tag must
+> resolve to a PR/commit reference, or the entry must be dropped.
 
-The changelog entries below carry local tags (`[REL-NN]`) instead of a
-tracked issue or PR reference. This file is the checklist of what must be
-resolved before the release: each tag must point to a real issue/PR, or the
-entry must be dropped from the changelog. Nothing else in this file changes
-until then.
-
-- [ ] REL-01 Added RunIntegrationRoutes() as the documented multi-route integration entry point, cover... -- no tracked reference yet
-- [ ] REL-02 Added the integration action group to AIDefaultExecutionRegistry(include = ...) and docum... -- no tracked reference yet
-- [ ] REL-03 Updated CompareAIAnalyses() documentation to describe criterion-based ordering, explicit... -- no tracked reference yet
-- [ ] REL-04 Documented evidence-graph hardening: stable dependency_group lineage grouping, scope vali... -- no tracked reference yet
-- [ ] REL-05 Documented strict privacy enforcement in sclet_ai_call(): provider-bound payload sanitiza... -- no tracked reference yet
-- [ ] REL-06 Added compare_trajectory_roots() as a read-only multi-root trajectory comparison layer: i... -- no tracked reference yet
-- [ ] REL-07 Added check_fate_readiness() as the read-only diagnostic for the CellRank/fate stage, rep... -- no tracked reference yet
-- [ ] REL-08 Added check_claim_ceiling() as the read-only pre-check primitive for the claim-ceiling co... -- no tracked reference yet
-- [ ] REL-09 Closed the gap where only the write gate audited claims: AIInvestigate(), AIExplainAnalys... -- no tracked reference yet
-- [ ] REL-10 Wired the batch-A single-cell slice: check_enrichment_readiness() is the read-only diagno... -- no tracked reference yet
-- [ ] REL-11 Wired the batch-B single-cell slice for cell-cell interaction: check_communication_readin... -- no tracked reference yet
-- [ ] REL-12 Fixed an omission from the spatial and multimodal catalog batch: check_spatial_readiness(... -- no tracked reference yet
-- [ ] REL-13 Fixed three AI-plan defects measured on a real provider by the 2026-10-16 benchmark sweep... -- no tracked reference yet
-- [ ] REL-14 Fixed a planning-layer defect that made every advanced chain unplannable: ValidateAIPlan(... -- no tracked reference yet
-- [ ] REL-15 Closed three interpretation gaps in the single-cell line (batch C) -- no tracked reference yet
-- [ ] REL-16 Added the read-only lineage-driver layer on top of that record: check_fate_drivers_readin... -- no tracked reference yet
-
----
 
 
 - [REL-01] Added `RunIntegrationRoutes()` as the documented multi-route integration entry point, covering raw baseline registration, controlled execution of `fastMNN` / `Harmony` / `scVI`, dry-run confirmation behavior, and comparable metric summaries.
