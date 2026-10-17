@@ -39,12 +39,18 @@ and clustering actions.}
 \item{fallback_on_structure_error}{Logical. Retain the tool-loop plan if
 structured output fails.}
 
-\item{record}{Logical. Record the execution and AI plan in the ledger.}
+\item{record}{Logical. Record the execution and AI plan in the ledger. When
+\code{FALSE}, post-execution interpretation is not recorded in the ledger.}
 
-\item{interpret}{Logical. When \code{TRUE} and the execution completes, call
-\code{AIExplainAnalysis()} on the updated object and store the result in
-\code{report$interpretation}. Defaults to \code{FALSE} so no additional LLM call
-is made unless explicitly requested.}
+\item{interpret}{Logical. When \code{TRUE} and the execution completes, create an
+evidence-linked report by calling \code{AIExplainAnalysis()} on the updated
+object. Only a valid \code{sclet_ai_result} is stored in
+\code{report$interpretation}; when \code{record = TRUE}, it is also recorded in
+the ledger. Errors and invalid result types are captured in
+\code{report$interpretation_error}, and the completed execution is retained.
+\code{report$success_assessment} mirrors the execution's assessed criteria.
+Defaults to \code{FALSE} so no additional LLM call is made unless explicitly
+requested.}
 
 \item{...}{Additional arguments passed to \code{AIPlanAnalysis()}.}
 }

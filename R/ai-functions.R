@@ -144,10 +144,13 @@ sclet_ai_recorded_findings <- function(object, result, audit, audit_claims) {
 #' @param active Logical. Reserved for future AI state activation; defaults to
 #'   `FALSE` so recording a review does not change the active analysis view.
 #' @param audit_claims Logical. Audit each finding against the claim ceiling of
-#'   the recorded evidence and refuse to record an over-claimed result. Defaults
-#'   to `TRUE` so a finding can never be written to the ledger at a strength the
-#'   evidence does not support.
-#' @return The updated `SingleCellExperiment` object.
+#'   the recorded evidence and refuse to record an over-claimed result. When
+#'   `TRUE`, also refuse to record findings whose `evidence_refs` do not resolve
+#'   to evidence nodes on `object`. Defaults to `TRUE` so recorded claims are
+#'   supported by resolvable evidence. Set to `FALSE` to disable both checks.
+#' @return The updated `SingleCellExperiment` object. Each record summary
+#'   includes `cited_user_decisions`, the evidence ids of cited user-decision
+#'   nodes (an empty character vector when none are cited).
 #' @export
 RecordAIResult <- function(object, result, id = NULL, active = FALSE, audit_claims = TRUE) {
     validate_sclet_ai_result(result)
@@ -298,11 +301,16 @@ AskAI <- function(object, question, model = NULL, structured_output = TRUE, ...)
 #' @param structured_output Logical. Use structured output for the AI plan.
 #' @param fallback_on_structure_error Logical. Retain the tool-loop plan if
 #'   structured output fails.
-#' @param record Logical. Record the execution and AI plan in the ledger.
-#' @param interpret Logical. When `TRUE` and the execution completes, call
-#'   `AIExplainAnalysis()` on the updated object and store the result in
-#'   `report$interpretation`. Defaults to `FALSE` so no additional LLM call
-#'   is made unless explicitly requested.
+#' @param record Logical. Record the execution and AI plan in the ledger. When
+#'   `FALSE`, post-execution interpretation is not recorded in the ledger.
+#' @param interpret Logical. When `TRUE` and the execution completes, create an
+#'   evidence-linked report by calling `AIExplainAnalysis()` on the updated
+#'   object. The result is stored in `report$interpretation` only when it is a
+#'   valid `sclet_ai_result`; if `record = TRUE`, it is also recorded in the
+#'   ledger. Defaults to `FALSE` so no additional LLM call is made unless
+#'   explicitly requested. Interpretation errors or an invalid result are
+#'   captured in `report$interpretation_error`, and the completed execution is
+#'   retained.
 #' @param ... Additional arguments passed to `AIPlanAnalysis()`.
 #' @return An object of class `sclet_ai_analysis` containing the original or
 #'   updated object, plan, validation, dry-run preview, execution, and report.
@@ -449,9 +457,18 @@ RunAIAnalysis <- function(
         })
         if (!is.null(interpretation_state$error)) {
             report$interpretation_error <- interpretation_state$error
-        }
-        if (!is.null(interpretation_state$result) && inherits(interpretation_state$result, "sclet_ai_result")) {
-            report$interpretation <- interpretation_state$result
+        } else if (!inherits(interpretation_state$result, "sclet_ai_result") ||
+                   !isTRUE(validate_sclet_ai_result(interpretation_state$result, error = FALSE))) {
+            report$interpretation_error <- paste0(
+                "AIExplainAnalysis() returned an invalid interpretation result (class: ",
+                paste(class(interpretation_state$result), collapse = "/"),
+                "); expected a valid sclet_ai_result."
+            )
+            if ("interpretation" %in% names(report)) {
+                report$interpretation <- NULL
+            }
+            interpretation_state$result <- NULL
+        } else {
             if (isTRUE(record)) {
                 recorded_interpretation <- tryCatch(
                     RecordAIResult(
@@ -465,7 +482,10 @@ RunAIAnalysis <- function(
                     report$interpretation_error <- recorded_interpretation
                 } else {
                     updated <- recorded_interpretation
+                    report$interpretation <- interpretation_state$result
                 }
+            } else {
+                report$interpretation <- interpretation_state$result
             }
         }
     }

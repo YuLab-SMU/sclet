@@ -17,12 +17,15 @@ RecordAIResult(object, result, id = NULL, active = FALSE, audit_claims = TRUE)
 \code{FALSE} so recording a review does not change the active analysis view.}
 
 \item{audit_claims}{Logical. Audit each finding against the claim ceiling of
-the recorded evidence and refuse to record an over-claimed result. Defaults
-to \code{TRUE} so a finding can never be written to the ledger at a strength the
-evidence does not support.}
+the recorded evidence and refuse to record an over-claimed result. When
+\code{TRUE}, also refuse to record findings whose \code{evidence_refs} do not resolve
+to evidence nodes on \code{object}. Defaults to \code{TRUE} so recorded claims are
+supported by resolvable evidence. Set to \code{FALSE} to disable both checks.}
 }
 \value{
-The updated \code{SingleCellExperiment} object.
+The updated \code{SingleCellExperiment} object. Each record summary
+includes \code{cited_user_decisions}, the evidence ids of cited user-decision
+nodes (an empty character vector when none are cited).
 }
 \description{
 Record a structured AI result in the analysis ledger

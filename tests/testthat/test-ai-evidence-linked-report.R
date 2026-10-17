@@ -23,7 +23,7 @@ test_that("RecordAIResult accepts findings with resolvable evidence_refs", {
     expect_equal(record$summary$n_findings, 1L)
 })
 
-test_that("RecordAIResult rejects findings with unresolvable evidence_refs at any claim_level", {
+test_that("RecordAIResult closes the non-support-level stale-reference gap", {
     sce <- SingleCellExperiment::SingleCellExperiment(
         list(counts = matrix(1, nrow = 3, ncol = 2))
     )
@@ -116,6 +116,7 @@ test_that("RunAIAnalysis report includes success_assessment from execution", {
     result <- RunAIAnalysis(sce, goal = "test goal", confirm = "yes")
     expect_true(!is.null(result$report$success_assessment))
     expect_equal(result$report$success_assessment, result$execution$success_assessment)
+    expect_identical(formals(RunAIAnalysis)$interpret, FALSE)
 })
 
 test_that("RunAIAnalysis with interpret = FALSE does not populate interpretation", {
@@ -201,6 +202,87 @@ test_that("RunAIAnalysis with interpret = TRUE populates interpretation on succe
     expect_null(result$report$interpretation_error)
     interp_ids <- grep("^ai_interpretation_", names(GetAnalysisLedger(result$object)$analyses), value = TRUE)
     expect_true(length(interp_ids) >= 1L)
+})
+
+test_that("RunAIAnalysis with interpret = TRUE and record = FALSE returns a valid unrecorded interpretation", {
+    skip_if_not_installed("aisdk")
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 5, ncol = 4))
+    )
+    sce <- RecordAIEvidence(sce, list(
+        id = "ev:unrecorded_health_check",
+        kind = "deterministic_summary",
+        values = list(flag = 1L),
+        claim_level = "measured"
+    ))
+    call_count <- 0L
+    old <- options(
+        sclet.ai.create_agent = function(...) {
+            agent <- new.env(parent = emptyenv())
+            agent$run <- function(task, max_steps = 10) list(text = "mock response")
+            agent
+        },
+        sclet.ai.generate_object = function(...) {
+            call_count <<- call_count + 1L
+            if (call_count == 1L) {
+                list(object = list(
+                    answer = "mock plan",
+                    proposed_actions = list(list(id = "step1", action = "inspect_status")),
+                    assumptions = list(), candidate_routes = list(), selected_route = NULL,
+                    success_criteria = list(), risks = list(), stop_conditions = list()
+                ))
+            } else {
+                list(object = list(
+                    answer = "mock interpretation",
+                    findings = list(list(
+                        statement = "unrecorded interpretation finding",
+                        severity = "info",
+                        claim_level = "observed",
+                        evidence_refs = "ev:unrecorded_health_check"
+                    )),
+                    evidence = list("ev:unrecorded_health_check"), warnings = list(),
+                    recommendations = list(), proposed_actions = list()
+                ))
+            }
+        }
+    )
+    on.exit(options(old), add = TRUE)
+    result <- suppressWarnings(RunAIAnalysis(
+        sce, goal = "test goal", confirm = "yes", record = FALSE, interpret = TRUE
+    ))
+    expect_s3_class(result$report$interpretation, "sclet_ai_result")
+    expect_null(result$report$interpretation_error)
+    expect_length(grep("^ai_interpretation_", names(GetAnalysisLedger(result$object)$analyses)), 0L)
+})
+
+test_that("RunAIAnalysis with interpret = TRUE reports invalid interpretation result types", {
+    skip_if_not_installed("aisdk")
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 5, ncol = 4))
+    )
+    call_count <- 0L
+    old <- options(
+        sclet.ai.call = function(task, context, ...) {
+            call_count <<- call_count + 1L
+            if (identical(task, "analysis_plan")) {
+                sclet:::new_sclet_ai_result(
+                    task = task,
+                    answer = "mock plan",
+                    proposed_actions = list(list(id = "step1", action = "inspect_status"))
+                )
+            } else {
+                sclet:::new_sclet_ai_result(task = task, answer = "mock interpretation")
+            }
+        }
+    )
+    on.exit(options(old), add = TRUE)
+    mock_interpret <- function(...) structure(as.raw(1L), class = "unrelated_result")
+    local_mocked_bindings(AIExplainAnalysis = mock_interpret, .package = "sclet")
+    result <- RunAIAnalysis(sce, goal = "test goal", confirm = "yes", interpret = TRUE)
+    expect_false("interpretation" %in% names(result$report))
+    expect_match(result$report$interpretation_error, "invalid interpretation result")
+    expect_equal(call_count, 1L)
+    expect_equal(result$status, result$execution$status)
 })
 
 test_that("RunAIAnalysis with interpret = TRUE catches interpretation errors", {
