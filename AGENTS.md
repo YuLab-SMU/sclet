@@ -248,3 +248,118 @@ git -C .                 remote get-url origin
 git -C bookdown          remote get-url origin
 git -C bookdown/docs     remote get-url origin
 ```
+
+## AI-layer development notes (2026-10-16/17, from the benchmark sweep)
+
+Lessons from `../sclet-benchmark-ai` (the AIAction benchmark repo). These are
+rules now, not stories: each one was discovered by a real failure, and each
+one will bite again if ignored.
+
+### The standing workflow: find in practice → fix → verify → record
+
+- **Every benchmark that produces records updates `docs/action-coverage.md`'s
+  table in the same commit.** A coverage table that under-reports measured
+  work invites re-running what is done and hides what was never done (this
+  happened once; the rule exists because of it).
+- **New defects get pinned as tests or as benchmark cases in the same
+  commit as the fix.** A fix without a pinned assertion is a claim.
+- **When a real run contradicts a record, re-grade the record** (the
+  "ordering defect" verdict survived; the engine's 0-node result turned out
+  to be right only by accident after the rare-seeding fix). Honest
+  re-grading is part of the loop, not an embarrassment.
+
+### AIAction runner rules (each one cost a billed call)
+
+- **`ExecuteAIPlan()` must receive `validation =` explicitly.** Passing only
+  `confirmation =` makes the engine re-validate internally and generate a
+  FRESH token (`sample()`), which can never match the caller's — the run dies
+  on "requires the confirmation token" after validating clean. Same rule
+  offline: after `AIPlanAnalysis()`, re-run `ValidateAIPlan(plan, ...)` and
+  take BOTH `validation=` and `confirmation=` from that single result.
+- **The confirmation token lives on `ValidateAIPlan()`'s return value, never
+  on `plan$validation`** (the latter is the non-strict internal result, and
+  may carry no token).
+- **`record_result()` receives fully named flat lists.** `c(base, list(...,
+  some_named_list))` gives the nested list an empty name and jsonlite invents
+  a key, losing every field inside; `do.call(c, ...)` stringifies everything
+  (booleans → "TRUE"). Pass each named list as its own argument to `c()`.
+  The harness refuses unnamed fields and `test-ai-skills.R` round-trips a
+  record through JSONL asserting types survive — extend that pattern to new
+  record shapes.
+- **Conditionally-named condition lists**: `names()` on an unnamed list is
+  NULL, a `for` loop over `x[names(x)]` iterates zero times, and the runner
+  exits printing ALL DONE with zero records. Name lists from their own key
+  field and assert the selector resolves before anything billable.
+- **Pre-flight before every billed run**: `compgen -G ~/Rlib/00LOCK-*` (library
+  quiet), `timeout --signal=KILL <seconds>` (SIGTERM did not reap a hung run),
+  and an out-of-process heartbeat logging record-count every 30 s — a silent
+  no-op (0 records in 45 s) is visible in the heartbeat, invisible in the log.
+
+### Engine facts that were measured, not assumed
+
+- **`ScaleData(features = <subset>, assay = "logcounts")` on a dgCMatrix was
+  a 20-minute hang**: row-subset assignment on a dgCMatrix re-compresses the
+  whole matrix, and the dgC branch computed row sds as ONE scalar over the
+  flattened matrix (the "scaled" layer had never been row-scaled). Fixed
+  2026-10-17 (`cbb3590`): sparse splice via rbind2, true sparse row variance.
+  20 min → 3.6 s, row sds exactly 1.0. The model was RIGHT to write
+  `features = ${step.output.variable_features}` — the engine hung on the
+  step the HVG reference was for. When a benchmark loses a run to a hang,
+  suspect a data-shape-dependent pathology in the handler, not the provider.
+- **`RunRareCellDetection()` seeded one label per dense cell** (2419
+  populations for 2700 cells, 75% single-cell): a global mutual-connectivity
+  threshold plus per-seed labelling. Fixed (`04f00dc`): local density maxima,
+  adjacent-seed merge, `min_cluster_size` dissolve. When a result is
+  absurd on its face (one population per cell), stop and check the
+  algorithm before writing anything up.
+- **Message–artifact disagreement is a defect class**: a function printed
+  "Dissolved 4 groups" while the column kept the dissolved labels, because
+  the assignment happened before the dissolve loop. Fifth instance of the
+  same shape. Rule: assert the artifact, not the message.
+- **An empty plan validated and executed to `status="completed"` with zero
+  results** (fixed: `plan_empty` / `sclet_ai_empty_plan`). A repair that
+  gives up must not look like a finished analysis. Downstream consumers of
+  `status` should also treat zero-action executions as suspicious.
+- **`velociraptor::scvelo()`'s `dimred=` passthrough has an upstream shape
+  bug** (X_pca (1,) vs (n_cells,)), so `RunVelocity(use.dimred=)` currently
+  results in scvelo recomputing its own PCA internally. The prerequisite
+  gate still guarantees a reduction exists. Upstream issue; do not re-debug
+  from scratch.
+- **Synthetic velocity fixtures need amplitude**: scvelo's velocity graph
+  comes back with zero edges (an opaque "need at least one array to
+  concatenate" from compute_cosines) when log-normalisation dilutes the
+  signal. `R/fixtures_velocity.R` in the benchmark repo documents the shape
+  that works.
+
+### AI-layer architecture rules
+
+- **Export surface is part of the external-agent contract.** `new_sclet_ai_plan()`
+  and `ConfirmAIDesignSemantics()` were internal, so an agent driving sclet
+  without aisdk had no public way to build a plan or pass a design gate. When
+  adding an AI-layer function, ask: does the sclet-driver path (external
+  agent, no provider) need this? If yes, export it with a documented example.
+- **Skills (inst/skills/) are injected domain knowledge; the engine stays the
+  authority.** The planning prompt injects topic-selected skill bodies after
+  the base prompt and before the repair block, gated by
+  `options(sclet.ai.use_skills, default TRUE)`. Skills say how to get it
+  right on the first attempt; validation still refuses what is wrong. When a
+  measured failure is a KNOWLEDGE failure (ordering, parameter vocabulary),
+  prefer adding it to a skill over growing the inline prompt.
+- **Test mocks must use the real schema keys.** `test-ai-evidence-linked-
+  report.R` mocked an `actions` key the response normalizer never read, so
+  the mocked "plan" never existed and the tests were asserting the empty-plan
+  defect itself. When a mock response feeds a normalizer, verify the keys
+  against what the real provider path emits (`proposed_actions`, not
+  `actions`).
+- **`devtools::load_all()` and `library(sclet)` are two different trees.**
+  After any fix, verify against `library(sclet)` only if the package was
+  re-installed (`R CMD INSTALL .`) — several debugging rounds were lost to
+  checking the installed tree against source-tree expectations.
+- **roxygen2 `document()` rewrites everything**: it reformats `NAMESPACE`
+  (can drop hand-maintained imports), bumps `Config/roxygen2/version`, and
+  regenerates Rd for every internal function (which then fail `make check`
+  on codoc/links). The workflow that works: run document(), restore
+  NAMESPACE/DESCRIPTION/untracked internal Rd, hand-add only the new exports,
+  and delete untracked `man/sclet_ai_*.Rd` — internal-function Rd files are
+  deliberately not tracked. New `Collate:` entries must be added by hand in
+  DESCRIPTION or the package fails to install.
