@@ -272,9 +272,16 @@ test_that("re-answering a question records a second decision instead of collidin
     expect_true(any(grepl("NicheNet", summaries, fixed = TRUE)))
     ids <- vapply(nodes, function(node) as.character(node$id), character(1L))
     expect_equal(length(unique(ids)), 2L)
-    ## The first answer keeps the plain id; the second is suffixed.
-    expect_true(any(grepl("ev:clarification_q9_a14$", ids)))
-    expect_true(any(grepl("ev:clarification_q9_a14_2$", ids)))
+    ## The first answer keeps the plain id; the second is suffixed. Compute the
+    ## expected id instead of hardcoding it: both components depend on catalog
+    ## order and on the registered action list, so a literal would break for a
+    ## reason unrelated to this behaviour.
+    question_code <- match("cci_method", sclet:::sclet_ai_clarification_question_ids())
+    action_code <- match("run_cci",
+        sort(unique(names(AIDefaultExecutionRegistry(sce, include = "all")))))
+    base_id <- paste0("ev:clarification_q", question_code, "_a", action_code)
+    expect_true(base_id %in% ids)
+    expect_true(paste0(base_id, "_2") %in% ids)
     ## Both reach the planner, in order, so the latest choice is visible too.
     context <- sclet:::sclet_ai_context(second, target = "planning")
     ctx_summaries <- vapply(context$analysis_story$user_decisions,
