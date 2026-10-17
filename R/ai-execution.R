@@ -1076,13 +1076,19 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 handler = function(object, params) {
                     ref_arg <- params$ref
                     if (is.character(ref_arg) && length(ref_arg) == 1L && nzchar(ref_arg)) {
-                        if (grepl("Data$", ref_arg) && requireNamespace("celldex", quietly = TRUE)) {
-                            fun <- tryCatch(getExportedValue("celldex", ref_arg), error = function(e) NULL)
-                            if (!is.function(fun)) stop(paste0("reference '", ref_arg, "' is not a function in celldex"), call. = FALSE)
-                            ref <- do.call(fun, list())
-                        } else {
-                            stop(paste0("reference '", ref_arg, "' is not a supported celldex dataset name (must end with 'Data'). Provide a SummarizedExperiment ref directly or a celldex function name."), call. = FALSE)
+                        # Bare, `celldex::Name` and `<celldex::Name>` are one
+                        # reference; the literal spelling a model writes must
+                        # not decide whether an otherwise-planned run executes.
+                        ref_name <- sclet_celldex_reference_name(ref_arg)
+                        fun <- if (is.null(ref_name)) NULL else sclet_celldex_dataset(ref_name)
+                        if (is.null(fun)) {
+                            stop(paste0(
+                                "reference '", ref_arg, "' is not a supported celldex dataset name. ",
+                                "Provide a celldex dataset such as HumanPrimaryCellAtlasData ",
+                                "or celldex::MonacoImmuneData, or a SummarizedExperiment ref directly."
+                            ), call. = FALSE)
                         }
+                        ref <- do.call(fun, list())
                     } else {
                         ref <- ref_arg
                     }
@@ -1169,18 +1175,44 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         aggregate_values$annotation_scope_code <- 3L
                         aggregate_values$raw_values_included <- FALSE
                         evidence <- list(
-                            id = paste0("ev:annotation_", name),
+                            id = sclet_ai_annotation_evidence_id(name),
                             kind = "deterministic_summary",
                             values = aggregate_values,
                             claim_level = "consistent_with"
                         )
-                        result <- tryCatch(RecordAIEvidence(
+                        # The parent is the annotation record id, not an evidence
+                        # id, so it never resolves as an ancestor; it is kept
+                        # because it also enters the node's dependency_group,
+                        # which keeps two different annotation runs from
+                        # collapsing into one line of support.
+                        result <- RecordAIEvidence(
                             result,
                             evidence,
                             source = name,
                             parents = if (!is.null(ann_rec$id)) as.character(ann_rec$id) else character(),
                             scope = NULL
-                        ), error = function(e) result)
+                        )
+                    }
+                    # The output schema only requires that *some* annotation
+                    # state exists, which an earlier step could have supplied.
+                    # Verify this action's own record and its bounded evidence
+                    # node, so a run that annotated nothing -- or a ledger that
+                    # refused the node -- cannot be reported as completed.
+                    if (is.null(ann_rec)) {
+                        stop(
+                            "annotation_no_result: RunSingleR returned without a completed annotation record.",
+                            call. = FALSE
+                        )
+                    }
+                    recorded <- tryCatch(
+                        sclet_ai_evidence_get_all(result)[[sclet_ai_annotation_evidence_id(name)]],
+                        error = function(e) NULL
+                    )
+                    if (is.null(recorded)) {
+                        stop(
+                            "annotation_evidence_missing: SingleR completed but its bounded evidence node was not recorded.",
+                            call. = FALSE
+                        )
                     }
                     result
                 },
@@ -1202,6 +1234,18 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     if (!ref_is_name && !ref_is_object) {
                         return("reference_invalid: 'ref' must be either a single non-empty string naming a celldex dataset or a SummarizedExperiment/matrix with dimnames.")
                     }
+                    ref_name <- if (ref_is_name) sclet_celldex_reference_name(ref_arg) else NULL
+                    if (ref_is_name && is.null(ref_name)) {
+                        # A placeholder is not a reference; refuse it at
+                        # validation instead of after six upstream steps have
+                        # run. The accepted spellings are named in the message.
+                        return(paste0(
+                            "reference_invalid: 'ref' is a string but not a celldex dataset name: '",
+                            ref_arg, "'. Accepted: HumanPrimaryCellAtlasData, ",
+                            "celldex::MonacoImmuneData, <celldex::MonacoImmuneData>, ",
+                            "or a SummarizedExperiment/matrix with dimnames."
+                        ))
+                    }
                     if (missing(labels_arg) || is.null(labels_arg)) {
                         return("labels_missing: annotation requires an explicit 'labels' parameter selecting which labels column of the reference to use (e.g. label.main, label.fine) or a vector of per-reference-sample labels.")
                     }
@@ -1212,16 +1256,25 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         return("labels_invalid: 'labels' must be either a single non-empty string identifying a reference colData column or one label per reference sample (character or factor vector).")
                     }
                     if (labels_is_vec && ref_is_object) {
-                        ref_n <- if (is.matrix(ref_arg)) ncol(ref_arg) else ncol(ref_arg)
-                        if (length(labels_arg) != ref_n) {
-                            return(paste0("labels_mismatch: length(labels)=", length(labels_arg), " does not match ncol(ref)=", ref_n))
+                        # One resolver shared with RunSingleR(): a labels string
+                        # naming a colData column of the reference is the
+                        # documented spelling, and counting it as a one-element
+                        # label vector rejected it at validation (measured on
+                        # 2026-10-17 with a SummarizedExperiment reference).
+                        resolved <- sclet_resolve_singleR_labels(ref_arg, labels_arg)
+                        if (!is.null(resolved$problem)) {
+                            return(paste0("labels_invalid: ", resolved$problem))
+                        }
+                        ref_n <- ncol(ref_arg)
+                        if (length(resolved$labels) != ref_n) {
+                            return(paste0("labels_mismatch: length(labels)=", length(resolved$labels), " does not match ncol(ref)=", ref_n))
                         }
                     }
                     real_req_ns <- base::requireNamespace
                     if (!real_req_ns("SingleR", quietly = TRUE)) {
                         return("optional_package_missing: SingleR is required for run_annotation; install via BiocManager::install('SingleR')")
                     }
-                    if (ref_is_name && grepl("Data$", ref_arg) && !real_req_ns("celldex", quietly = TRUE)) {
+                    if (ref_is_name && !is.null(ref_name) && !real_req_ns("celldex", quietly = TRUE)) {
                         return(paste0("optional_package_missing: celldex is required to resolve ref='", ref_arg, "'; install via BiocManager::install('celldex')"))
                     }
                     TRUE

@@ -1,3 +1,77 @@
+# Normalize a celldex dataset spelling to the bare export name.
+#
+# `run_annotation(ref=)` documents "a celldex dataset name", and a real model
+# wrote the unambiguous but literately namespaced forms `<celldex::MonacoImmuneData>`
+# and `celldex::MonacoImmuneData` (measured 2026-10-17, first executed pbmc3k
+# annotation attempt). The handler's `grepl("Data$")` test then rejected the
+# value AFTER the plan had been paid for and the six upstream steps had run,
+# which no repair round can recover -- execution does not re-plan.
+#
+# This parses the spelling; it never picks a reference. A placeholder such as
+# "HELD - user-supplied celldex reference required" still returns NULL, and so
+# does a typo, so the user's choice remains the only thing that can arrive.
+# Deliberately package-free: validation must work whether or not celldex is
+# installed, and the handler is what verifies the export exists.
+sclet_celldex_reference_name <- function(value) {
+    if (!is.character(value) || length(value) != 1L || is.na(value)) return(NULL)
+    name <- trimws(value)
+    # `<celldex::MonacoImmuneData>`, "celldex::MonacoImmuneData", `...`
+    name <- gsub("^[<`'\"]+|[>`'\"]+$", "", name)
+    name <- trimws(name)
+    name <- sub("^celldex\\s*::\\s*", "", name)
+    name <- trimws(name)
+    if (!grepl("^[A-Za-z][A-Za-z0-9.]*Data$", name)) return(NULL)
+    name
+}
+
+# Resolve a celldex export. The seam exists so tests can pin the handler path
+# without downloading a reference.
+sclet_celldex_dataset <- function(name) {
+    if (!requireNamespace("celldex", quietly = TRUE)) return(NULL)
+    fun <- tryCatch(getExportedValue("celldex", name), error = function(e) NULL)
+    if (!is.function(fun)) return(NULL)
+    fun
+}
+
+# The one evidence id run_annotation() records its bounded annotation summary
+# under. The action handler verifies the node through this function rather than
+# recomputing the id, so the id looked up is by construction the id written.
+sclet_ai_annotation_evidence_id <- function(name) {
+    paste0("ev:annotation_", sclet_ai_evidence_id_token(name))
+}
+
+# Resolve the `labels` argument against a reference.
+#
+# One definition, shared by RunSingleR() and by the run_annotation prerequisite:
+# they disagreed once, and the disagreement was observable in both directions.
+# RunSingleR passed the string straight to SingleR (which asserts on a label
+# count), while the prerequisite counted the string as a one-element label
+# vector and rejected the documented "colData column name" spelling outright.
+#
+# Returns list(labels = <vector or untouched character>, problem = NULL|string).
+# A single string equal to a colData column of a SummarizedExperiment reference
+# becomes that column. A single string that is not a column is only legal when
+# the reference has one sample, where one label is exactly right; otherwise the
+# problem names the columns that do exist.
+sclet_resolve_singleR_labels <- function(ref, labels) {
+    if (!is.character(labels) || length(labels) != 1L || is.na(labels) || !nzchar(labels) ||
+            !methods::is(ref, "SummarizedExperiment")) {
+        return(list(labels = labels, problem = NULL))
+    }
+    ref_coldata <- SummarizedExperiment::colData(ref)
+    if (labels %in% colnames(ref_coldata)) {
+        return(list(labels = ref_coldata[[labels]], problem = NULL))
+    }
+    if (ncol(ref) == 1L) {
+        return(list(labels = labels, problem = NULL))
+    }
+    list(labels = NULL, problem = paste0(
+        "`labels` must be one label per reference sample or a colData column of ",
+        "`ref`; '", labels, "' is not a column. Available: ",
+        paste(colnames(ref_coldata), collapse = ", ")
+    ))
+}
+
 #' Run SingleR for cell type annotation
 #' 
 #' Wrapper for SingleR to perform automatic cell type annotation.
@@ -5,7 +79,12 @@
 #' @title RunSingleR
 #' @param object A SingleCellExperiment object
 #' @param ref Reference dataset (e.g. from celldex). If NULL, will try to use HumanPrimaryCellAtlasData.
-#' @param labels Labels in the reference dataset. If NULL, tries to use 'label.main'.
+#' @param labels Labels in the reference dataset. Either one label per reference
+#'   sample, or -- for a `SummarizedExperiment` reference -- the name of one of
+#'   its `colData` columns (e.g. `"label.main"`). If NULL, tries to use
+#'   'label.main'. A single string that is not a `colData` column of a
+#'   multi-sample reference is rejected rather than passed to SingleR as a
+#'   one-label vector, which fails there with an opaque assertion.
 #' @param assay.type Assay to use for annotation. If NULL, resolved from `layer`.
 #' @param layer Layer to use for annotation. If NULL, use `DefaultLayer(object)`.
 #' @param name Annotation/mapping record id. Defaults to `"singler"`.
@@ -34,6 +113,19 @@ RunSingleR <- function(object, ref = NULL, labels = NULL, assay.type = NULL,
         }
     }
     
+    # A single string is the documented spelling for "use this colData column of
+    # the reference" -- `run_annotation` accepts it at validation, and the
+    # skills describe it that way. SingleR itself only understands a label per
+    # reference sample, so an unresolved string reaches it as a one-element
+    # vector and dies on `length(curlabels) == ncol(curref)`. Measured on
+    # pbmc3k + MonacoImmuneData on 2026-10-17: the whole chain executed and then
+    # failed inside SingleR with exactly that assertion.
+    resolved_labels <- sclet_resolve_singleR_labels(ref, labels)
+    if (!is.null(resolved_labels$problem)) {
+        stop(resolved_labels$problem, call. = FALSE)
+    }
+    labels <- resolved_labels$labels
+
     source <- sclet_resolve_expression_source(
         object = object,
         layer = layer,

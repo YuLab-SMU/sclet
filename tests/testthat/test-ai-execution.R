@@ -742,6 +742,172 @@ test_that("run_annotation writes consistent_with evidence without per-cell vecto
     expect_false(isTRUE(per_cell_found))
 })
 
+# ---- Regressions for the 2026-10-17 pbmc3k annotation benchmark -------------
+
+# A tiny reference with a labels column, so the string-column path is exercised
+# without any celldex download.
+annotation_test_reference <- function(genes, n_ref = 10L, seed = 2L) {
+    set.seed(seed)
+    ref <- SingleCellExperiment::SingleCellExperiment(
+        list(logcounts = matrix(
+            stats::rpois(length(genes) * n_ref, lambda = rep(c(5, 20), each = n_ref / 2L)),
+            nrow = length(genes), ncol = n_ref,
+            dimnames = list(genes, paste0("ref", seq_len(n_ref)))
+        ))
+    )
+    SummarizedExperiment::colData(ref)$label.main <- rep(c("group_A", "group_B"), each = n_ref / 2L)
+    ref
+}
+
+annotation_test_object <- function(n_genes = 30L, n_cells = 40L, seed = 1L) {
+    set.seed(seed)
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(stats::rpois(n_genes * n_cells, lambda = 5),
+            nrow = n_genes, ncol = n_cells,
+            dimnames = list(paste0("gene_", seq_len(n_genes)), paste0("c", seq_len(n_cells)))))
+    )
+    NormalizeData(sce)
+}
+
+test_that("RunSingleR resolves a labels string as a reference colData column", {
+    sce <- annotation_test_object()
+    ref <- annotation_test_reference(rownames(sce))
+
+    ## The documented spelling. Before the fix this reached SingleR as a
+    ## one-element label vector and died on
+    ## `length(curlabels) == ncol(curref)`, which is how the 2026-10-17
+    ## pbmc3k + MonacoImmuneData run failed after the whole chain had run.
+    annotated <- RunSingleR(sce, ref = ref, labels = "label.main")
+    labels <- SummarizedExperiment::colData(annotated)[["SingleR_labels"]]
+    expect_equal(length(labels), ncol(sce))
+    expect_true(all(labels %in% c("group_A", "group_B")))
+
+    ## A string that is neither a column nor a one-sample label is refused here
+    ## with the available names, instead of surfacing SingleR's assertion.
+    err <- tryCatch(RunSingleR(sce, ref = ref, labels = "not_a_column"),
+        error = function(e) e)
+    expect_s3_class(err, "error")
+    expect_true(grepl("label.main", conditionMessage(err), fixed = TRUE))
+})
+
+test_that("run_annotation executes from a labels string and records its evidence", {
+    sce <- annotation_test_object()
+    ref <- annotation_test_reference(rownames(sce))
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "annotation"))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "annotate",
+        actions = list(list(id = "a1", action = "run_annotation",
+            params = list(ref = ref, labels = "label.main", name = "annot_str")))
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry, strict = TRUE)
+    expect_true(validation$valid)
+    executed <- ExecuteAIPlan(sce, validation$plan, registry, validation = validation,
+        dry_run = FALSE, confirmation = validation$confirmation_token)
+    expect_equal(executed$status, "completed")
+
+    labels <- SummarizedExperiment::colData(executed$object)[["annot_str_labels"]]
+    expect_equal(length(labels), ncol(sce))
+
+    evidence <- sclet:::sclet_ai_evidence_get_all(executed$object)
+    node <- evidence[["ev:annotation_annot_str"]]
+    expect_false(is.null(node))
+    expect_equal(node$claim_level, "consistent_with")
+    ## Counts and fractions only: nothing with one entry per cell.
+    expect_false(any(vapply(node$values, function(v) {
+        is.atomic(v) && length(v) >= ncol(executed$object)
+    }, logical(1L))))
+})
+
+test_that("run_annotation refuses to report success without its evidence node", {
+    sce <- annotation_test_object()
+    ref <- annotation_test_reference(rownames(sce))
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "annotation"))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "annotate",
+        actions = list(list(id = "a1", action = "run_annotation",
+            params = list(ref = ref, labels = "label.main", name = "annot_no_ev")))
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry, strict = TRUE)
+    expect_true(validation$valid)
+
+    executed <- with_mocked_bindings(
+        ExecuteAIPlan(sce, validation$plan, registry, validation = validation,
+            dry_run = FALSE, confirmation = validation$confirmation_token),
+        RecordAIEvidence = function(...) stop("simulated ledger refusal"),
+        .package = "sclet"
+    )
+    expect_equal(executed$status, "failed")
+    errors <- vapply(executed$results, function(step) step$error %||% "", character(1L))
+    expect_true(any(grepl("simulated ledger refusal", errors, fixed = TRUE)))
+})
+
+test_that("the annotation evidence id is sanitized like every other record id", {
+    ## A record id is caller-supplied; the evidence id must not echo it raw.
+    expect_equal(sclet:::sclet_ai_annotation_evidence_id("annot.1 run"), "ev:annotation_annot_1_run")
+    expect_equal(sclet:::sclet_ai_annotation_evidence_id("plain_id"), "ev:annotation_plain_id")
+})
+
+test_that("a celldex reference spelling is normalized but a placeholder is not", {
+    ## Measured 2026-10-17: the model wrote the namespaced literal
+    ## `<celldex::MonacoImmuneData>`; the handler's `grepl("Data$")` rejected it
+    ## after the whole chain had executed, and execution never re-plans.
+    normalize <- sclet:::sclet_celldex_reference_name
+    expect_equal(normalize("MonacoImmuneData"), "MonacoImmuneData")
+    expect_equal(normalize("<celldex::MonacoImmuneData>"), "MonacoImmuneData")
+    expect_equal(normalize("celldex::HumanPrimaryCellAtlasData"), "HumanPrimaryCellAtlasData")
+    expect_equal(normalize("\"celldex::MonacoImmuneData\""), "MonacoImmuneData")
+    expect_equal(normalize("`celldex::MonacoImmuneData`"), "MonacoImmuneData")
+
+    ## A placeholder, a typo and an NA are not references: the user's choice
+    ## must be the only thing that can arrive.
+    expect_null(normalize("HELD - user-supplied celldex reference required"))
+    expect_null(normalize("MonacoImmune"))
+    expect_null(normalize("MonacoImmuneData()"))
+    expect_null(normalize(NA_character_))
+    expect_null(normalize(c("MonacoImmuneData", "HumanPrimaryCellAtlasData")))
+})
+
+test_that("a namespaced celldex reference executes instead of failing after the chain", {
+    sce <- annotation_test_object()
+    ref <- annotation_test_reference(rownames(sce))
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "annotation"))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "annotate",
+        actions = list(list(id = "a1", action = "run_annotation",
+            params = list(ref = "<celldex::MonacoImmuneData>", labels = "label.main",
+                name = "annot_namespaced")))
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry, strict = TRUE)
+    expect_true(validation$valid)
+
+    ## The dataset lookup is the only thing mocked; the reference itself is a
+    ## real SummarizedExperiment, so no download happens.
+    executed <- with_mocked_bindings(
+        ExecuteAIPlan(sce, validation$plan, registry, validation = validation,
+            dry_run = FALSE, confirmation = validation$confirmation_token),
+        sclet_celldex_dataset = function(name) function() ref,
+        .package = "sclet"
+    )
+    expect_equal(executed$status, "completed")
+    expect_true("ev:annotation_annot_namespaced" %in%
+        names(sclet:::sclet_ai_evidence_get_all(executed$object)))
+})
+
+test_that("a placeholder reference is refused at validation, before any step runs", {
+    sce <- annotation_test_object()
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "annotation"))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "annotate",
+        actions = list(list(id = "a1", action = "run_annotation",
+            params = list(ref = "HELD - user-supplied celldex reference required",
+                labels = "label.main")))
+    )
+    err <- tryCatch(ValidateAIPlan(plan, object = sce, registry = registry, strict = TRUE),
+        error = function(e) e)
+    expect_s3_class(err, "sclet_ai_invalid_plan")
+    expect_true(grepl("reference_invalid", conditionMessage(err), fixed = TRUE))
+})
+
 # ---- Regressions for the 2026-10-16 benchmark findings (sclet-benchmark-ai) --
 
 test_that("a zero-action plan is refused at validation and at execution", {

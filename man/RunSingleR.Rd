@@ -19,7 +19,12 @@ RunSingleR(
 
 \item{ref}{Reference dataset (e.g. from celldex). If NULL, will try to use HumanPrimaryCellAtlasData.}
 
-\item{labels}{Labels in the reference dataset. If NULL, tries to use 'label.main'.}
+\item{labels}{Labels in the reference dataset. Either one label per reference
+sample, or -- for a \code{SummarizedExperiment} reference -- the name of one of
+its \code{colData} columns (e.g. \code{"label.main"}). If NULL, tries to use
+'label.main'. A single string that is not a \code{colData} column of a
+multi-sample reference is rejected rather than passed to SingleR as a
+one-label vector, which fails there with an opaque assertion.}
 
 \item{assay.type}{Assay to use for annotation. If NULL, resolved from \code{layer}.}
 
