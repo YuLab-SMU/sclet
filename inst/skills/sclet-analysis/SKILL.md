@@ -109,7 +109,13 @@ Refusals are information, and they are the system working as designed:
 
 - No annotation reference cached (`run_annotation`): the action needs a
   celldex dataset the user must choose. Do not plan around it with a marker
-  test and present the clusters as cell types.
+  test and present the clusters as cell types. When the user HAS named one,
+  pass it literally: `ref = "celldex::MonacoImmuneData"`, `labels =
+  "label.main"`. A bare dataset name (`MonacoImmuneData`) works too.
+  `ref = "<celldex::MonacoImmuneData>"` is accepted and normalized, but a
+  description of the object (`"<MonacoImmuneData SummarizedExperiment, Entrez
+  rownames>"`) is not a value and is refused -- measured 2026-10-17, where two
+  of four attempts died on exactly that distinction.
 - No `spatialCoords` / no multimodal records: the spatial and multimodal
   read-only actions report readiness honestly. Do not plan a spatial
   analysis for a non-spatial object.
