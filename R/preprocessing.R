@@ -720,10 +720,18 @@ ScaleData <- function(object, features = NULL, assay = "logcounts") {
         # In-memory logic (could be sparse or dense)
         if (is(mat, "dgCMatrix")) {
              rm <- sclet_matrix_rowMeans(mat)
-             # Sparse matrix rowSds calculation can be tricky if not careful, 
-             # but MatrixGenerics handles it or we use sparseMatrixStats if available.
-             # Fallback to apply for now if not available, but let's assume MatrixGenerics works.
-             rs <- stats::sd(as.numeric(mat))
+             # Row-wise sd for a sparse matrix. The previous code used
+             # `sd(as.numeric(mat))` -- a SINGLE scalar over the whole
+             # flattened matrix -- so every row was divided by the same
+             # global sd and the "scaled" layer was scaled by nothing
+             # row-specific. Uncovered until the row-splice fix let this
+             # branch finish at all: the first correct run showed scaled
+             # row sds of 2.25 against a true 1.90. Sparse row variance via
+             # E[x^2] - E[x]^2, only touching nonzeros, matches
+             # matrixStats::rowSds on the densified rows.
+             n_cells <- ncol(mat)
+             ex2 <- Matrix::rowSums(mat^2) / n_cells
+             rs <- sqrt(pmax(ex2 - rm^2, 0) * n_cells / (n_cells - 1L))
         } else {
              rm <- rowMeans(mat)
              rs <- apply(mat, 1, stats::sd)
@@ -766,8 +774,34 @@ ScaleData <- function(object, features = NULL, assay = "logcounts") {
     if (length(features) == nrow(object)) {
         scaled_assay <- scaled
     } else {
-        scaled_assay <- SummarizedExperiment::assay(object, assay)
-        scaled_assay[features, ] <- scaled
+        # Splice the scaled rows into a copy of the source matrix. The
+        # previous implementation did `sparse[features, ] <- scaled`, and a
+        # row-subset assignment on a dgCMatrix with a dense block is
+        # pathological: each assignment re-compresses the whole matrix, so a
+        # 2000-row HVG subset on a 32738 x 2700 object burned >20 minutes of
+        # pure CPU with no I/O -- the "spin" behind three lost benchmark runs
+        # (2026-10-14/16/17), every one of them a model-written plan carrying
+        # features = the HVG reference. Rebuilding through rbind of two
+        # sparse matrices (unscaled rows kept, scaled rows as sparse) is
+        # linear in nonzeros and finishes in seconds.
+        source_mat <- SummarizedExperiment::assay(object, assay)
+        if (is(source_mat, "dgCMatrix") && !is(scaled, "dgCMatrix")) {
+            scaled_sparse <- Matrix::Matrix(as.matrix(scaled),
+                sparse = TRUE)
+        } else {
+            scaled_sparse <- scaled
+        }
+        all_rows <- rownames(source_mat)
+        in_features <- all_rows %in% features
+        scaled_assay <- if (all(in_features)) {
+            scaled_sparse
+        } else {
+            keep_rows <- all_rows[!in_features]
+            unscaled <- source_mat[keep_rows, , drop = FALSE]
+            full <- Matrix::rbind2(unscaled, scaled_sparse)
+            # rbind2 put the kept rows first; restore the original order.
+            full[match(all_rows, c(keep_rows, features)), , drop = FALSE]
+        }
     }
     SummarizedExperiment::assay(object, "scaled") <- scaled_assay
     object <- sclet_restore_state(object, prev_state)
