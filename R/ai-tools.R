@@ -216,9 +216,9 @@ sclet_ai_explanation_prompt <- function(evidence_lines = character()) {
         "Every finding must list the exact evidence ids it rests on in",
         "`evidence_refs`: they start with `ev:` and appear in",
         "context$evidence. Do not cite an AI result id (`sclet-ai-...`) as",
-        "evidence. When nothing in context$evidence supports a statement, say",
-        "so in the finding text and set its claim_level to `hypothesis` rather",
-        "than attaching an unrelated id."
+        "evidence. If you cannot support a finding with at least one listed id,",
+        "do NOT emit it as a finding: state it in `answer` as a hypothesis",
+        "instead. An unsupported finding is worse than a shorter answer."
     )
     if (length(evidence_lines)) {
         # Measured on Kang (2026-10-18): with the ids only inside the JSON
@@ -264,6 +264,24 @@ sclet_ai_evidence_prompt_lines <- function(object, max_ids = 20L) {
 
 # Count how many findings carry an evidence id, so the caller (report,
 # benchmark, or a claim audit) can tell "cited" from "asserted".
+# A report-level warning when most findings lack an evidence id.
+#
+# Counting alone was not enough: a run could return 9 findings with 2 cited
+# (0.22) and nothing in the report said the rest were assertions. The threshold
+# is explicit and only fires when there are enough findings for a ratio to mean
+# something.
+sclet_ai_coverage_warning <- function(coverage, min_fraction = 0.5, min_findings = 3L) {
+    if (is.null(coverage)) return(NULL)
+    n <- as.integer(coverage$n_findings %||% 0L)
+    fraction <- coverage$fraction
+    if (is.na(fraction) || n < min_findings || fraction >= min_fraction) return(NULL)
+    paste0(
+        "only ", coverage$n_with_refs %||% 0L, " of ", n,
+        " findings cite an evidence id; the rest are assertions and should be ",
+        "read as hypotheses"
+    )
+}
+
 sclet_ai_attach_ref_coverage <- function(result) {
     findings <- result$findings %||% list()
     n_findings <- length(findings)

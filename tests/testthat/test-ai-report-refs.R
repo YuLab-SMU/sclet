@@ -63,3 +63,12 @@ test_that("the id list is capped and says how many were omitted", {
     expect_equal(sum(grepl("^- ev:", lines)), 10L)
     expect_true(any(grepl("more ids exist", lines)))
 })
+
+test_that("low citation coverage produces an explicit warning", {
+    threshold <- sclet:::sclet_ai_coverage_warning
+    expect_match(threshold(list(n_findings = 9L, n_with_refs = 2L, fraction = 2/9)),
+        "only 2 of 9 findings cite an evidence id")
+    expect_null(threshold(list(n_findings = 9L, n_with_refs = 8L, fraction = 8/9)))
+    expect_null(threshold(list(n_findings = 1L, n_with_refs = 0L, fraction = 0)))
+    expect_null(threshold(NULL))
+})

@@ -545,6 +545,10 @@ RunAIAnalysis <- function(
                 } else {
                     updated <- recorded_interpretation
                     report$interpretation <- interpretation_state$result
+                    coverage <- interpretation_state$result$metadata$evidence_ref_coverage
+                    report$interpretation_coverage <- coverage
+                    warning <- sclet_ai_coverage_warning(coverage)
+                    if (!is.null(warning)) report$interpretation_warning <- warning
                 }
             } else {
                 report$interpretation <- interpretation_state$result
