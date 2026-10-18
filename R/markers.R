@@ -403,6 +403,7 @@ sclet_run_condition_de <- function(object, group, ident.1, ident.2,
             paste(covariates, collapse = ","), ")")
     }
 
+    design_detail <- attr(res, "pseudobulk_design") %||% list()
     object <- sclet_set_analysis_state(
         object = object,
         type = "detest",
@@ -415,6 +416,10 @@ sclet_run_condition_de <- function(object, group, ident.1, ident.2,
             covariates = covariates %||% character(),
             design = design_label,
             adjustment = adjustment,
+            n_pseudobulk_samples = as.integer(design_detail$n_samples %||% NA_integer_),
+            excluded_covariate_combinations = paste(
+                design_detail$excluded_combinations %||% character(), collapse = ","),
+            n_cells_used = as.integer(design_detail$n_cells_used %||% NA_integer_),
             active_ident = ActiveIdent(object)
         ),
         artifacts = list(result = res),
@@ -447,42 +452,66 @@ sclet_pseudobulk_condition_de <- function(object, group, ident.1, ident.2,
         stats::complete.cases(cd[, covariates, drop = FALSE])
     if (!any(keep)) stop("no cells carry both the requested groups and covariates")
     meta_cells <- cd[keep, c(group, covariates), drop = FALSE]
-    key <- do.call(paste, c(lapply(covariates, function(v) as.character(meta_cells[[v]])),
-        list(sep = "|")))
-    cond <- factor(as.character(meta_cells[[group]]), levels = c(ident.2, ident.1))
-    sample_id <- paste(key, as.character(cond), sep = "@")
-    split_idx <- split(which(keep), sample_id)
+    combo <- do.call(paste, c(lapply(covariates, function(v)
+        as.character(meta_cells[[v]])), list(sep = "|")))
+    condition <- as.character(meta_cells[[group]])
+    cond_pair <- function(combo_key) {
+        levels <- unique(condition[combo == combo_key])
+        all(c(ident.1, ident.2) %in% levels)
+    }
+
+    ## Only covariate combinations measured in BOTH conditions can contribute to
+    ## a paired contrast. Excluding the others (and recording how many) is the
+    ## honest alternative to either aborting the analysis -- full Kang has 9
+    ## control-only batch1 donors, and refusing outright turned a feasible
+    ## contrast on the 8 paired donors into a failed step (2026-10-18) -- or
+    ## silently keeping them, which would bias the contrast.
+    combos <- unique(combo)
+    paired <- combos[vapply(combos, cond_pair, logical(1L))]
+    excluded_combos <- setdiff(combos, paired)
+    if (!length(paired)) {
+        stop("no ", paste(covariates, collapse = " x "),
+            " combination measured BOTH conditions (", ident.1, " and ",
+            ident.2, "); a paired contrast is not identifiable")
+    }
+    use <- combo %in% paired
+
+    sample_key <- paste(combo[use], condition[use], sep = "@")
+    split_idx <- split(which(use), sample_key)
     sizes <- lengths(split_idx)
     split_idx <- split_idx[sizes >= min_cells]
+    dropped_small <- sum(sizes < min_cells)
     if (!length(split_idx)) {
         stop("no covariate x condition sample had at least ", min_cells, " cells")
     }
-    sample_meta <- do.call(rbind, lapply(names(split_idx), function(sid) {
-        idx <- split_idx[[sid]]
-        data.frame(
-            sample = sid,
-            condition = as.character(meta_cells[[group]])[match(idx[1L], which(keep))],
-            stringsAsFactors = FALSE
-        )
-    }))
+
+    ## Position of each retained cell inside meta_cells, so every lookup below
+    ## indexes the same frame. `match(idx, which(use))` used to mix positions in
+    ## the full colData with positions in meta_cells and produced a one-row
+    ## frame against a 60-row matrix (measured 2026-10-18).
+    cell_pos <- cumsum(use)[use]
+    first_pos <- vapply(split_idx, function(idx) idx[[1L]], integer(1L))
+    sample_meta <- data.frame(
+        sample = names(split_idx),
+        condition = condition[first_pos],
+        stringsAsFactors = FALSE
+    )
     for (v in covariates) {
-        sample_meta[[v]] <- vapply(names(split_idx), function(sid) {
-            idx <- split_idx[[sid]]
-            as.character(meta_cells[[v]])[match(idx[1L], which(keep))]
-        }, character(1))
+        sample_meta[[v]] <- as.character(meta_cells[[v]])[first_pos]
     }
-    sample_meta$condition <- factor(sample_meta$condition, levels = c(ident.2, ident.1))
-    if (any(table(sample_meta$condition) < 2L)) {
+    sample_meta$condition <- factor(sample_meta$condition,
+        levels = c(ident.2, ident.1))
+    counts_by_condition <- table(sample_meta$condition)
+    if (any(counts_by_condition < 2L)) {
         stop("each condition needs at least two pseudobulk samples for a ",
             "covariate-adjusted contrast; got ",
-            paste(names(table(sample_meta$condition)), table(sample_meta$condition),
-                sep = "=", collapse = ", "))
+            paste(names(counts_by_condition), counts_by_condition, sep = "=",
+                collapse = ", "))
     }
     pairing <- table(sample_meta[, covariates, drop = FALSE])
-    if (!all(pairing >= 2L)) {
-        stop("every ", paste(covariates, collapse = " x "), " combination must ",
-            "contain BOTH conditions (", ident.1, " and ", ident.2,
-            "); the paired contrast is not identifiable otherwise")
+    if (any(pairing < 2L)) {
+        stop("a retained ", paste(covariates, collapse = " x "),
+            " combination lost one condition after the minimum-cell filter")
     }
 
     counts <- SummarizedExperiment::assay(object, assay)
@@ -508,8 +537,8 @@ sclet_pseudobulk_condition_de <- function(object, group, ident.1, ident.2,
     }
     tt <- limma::topTable(fit, coef = coef_name, number = Inf, sort.by = "P")
     genes <- rownames(tt)
-    pct <- function(condition) {
-        idx <- which(keep & as.character(cd[[group]]) == condition)
+    pct <- function(condition_value) {
+        idx <- which(use & condition == condition_value)
         rowSums(counts[genes, idx, drop = FALSE] > 0) / length(idx)
     }
     out <- data.frame(
@@ -523,9 +552,16 @@ sclet_pseudobulk_condition_de <- function(object, group, ident.1, ident.2,
         stringsAsFactors = FALSE,
         row.names = NULL
     )
-    ## Same visibility filters as the cell-level marker table, so callers and
-    ## enrichment see the same kind of table either way.
     out <- out[(out$pct.1 >= min.pct | out$pct.2 >= min.pct) &
         abs(out$avg_log2FC) >= logfc.threshold, , drop = FALSE]
-    out[order(out$pval), , drop = FALSE]
+    out <- out[order(out$pval), , drop = FALSE]
+    attr(out, "pseudobulk_design") <- list(
+        design = paste0("~ ", group, " + ", paste(covariates, collapse = " + ")),
+        n_samples = nrow(sample_meta),
+        samples = sample_meta,
+        excluded_combinations = excluded_combos,
+        dropped_small_samples = dropped_small,
+        n_cells_used = sum(use)
+    )
+    out
 }
