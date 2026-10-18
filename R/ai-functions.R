@@ -430,12 +430,28 @@ RunAIAnalysis <- function(
         record = record
     )
     updated <- execution$object
+    plan_record_error <- NULL
     if (isTRUE(record) && inherits(plan$ai_result, "sclet_ai_result")) {
-        updated <- RecordAIResult(
-            updated,
-            plan$ai_result,
-            id = paste0("ai_plan_", plan$plan_id)
+        # Recording the plan narrative is bookkeeping, not part of the analysis:
+        # a citation problem in it must not discard an execution that already
+        # ran. Measured on real data (PBMC 10k, 2026-10-18): the plan narrative
+        # cited `sclet-ai-*` (AI result ids) instead of `ev:*`, RecordAIResult
+        # correctly refused, and the refusal propagated out of RunAIAnalysis --
+        # a completed 9/9 analysis was reported as a failed run. Degrade to an
+        # unrecorded plan narrative plus a reported error.
+        recorded_plan <- tryCatch(
+            RecordAIResult(
+                updated,
+                plan$ai_result,
+                id = paste0("ai_plan_", plan$plan_id)
+            ),
+            error = function(e) conditionMessage(e)
         )
+        if (is.character(recorded_plan)) {
+            plan_record_error <- recorded_plan
+        } else {
+            updated <- recorded_plan
+        }
     }
     report <- list(
         status = execution$status,
@@ -451,7 +467,8 @@ RunAIAnalysis <- function(
         # first PBMC 10k pilot: annotation was dropped and nothing surfaced it).
         # Reported here, and fed back as one planning round inside
         # AIPlanAnalysis when the gap is detected.
-        goal_coverage = plan$metadata$goal_coverage %||% NULL
+        goal_coverage = plan$metadata$goal_coverage %||% NULL,
+        plan_record_error = plan_record_error
     )
     if (isTRUE(interpret) && execution$status %in% c("completed", "completed_with_errors")) {
         interpretation_state <- new.env(parent = emptyenv())

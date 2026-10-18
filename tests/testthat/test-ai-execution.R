@@ -1070,3 +1070,39 @@ test_that("run_de_test exposes detest_id as a referenceable output field", {
     expect_false(any(grepl("value_reference_unresolvable", v$errors)))
     expect_false(any(grepl("detest_state_missing", v$errors)))
 })
+
+test_that("an unresolvable citation in the plan narrative does not abort the analysis", {
+    ## Real-data run 7 (PBMC 10k, 2026-10-18): the plan narrative cited
+    ## `sclet-ai-*` (AI result ids) rather than `ev:*`; RecordAIResult correctly
+    ## refused, and because the plan-recording call was not wrapped the refusal
+    ## escaped RunAIAnalysis, turning a completed 9/9 execution into a failed
+    ## run. The analysis must survive; the unrecorded narrative is reported.
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(stats::rpois(30L * 12L, 5), nrow = 30L, ncol = 12L,
+            dimnames = list(paste0("gene_", seq_len(30L)), paste0("c", seq_len(12L)))))
+    )
+    old <- options(sclet.ai.call = function(task, context, ...) {
+        if (identical(task, "analysis_plan")) {
+            return(new_sclet_ai_result(
+                "analysis_plan",
+                answer = "normalize the counts",
+                context = list(schema_version = "1.0", fingerprint = "test"),
+                findings = list(list(claim_level = "hypothesis",
+                    evidence_refs = "sclet-ai-deadbeef")),
+                proposed_actions = list(list(id = "s1", action = "normalize_data",
+                    params = list()))
+            ))
+        }
+        new_sclet_ai_result("analysis_explanation", answer = "ok",
+            context = list(schema_version = "1.0", fingerprint = "test"))
+    })
+    on.exit(options(old), add = TRUE)
+
+    result <- RunAIAnalysis(sce, goal = "Normalize the counts in this dataset.",
+        model = "mock", confirm = TRUE, include = "all", interpret = FALSE,
+        record = TRUE)
+    expect_equal(result$status, "completed")
+    expect_true(nzchar(result$report$plan_record_error %||% ""))
+    expect_true(grepl("unresolvable evidence", result$report$plan_record_error))
+    expect_false(any(grepl("^ai_plan_", names(GetAnalysisLedger(result$object)$analyses))))
+})
