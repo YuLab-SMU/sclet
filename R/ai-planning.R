@@ -1343,7 +1343,10 @@ sclet_ai_goal_coverage_repair_message <- function(coverage) {
         paste(coverage$missing, collapse = ", "),
         ", but the plan has no step using ",
         if (length(coverage$missing) == 1L) "it" else "them",
-        ". Add the missing analysis step(s). If the goal cannot be met on this ",
+        ". Add the missing analysis step(s) WITH every required parameter and a ",
+        "concrete value: annotation needs ref + labels, integration needs batch, ",
+        "and so on. A step added by name alone cannot pass validation and will ",
+        "be discarded, leaving the same gap. If the goal cannot be met on this ",
         "object, say so in the rationale instead of silently returning a plan ",
         "that does not answer the question."
     )

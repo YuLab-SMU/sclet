@@ -363,6 +363,15 @@ test_that("sclet_ai_repair_prompt_block content (scenario 10)", {
     expect_true(length(empty_char) == 0L)
 })
 
+test_that("the coverage repair asks for parameters, not bare step names", {
+    message <- sclet:::sclet_ai_goal_coverage_repair_message(list(
+        missing = c("run_annotation", "run_integration")))
+    expect_true(grepl("WITH every required parameter", message, fixed = TRUE))
+    expect_true(grepl("ref + labels", message, fixed = TRUE))
+    expect_true(grepl("integration needs batch", message, fixed = TRUE))
+    expect_true(grepl("by name alone", message, fixed = TRUE))
+})
+
 test_that("the repair prompt sends a placeholder back to the user, not to a rewrite", {
     block <- sclet:::sclet_ai_repair_prompt_block(c(
         "reference_missing: 'ref' is a placeholder ('<user-named celldex dataset>'), not a dataset."
