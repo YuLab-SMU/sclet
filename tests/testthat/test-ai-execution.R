@@ -1102,7 +1102,14 @@ test_that("an unresolvable citation in the plan narrative does not abort the ana
         model = "mock", confirm = TRUE, include = "all", interpret = FALSE,
         record = TRUE)
     expect_equal(result$status, "completed")
-    expect_true(nzchar(result$report$plan_record_error %||% ""))
-    expect_true(grepl("unresolvable evidence", result$report$plan_record_error))
-    expect_false(any(grepl("^ai_plan_", names(GetAnalysisLedger(result$object)$analyses))))
+    ## The bad citation is stripped and the questionable finding downgraded, so
+    ## the plan narrative is recorded instead of dropped. The dropped id is
+    ## reported for audit rather than silently vanishing.
+    expect_null(result$report$plan_record_error)
+    expect_true(any(grepl("^ai_plan_", names(GetAnalysisLedger(result$object)$analyses))))
+    recorded <- GetAnalysisLedger(result$object)$analyses[[
+        grep("^ai_plan_", names(GetAnalysisLedger(result$object)$analyses))[[1L]]]]
+    expect_true(grepl("sclet-ai-deadbeef", recorded$summary$dropped_evidence_refs,
+        fixed = TRUE))
+    expect_equal(recorded$summary$n_findings_with_refs, 0L)
 })

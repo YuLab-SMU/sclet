@@ -232,7 +232,15 @@ RecordAIResult <- function(object, result, id = NULL, active = FALSE, audit_clai
             n_findings = length(recorded_findings),
             n_recommendations = length(result$recommendations),
             n_proposed_actions = length(result$proposed_actions),
-            cited_user_decisions = cited_user_decisions
+            cited_user_decisions = cited_user_decisions,
+            # Citations the sanitizer removed before recording. Keeping them in
+            # the ledger makes "the model cited something that does not exist"
+            # auditable afterwards instead of only visible in the live result.
+            dropped_evidence_refs = paste(
+                result$metadata$dropped_evidence_refs %||% character(),
+                collapse = ","),
+            n_findings_with_refs = sum(vapply(recorded_findings, function(finding)
+                length(finding$evidence_refs %||% character()) > 0L, logical(1L)))
         ),
         created_at = Sys.time()
     )

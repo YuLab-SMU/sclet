@@ -883,6 +883,80 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
             )
         ))
     }
+    # Design semantics, as an action.
+    #
+    # `run_integration` refuses to run until the batch column has been confirmed
+    # with ConfirmAIDesignSemantics(), and no registered action could perform
+    # that confirmation. On full Kang (2026-10-18) the goal asked to "integrate
+    # the two sequencing batches" and every plan -- including the goal-coverage
+    # repair round -- was rejected with `design_semantics_not_confirmed`, because
+    # the only way to clear it was a function call the planner cannot make.
+    #
+    # This action says "this colData column plays this design role", which is a
+    # statement about the data, so it mutates the object and is recorded like
+    # any other analysis step. It deliberately does not guess: every role must be
+    # named in the plan, and an unknown column is refused.
+    if ("read" %in% include) {
+        actions <- c(actions, list(
+            confirm_design = AIAction(
+                name = "confirm_design",
+                description = paste0(
+                    "Confirm which colData columns play the design roles (batch, ",
+                    "condition, subject, sample) before integration or design-aware ",
+                    "analysis. Pass one column name per role, e.g. ",
+                    "batch = \"batch\", condition = \"condition\", subject = \"donor\"."
+                ),
+                handler = function(object, params) {
+                    roles <- list()
+                    for (role in c("batch", "condition", "subject", "sample")) {
+                        if (!is.null(params[[role]])) {
+                            roles[[role]] <- sclet_ai_vector_param(params[[role]], "character")[[1L]]
+                        }
+                    }
+                    if (!length(roles)) {
+                        stop("confirm_design needs at least one role column")
+                    }
+                    ConfirmAIDesignSemantics(object, design = roles)
+                },
+                input_schema = list(
+                    batch = "character",
+                    condition = "character",
+                    subject = "character",
+                    sample = "character"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    cd_names <- planned$colData_columns %||%
+                        colnames(SummarizedExperiment::colData(object))
+                    roles <- c("batch", "condition", "subject", "sample")
+                    given <- Filter(function(role) !is.null(params[[role]]), roles)
+                    if (!length(given)) {
+                        return(paste0("design_role_missing: name at least one of ",
+                            paste(roles, collapse = ", "), " as a colData column"))
+                    }
+                    for (role in given) {
+                        value <- params[[role]]
+                        if (!is.character(value) || length(value) != 1L || !nzchar(value)) {
+                            return(paste0("design_role_invalid: '", role,
+                                "' must be one colData column name"))
+                        }
+                        if (!value %in% cd_names) {
+                            return(paste0("design_role_invalid: '", role,
+                                "' points to '", value,
+                                "', which is not in colData; available: ",
+                                paste(cd_names, collapse = ", ")))
+                        }
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                output_schema = list(required_states = list(ai_design_confirmation = "any")),
+                allowed_state_types = c("ai_design_confirmation"),
+                mutates_object = TRUE,
+                estimated_cost = "low",
+                idempotent = TRUE
+            )
+        ))
+    }
     if ("integration" %in% include) {
         actions <- c(actions, list(
             run_integration = AIAction(
