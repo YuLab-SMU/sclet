@@ -2430,7 +2430,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         n_cells = as.integer(record$n_cells_submitted),
                         n_cells_retained = as.integer(record$n_cells_retained),
                         n_cells_dropped = as.integer(length(record$dropped_cells)),
-                        n_reference_ids = as.integer(record$n_reference_ids),
+                        n_reference_cells = as.integer(record$n_reference_cells),
                         n_genes = as.integer(record$n_genes),
                         burden_q10 = as.numeric(stats::quantile(burden, 0.1,
                             na.rm = TRUE, names = FALSE)),
@@ -2460,8 +2460,8 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     num_threads = "integer"
                 ),
                 prerequisites = function(object, params, planned = NULL) {
-                    if (!requireNamespace("inferCNV", quietly = TRUE)) {
-                        return("optional_package_missing: inferCNV is required for copy-number inference; install Bioconductor 'inferCNV'")
+                    if (!requireNamespace("infercnv", quietly = TRUE)) {
+                        return("optional_package_missing: infercnv is required for copy-number inference; install Bioconductor 'infercnv'")
                     }
                     assays <- SummarizedExperiment::assayNames(object)
                     assay <- params$assay %||% "counts"
@@ -2503,7 +2503,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     required_states = list(annotation = "any"),
                     cnv_id = "cnv_record_id"
                 ),
-                allowed_state_types = "annotation",
+                allowed_state_types = c("annotation", "ai_evidence"),
                 mutates_object = TRUE,
                 requires_confirmation = TRUE,
                 estimated_cost = "high",
@@ -2547,16 +2547,20 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     state_col <- SummarizedExperiment::colData(object)[[
                         paste0(name, "_state")]]
                     state_counts <- table(as.character(state_col))
+                    count_of <- function(level) {
+                        value <- unname(state_counts[level])
+                        if (length(value) && !is.na(value)) as.integer(value) else 0L
+                    }
                     state_rec <- tryCatch(
                         sclet_get_state_record(object, "annotation", name),
                         error = function(e) NULL)
                     state_summary <- state_rec$summary %||% list()
                     values <- list(
                         n_cells = as.integer(ncol(object)),
-                        n_malignant = as.integer(state_counts[["malignant"]] %||% 0L),
-                        n_likely_malignant = as.integer(state_counts[["likely_malignant"]] %||% 0L),
-                        n_undetermined = as.integer(state_counts[["undetermined"]] %||% 0L),
-                        n_non_malignant = as.integer(state_counts[["non_malignant"]] %||% 0L),
+                        n_malignant = count_of("malignant"),
+                        n_likely_malignant = count_of("likely_malignant"),
+                        n_undetermined = count_of("undetermined"),
+                        n_non_malignant = count_of("non_malignant"),
                         # Read from the call's own state record, where
                         # CallMalignantCells() computed them, instead of
                         # re-deriving a second answer here.
@@ -2621,7 +2625,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 output_schema = list(
                     required_states = list(annotation = "any")
                 ),
-                allowed_state_types = "annotation",
+                allowed_state_types = c("annotation", "ai_evidence"),
                 mutates_object = TRUE,
                 requires_confirmation = TRUE,
                 estimated_cost = "low",

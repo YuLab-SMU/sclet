@@ -204,13 +204,17 @@ RunCNVInference <- function(object,
     if (!assay %in% SummarizedExperiment::assayNames(object)) {
         stop("Assay '", assay, "' not found; inferCNV models raw counts.")
     }
-    if (!is.numeric(SummarizedExperiment::assay(object, assay))) {
+    assay_matrix <- SummarizedExperiment::assay(object, assay)
+    # A sparse dgCMatrix is numeric counts, but `is.numeric()` is FALSE for an
+    # S4 Matrix -- so every ordinary SingleCellExperiment was refused with
+    # "not numeric" on real data (2026-10-18).
+    if (!is.numeric(assay_matrix) && !inherits(assay_matrix, c("Matrix", "DelayedArray"))) {
         stop("Assay '", assay, "' is not numeric.")
     }
     # A non-count matrix is an input error, not a missing prerequisite: report it
     # rather than letting the readiness gate return `unavailable`, which would
     # bury the real problem under a gene-order or reference message.
-    probe <- sclet_malignancy_dense(SummarizedExperiment::assay(object, assay))
+    probe <- sclet_malignancy_dense(assay_matrix)
     if (any(probe < 0, na.rm = TRUE)) {
         stop(
             "Assay '", assay, "' has negative values; inferCNV needs raw counts.",
@@ -271,10 +275,7 @@ RunCNVInference <- function(object,
         on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
     }
 
-    cnv_counts <- counts[common, , drop = FALSE]
-    if (inherits(cnv_counts, "DelayedArray")) {
-        cnv_counts <- as.matrix(cnv_counts)
-    }
+    cnv_counts <- sclet_malignancy_dense(counts[common, , drop = FALSE])
     mode(cnv_counts) <- "integer"
 
     order_file <- file.path(out_dir, "gene_order.tsv")

@@ -336,3 +336,16 @@ test_that("too few reference cells warn that the CNV line will be unavailable", 
     )
     expect_true(any(grepl("reference cell", w)))
 })
+
+test_that("a sparse counts Matrix is accepted by the CNV input gate", {
+    ## `is.numeric(dgCMatrix)` is FALSE; the gate used to refuse every ordinary
+    ## SingleCellExperiment with "Assay 'counts' is not numeric" (real CRC data,
+    ## 2026-10-18).
+    m <- Matrix::Matrix(matrix(c(1, 0, 2, 0, 3, 1, 0, 4), nrow = 2), sparse = TRUE)
+    expect_false(is.numeric(m))
+    dense <- sclet:::sclet_malignancy_dense(m)
+    expect_true(is.matrix(dense))
+    expect_equal(dim(dense), c(2L, 4L))
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = m))
+    expect_silent(sclet:::sclet_malignancy_dense(SummarizedExperiment::assay(sce, "counts")))
+})

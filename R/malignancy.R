@@ -775,7 +775,7 @@ sclet_bulk_log_offset <- function(assay_note) {
 }
 
 sclet_malignancy_dense <- function(x) {
-    if (inherits(x, "DelayedArray")) {
+    if (inherits(x, c("DelayedArray", "Matrix"))) {
         x <- as.matrix(x)
     }
     if (is.null(dim(x))) {

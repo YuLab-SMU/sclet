@@ -37,11 +37,11 @@ test_that("run_cnv_inference refuses a missing or endogenous reference", {
     ## inferCNV is optional: without it the action says so instead of failing
     ## later inside CreateInfercnvObject.
     missing_pkg <- action$prerequisites(sce, list(reference_col = "reference"))
-    if (!requireNamespace("inferCNV", quietly = TRUE)) {
+    if (!requireNamespace("infercnv", quietly = TRUE)) {
         expect_true(grepl("optional_package_missing", missing_pkg, fixed = TRUE))
     }
     ## No reference at all is refused; the message says why clusters are not one.
-    if (requireNamespace("inferCNV", quietly = TRUE)) {
+    if (requireNamespace("infercnv", quietly = TRUE)) {
         reason <- action$prerequisites(sce, list())
         expect_true(grepl("reference_missing", reason, fixed = TRUE))
         expect_true(grepl("Do not use clusters", reason, fixed = TRUE))
