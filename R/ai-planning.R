@@ -1227,10 +1227,14 @@ sclet_ai_user_decision_prompt_line <- function() {
 # phrasing must not block an executable plan).
 sclet_ai_goal_action_map <- function() {
     list(
-        run_annotation = "annotat|cell[ -]?type|celltype|label transfer",
-        run_de_test = "marker|differential|differentially expressed",
+        run_annotation = "annotat|cell[ -]?types?|celltype|label transfer",
+        # "differential" alone also matches "differential abundance" (a milo
+        # question); keep DE to the expression-test phrasings.
+        run_de_test = "marker genes?|markers|differential expression|differentially expressed|DE genes?",
         run_enrichment = "enrich|ontolog|pathway|gene ontology|KEGG|GO term",
-        run_integration = "batch|integrat|harmony|correct",
+        # Bare "correct" was too broad: "correct the labels" is an annotation
+        # change, not a batch correction.
+        run_integration = "batch effect|batch correct|integrat|harmony|scvi",
         run_velocity = "velocity|splicing|scvelo",
         run_fate_analysis = "fate|cellrank|terminal state",
         run_trajectory = "trajectory|pseudotime|slingshot",

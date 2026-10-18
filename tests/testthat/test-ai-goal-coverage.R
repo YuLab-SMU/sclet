@@ -35,6 +35,26 @@ test_that("coverage names the actions a goal asks for and what is missing", {
     expect_length(quiet$required, 0L)
     expect_length(quiet$missing, 0L)
 
+    ## Phrasing that must NOT be read as another analysis: "correct the
+    ## labels" is not integration, and "differential abundance" is not a DE
+    ## test (it is a composition question).
+    label_fix <- coverage(goal_coverage_plan(
+        "Correct the cluster labels and annotate the cell types.",
+        list(list(id = "s1", action = "normalize_data", params = list()))))
+    expect_false("run_integration" %in% label_fix$required)
+    expect_true("run_annotation" %in% label_fix$required)
+
+    abundance <- coverage(goal_coverage_plan(
+        "Test differential abundance between conditions.",
+        list(list(id = "s1", action = "normalize_data", params = list()))))
+    expect_true("run_milo" %in% abundance$required)
+    expect_false("run_de_test" %in% abundance$required)
+
+    integrate <- coverage(goal_coverage_plan(
+        "Remove the batch effect and integrate the samples.",
+        list(list(id = "s1", action = "normalize_data", params = list()))))
+    expect_true("run_integration" %in% integrate$required)
+
     ## No goal: nothing to check.
     none <- coverage(goal_coverage_plan(NULL,
         list(list(id = "s1", action = "normalize_data", params = list()))))
