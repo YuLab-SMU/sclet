@@ -67,3 +67,23 @@ test_that("confirm_design refuses unknown columns and empty roles", {
     bad <- action$prerequisites(sce, list(batch = "sample_id"))
     expect_true(grepl("design_role_invalid", bad, fixed = TRUE))
 })
+
+test_that("a plan may reference step.output.reduction after integration", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 10L, ncol = 8L,
+            dimnames = list(paste0("g", 1:10), paste0("c", 1:8)))))
+    SummarizedExperiment::colData(sce)$batch <- rep(c("b1", "b2"), each = 4L)
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "integration"))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "integrate then neighbours",
+        actions = list(
+            list(id = "d1", action = "confirm_design", params = list(batch = "batch")),
+            list(id = "i1", action = "run_integration",
+                params = list(method = "fastMNN", batch = "batch")),
+            list(id = "n1", action = "find_neighbors",
+                params = list(reduction = "${i1.output.reduction}", dims = 1:5),
+                depends_on = list("i1"))
+        ))
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
+    expect_false(any(grepl("value_reference_unresolvable", validation$errors)))
+})

@@ -3285,7 +3285,7 @@ sclet_ai_referenceable_output_fields <- function(descriptor = NULL) {
 
     unique(c(
         "class", "n_features", "n_cells", "assays", "reductions",
-        "active_assay", "active_reduction", "fingerprint",
+        "active_assay", "active_reduction", "reduction", "fingerprint",
         "active_ident", "active_graph",
         sclet_ai_exposable_contract_keys(descriptor)
     ))
@@ -3301,6 +3301,11 @@ sclet_ai_execution_summary <- function(value, descriptor = NULL) {
             reductions = SingleCellExperiment::reducedDimNames(value),
             active_assay = sclet_get_active_assay(value),
             active_reduction = tryCatch(DefaultReduction(value), error = function(e) NULL),
+            # Alias for `active_reduction`: plans naturally chain
+            # `find_neighbors(reduction = "${step.output.reduction}")` after an
+            # integration step, and used to be rejected because only the longer
+            # name was referenceable (full Kang, 2026-10-18).
+            reduction = tryCatch(DefaultReduction(value), error = function(e) NULL),
             fingerprint = tryCatch(GetAnalysisLedger(value)$fingerprint, error = function(e) NULL)
         )
         # Observed state, not declared state: the object really has these. They
