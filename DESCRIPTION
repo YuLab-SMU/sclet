@@ -83,6 +83,7 @@ Suggests:
     harmony,
     HDF5Array,
     iSEE,
+    limma,
     mgcv,
     miloR,
     nichenetr,
@@ -179,6 +180,7 @@ Collate:
     'interop.R'
     'io.R'
     'layers.R'
+    'malignancy.R'
     'markers.R'
     'matrix-utils.R'
     'multimodal.R'
