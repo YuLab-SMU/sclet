@@ -149,3 +149,70 @@ test_that("RunAIAnalysis surfaces the goal gap in its report", {
     expect_true("goal_coverage" %in% names(result$report))
     expect_true("run_annotation" %in% result$report$goal_coverage$missing)
 })
+
+test_that("a condition contrast the action set cannot express is refused, not faked", {
+    ## Kang IFN-beta run (2026-10-18): goal asked "compare stimulated versus
+    ## control within donors"; the plan ran FindAllMarkers (CLUSTERS) and
+    ## validated. Reporting cluster markers as the stimulation contrast is worse
+    ## than refusing.
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(stats::rpois(25L * 8L, 5), nrow = 25L, ncol = 8L,
+            dimnames = list(paste0("gene_", seq_len(25L)), paste0("c", seq_len(8L)))))
+    )
+    SummarizedExperiment::colData(sce)$condition <- rep(c("ctrl", "stim"), each = 4L)
+
+    find_all <- sclet:::new_sclet_ai_plan(task = "contrast",
+        actions = list(list(id = "s1", action = "run_de_test", params = list(name = "m"))))
+    contrast <- sclet:::sclet_ai_goal_contrast_check(
+        "Compare stimulated versus control cells", find_all, sce)
+    expect_true(contrast$blocked)
+    expect_true(grepl("FindAllMarkers", contrast$reason, fixed = TRUE))
+    expect_equal(contrast$group_columns, "condition")
+
+    two_groups <- sclet:::new_sclet_ai_plan(task = "contrast",
+        actions = list(list(id = "s1", action = "run_de_test",
+            params = list(ident.1 = "c1", ident.2 = "c2", name = "m"))))
+    expect_false(sclet:::sclet_ai_goal_contrast_check(
+        "Compare stimulated versus control cells", two_groups, sce)$blocked)
+
+    ## A goal that does not ask for a group comparison is never blocked.
+    expect_false(sclet:::sclet_ai_goal_contrast_check(
+        "Find marker genes for each cluster", find_all, sce)$blocked)
+    ## No condition-like column means there is no contrast to misinterpret.
+    plain <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 5L, ncol = 4L)))
+    expect_false(sclet:::sclet_ai_goal_contrast_check(
+        "Compare stimulated versus control cells", find_all, plain)$blocked)
+})
+
+test_that("RunAIAnalysis returns unsupported_goal without executing the plan", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(stats::rpois(40L * 12L, 5), nrow = 40L, ncol = 12L,
+            dimnames = list(paste0("gene_", seq_len(40L)), paste0("c", seq_len(12L)))))
+    )
+    SummarizedExperiment::colData(sce)$condition <- rep(c("ctrl", "stim"), each = 6L)
+    old <- options(sclet.ai.call = function(task, context, ...) {
+        new_sclet_ai_result(
+            "analysis_plan",
+            answer = "cluster markers",
+            context = list(schema_version = "1.0", fingerprint = "test"),
+            proposed_actions = list(
+                list(id = "s1", action = "normalize_data", params = list()),
+                list(id = "s2", action = "find_variable_features", params = list(nfeatures = 20L)),
+                list(id = "s3", action = "scale_data", params = list()),
+                list(id = "s4", action = "run_pca", params = list(ncomponents = 10L)),
+                list(id = "s5", action = "find_neighbors", params = list(dims = 1:5)),
+                list(id = "s6", action = "find_clusters", params = list()),
+                list(id = "s7", action = "run_de_test", params = list(name = "markers"))
+            )
+        )
+    })
+    on.exit(options(old), add = TRUE)
+
+    result <- RunAIAnalysis(sce, goal = "Compare stimulated versus control cells.",
+        model = "mock", confirm = TRUE, include = "all", interpret = FALSE,
+        record = FALSE)
+    expect_equal(result$status, "unsupported_goal")
+    expect_null(result$execution)
+    expect_true(grepl("FindAllMarkers", result$report$goal_contrast$reason, fixed = TRUE))
+})

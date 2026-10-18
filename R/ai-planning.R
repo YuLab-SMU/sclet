@@ -1220,6 +1220,65 @@ sclet_ai_user_decision_prompt_line <- function() {
     )
 }
 
+# Does the goal ask for a contrast between experimental groups, and can the
+# plan express it?
+#
+# Kang IFN-beta real-data run (2026-10-18): the goal asked to "compare
+# stimulated versus control cells within donors"; the plan ran
+# `run_de_test()` with no `ident.1`/`ident.2`, which is FindAllMarkers -- a
+# comparison of CLUSTERS, not conditions. It validated (the action is legal),
+# executed, and the session reported success with `ev:findallmarkers`. Nothing
+# in the pipeline noticed that the numbers do not answer the question, which is
+# worse than refusing: a report about cluster markers reads like a report about
+# stimulation.
+#
+# The current registry has no design/condition-aware DE action, so a condition
+# contrast cannot be expressed at all. This check therefore BLOCKS execution
+# when all of the following hold: the goal names both a comparison and an
+# experimental group word; the object has a non-identity column that looks like
+# such a group; and no DE step names both `ident.1` and `ident.2`. It returns a
+# reason list so the caller can report what was missing instead of guessing.
+sclet_ai_goal_contrast_check <- function(goal, plan, object) {
+    empty <- list(blocked = FALSE, reason = NULL, group_columns = character())
+    if (is.null(goal) || !length(goal) || !nzchar(trimws(as.character(goal)[[1L]]))) {
+        return(empty)
+    }
+    goal <- as.character(goal)[[1L]]
+    compares <- grepl("compar|versus|vs\\.?|between|differ", goal, ignore.case = TRUE)
+    group_word <- grepl("stimulat|control|condition|treat|disease|healthy|case",
+        goal, ignore.case = TRUE)
+    if (!(compares && group_word)) return(empty)
+
+    cd <- SummarizedExperiment::colData(object)
+    candidates <- grep("^(condition|stim|stimulation|treatment|treat|group|disease|status|healthy|case)$",
+        colnames(cd), ignore.case = TRUE, value = TRUE)
+    if (!length(candidates)) return(empty)
+
+    de_steps <- Filter(function(action) {
+        identical(as.character(action$action %||% "")[[1L]], "run_de_test")
+    }, plan$actions %||% list())
+    expressible <- any(vapply(de_steps, function(action) {
+        params <- action$params %||% list()
+        !is.null(params$ident.1) && !is.null(params$ident.2) &&
+            length(params$ident.1) > 0L && length(params$ident.2) > 0L
+    }, logical(1L)))
+    if (expressible) return(empty)
+
+    list(
+        blocked = TRUE,
+        reason = paste0(
+            "goal_contrast_unavailable: the goal asks for a comparison between ",
+            paste(candidates, collapse = "/"),
+            " groups, but no step compares those groups. The current action set ",
+            "has no condition/donor-aware DE action: `run_de_test` with no ",
+            "ident.1/ident.2 is FindAllMarkers, a comparison of CLUSTERS. ",
+            "Reporting cluster markers as the requested contrast would answer a ",
+            "different question."
+        ),
+        group_columns = candidates
+    )
+}
+
 # Which registered action a goal phrase asks for.
 #
 # A plan can be valid and still not answer the question that was asked: on the

@@ -377,6 +377,33 @@ RunAIAnalysis <- function(
         ))
     }
 
+    # A valid plan can still answer a different question (cluster markers
+    # presented as a condition contrast). Refuse before executing rather than
+    # return numbers with the wrong meaning; the reason says what is missing.
+    goal_contrast <- sclet_ai_goal_contrast_check(goal, plan, object)
+    if (isTRUE(goal_contrast$blocked)) {
+        return(structure(
+            list(
+                object = object,
+                plan = plan,
+                registry = registry,
+                validation = validation,
+                preview = NULL,
+                execution = NULL,
+                status = "unsupported_goal",
+                report = list(
+                    status = "unsupported_goal",
+                    goal = goal,
+                    errors = validation$errors,
+                    warnings = validation$warnings,
+                    goal_contrast = goal_contrast,
+                    clarification = sclet_ai_format_clarification(character())
+                )
+            ),
+            class = c("sclet_ai_analysis", "list")
+        ))
+    }
+
     preview <- ExecuteAIPlan(
         object,
         plan,
@@ -468,6 +495,7 @@ RunAIAnalysis <- function(
         # Reported here, and fed back as one planning round inside
         # AIPlanAnalysis when the gap is detected.
         goal_coverage = plan$metadata$goal_coverage %||% NULL,
+        goal_contrast = goal_contrast,
         plan_record_error = plan_record_error
     )
     if (isTRUE(interpret) && execution$status %in% c("completed", "completed_with_errors")) {
