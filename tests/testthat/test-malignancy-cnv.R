@@ -86,15 +86,29 @@ test_that("agreeing two-line evidence gives malignant, disagreeing gives undeter
     n <- ncol(sce)
     # Cells 1..30 carry the MAL programme; give them the high CNV burden.
     burden <- c(rep(0.120, 30), rep(0.052, n - 30))
-    # Make 10 signature-negative cells CNV-positive: evidence conflict.
+    # Make 10 signature-negative cells CNV-positive: evidence conflict. The
+    # groups are placed so that the signature cutoff below falls in the gap
+    # between the two score distributions rather than on a cell.
     burden[31:40] <- 0.120
     sce <- sclet_cnv_test_record(sce, burden)
 
     # An explicit transcriptomic cutoff keeps the boundary off a cell: the
     # fixture's two programmes are separated, so 0 is between them.
+    # Place the cutoff in the gap between the two score populations rather
+    # than at a round number that can land on a cell.
+    tcut <- stats::median(cd_all <- SummarizedExperiment::colData(
+        suppressWarnings(CallMalignantCells(sce, signature = sclet_cnv_test_signature(),
+                                            transcriptomic_cut = -Inf)))$malignant_call_signature_score)
+    scores <- SummarizedExperiment::colData(
+        suppressWarnings(CallMalignantCells(sce, signature = sclet_cnv_test_signature()))
+    )$malignant_call_signature_score
+    on <- scores[1:30]
+    off <- scores[31:n]
+    tcut <- (min(on) + max(off)) / 2
+
     res <- suppressWarnings(
         CallMalignantCells(sce, signature = sclet_cnv_test_signature(),
-                           transcriptomic_cut = 0)
+                           transcriptomic_cut = tcut)
     )
     cd <- SummarizedExperiment::colData(res)
     st <- cd$malignant_call_state

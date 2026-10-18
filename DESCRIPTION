@@ -189,6 +189,7 @@ Collate:
     'malignancy.R'
     'malignancy-cnv.R'
     'malignancy-combine.R'
+    'phenotype-evidence.R'
     'markers.R'
     'matrix-utils.R'
     'multimodal.R'

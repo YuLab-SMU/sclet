@@ -74,9 +74,43 @@ which separates the same groups by **+0.038** (malignant 0.088-0.108, reference
 0.051-0.058). A median, not the reference mean, so that a large amplified tract
 cannot pull its own baseline toward itself.
 
-### Layer 3: the four-state call (`R/malignancy-combine.R`)
+### Layer 3: the generic evidence registry (`R/phenotype-evidence.R`)
 
-`CallMalignantCells()` refuses to resolve disagreeing evidence by majority.
+Extracted from the malignant call rather than bolted on afterwards: the first
+version hard-coded inferCNV as "the second line", which was a design defect, not
+just a missing generalisation.
+
+`PhenotypeEvidenceProviders()` holds named providers. A provider is a plain list
+(`available()`, `decide()`, `dependence`), so a user registers their own without
+subclassing anything. `CallPhenotypeCells()` counts lines and reports a four-state
+call: `supported` (two or more positive), `probable` (one), `undetermined`
+(conflict, nothing usable, or a competing programme explains the split),
+`refuted` (an explicit negative and no positive).
+
+Three rules keep it honest:
+
+* **`dependence`.** A line computed from the same expression matrix as the
+  signature is `shared_with_signature` and cannot count toward `supported`. This
+  is the property the iterative method in `R/malignancy.R` lacks.
+* **Missing is not negative.** A low signature score means the line did not fire,
+  not that the phenotype is absent; only a provider that says `negative` counts
+  as a no. A signature-negative cell with one positive provider is `probable`,
+  not `undetermined` -- and `refuted` requires an explicit negative.
+* **Claims reuse the package's ladder** (`observed` -> `measured` ->
+  `associated` -> `consistent_with`) instead of inventing a second vocabulary for
+  confidence. Nothing reaches `observed`: a per-cell label is never a direct
+  observation of cell state.
+
+The iterative search is deliberately absent here. Iteration is appropriate when
+the cell population itself is unknown; a call built on named evidence is not
+improved by re-deriving its own signature.
+
+### Layer 4: the four-state malignant call (`R/malignancy-combine.R`)
+
+`CallMalignantCells()` is now thin: it names the CNV provider, maps the generic
+call onto the malignant vocabulary, and requires a CNV record rather than
+silently degrading to a signature-only call. It refuses to resolve disagreeing
+evidence by majority.
 
 | State | Condition |
 |---|---|
@@ -109,8 +143,12 @@ the disagreement cells alongside any conclusion.
 
 ## Verification
 
-* `tests/testthat/test-malignancy.R` -- 28 assertions, iterative port.
+* `tests/testthat/test-malignancy.R` -- 39 assertions, iterative port.
 * `tests/testthat/test-malignancy-cnv.R` -- 25 assertions, CNV layer and call.
+* `tests/testthat/test-phenotype-evidence.R` -- 30 assertions, registry and
+  generic call, including that a shared-matrix provider cannot manufacture a
+  two-line call.
+* Full suite 653 tests / 0 failures / 5882 passed.
 * The burden construction is verified against a real inferCNV object, not only a
   synthetic one; inferCNV itself is mocked where a full run is needed because it
   needs JAGS and takes minutes per small sample.
