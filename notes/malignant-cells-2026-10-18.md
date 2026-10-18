@@ -226,3 +226,38 @@ the maintainer to after layers 1 and 2). The reply should state: the port exists
 as a baseline, the three failure modes are now named and tested, and the
 package's answer separates CNV evidence from transcriptional evidence instead of
 re-deriving one from the other.
+
+## First real-data application (2026-10-19)
+
+Data: GSE144735 (KUL3 CRC 10x, raw UMI counts). 300 normal immune/stromal cells
+as the exogenous reference, 800 tumour epithelial cells and 300 normal
+epithelial cells as observations (1,400 cells, 15,132 genes after filtering).
+Transcriptional line derived **per patient** from tumour-vs-normal epithelium
+log-fold changes, keeping genes up in at least 80% of patients and dropping
+ribosomal/mitochondrial families (IFI6, IFITM3, CEACAM6, BST2, ISG15, CDKN2A,
+TFF3, AZGP1, ...). CNV line default: inferCNV, HMM off, reference quantile 0.99.
+
+| measurement | result |
+|---|---|
+| AUROC CNV burden, tumour vs normal epithelium | 0.709 |
+| AUROC CNV burden, tumour vs immune reference | 0.824 |
+| AUROC signature score, tumour vs normal epithelium | 0.894 |
+| CNV-positive cells at q99 (default) | 5 / 800 tumour, 0 / 300 normal epithelium |
+| four-state call at q99 | 1 malignant, 4 likely, 637 undetermined, 158 non-malignant (tumour epithelium) |
+| normal epithelium called malignant/likely | 0 / 300 |
+| threshold q95 (cut 0.113) | tumour 25.2% malignant/likely, normal epithelium 16.7% |
+| threshold q90 (cut 0.102) | tumour 40.8%, normal epithelium 24.3% |
+
+What this says: the signature line works and is biologically plausible, but the
+CNV-burden line separates tumour from normal epithelium only moderately, so the
+two-line call is specific and mostly **undetermined** rather than overconfident.
+Lowering `cnv_cut` buys sensitivity at a steep cost in normal-epithelial false
+positives -- the threshold is doing real work, and the default is conservative.
+The earlier 300-cell smoke run through the AI action layer (with an illustrative
+epithelial marker score) exercised the plumbing only; these numbers are the
+first biological read.
+
+Caveat: one dataset, one 1,400-cell subset, in-sample signature, and inferCNV
+run without HMM. The next step if sensitivity matters is not to lower the cut but
+to improve the CNV evidence (HMM region calls, larger/cleaner reference, or a
+different burden statistic) and re-check the same AUROC.
