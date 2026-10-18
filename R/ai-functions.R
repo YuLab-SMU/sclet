@@ -469,7 +469,7 @@ RunAIAnalysis <- function(
         recorded_plan <- tryCatch(
             RecordAIResult(
                 updated,
-                plan$ai_result,
+                sclet_ai_sanitize_finding_refs(updated, plan$ai_result),
                 id = paste0("ai_plan_", plan$plan_id)
             ),
             error = function(e) conditionMessage(e)
@@ -504,6 +504,8 @@ RunAIAnalysis <- function(
         interpretation_state$result <- NULL
         tryCatch({
             interpretation_state$result <- AIExplainAnalysis(updated, id = execution$execution_id, model = model)
+            interpretation_state$result <- sclet_ai_sanitize_finding_refs(
+                updated, interpretation_state$result)
         }, error = function(e) {
             interpretation_state$error <- conditionMessage(e)
         })

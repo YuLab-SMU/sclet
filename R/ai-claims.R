@@ -945,3 +945,43 @@ sclet_ai_annotate_findings_ceiling <- function(object, result) {
     result$findings <- annotated
     result
 }
+# Drop evidence ids that do not resolve, and label what that leaves behind.
+#
+# A model explanation that cites a non-evidence id (an execution id, an AI
+# result id) used to have the WHOLE interpretation refused: RecordAIResult saw
+# an unresolvable reference and errored, and RunAIAnalysis kept the analysis but
+# lost its report (Kang contrast run, 2026-10-18: 13 findings, then
+# `interpretation_error` and n_findings 0). The citation was wrong; dropping the
+# report is a worse answer than dropping the citation and saying the finding has
+# no support.
+#
+# This strips only ids that do not resolve on the object. A finding left with no
+# reference is downgraded to `hypothesis` (the same floor the claim ceiling
+# applies when support disappears) and the dropped ids travel in metadata for
+# audit. Valid references and the recorded claim level of supported findings are
+# untouched.
+sclet_ai_sanitize_finding_refs <- function(object, result) {
+    findings <- result$findings %||% list()
+    if (!length(findings)) return(result)
+    valid_ids <- names(sclet_ai_evidence_get_all(object))
+    dropped <- character()
+    findings <- lapply(findings, function(finding) {
+        refs <- as.character(finding$evidence_refs %||% character())
+        if (!length(refs)) return(finding)
+        keep <- refs %in% valid_ids
+        if (any(!keep)) dropped <<- c(dropped, refs[!keep])
+        finding$evidence_refs <- refs[keep]
+        if (!any(keep)) {
+            finding$claim_level <- "hypothesis"
+            finding$refs_dropped <- TRUE
+        }
+        finding
+    })
+    result$findings <- findings
+    metadata <- result$metadata %||% list()
+    if (length(dropped)) {
+        metadata$dropped_evidence_refs <- unique(dropped)
+    }
+    result$metadata <- metadata
+    result
+}
