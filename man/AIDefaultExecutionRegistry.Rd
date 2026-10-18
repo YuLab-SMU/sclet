@@ -13,7 +13,7 @@ AIDefaultExecutionRegistry(object, include = "read")
 \code{"read"}, \code{"preprocess"}, \code{"dimred"}, \code{"graph"}, \code{"cluster"},
 \code{"integration"}, \code{"annotation"}, \code{"rare_cell"}, \code{"trajectory"},
 \code{"velocity"}, \code{"fate"}, \code{"spatial"}, \code{"multimodal"}, \code{"enrichment"},
-\code{"communication"}, \code{"milo"}, and \code{"all"}. Defaults to \code{"read"}.}
+\code{"malignant"}, \code{"communication"}, \code{"milo"}, and \code{"all"}. Defaults to \code{"read"}.}
 }
 \value{
 A \code{sclet_ai_execution_registry} containing the requested actions.

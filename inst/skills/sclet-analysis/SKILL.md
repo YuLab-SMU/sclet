@@ -68,6 +68,17 @@ often:
 | small populations the clustering averages over | `run_rare_cell_detection` (+ marker test first) | sub-clustering alone |
 | cell types, against a reference | `run_annotation` | `run_de_test` |
 
+Malignant-cell identification is a TWO-line call. Run
+`run_cnv_inference(reference_col = "<normal-cell column>")` first -- the
+reference must be exogenous (normal cells or normal samples the user named);
+never use clusters the analysis itself produced as the reference. Then call
+`call_malignant_cells(cnv_id = "<the run name>", signature_score = "<colData column>")`
+or pass `signature_genes`. The four states are malignant / likely_malignant /
+undetermined / non_malignant, and `identity_genes` demotes a competing identity
+programme (for a gastric tumour, the intestinal-metaplasia profile). A call
+without a CNV record is refused, because signature-only is not the two-line
+answer.
+
 Condition contrasts are NOT marker tests. To compare stimulated vs control
 (any experimental group column), use
 `run_de_test(group = "condition", ident.1 = "stim", ident.2 = "ctrl")`.

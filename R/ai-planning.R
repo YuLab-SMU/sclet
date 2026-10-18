@@ -293,6 +293,27 @@ sclet_ai_apply_planned_output <- function(planned, descriptor, params) {
     # can depend on them. Deferred projection again: validation accepts the
     # promise, and if the step really fails to register, its own execution-time
     # contract (or the next step's execution) is still the authority.
+    # Records that are not analysis-state records but are still chainable:
+    # `call_malignant_cells` consumes a CNV run by id, and the run does not exist
+    # when the plan is validated. Project the id so a two-step plan validates;
+    # execution re-reads the real record.
+    # A design confirmation THIS plan will perform, as a boolean. Using
+    # `planned$state_records$ai_design_confirmation` was wrong: it also contains
+    # records already on the object, so a STALE confirmation made integration
+    # validate (measured immediately: two stale-design tests failed). Only a
+    # confirm_design step in the plan sets this.
+    if (identical(descriptor$name, "confirm_design")) {
+        planned$design_confirmed <- TRUE
+    }
+    if (identical(descriptor$name, "run_cnv_inference")) {
+        planned$cnv_ids <- unique(c(planned$cnv_ids %||% character(),
+            as.character(params$name %||% "cnv")))
+    }
+    if (identical(descriptor$name, "call_malignant_cells")) {
+        planned$malignant_call_ids <- unique(c(
+            planned$malignant_call_ids %||% character(),
+            as.character(params$name %||% "malignant_call")))
+    }
     produced <- sclet_ai_planned_state_records(descriptor, params)
     for (type in names(produced)) {
         existing <- planned$state_records[[type]] %||% character()
@@ -1402,7 +1423,12 @@ sclet_ai_goal_action_map <- function() {
         run_cci = "communication|ligand|receptor|cell[ -]?cell interaction",
         run_doublet_detection = "doublet",
         run_rare_cell_detection = "rare cell|rare population",
-        run_milo = "abundance|composition|differential abundance|milo"
+        run_milo = "abundance|composition|differential abundance|milo",
+        # The two malignant actions are separate because the CNV run is the
+        # expensive, reference-dependent half; a goal about copy number alone
+        # should not be forced through the call, and a call without it is refused.
+        run_cnv_inference = "copy[ -]?number|CNV|inferCNV|genomic instability",
+        call_malignant_cells = "malignant|malignancy|tumou?r cells?"
     )
 }
 

@@ -516,7 +516,7 @@ sclet_ai_action_param_type_problems <- function(params, schema) {
 #'   `"read"`, `"preprocess"`, `"dimred"`, `"graph"`, `"cluster"`,
 #'   `"integration"`, `"annotation"`, `"rare_cell"`, `"trajectory"`,
 #'   `"velocity"`, `"fate"`, `"spatial"`, `"multimodal"`, `"enrichment"`,
-#'   `"communication"`, `"milo"`, and `"all"`. Defaults to `"read"`.
+#'   `"malignant"`, `"communication"`, `"milo"`, and `"all"`. Defaults to `"read"`.
 #' @return A `sclet_ai_execution_registry` containing the requested actions.
 #' @export
 AIDefaultExecutionRegistry <- function(object, include = "read") {
@@ -524,7 +524,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
         stop("`object` must be a SingleCellExperiment.")
     }
     include <- unique(as.character(include))
-    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "rare_cell", "trajectory", "velocity", "fate", "spatial", "multimodal", "enrichment", "communication", "milo", "all")
+    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "malignant", "rare_cell", "trajectory", "velocity", "fate", "spatial", "multimodal", "enrichment", "communication", "milo", "all")
     if (!length(include) || any(!include %in% allowed_groups)) {
         stop("`include` must contain only: ", paste(allowed_groups, collapse = ", "))
     }
@@ -1009,9 +1009,8 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     # accept that promise (deferred projection), otherwise an
                     # integration plan can never validate on an unconfirmed
                     # object. Execution re-checks against the real state.
-                    planned_design <- planned$state_records$ai_design_confirmation %||%
-                        character()
-                    if (is.null(confirmation) && !length(planned_design)) {
+                    planned_design <- isTRUE(planned$design_confirmed)
+                    if (is.null(confirmation) && !planned_design) {
                         return(paste0(
                             "design_semantics_not_confirmed: call ConfirmAIDesignSemantics(object, design = list(batch = '",
                             batch, "', ...)) before running integration"
@@ -2368,6 +2367,258 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
             )
         ))
     }
+    # Malignant-cell identification as actions (merged 2026-10-18).
+    #
+    # The package grew RunCNVInference()/CallMalignantCells(), but the AI layer
+    # could not reach either -- a planner had no way to name a copy-number run or
+    # the two-line call. These two actions mirror the functions, with the
+    # invariants the feature documents kept in the actions:
+    #
+    #   * the CNV reference must be EXOGENOUS and named by the caller; the
+    #     action refuses to fall back to clusters the analysis itself produced;
+    #   * the call is a TWO-line call; running it without a CNV record would
+    #     silently downgrade it to signature-only under the stronger name, so the
+    #     prerequisite requires the record.
+    if ("malignant" %in% include) {
+        actions <- c(actions, list(
+            run_cnv_inference = AIAction(
+                name = "run_cnv_inference",
+                description = paste0(
+                    "Infer per-cell copy-number burden with inferCNV against an ",
+                    "EXOGENOUS reference: name normal cells with `reference_cells` ",
+                    "or a colData column with `reference_col`. Never use a cluster ",
+                    "the analysis itself produced as the reference."
+                ),
+                handler = function(object, params) {
+                    name <- params$name %||% "cnv"
+                    reference_cells <- if (!is.null(params$reference_cells)) {
+                        sclet_ai_vector_param(params$reference_cells, "character")
+                    } else {
+                        NULL
+                    }
+                    object <- RunCNVInference(
+                        object,
+                        reference_cells = reference_cells,
+                        reference_col = params$reference_col %||% NULL,
+                        species = params$species %||% "human",
+                        assay = params$assay %||% "counts",
+                        hmm = if (is.null(params$hmm)) TRUE else isTRUE(params$hmm),
+                        cutoff = params$cutoff %||% 1,
+                        num_threads = params$num_threads %||% 1,
+                        name = name
+                    )
+                    records <- sclet_get_analysis(object, "malignant_cnv")
+                    record <- records[[name]]
+                    if (is.null(record) || !identical(record$status, "completed")) {
+                        # A recorded `unavailable` state is an honest answer, not a
+                        # failure; no evidence node is written for it.
+                        return(object)
+                    }
+                    burden <- record$burden$burden
+                    values <- list(
+                        n_cells = as.integer(record$n_cells_submitted),
+                        n_cells_retained = as.integer(record$n_cells_retained),
+                        n_cells_dropped = as.integer(length(record$dropped_cells)),
+                        n_reference_cells = as.integer(record$n_reference_cells),
+                        n_genes = as.integer(record$n_genes),
+                        burden_q10 = as.numeric(stats::quantile(burden, 0.1,
+                            na.rm = TRUE, names = FALSE)),
+                        burden_q50 = as.numeric(stats::quantile(burden, 0.5,
+                            na.rm = TRUE, names = FALSE)),
+                        burden_q90 = as.numeric(stats::quantile(burden, 0.9,
+                            na.rm = TRUE, names = FALSE))
+                    )
+                    tryCatch(RecordAIEvidence(object, list(
+                            id = paste0("ev:cnv_", sclet_ai_evidence_id_token(name)),
+                            kind = "deterministic_summary",
+                            values = values,
+                            claim_level = "associated"
+                        ),
+                        source = name,
+                        parents = character(),
+                        scope = NULL), error = function(e) object)
+                },
+                input_schema = list(
+                    reference_cells = "character_vector",
+                    reference_col = "character",
+                    species = c("human", "mouse"),
+                    assay = "character",
+                    name = "character",
+                    hmm = "logical",
+                    cutoff = "number",
+                    num_threads = "integer"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    if (!requireNamespace("inferCNV", quietly = TRUE)) {
+                        return("optional_package_missing: inferCNV is required for copy-number inference; install Bioconductor 'inferCNV'")
+                    }
+                    assays <- SummarizedExperiment::assayNames(object)
+                    assay <- params$assay %||% "counts"
+                    if (!assay %in% assays) {
+                        return(paste0("counts_assay_missing: assay '", assay,
+                            "' not found; inferCNV needs raw counts (available: ",
+                            paste(assays, collapse = ", "), ")"))
+                    }
+                    if (is.null(params$reference_col) && is.null(params$reference_cells)) {
+                        return(paste0(
+                            "reference_missing: copy-number inference needs an ",
+                            "EXOGENOUS reference; name normal cells with ",
+                            "reference_cells, or a colData column with reference_col. ",
+                            "Do not use clusters the analysis itself produced."))
+                    }
+                    if (!is.null(params$reference_col)) {
+                        cd <- colnames(SummarizedExperiment::colData(object))
+                        if (!is.character(params$reference_col) ||
+                                !params$reference_col %in% cd) {
+                            return(paste0("reference_col_missing: '",
+                                params$reference_col, "' is not a colData column (available: ",
+                                paste(cd, collapse = ", "), ")"))
+                        }
+                    }
+                    if (!is.null(params$reference_cells)) {
+                        cells <- sclet_ai_vector_param(params$reference_cells, "character")
+                        known <- intersect(cells, colnames(object))
+                        if (length(known) < 5L) {
+                            return(paste0("reference_too_small: ", length(known),
+                                " supplied reference cell(s) exist on the object; at ",
+                                "least 5 are needed for the CNV cutoff, otherwise the ",
+                                "CNV line is unavailable and the call degrades silently"))
+                        }
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                output_schema = list(
+                    required_states = list(annotation = "any"),
+                    cnv_id = "cnv_record_id"
+                ),
+                allowed_state_types = "annotation",
+                mutates_object = TRUE,
+                requires_confirmation = TRUE,
+                estimated_cost = "high",
+                idempotent = FALSE
+            ),
+            call_malignant_cells = AIAction(
+                name = "call_malignant_cells",
+                description = paste0(
+                    "Combine copy-number and transcriptional evidence into the ",
+                    "four-state malignant call (malignant / likely_malignant / ",
+                    "undetermined / non_malignant). Requires a completed CNV run ",
+                    "and either a signature score column or signature genes; ",
+                    "`identity_genes` names a competing identity programme to ",
+                    "demote."
+                ),
+                handler = function(object, params) {
+                    name <- params$name %||% "malignant_call"
+                    signature <- NULL
+                    if (!is.null(params$signature_genes)) {
+                        genes <- sclet_ai_vector_param(params$signature_genes, "character")
+                        signature <- stats::setNames(list(genes), "malignant")
+                    }
+                    identity_genes <- if (!is.null(params$identity_genes)) {
+                        sclet_ai_vector_param(params$identity_genes, "character")
+                    } else {
+                        NULL
+                    }
+                    object <- CallMalignantCells(
+                        object,
+                        cnv_id = params$cnv_id %||% "cnv",
+                        signature = signature,
+                        signature_score = params$signature_score %||% NULL,
+                        transcriptomic_cut = params$transcriptomic_cut %||% NULL,
+                        cnv_cut = params$cnv_cut %||% NULL,
+                        reference_quantile = params$reference_quantile %||% 0.99,
+                        identity_genes = identity_genes,
+                        identity_demote = params$identity_demote %||% 0.1,
+                        assay = params$assay %||% NULL,
+                        name = name
+                    )
+                    state_col <- SummarizedExperiment::colData(object)[[
+                        paste0(name, "_state")]]
+                    state_counts <- table(as.character(state_col))
+                    state_rec <- tryCatch(
+                        sclet_get_state_record(object, "annotation", name),
+                        error = function(e) NULL)
+                    state_summary <- state_rec$summary %||% list()
+                    values <- list(
+                        n_cells = as.integer(ncol(object)),
+                        n_malignant = as.integer(state_counts[["malignant"]] %||% 0L),
+                        n_likely_malignant = as.integer(state_counts[["likely_malignant"]] %||% 0L),
+                        n_undetermined = as.integer(state_counts[["undetermined"]] %||% 0L),
+                        n_non_malignant = as.integer(state_counts[["non_malignant"]] %||% 0L),
+                        # Read from the call's own state record, where
+                        # CallMalignantCells() computed them, instead of
+                        # re-deriving a second answer here.
+                        cnv_available = as.integer(isTRUE(state_summary$cnv_available)),
+                        identity_conflict = as.integer(isTRUE(state_summary$identity_conflict))
+                    )
+                    tryCatch(RecordAIEvidence(object, list(
+                            id = paste0("ev:malignant_", sclet_ai_evidence_id_token(name)),
+                            kind = "deterministic_summary",
+                            values = values,
+                            claim_level = "associated"
+                        ),
+                        source = name,
+                        parents = character(),
+                        scope = NULL), error = function(e) object)
+                },
+                input_schema = list(
+                    cnv_id = "character",
+                    signature_genes = "character_vector",
+                    signature_score = "character",
+                    transcriptomic_cut = "number",
+                    cnv_cut = "number",
+                    reference_quantile = "number",
+                    identity_genes = "character_vector",
+                    identity_demote = "number",
+                    assay = "character",
+                    name = "character"
+                ),
+                prerequisites = function(object, params, planned = NULL) {
+                    cnv_id <- params$cnv_id %||% "cnv"
+                    records <- sclet_get_analysis(object, "malignant_cnv")
+                    planned_cnv <- planned$cnv_ids %||% character()
+                    have_real <- !is.null(records) && !is.null(records[[cnv_id]])
+                    have_planned <- length(planned_cnv) &&
+                        cnv_id %in% planned_cnv
+                    if (!have_real && !have_planned) {
+                        return(paste0(
+                            "cnv_record_missing: no CNV run '", cnv_id,
+                            "' on the object or earlier in this plan; run ",
+                            "run_cnv_inference first. The malignant call is a ",
+                            "TWO-line call and will not be silently downgraded ",
+                            "to signature-only."))
+                    }
+                    if (is.null(params$signature_genes) && is.null(params$signature_score)) {
+                        return(paste0(
+                            "signature_missing: the malignant call needs a ",
+                            "transcriptional line -- pass signature_score (a colData ",
+                            "column) or signature_genes"))
+                    }
+                    if (!is.null(params$signature_score)) {
+                        cd <- colnames(SummarizedExperiment::colData(object))
+                        if (!is.character(params$signature_score) ||
+                                !params$signature_score %in% cd) {
+                            return(paste0("signature_score_missing: '",
+                                params$signature_score, "' is not a colData column (available: ",
+                                paste(cd, collapse = ", "), ")"))
+                        }
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                output_schema = list(
+                    required_states = list(annotation = "any"),
+                    malignant_call_id = "malignant_call_record_id"
+                ),
+                allowed_state_types = "annotation",
+                mutates_object = TRUE,
+                requires_confirmation = TRUE,
+                estimated_cost = "low",
+                idempotent = FALSE
+            )
+        ))
+    }
     if ("enrichment" %in% include) {
         actions <- c(actions, list(
             run_enrichment = AIAction(
@@ -3344,6 +3595,25 @@ sclet_ai_execution_summary <- function(value, descriptor = NULL) {
             NULL
         }
         if (length(detest_ids)) summary$detest_id <- detest_ids[[1L]]
+
+        # Chainable ids for the malignant workflow, observed from the returned
+        # object (the step records them under their analysis maps).
+        cnv_ids <- if (isTRUE((descriptor %||% list())$name == "run_cnv_inference")) {
+            tryCatch(names(sclet_get_analysis(value, "malignant_cnv")),
+                error = function(e) character())
+        } else {
+            NULL
+        }
+        if (length(cnv_ids)) summary$cnv_id <- cnv_ids[[length(cnv_ids)]]
+        malignant_ids <- if (isTRUE((descriptor %||% list())$name == "call_malignant_cells")) {
+            tryCatch(names(sclet_get_analysis(value, "phenotype_call")),
+                error = function(e) character())
+        } else {
+            NULL
+        }
+        if (length(malignant_ids)) {
+            summary$malignant_call_id <- malignant_ids[[length(malignant_ids)]]
+        }
 
         # Declared contract keys fill whatever the observations did not already
         # establish. An observation must never be overwritten by a declaration.
