@@ -4,7 +4,16 @@
 \alias{RunDEtest}
 \title{RunDEtest}
 \usage{
-RunDEtest(object, ident.1 = NULL, ident.2 = NULL, name = "detest", ...)
+RunDEtest(
+  object,
+  ident.1 = NULL,
+  ident.2 = NULL,
+  name = "detest",
+  group = NULL,
+  covariates = NULL,
+  min_cells = 10L,
+  ...
+)
 }
 \arguments{
 \item{object}{A SingleCellExperiment object}
@@ -14,6 +23,18 @@ RunDEtest(object, ident.1 = NULL, ident.2 = NULL, name = "detest", ...)
 \item{ident.2}{A second identity class for comparison}
 
 \item{name}{Analysis record id. Defaults to "detest".}
+
+\item{group}{Optional colData column to contrast instead of the active
+identity (e.g. "condition"). When given, ident.1/ident.2 are levels of that
+column.}
+
+\item{covariates}{Optional colData columns to adjust the group contrast for.
+With covariates the test is pseudobulk per covariate combination and
+limma, design `~ group + covariates` (a paired analysis when the covariate
+is the donor). Without covariates the existing cell-level FindMarkers is
+used and donor/batch structure is NOT adjusted; the state records which.}
+
+\item{min_cells}{Minimum cells per pseudobulk sample (default 10).}
 
 \item{...}{Passed to FindMarkers or FindAllMarkers}
 }

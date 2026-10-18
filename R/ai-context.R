@@ -888,6 +888,23 @@ sclet_ai_resolve_ident_value <- function(object, value) {
     resolved
 }
 
+
+# Resolve a value against an arbitrary colData column (condition, treatment).
+#
+# Cluster identity codes look like group_1 and are resolved against the active
+# identity; a condition contrast must match that column's own values instead.
+# Unknown values are returned untouched so validation reports them rather than
+# silently dropping the request.
+sclet_ai_resolve_group_value <- function(object, group, value) {
+    if (is.null(value) || !length(value)) return(value)
+    if (!is.character(value)) return(value)
+    if (is.null(group) || !group %in% colnames(SummarizedExperiment::colData(object))) {
+        return(sclet_ai_resolve_ident_value(object, value))
+    }
+    levels <- unique(as.character(SummarizedExperiment::colData(object)[[group]]))
+    value[vapply(value, function(v) as.character(v) %in% levels, logical(1L))]
+}
+
 sclet_ai_blocked_actions <- function(health) {
     list(
         execute_analysis = list(

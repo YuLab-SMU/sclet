@@ -972,16 +972,26 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
         actions <- c(actions, list(
             run_de_test = AIAction(
                 name = "run_de_test",
-                description = "Run a differential-expression or all-cluster marker analysis and register evidence.",
+                description = "Run a differential-expression or all-cluster marker analysis and register evidence. For an experimental-group contrast (condition/treatment/disease) set group = the colData column and ident.1/ident.2 to its levels; add covariates = a colData column such as donor for a paired pseudobulk analysis.",
                 handler = function(object, params) {
                     ident.1 <- if (!is.null(params$ident.1)) sclet_ai_vector_param(params$ident.1, "character") else NULL
                     ident.2 <- if (!is.null(params$ident.2)) sclet_ai_vector_param(params$ident.2, "character") else NULL
-                    ident.1 <- sclet_ai_resolve_ident_value(object, ident.1)
-                    ident.2 <- sclet_ai_resolve_ident_value(object, ident.2)
+                    group <- if (!is.null(params$group)) sclet_ai_vector_param(params$group, "character") else NULL
+                    covariates <- if (!is.null(params$covariates)) sclet_ai_vector_param(params$covariates, "character") else NULL
+                    if (!is.null(group)) {
+                        if (length(group) != 1L) stop("`group` must be one colData column name.")
+                        ident.1 <- sclet_ai_resolve_group_value(object, group, ident.1)
+                        ident.2 <- sclet_ai_resolve_group_value(object, group, ident.2)
+                    } else {
+                        ident.1 <- sclet_ai_resolve_ident_value(object, ident.1)
+                        ident.2 <- sclet_ai_resolve_ident_value(object, ident.2)
+                    }
                     result <- RunDEtest(
                         object,
                         ident.1 = ident.1,
                         ident.2 = ident.2,
+                        group = group,
+                        covariates = covariates,
                         name = params$name %||% if (is.null(ident.1)) "findallmarkers" else "detest",
                         min.pct = params$min.pct %||% 0.01,
                         logfc.threshold = params$logfc.threshold %||% 0.1
@@ -1009,7 +1019,11 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                             top_n <- 10L
                             ord <- order(ifelse(up, -artifact[[logfc_col]], NA_real_), na.last = NA)
                             top_genes <- if (length(ord)) as.character(rownames(artifact)[utils::head(ord[seq_len(min(top_n, length(ord)))], top_n)]) else character()
-                            idents <- Idents(result)
+                            idents <- if (!is.null(group)) {
+                                as.character(SummarizedExperiment::colData(result)[[group]])
+                            } else {
+                                Idents(result)
+                            }
                             groups <- unique(as.character(idents))
                             aggregate_values <- list(
                                 n_rows = as.integer(nrow(artifact)),
@@ -1029,7 +1043,16 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                             aggregate_values$annotation_method_code <- 1L
                             aggregate_values$annotation_scope_code <- 2L
                             evidence <- list(
-                                id = if (is.null(ident.1)) "ev:findallmarkers" else paste0("ev:detest_", paste(ident.1, collapse = "_"), if (length(ident.2)) paste0("_vs_", paste(ident.2, collapse = "_"))),
+                                id = if (is.null(ident.1)) {
+                                    "ev:findallmarkers"
+                                } else if (!is.null(group)) {
+                                    paste0("ev:detest_", group, "_",
+                                        paste(ident.1, collapse = "_"), "_vs_",
+                                        paste(ident.2, collapse = "_"))
+                                } else {
+                                    paste0("ev:detest_", paste(ident.1, collapse = "_"),
+                                        if (length(ident.2)) paste0("_vs_", paste(ident.2, collapse = "_")))
+                                },
                                 kind = "deterministic_summary",
                                 values = aggregate_values,
                                 claim_level = "associated"
@@ -1045,6 +1068,8 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 input_schema = list(
                     ident.1 = "character_vector",
                     ident.2 = "character_vector",
+                    group = "character",
+                    covariates = "character_vector",
                     name = "character",
                     min.pct = "number",
                     logfc.threshold = "number"
@@ -1052,6 +1077,40 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 prerequisites = function(object, params, planned = NULL) {
                     ident.1 <- if (is.null(params$ident.1)) NULL else sclet_ai_vector_param(params$ident.1, "character")
                     ident.2 <- if (is.null(params$ident.2)) NULL else sclet_ai_vector_param(params$ident.2, "character")
+                    group <- if (is.null(params$group)) NULL else sclet_ai_vector_param(params$group, "character")
+                    covariates <- if (is.null(params$covariates)) NULL else sclet_ai_vector_param(params$covariates, "character")
+                    if (!is.null(group)) {
+                        cd <- SummarizedExperiment::colData(object)
+                        if (length(group) != 1L || !group %in% colnames(cd)) {
+                            return(paste0("group_missing: 'group' must name one colData column; available: ",
+                                paste(colnames(cd), collapse = ", ")))
+                        }
+                        values <- unique(as.character(cd[[group]]))
+                        if (is.null(ident.1) || is.null(ident.2) ||
+                                length(ident.1) != 1L || length(ident.2) != 1L) {
+                            return(paste0("contrast_missing: a '", group,
+                                "' contrast needs one ident.1 and one ident.2 (levels: ",
+                                paste(values, collapse = ", "), ")"))
+                        }
+                        if (!ident.1 %in% values || !ident.2 %in% values) {
+                            return(paste0("contrast_invalid: ident.1/ident.2 must be levels of '",
+                                group, "': ", paste(values, collapse = ", ")))
+                        }
+                        if (identical(ident.1, ident.2)) {
+                            return("contrast_invalid: ident.1 and ident.2 must differ")
+                        }
+                        if (length(covariates)) {
+                            missing <- setdiff(covariates, colnames(cd))
+                            if (length(missing)) {
+                                return(paste0("covariates_missing: ",
+                                    paste(missing, collapse = ", ")))
+                            }
+                            if (!requireNamespace("limma", quietly = TRUE)) {
+                                return("covariates_unavailable: covariate-adjusted DE needs the 'limma' package; install it or omit covariates (unadjusted cell-level test)")
+                            }
+                        }
+                        return(TRUE)
+                    }
                     active_ident <- ActiveIdent(object)
                     planned_ident <- (planned %||% list())$active_ident
                     if (!is.null(planned_ident) &&

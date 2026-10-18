@@ -175,7 +175,20 @@ FindMarkers <- function(
 #' @param ... Passed to FindMarkers or FindAllMarkers
 #' @return A SingleCellExperiment object with detest state added
 #' @export
-RunDEtest <- function(object, ident.1 = NULL, ident.2 = NULL, name = "detest", ...) {
+RunDEtest <- function(object, ident.1 = NULL, ident.2 = NULL, name = "detest",
+                      group = NULL, covariates = NULL, min_cells = 10L, ...) {
+    if (!is.null(group)) {
+        return(sclet_run_condition_de(
+            object,
+            group = group,
+            ident.1 = ident.1,
+            ident.2 = ident.2,
+            covariates = covariates,
+            name = name,
+            min_cells = min_cells,
+            ...
+        ))
+    }
     if (is.null(ident.1)) {
         res <- FindAllMarkers(object, ...)
         method <- "FindAllMarkers"
@@ -310,4 +323,209 @@ FindMarkers_Presto <- function(object, ident.1 = NULL, ident.2 = NULL, clusters,
     rownames(combined_results) <- combined_results$feature
     combined_results$feature <- NULL
     return(combined_results)
+}
+
+# Differential expression for a colData GROUP (condition, treatment, disease),
+# not for clusters.
+#
+# Why this exists: `run_de_test()` compared identity levels only, so a goal
+# asking "stimulated vs control within donors" was answered with cluster
+# markers (Kang IFN-beta real-data run, 2026-10-18). Two paths, deliberately
+# separate because they answer with different evidence:
+#
+#   * no covariates -> the existing cell-level FindMarkers on the requested
+#     column. Cheap, but cells are treated as independent: donor or batch
+#     structure is NOT adjusted. The state records that.
+#   * covariates (e.g. donor) -> pseudobulk per donor x condition and limma on
+#     log2 CPM with design ~ condition + covariates. This is the paired
+#     analysis "within donors" actually means; a covariate must appear in BOTH
+#     conditions for the paired contrast, otherwise the design cannot estimate
+#     it and the call stops instead of returning an unadjusted table under a
+#     paired label.
+#
+# The result keeps the marker-table schema (gene, cluster, avg_log2FC, pval,
+# padj, pct.1, pct.2) so downstream evidence/claims code is unchanged; `cluster`
+# names the contrast and the state inputs record `design` and `adjustment`.
+sclet_run_condition_de <- function(object, group, ident.1, ident.2,
+        covariates = NULL, name = "detest", min_cells = 10L, ...) {
+    if (!is.character(group) || length(group) != 1L || is.na(group) || !nzchar(group)) {
+        stop("`group` must be one colData column name.")
+    }
+    cd <- SummarizedExperiment::colData(object)
+    if (!group %in% colnames(cd)) {
+        stop("`group` column '", group, "' not found in colData.")
+    }
+    values <- as.character(cd[[group]])
+    if (!is.character(ident.1) || length(ident.1) != 1L || !nzchar(ident.1)) {
+        stop("`ident.1` must be one level of `", group, "`.")
+    }
+    if (!is.character(ident.2) || length(ident.2) != 1L || !nzchar(ident.2)) {
+        stop("`ident.2` must be one level of `", group, "`.")
+    }
+    if (identical(ident.1, ident.2)) {
+        stop("`ident.1` and `ident.2` must name two different levels of `", group, "`.")
+    }
+    present <- unique(values[!is.na(values)])
+    if (!ident.1 %in% present || !ident.2 %in% present) {
+        stop("`", group, "` has levels ", paste(present, collapse = ", "),
+            "; both ident.1 and ident.2 must be among them.")
+    }
+
+    if (is.null(covariates) || !length(covariates)) {
+        adjustment <- "none (cell-level test; donor/batch structure not adjusted)"
+        design_label <- paste0("~ ", group)
+        previous <- ActiveIdent(object)
+        object <- `ActiveIdent<-`(object, group)
+        res <- tryCatch(FindMarkers(object, ident.1 = ident.1,
+            ident.2 = ident.2, ...), error = function(e) e)
+        if (!is.null(previous)) object <- `ActiveIdent<-`(object, previous)
+        if (inherits(res, "error")) stop(conditionMessage(res))
+        method <- paste0("FindMarkers (", group, " contrast)")
+    } else {
+        covariates <- as.character(covariates)
+        missing <- setdiff(covariates, colnames(cd))
+        if (length(missing)) {
+            stop("covariate column(s) not found in colData: ",
+                paste(missing, collapse = ", "))
+        }
+        if (!requireNamespace("limma", quietly = TRUE)) {
+            stop("covariate-adjusted differential expression needs the 'limma' ",
+                "package; install it or call without `covariates` (unadjusted).")
+        }
+        adjustment <- paste0("pseudobulk per ", paste(covariates, collapse = " x "),
+            " and limma, design ~ ", group, " + ",
+            paste(covariates, collapse = " + "))
+        design_label <- paste0("~ ", group, " + ", paste(covariates, collapse = " + "))
+        res <- sclet_pseudobulk_condition_de(object, group = group,
+            ident.1 = ident.1, ident.2 = ident.2, covariates = covariates,
+            min_cells = min_cells, ...)
+        method <- paste0("Pseudobulk limma (", group, " contrast, paired by ",
+            paste(covariates, collapse = ","), ")")
+    }
+
+    object <- sclet_set_analysis_state(
+        object = object,
+        type = "detest",
+        id = name,
+        method = method,
+        inputs = list(
+            ident.1 = ident.1,
+            ident.2 = ident.2,
+            group = group,
+            covariates = covariates %||% character(),
+            design = design_label,
+            adjustment = adjustment,
+            active_ident = ActiveIdent(object)
+        ),
+        artifacts = list(result = res),
+        summary = list(
+            n_markers = nrow(res),
+            contrast = paste0(ident.1, "_vs_", ident.2),
+            adjustment = adjustment
+        ),
+        active = TRUE
+    )
+    object
+}
+
+# Pseudobulk condition contrast for one or more covariates.
+#
+# Aggregates counts per covariate combination x condition, keeps genes with
+# CPM >= 1 in at least two samples, fits limma on log2 CPM with the condition
+# coefficient, and reports detection fractions from the cell-level data. The
+# design requires every covariate combination to contain BOTH conditions;
+# otherwise a paired contrast is not identifiable and the call stops rather
+# than silently dropping the pairing.
+sclet_pseudobulk_condition_de <- function(object, group, ident.1, ident.2,
+        covariates, min_cells = 10L, assay = "counts", min.pct = 0.01,
+        logfc.threshold = 0.1, ...) {
+    if (!"counts" %in% SummarizedExperiment::assayNames(object)) {
+        stop("pseudobulk differential expression requires a 'counts' assay.")
+    }
+    cd <- as.data.frame(SummarizedExperiment::colData(object))
+    keep <- !is.na(cd[[group]]) & cd[[group]] %in% c(ident.1, ident.2) &
+        stats::complete.cases(cd[, covariates, drop = FALSE])
+    if (!any(keep)) stop("no cells carry both the requested groups and covariates")
+    meta_cells <- cd[keep, c(group, covariates), drop = FALSE]
+    key <- do.call(paste, c(lapply(covariates, function(v) as.character(meta_cells[[v]])),
+        list(sep = "|")))
+    cond <- factor(as.character(meta_cells[[group]]), levels = c(ident.2, ident.1))
+    sample_id <- paste(key, as.character(cond), sep = "@")
+    split_idx <- split(which(keep), sample_id)
+    sizes <- lengths(split_idx)
+    split_idx <- split_idx[sizes >= min_cells]
+    if (!length(split_idx)) {
+        stop("no covariate x condition sample had at least ", min_cells, " cells")
+    }
+    sample_meta <- do.call(rbind, lapply(names(split_idx), function(sid) {
+        idx <- split_idx[[sid]]
+        data.frame(
+            sample = sid,
+            condition = as.character(meta_cells[[group]])[match(idx[1L], which(keep))],
+            stringsAsFactors = FALSE
+        )
+    }))
+    for (v in covariates) {
+        sample_meta[[v]] <- vapply(names(split_idx), function(sid) {
+            idx <- split_idx[[sid]]
+            as.character(meta_cells[[v]])[match(idx[1L], which(keep))]
+        }, character(1))
+    }
+    sample_meta$condition <- factor(sample_meta$condition, levels = c(ident.2, ident.1))
+    if (any(table(sample_meta$condition) < 2L)) {
+        stop("each condition needs at least two pseudobulk samples for a ",
+            "covariate-adjusted contrast; got ",
+            paste(names(table(sample_meta$condition)), table(sample_meta$condition),
+                sep = "=", collapse = ", "))
+    }
+    pairing <- table(sample_meta[, covariates, drop = FALSE])
+    if (!all(pairing >= 2L)) {
+        stop("every ", paste(covariates, collapse = " x "), " combination must ",
+            "contain BOTH conditions (", ident.1, " and ", ident.2,
+            "); the paired contrast is not identifiable otherwise")
+    }
+
+    counts <- SummarizedExperiment::assay(object, assay)
+    pb <- do.call(cbind, lapply(split_idx, function(idx) {
+        Matrix::rowSums(counts[, idx, drop = FALSE])
+    }))
+    colnames(pb) <- names(split_idx)
+    lib <- colSums(pb)
+    cpm <- sweep(pb, 2L, lib, "/") * 1e6
+    keep_gene <- rowSums(cpm >= 1) >= 2L
+    if (sum(keep_gene) < 10L) {
+        stop("too few genes pass the pseudobulk filter (", sum(keep_gene), ")")
+    }
+    logcpm <- log2(sweep(pb[keep_gene, , drop = FALSE] + 0.5, 2L, lib, "/") * 1e6)
+    design <- stats::model.matrix(
+        stats::reformulate(c("condition", covariates)), data = sample_meta)
+    fit <- limma::lmFit(logcpm, design)
+    fit <- limma::eBayes(fit)
+    coef_name <- paste0("condition", ident.1)
+    if (!coef_name %in% colnames(design)) {
+        stop("condition coefficient '", coef_name, "' is not in the design; ",
+            "check the factor levels of '", group, "'")
+    }
+    tt <- limma::topTable(fit, coef = coef_name, number = Inf, sort.by = "P")
+    genes <- rownames(tt)
+    pct <- function(condition) {
+        idx <- which(keep & as.character(cd[[group]]) == condition)
+        rowSums(counts[genes, idx, drop = FALSE] > 0) / length(idx)
+    }
+    out <- data.frame(
+        gene = genes,
+        cluster = paste0(ident.1, "_vs_", ident.2),
+        avg_log2FC = tt$logFC,
+        pval = tt$P.Value,
+        padj = tt$adj.P.Val,
+        pct.1 = pct(ident.1),
+        pct.2 = pct(ident.2),
+        stringsAsFactors = FALSE,
+        row.names = NULL
+    )
+    ## Same visibility filters as the cell-level marker table, so callers and
+    ## enrichment see the same kind of table either way.
+    out <- out[(out$pct.1 >= min.pct | out$pct.2 >= min.pct) &
+        abs(out$avg_log2FC) >= logfc.threshold, , drop = FALSE]
+    out[order(out$pval), , drop = FALSE]
 }

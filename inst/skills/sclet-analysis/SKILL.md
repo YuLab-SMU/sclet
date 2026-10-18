@@ -67,6 +67,16 @@ often:
 | likely doublets | `run_doublet_detection` | |
 | small populations the clustering averages over | `run_rare_cell_detection` (+ marker test first) | sub-clustering alone |
 | cell types, against a reference | `run_annotation` | `run_de_test` |
+
+Condition contrasts are NOT marker tests. To compare stimulated vs control
+(any experimental group column), use
+`run_de_test(group = "condition", ident.1 = "stim", ident.2 = "ctrl")`.
+Add `covariates = "donor"` for the paired analysis "within donors" actually
+means: the action then runs pseudobulk per donor x condition and limma with
+design `~ condition + donor`. Without covariates it is a cell-level test and
+the donor/batch structure is NOT adjusted -- do not present it as paired.
+Never pass condition levels to ident.1/ident.2 without `group`: those are
+identity levels, so the test would compare clusters.
 | populations signalling to each other | `run_cci` (engine REQUIRED, see below) | `run_de_test` |
 | neighbourhoods changing in abundance | `run_milo` (design REQUIRED, see below) | `run_de_test` |
 | a trajectory and its terminal states | `run_trajectory` / `run_fate_analysis` | |
