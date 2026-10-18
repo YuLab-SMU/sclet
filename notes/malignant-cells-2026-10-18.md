@@ -162,6 +162,42 @@ The lesson worth keeping: the defects were all in the *meaning* of the columns,
 and "every assertion passes" said nothing about them. Each fix now has a
 regression test that fails without it.
 
+
+## What the second audit found
+
+A second pass, reading the implementation rather than the tests, found two
+crash-level defects and three silent ones. The pattern repeats: **every defect
+was in how a value is obtained, not in how it is used.**
+
+**A gene order with no overlap crashed.** Normalising the `chr` column happened
+*after* filtering to matching genes, so an order sharing no id with the object
+assigned a column to a zero-row data frame: `replacement has 1 row, data has 0`.
+Gene-id mismatch (ENSG vs symbol) is the ordinary way to hit it. Normalisation
+now precedes subsetting, and no overlap is a named error that prints both id
+styles.
+
+**The readiness gate counted genes but never checked chromosomes.** inferCNV
+slides a window *along* each chromosome, so 400 genes piled onto chr1 passed a
+`nrow >= 100` gate and reported `ready: TRUE`. Chromosome coverage is now its own
+check. Duplicated gene rows are merged into one interval per gene and reported as
+a note that never blocks the run.
+
+**A provider's cell names were discarded.** A provider returning its states named
+by cell, in a different order than colData, was matched positionally: every cell
+received another cell's verdict, silently. Named states are now matched by name,
+and names that do not match colData are refused.
+
+**Cells dropped by inferCNV vanished.** Its minimum-count filter routinely removes
+cells, which then landed in colData as unexplained NA. The count is now reported
+in a message, in the analysis record and in the state record.
+
+One ordering lesson worth keeping, because it cost two wrong turns here: an
+*input error* and a *missing prerequisite* must not share a gate. A
+non-count assay and too few reference cells both used to be reported only after
+the readiness check, which returned early for an unrelated reason and swallowed
+them. Both are now validated before the gate, so the caller hears about the
+matrix before the gene order.
+
 ## What this deliberately does not claim
 
 There is no per-cell ground truth for malignant identity. `cnv_cut` and

@@ -328,6 +328,19 @@ CallPhenotypeCells <- function(object,
             stop("Provider '", pname, "' returned ", length(st),
                  " states for ", nrow(cdata), " cells.")
         }
+        # A provider that names its states by cell is telling us the order; use
+        # that instead of assuming positional. Without this, a provider that
+        # returns its states in a different order than colData silently assigns
+        # every cell the wrong verdict.
+        if (!is.null(names(decided$state))) {
+            nm <- names(decided$state)
+            if (!setequal(nm, rownames(cdata))) {
+                stop("Provider '", pname, "' returned named states whose names do not ",
+                     "match colData cells (", length(setdiff(nm, rownames(cdata))),
+                     " unknown, ", length(setdiff(rownames(cdata), nm)), " missing).")
+            }
+            st <- unname(st[match(rownames(cdata), nm)])
+        }
         bad <- setdiff(st, c("positive", "negative", "unavailable"))
         if (length(bad) > 0) {
             stop("Provider '", pname, "' returned invalid state(s): ",

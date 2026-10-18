@@ -326,3 +326,41 @@ test_that("the competing report states the groups it compared", {
     expect_equal(rec$competing$alt$n_in_scope, 30L)
     expect_equal(rec$competing$alt$n_residual, 30L)
 })
+
+test_that("a provider naming its states by cell is matched by name", {
+    # Before the fix, a provider whose states came back in a different order than
+    # colData was matched positionally and every cell got another cell's verdict.
+    sce <- sclet_ph_test_sce()
+    cells <- colnames(sce)
+    st <- rep("negative", length(cells))
+    names(st) <- cells
+    rev_provider <- list(
+        name = "reversed", label = "reversed", dependence = "independent",
+        available = function(object, ...) list(available = TRUE),
+        decide = function(object, ...) list(state = rev(st))
+    )
+    PhenotypeEvidenceProviders("register", provider = rev_provider)
+    on.exit(PhenotypeEvidenceProviders("unregister", name = "reversed"), add = TRUE)
+
+    res <- CallPhenotypeCells(sce, signature = sclet_ph_test_sig(),
+                              evidence = "reversed", transcriptomic_cut = 0)
+    # The states were all "negative"; only the ORDER differed.
+    expect_true(all(as.character(SummarizedExperiment::colData(res)$phenotype_call_reversed_state) == "negative"))
+})
+
+test_that("a provider whose names do not match colData is refused", {
+    sce <- sclet_ph_test_sce()
+    st <- rep("positive", length(colnames(sce)))
+    names(st) <- paste0("wrong_", colnames(sce))
+    bad <- list(
+        name = "wrongnames", label = "wrong", dependence = "independent",
+        available = function(object, ...) list(available = TRUE),
+        decide = function(object, ...) list(state = st)
+    )
+    PhenotypeEvidenceProviders("register", provider = bad)
+    on.exit(PhenotypeEvidenceProviders("unregister", name = "wrongnames"), add = TRUE)
+    expect_error(
+        CallPhenotypeCells(sce, signature = sclet_ph_test_sig(), evidence = "wrongnames"),
+        "do not match colData"
+    )
+})

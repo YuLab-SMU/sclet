@@ -268,3 +268,71 @@ test_that("the generic-to-malignant mapping has one rule, not two", {
     # not undetermined.
     expect_gt(sum(cd$malignant_call_state == "non_malignant"), 0L)
 })
+
+## ---------------------------------------------------------------------------
+## Second audit round. Each test fails without its fix.
+## ---------------------------------------------------------------------------
+
+test_that("a gene order with no overlap is an error, not a zero-row crash", {
+    # Before the fix, filtering to zero rows and then assigning a column raised
+    # `replacement has 1 row, data has 0`. Gene-id mismatch (ENSG vs symbol) is
+    # the ordinary way to hit it, so the message has to name both sides.
+    sce <- sclet_cnv_test_sce()
+    ord <- data.frame(gene = sprintf("NOPE%04d", seq_len(400L)), chr = "chr1",
+                      start = seq_len(400L), end = seq_len(400L) + 1L)
+    # readiness REPORTS rather than throws -- that is its contract -- so the
+    # condition has to arrive as an issue string.
+    r <- check_cnv_readiness(sce, reference_col = "reference", gene_order = ord)
+    expect_false(isTRUE(r$ready))
+    expect_true(any(grepl("No gene in .gene_order.", r$issues)))
+    expect_true(any(grepl("NOPE0001", r$issues)))
+})
+
+test_that("readiness refuses a gene order that covers one chromosome", {
+    # inferCNV slides a window ALONG each chromosome. Before the fix the gate was
+    # a gene count only, so 400 genes piled on chr1 reported ready.
+    sce <- sclet_cnv_test_sce()
+    genes <- rep(rownames(sce), length.out = 400L)
+    ord <- data.frame(gene = genes, chr = "chr1",
+                      start = seq_along(genes), end = seq_along(genes) + 1L)
+    r <- check_cnv_readiness(sce, reference_col = "reference", gene_order = ord)
+    expect_false(isTRUE(r$ready))
+    expect_true(any(grepl("chromosome", r$issues)))
+})
+
+test_that("a genome-wide gene order still passes the gate", {
+    sce <- sclet_cnv_test_sce()
+    genes <- rep(rownames(sce), length.out = 400L)
+    chr <- rep(sprintf("chr%d", 1:20), length.out = length(genes))
+    ord <- data.frame(gene = genes, chr = chr,
+                      start = seq_along(genes), end = seq_along(genes) + 1L)
+    r <- check_cnv_readiness(sce, reference_col = "reference", gene_order = ord)
+    expect_true(isTRUE(r$ready))
+    expect_equal(r$n_chromosomes, 20L)
+})
+
+test_that("duplicated gene rows are merged, not forwarded", {
+    # Before the fix, a 440-row order over 220 genes was passed through whole.
+    sce <- sclet_cnv_test_sce()
+    genes <- rep(rownames(sce), length.out = 200L)
+    ord <- data.frame(gene = c(genes, genes), chr = "chr1",
+                      start = seq_along(genes), end = seq_along(genes) + 5L)
+    out <- sclet_cnv_ns("sclet_cnv_gene_order")(sce, gene_order = ord)
+    expect_equal(nrow(out), length(unique(out$gene)))
+    expect_equal(anyDuplicated(out$gene), 0L)
+})
+
+test_that("too few reference cells warn that the CNV line will be unavailable", {
+    # The call already degraded correctly; it did so silently.
+    # NOTE: this must not run inferCNV for real (minutes per call). The warning
+    # fires before the readiness gate and before any inference, so it is enough
+    # to give a gene order that fails the gate and check the warning arrived.
+    sce <- sclet_cnv_test_sce()
+    ref <- colnames(sce)[1:2]
+    ord <- data.frame(gene = sprintf("NOPE%04d", seq_len(400L)), chr = "chr1",
+                      start = seq_len(400L), end = seq_len(400L) + 1L)
+    w <- capture_warnings(
+        RunCNVInference(sce, reference_cells = ref, gene_order = ord, keep_files = FALSE)
+    )
+    expect_true(any(grepl("reference cell", w)))
+})

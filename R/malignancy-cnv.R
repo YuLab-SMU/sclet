@@ -81,11 +81,41 @@ check_cnv_readiness <- function(object,
         ))
     }
 
-    order <- sclet_cnv_gene_order(object, gene_order = gene_order, species = species)
+    # read.table rather than the helper: a gene order with NO overlap must be
+    # REPORTED here, and the helper stops on that condition by design.
+    order <- tryCatch(
+        sclet_cnv_gene_order(object, gene_order = gene_order, species = species),
+        error = function(e) e
+    )
+    if (inherits(order, "error")) {
+        issues <- c(issues, conditionMessage(order))
+        order <- sclet_cnv_empty_order()
+    }
+    n_chr <- if (nrow(order) > 0) length(unique(order$chr)) else 0L
     if (length(issues) == 0 && nrow(order) < 100) {
         issues <- c(issues, sprintf(
             "Only %d genes got a chromosome position. inferCNV needs a genome-wide ordered gene list; supply `gene_order`.",
             nrow(order)
+        ))
+    }
+    # inferCNV builds a sliding window ALONG each chromosome, so a gene order
+    # that piles every gene onto one chromosome produces a method that cannot
+    # see a copy-number profile at all. A gene-count gate alone passed such an
+    # input, which is why it is checked separately here.
+    if (length(issues) == 0 && n_chr < 2) {
+        issues <- c(issues, sprintf(
+            "The gene order covers %d chromosome(s) (%d genes). inferCNV slides a window along each chromosome, so a single chromosome cannot carry a copy-number profile; supply a genome-wide ordered gene list.",
+            n_chr, nrow(order)
+        ))
+    }
+    # Merging duplicated rows is routine (GTF/Ensembl export one row per
+    # transcript), so it is reported as a note and never blocks the run.
+    notes <- character(0)
+    if (!is.null(attr(order, "n_duplicate_genes")) &&
+        attr(order, "n_duplicate_genes") > 0) {
+        notes <- c(notes, sprintf(
+            "%d duplicated gene rows in `gene_order` were merged into one interval per gene.",
+            attr(order, "n_duplicate_genes")
         ))
     }
 
@@ -95,6 +125,8 @@ check_cnv_readiness <- function(object,
         issues = issues,
         n_reference_cells = length(ref),
         n_genes_with_position = nrow(order),
+        n_chromosomes = n_chr,
+        notes = notes,
         gene_order_source = attr(order, "source"),
         infercnv_version = if (has_infercnv) as.character(utils::packageVersion("infercnv")) else NA_character_
     )
@@ -166,6 +198,49 @@ RunCNVInference <- function(object,
     if (!nzchar(name)) {
         stop("`name` must be a non-empty prefix.")
     }
+    # Validate the matrix BEFORE the readiness gate. Readiness now refuses a
+    # single-chromosome gene order, which is correct, but that must not mask a
+    # malformed assay -- a more basic error the caller needs to hear first.
+    if (!assay %in% SummarizedExperiment::assayNames(object)) {
+        stop("Assay '", assay, "' not found; inferCNV models raw counts.")
+    }
+    if (!is.numeric(SummarizedExperiment::assay(object, assay))) {
+        stop("Assay '", assay, "' is not numeric.")
+    }
+    # A non-count matrix is an input error, not a missing prerequisite: report it
+    # rather than letting the readiness gate return `unavailable`, which would
+    # bury the real problem under a gene-order or reference message.
+    probe <- sclet_malignancy_dense(SummarizedExperiment::assay(object, assay))
+    if (any(probe < 0, na.rm = TRUE)) {
+        stop(
+            "Assay '", assay, "' has negative values; inferCNV needs raw counts.",
+            if (assay %in% c("logcounts", "scaled")) {
+                " This looks like a transformed assay -- use assay = \"counts\"."
+            } else ""
+        )
+    }
+    if (any(probe != round(probe), na.rm = TRUE)) {
+        stop(
+            "Assay '", assay, "' holds non-integer values; inferCNV needs raw counts. ",
+            "Coercing would truncate every value silently. Use assay = \"counts\", ",
+            "or round explicitly if you are certain the values are counts."
+        )
+    }
+
+    # The CNV cutoff is estimated from the reference population, so a handful of
+    # reference cells cannot support it and the line stays unavailable. The call
+    # then degrades to signature-only, which is correct but silent -- so say so
+    # before the readiness gate, which may return early for another reason.
+    n_ref <- length(sclet_cnv_resolve_reference(object,
+                                                 reference_cells = reference_cells,
+                                                 reference_col = reference_col))
+    if (n_ref > 0 && n_ref < 5) {
+        warning(sprintf(
+            "Only %d reference cell(s) supplied. The CNV cutoff is estimated from the reference population, so with fewer than 5 the CNV line will be unavailable and the call will degrade to signature-only. Use more normal cells.",
+            n_ref
+        ), call. = FALSE)
+    }
+
     readiness <- check_cnv_readiness(
         object,
         reference_cells = reference_cells,
@@ -179,9 +254,6 @@ RunCNVInference <- function(object,
 
     ref <- sclet_cnv_resolve_reference(object, reference_cells = reference_cells,
                                        reference_col = reference_col)
-    if (!assay %in% SummarizedExperiment::assayNames(object)) {
-        stop("Assay '", assay, "' not found; inferCNV models raw counts.")
-    }
     counts <- SummarizedExperiment::assay(object, assay)
     order <- sclet_cnv_gene_order(object, gene_order = gene_order, species = species)
 
@@ -202,27 +274,6 @@ RunCNVInference <- function(object,
     cnv_counts <- counts[common, , drop = FALSE]
     if (inherits(cnv_counts, "DelayedArray")) {
         cnv_counts <- as.matrix(cnv_counts)
-    }
-    # inferCNV models raw counts. Coercing a normalised matrix to integer would
-    # truncate every value without a word and produce a numerically plausible,
-    # biologically meaningless result, so a non-count matrix is refused.
-    if (!is.numeric(cnv_counts)) {
-        stop("Assay '", assay, "' is not numeric.")
-    }
-    if (any(cnv_counts < 0, na.rm = TRUE)) {
-        stop(
-            "Assay '", assay, "' has negative values; inferCNV needs raw counts.",
-            if (assay %in% c("logcounts", "scaled")) {
-                " This looks like a transformed assay -- use assay = \"counts\"."
-            } else ""
-        )
-    }
-    if (any(cnv_counts != round(cnv_counts), na.rm = TRUE)) {
-        stop(
-            "Assay '", assay, "' holds non-integer values; inferCNV needs raw counts. ",
-            "Coercing would truncate every value silently. Use assay = \"counts\", ",
-            "or round explicitly if you are certain the values are counts."
-        )
     }
     mode(cnv_counts) <- "integer"
 
@@ -267,6 +318,17 @@ RunCNVInference <- function(object,
 
     burden <- sclet_cnv_burden(cnv_obj, cells = colnames(object), ref = ref)
 
+    # inferCNV removes cells below its minimum-count threshold, so the returned
+    # matrix routinely covers fewer cells than were supplied. Those cells would
+    # land in colData as unexplained NA; say how many and why instead.
+    dropped <- setdiff(colnames(object), burden$cell)
+    if (length(dropped) > 0) {
+        message(sprintf(
+            "inferCNV kept %d of %d cells; %d were dropped by its own filters (e.g. min_max_counts_per_cell) and have NA burden. Supply fewer cells or lower inferCNV's cutoff if that is not expected.",
+            length(burden$cell), ncol(object), length(dropped)
+        ))
+    }
+
     cdata <- SummarizedExperiment::colData(object)
     cdata[[paste0(name, "_burden")]] <- burden$burden[match(rownames(cdata), burden$cell)]
     cdata[[paste0(name, "_is_reference")]] <- rownames(cdata) %in% ref
@@ -275,6 +337,9 @@ RunCNVInference <- function(object,
     result <- list(
         status = "completed",
         burden = burden,
+        n_cells_submitted = ncol(object),
+        n_cells_retained = length(burden$cell),
+        dropped_cells = dropped,
         reference_cells = ref,
         n_reference_cells = length(ref),
         n_genes = length(common),
@@ -319,6 +384,8 @@ RunCNVInference <- function(object,
             summary = list(
                 status = "completed",
                 n_cells = ncol(object),
+                n_cells_retained = length(burden$cell),
+                n_cells_dropped = length(dropped),
                 n_reference_cells = length(ref),
                 burden_q = unname(stats::quantile(burden$burden, c(0, 0.25, 0.5, 0.75, 1), na.rm = TRUE))
             ),
@@ -364,6 +431,13 @@ sclet_cnv_resolve_reference <- function(object, reference_cells = NULL, referenc
     character(0)
 }
 
+sclet_cnv_empty_order <- function() {
+    empty <- data.frame(gene = character(0), chr = character(0),
+                        start = numeric(0), end = numeric(0), stringsAsFactors = FALSE)
+    attr(empty, "source") <- "none"
+    empty
+}
+
 sclet_cnv_gene_order <- function(object, gene_order = NULL, species = "human") {
     # 1. Caller-supplied data frame or file.
     if (!is.null(gene_order)) {
@@ -378,14 +452,52 @@ sclet_cnv_gene_order <- function(object, gene_order = NULL, species = "human") {
         if (!all(c("gene", "chr", "start", "end") %in% colnames(ord))) {
             stop("`gene_order` needs columns `gene`, `chr`, `start`, `end`.")
         }
-        ord <- ord[ord$gene %in% rownames(object), , drop = FALSE]
+        # Normalise BEFORE subsetting: assigning a column to a zero-row data frame
+        # raises `replacement has 1 row, data has 0`, which used to surface here
+        # whenever the gene ids did not overlap the object at all (ENSG vs symbol
+        # being the usual cause). An empty result is a reportable condition, not
+        # an internal error.
         ord$chr <- sub("^chr", "", as.character(ord$chr))
-        ord$chr_num <- suppressWarnings(as.integer(sub("^chr", "", ord$chr)))
-        ord <- ord[!is.na(ord$chr_num), , drop = FALSE]
+        ord$chr_num <- suppressWarnings(as.integer(ord$chr))
+        ord$start <- suppressWarnings(as.numeric(ord$start))
+        ord <- ord[!is.na(ord$chr_num) & !is.na(ord$start), , drop = FALSE]
+
+        matched <- ord$gene %in% rownames(object)
+        if (!any(matched)) {
+            stop(sprintf(
+                "No gene in `gene_order` is present in the object (%d ids checked, %d object features). Check the gene id style: `gene_order` has %s, the object has %s.",
+                length(ord$gene), nrow(object),
+                paste(utils::head(unique(ord$gene), 3L), collapse = ", "),
+                paste(utils::head(rownames(object), 3L), collapse = ", ")
+            ))
+        }
+        # Duplicated gene rows are normal in GTF/Ensembl exports. inferCNV pairs
+        # expression rows with order rows positionally after its own match, so
+        # duplicated ids must not be forwarded: keep the widest interval, which is
+        # the union of the annotated transcripts for that gene.
+        dup <- duplicated(ord$gene) | duplicated(ord$gene, fromLast = TRUE)
+        if (any(dup)) {
+            ord <- ord[order(ord$gene, ord$start), , drop = FALSE]
+            agg <- stats::aggregate(
+                cbind(chr_num, start, end) ~ gene,
+                data = ord,
+                FUN = function(v) range(v, na.rm = TRUE)
+            )
+            # `chr_num` must survive: the sort below orders on it.
+            ord <- data.frame(
+                gene = agg$gene,
+                chr = paste0("chr", agg$chr_num[, 1L]),
+                chr_num = agg$chr_num[, 1L],
+                start = agg$start[, 1L],
+                end = agg$end[, 2L],
+                stringsAsFactors = FALSE
+            )
+        }
+        ord <- ord[ord$gene %in% rownames(object), , drop = FALSE]
         ord <- ord[order(ord$chr_num, ord$start), , drop = FALSE]
-        ord$chr <- paste0("chr", ord$chr)
         out <- ord[, c("gene", "chr", "start", "end"), drop = FALSE]
         attr(out, "source") <- "caller-supplied"
+        attr(out, "n_duplicate_genes") <- sum(dup)
         return(out)
     }
 
