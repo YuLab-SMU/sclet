@@ -362,3 +362,13 @@ test_that("sclet_ai_repair_prompt_block content (scenario 10)", {
     empty_char <- sclet:::sclet_ai_repair_prompt_block(character(0))
     expect_true(length(empty_char) == 0L)
 })
+
+test_that("the repair prompt sends a placeholder back to the user, not to a rewrite", {
+    block <- sclet:::sclet_ai_repair_prompt_block(c(
+        "reference_missing: 'ref' is a placeholder ('<user-named celldex dataset>'), not a dataset."
+    ))
+    text <- paste(block, collapse = " ")
+    expect_true(grepl("reference_missing", text))
+    expect_true(grepl("DELETE that step", text, fixed = TRUE))
+    expect_true(grepl("user_decisions", text, fixed = TRUE))
+})

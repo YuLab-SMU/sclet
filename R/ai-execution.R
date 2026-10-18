@@ -368,6 +368,28 @@ sclet_ai_action_param_problems <- function(params, schema) {
 #' shape makes the error actionable for the model and diagnosable afterwards.
 #' Long values are truncated: the point is the shape, not the payload.
 #'
+#' Is a scalar a placeholder rather than a value?
+#'
+#' A plan that writes `<user-named celldex dataset>` into `ref` has not supplied
+#' a reference; it has recorded an open question in the parameter slot. The
+#' distinction matters because the two failures need different recovery: an
+#' invalid dataset name is a typo the model can fix in a repair round, while a
+#' placeholder means the choice belongs to the user and the clarification
+#' channel must ask for it. Measured on the PBMC 10k real-data run (2026-10-18):
+#' one plan put placeholders in `ref` and `labels`, validation reported one
+#' `reference_invalid`, no question was produced, and the whole plan was
+#' discarded.
+#'
+#' @param value A parameter value.
+#' @return TRUE for a single string that is enclosed in angle brackets or names
+#'   itself as user-named/user-supplied.
+#' @noRd
+sclet_ai_value_is_placeholder <- function(value) {
+    is.character(value) && length(value) == 1L && !is.na(value) &&
+        (grepl("^[[:space:]]*<[^>]*>[[:space:]]*$", value) ||
+            grepl("user[- ]?(named|supplied)", value, ignore.case = TRUE))
+}
+
 #' @param value Any parameter value.
 #' @param max_chars Maximum characters of a scalar value to show.
 #' @return A short single-line description, e.g.
@@ -1276,7 +1298,22 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     if (ref_is_name && is.null(ref_name)) {
                         # A placeholder is not a reference; refuse it at
                         # validation instead of after six upstream steps have
-                        # run. The accepted spellings are named in the message.
+                        # run. It is reported as MISSING, not invalid, because
+                        # the choice belongs to the user: the clarification
+                        # catalog maps `reference_missing` to the structured
+                        # question, while `reference_invalid` has no question
+                        # and used to discard the whole plan (2026-10-18).
+                        if (sclet_ai_value_is_placeholder(ref_arg)) {
+                            return(paste0(
+                                "reference_missing: 'ref' is a placeholder ('",
+                                ref_arg, "'), not a dataset. Ask the user which ",
+                                "reference to use (a celldex dataset such as ",
+                                "celldex::MonacoImmuneData, or a ",
+                                "SummarizedExperiment/matrix with dimnames)."
+                            ))
+                        }
+                        # A genuine near-miss or typo is still invalid: the
+                        # accepted spellings are named in the message.
                         return(paste0(
                             "reference_invalid: 'ref' is a string but not a celldex dataset name: '",
                             ref_arg, "'. Accepted: HumanPrimaryCellAtlasData, ",
@@ -1292,6 +1329,14 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         (is.character(labels_arg) || is.factor(labels_arg))
                     if (!labels_is_name && !labels_is_vec) {
                         return("labels_invalid: 'labels' must be either a single non-empty string identifying a reference colData column or one label per reference sample (character or factor vector).")
+                    }
+                    if (labels_is_name && sclet_ai_value_is_placeholder(labels_arg)) {
+                        return(paste0(
+                            "labels_missing: 'labels' is a placeholder ('",
+                            labels_arg, "'), not a reference colData column. Ask ",
+                            "the user which labels column to use (e.g. ",
+                            "label.main, label.fine) or a per-sample label vector."
+                        ))
                     }
                     if (labels_is_vec && ref_is_object) {
                         # One resolver shared with RunSingleR(): a labels string

@@ -637,3 +637,13 @@ test_that("re-answering a question records a second decision instead of collidin
         function(x) as.character(x$summary %||% ""), character(1L))
     expect_true(any(grepl("NicheNet", ctx_summaries, fixed = TRUE)))
 })
+
+test_that("a placeholder reference produces the structured annotation question", {
+    questions <- sclet:::sclet_ai_format_clarification(
+        "reference_missing: 'ref' is a placeholder ('<user-named celldex dataset>'), not a dataset. Ask the user which reference to use."
+    )
+    expect_equal(questions$status, "clarification_required")
+    expect_equal(questions$questions[[1L]]$id, "annotation_reference")
+    expect_true(questions$questions[[1L]]$recognized)
+    expect_equal(questions$questions[[1L]]$blocked_action, "run_annotation")
+})

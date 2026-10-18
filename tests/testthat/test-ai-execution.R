@@ -893,7 +893,11 @@ test_that("a namespaced celldex reference executes instead of failing after the 
         names(sclet:::sclet_ai_evidence_get_all(executed$object)))
 })
 
-test_that("a placeholder reference is refused at validation, before any step runs", {
+test_that("a placeholder reference is refused as MISSING at validation", {
+    ## The choice belongs to the user, so the failure has to say "missing":
+    ## `reference_invalid` has no clarification question, and on the PBMC 10k
+    ## real-data run (2026-10-18) a placeholder plan was discarded without ever
+    ## producing an `annotation_reference` question.
     sce <- annotation_test_object()
     registry <- AIDefaultExecutionRegistry(sce, include = c("read", "annotation"))
     plan <- sclet:::new_sclet_ai_plan(
@@ -905,7 +909,38 @@ test_that("a placeholder reference is refused at validation, before any step run
     err <- tryCatch(ValidateAIPlan(plan, object = sce, registry = registry, strict = TRUE),
         error = function(e) e)
     expect_s3_class(err, "sclet_ai_invalid_plan")
-    expect_true(grepl("reference_invalid", conditionMessage(err), fixed = TRUE))
+    expect_true(grepl("reference_missing", conditionMessage(err), fixed = TRUE))
+    expect_true(grepl("Ask the user", conditionMessage(err), fixed = TRUE))
+})
+
+test_that("an angle-bracketed user-named reference is a placeholder, not a dataset", {
+    sce <- annotation_test_object()
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "annotation"))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "annotate",
+        actions = list(list(id = "a1", action = "run_annotation",
+            params = list(ref = "<user-named celldex dataset>",
+                labels = "<user-named labels column>")))
+    )
+    err <- tryCatch(ValidateAIPlan(plan, object = sce, registry = registry, strict = TRUE),
+        error = function(e) e)
+    expect_s3_class(err, "sclet_ai_invalid_plan")
+    expect_true(grepl("reference_missing", conditionMessage(err), fixed = TRUE))
+})
+
+test_that("a placeholder labels column is refused as MISSING at validation", {
+    sce <- annotation_test_object()
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "annotation"))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "annotate",
+        actions = list(list(id = "a1", action = "run_annotation",
+            params = list(ref = "celldex::MonacoImmuneData",
+                labels = "<user-named labels column>")))
+    )
+    err <- tryCatch(ValidateAIPlan(plan, object = sce, registry = registry, strict = TRUE),
+        error = function(e) e)
+    expect_s3_class(err, "sclet_ai_invalid_plan")
+    expect_true(grepl("labels_missing", conditionMessage(err), fixed = TRUE))
 })
 
 test_that("a near-miss celldex name is refused at validation, not in the handler", {
