@@ -1215,6 +1215,72 @@ sclet_ai_user_decision_prompt_line <- function() {
     )
 }
 
+# Which registered action a goal phrase asks for.
+#
+# A plan can be valid and still not answer the question that was asked: on the
+# first real-data pilot (PBMC 10k, 2026-10-18) the goal said "annotate the cell
+# types" and one run's plan simply omitted run_annotation, validated, and
+# completed. Nothing in the pipeline noticed, because validation only asks
+# whether each proposed step is executable. This map is the deterministic part
+# of "did the plan cover what the goal named"; it is deliberately keyword-based
+# and used for feedback and reporting, never as a validation gate (a loose goal
+# phrasing must not block an executable plan).
+sclet_ai_goal_action_map <- function() {
+    list(
+        run_annotation = "annotat|cell[ -]?type|celltype|label transfer",
+        run_de_test = "marker|differential|differentially expressed",
+        run_enrichment = "enrich|ontolog|pathway|gene ontology|KEGG|GO term",
+        run_integration = "batch|integrat|harmony|correct",
+        run_velocity = "velocity|splicing|scvelo",
+        run_fate_analysis = "fate|cellrank|terminal state",
+        run_trajectory = "trajectory|pseudotime|slingshot",
+        run_cci = "communication|ligand|receptor|cell[ -]?cell interaction",
+        run_doublet_detection = "doublet",
+        run_rare_cell_detection = "rare cell|rare population",
+        run_milo = "abundance|composition|differential abundance|milo"
+    )
+}
+
+# What the goal named that the plan does not cover.
+#
+# Returns list(goal, required, missing). `required` is the set of actions the
+# goal phrasing asks for; `missing` is required minus what the plan proposes.
+# An empty/NULL goal reports nothing rather than guessing.
+sclet_ai_goal_coverage <- function(plan, goal = NULL) {
+    goal <- goal %||% plan$metadata$goal
+    if (is.null(goal) || !length(goal) || !nzchar(trimws(as.character(goal)[[1L]]))) {
+        return(list(goal = NULL, required = character(), missing = character()))
+    }
+    goal <- as.character(goal)[[1L]]
+    present <- vapply(plan$actions %||% list(), function(action) {
+        as.character(action$action %||% "")[[1L]]
+    }, character(1L))
+    map <- sclet_ai_goal_action_map()
+    required <- names(map)[vapply(map, function(pattern) {
+        grepl(pattern, goal, ignore.case = TRUE)
+    }, logical(1L))]
+    list(
+        goal = goal,
+        required = required,
+        missing = setdiff(required, present)
+    )
+}
+
+# The instruction sent as a repair round when the goal names an analysis the
+# plan does not contain. Phrased as a validation-style defect because that is
+# the channel the repair loop already understands.
+sclet_ai_goal_coverage_repair_message <- function(coverage) {
+    paste0(
+        "goal_coverage_missing: the user's goal names ",
+        paste(coverage$missing, collapse = ", "),
+        ", but the plan has no step using ",
+        if (length(coverage$missing) == 1L) "it" else "them",
+        ". Add the missing analysis step(s). If the goal cannot be met on this ",
+        "object, say so in the rationale instead of silently returning a plan ",
+        "that does not answer the question."
+    )
+}
+
 #' One-shot plan proposal (internal)
 #'
 #' Extracts the body of [AIPlanAnalysis()] so the repair loop and the
@@ -1471,6 +1537,33 @@ AIPlanAnalysis <- function(
 
     best$metadata$repair_rounds_used <- rounds_used
     best$metadata$validation_error_counts <- as.integer(error_counts)
+
+    # Goal coverage: a separate, one-round feedback path. It cannot ride the
+    # repair loop above, because that loop only accepts an attempt with FEWER
+    # validation errors -- a valid plan missing a step has zero errors already,
+    # so a complete candidate would tie and be discarded.
+    coverage <- sclet_ai_goal_coverage(best)
+    goal_rounds_used <- 0L
+    if (length(coverage$missing) && max_repair_rounds >= 1L) {
+        candidate <- sclet_ai_plan_once(
+            object = object, goal = goal, model = model,
+            structured_output = structured_output,
+            fallback_on_structure_error = fallback_on_structure_error,
+            registry = registry,
+            repair_errors = sclet_ai_goal_coverage_repair_message(coverage), ...
+        )
+        candidate_coverage <- sclet_ai_goal_coverage(candidate)
+        # Only a VALID candidate that covers more of the goal replaces the plan;
+        # otherwise the executable plan the user already has is kept.
+        if (isTRUE(candidate$validation$valid) &&
+                length(candidate_coverage$missing) < length(coverage$missing)) {
+            best <- candidate
+            coverage <- candidate_coverage
+            goal_rounds_used <- 1L
+        }
+    }
+    best$metadata$goal_coverage <- coverage
+    best$metadata$goal_repair_rounds_used <- goal_rounds_used
     # Keep the first attempt's error text, not just its count. It is the only
     # record of what the model actually got wrong before any repair feedback,
     # and it is what distinguishes "the model never proposed a valid plan"

@@ -412,7 +412,8 @@ RunAIAnalysis <- function(
                     plan_id = plan$plan_id,
                     actions = vapply(plan$actions, function(x) x$action, character(1)),
                     errors = validation$errors,
-                    warnings = validation$warnings
+                    warnings = validation$warnings,
+                    goal_coverage = plan$metadata$goal_coverage %||% NULL
                 )
             ),
             class = c("sclet_ai_analysis", "list")
@@ -444,7 +445,13 @@ RunAIAnalysis <- function(
         errors = validation$errors,
         warnings = validation$warnings,
         execution_id = execution$execution_id,
-        success_assessment = execution$success_assessment
+        success_assessment = execution$success_assessment,
+        # Did the plan cover what the goal named? A plan can validate and run
+        # while silently omitting a step the goal asked for (measured on the
+        # first PBMC 10k pilot: annotation was dropped and nothing surfaced it).
+        # Reported here, and fed back as one planning round inside
+        # AIPlanAnalysis when the gap is detected.
+        goal_coverage = plan$metadata$goal_coverage %||% NULL
     )
     if (isTRUE(interpret) && execution$status %in% c("completed", "completed_with_errors")) {
         interpretation_state <- new.env(parent = emptyenv())
