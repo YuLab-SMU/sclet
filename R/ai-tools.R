@@ -195,7 +195,8 @@ AIExplainAnalysis <- function(object, type = NULL, id = NULL, model = NULL, stru
         tools = sclet_ai_tool_registry(object),
         model = model,
         structured_output = structured_output,
-        system_prompt = sclet_ai_explanation_prompt(),
+        system_prompt = sclet_ai_explanation_prompt(
+            sclet_ai_evidence_prompt_lines(object)),
         ...
     )
     result <- sclet_ai_attach_ref_coverage(result)
@@ -207,8 +208,8 @@ AIExplainAnalysis <- function(object, type = NULL, id = NULL, model = NULL, stru
 # contrast run, 2026-10-18); the generic "explain evidence" prompt did not ask
 # for a per-finding reference, and an un-referenced finding is indistinguishable
 # from one the model made up.
-sclet_ai_explanation_prompt <- function() {
-    paste(
+sclet_ai_explanation_prompt <- function(evidence_lines = character()) {
+    base <- paste(
         "Explain the selected analysis in terms of inputs, method, outputs,",
         "evidence and limitations. Distinguish measured results from hypotheses.",
         "Do not upgrade association to causality.",
@@ -219,6 +220,46 @@ sclet_ai_explanation_prompt <- function() {
         "so in the finding text and set its claim_level to `hypothesis` rather",
         "than attaching an unrelated id."
     )
+    if (length(evidence_lines)) {
+        # Measured on Kang (2026-10-18): with the ids only inside the JSON
+        # context, coverage was 0.73; the model still invented/omitted refs. A
+        # short explicit list names what it may cite, so it does not have to
+        # search the context for ids.
+        base <- paste0(base, "\n\n",
+            "The evidence ids available on this object are listed below. Use ",
+            "these exact strings; do not add, shorten or translate them:\n",
+            paste(evidence_lines, collapse = "\n"))
+    }
+    base
+}
+
+# The evidence ids an explanation may cite, as prompt lines.
+#
+# Bounded so a large ledger does not dominate the prompt: the first `max_ids`
+# nodes in ledger order, plus a count of the rest. User-decision nodes are
+# included (they are real ids) but marked, because they support provenance, not
+# measured results.
+sclet_ai_evidence_prompt_lines <- function(object, max_ids = 20L) {
+    nodes <- tryCatch(sclet_ai_evidence_get_all(object), error = function(e) list())
+    if (!length(nodes)) return(character())
+    ids <- names(nodes)
+    shown <- utils::head(ids, max_ids)
+    lines <- vapply(shown, function(id) {
+        node <- nodes[[id]]
+        paste0("- ", id, " (", node$kind %||% "?", ", claim ",
+            node$claim_level %||% "?",
+            if (sclet_ai_evidence_kind_is_user_decision(node$kind %||% "")) {
+                ", user decision -- provenance only"
+            } else {
+                ""
+            }, ")")
+    }, character(1))
+    more <- if (length(ids) > length(shown)) {
+        paste0("- ... ", length(ids) - length(shown), " more ids exist but are not listed")
+    } else {
+        character()
+    }
+    c(lines, more)
 }
 
 # Count how many findings carry an evidence id, so the caller (report,

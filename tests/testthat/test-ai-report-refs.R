@@ -29,3 +29,37 @@ test_that("ref coverage counts findings with and without evidence ids", {
     expect_equal(coverage$n_with_refs, 1L)
     expect_equal(coverage$fraction, 0.5)
 })
+
+test_that("the explanation prompt lists the real evidence ids, bounded", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 5, 4)))
+    sce <- RecordAIEvidence(sce, list(id = "ev:findallmarkers",
+        kind = "deterministic_summary", claim_level = "associated",
+        values = list(n_rows = 3L)))
+    sce <- RecordAIEvidence(sce, list(id = "ev:annotation_monaco",
+        kind = "deterministic_summary", claim_level = "consistent_with",
+        values = list(n_rows = 2L)))
+    lines <- sclet:::sclet_ai_evidence_prompt_lines(sce)
+    expect_true(any(grepl("ev:findallmarkers", lines, fixed = TRUE)))
+    expect_true(any(grepl("ev:annotation_monaco", lines, fixed = TRUE)))
+    prompt <- sclet:::sclet_ai_explanation_prompt(lines)
+    expect_true(grepl("Use these exact strings", prompt, fixed = TRUE))
+    expect_true(grepl("ev:findallmarkers", prompt, fixed = TRUE))
+
+    ## An object with no evidence adds no list; the rules still apply.
+    empty <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 5, 4)))
+    expect_length(sclet:::sclet_ai_evidence_prompt_lines(empty), 0L)
+    expect_false(grepl("Use these exact strings",
+        sclet:::sclet_ai_explanation_prompt(character()), fixed = TRUE))
+})
+
+test_that("the id list is capped and says how many were omitted", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 5, 4)))
+    for (i in seq_len(25L)) {
+        sce <- RecordAIEvidence(sce, list(id = paste0("ev:e", i),
+            kind = "deterministic_summary", claim_level = "associated",
+            values = list(n_rows = as.integer(i))))
+    }
+    lines <- sclet:::sclet_ai_evidence_prompt_lines(sce, max_ids = 10L)
+    expect_equal(sum(grepl("^- ev:", lines)), 10L)
+    expect_true(any(grepl("more ids exist", lines)))
+})

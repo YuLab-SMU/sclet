@@ -1293,6 +1293,70 @@ sclet_ai_goal_contrast_check <- function(goal, plan, object) {
     )
 }
 
+# Drop a redundant all-cluster marker test when the plan already contains the
+# targeted contrast the goal asked for.
+#
+# Full-Kang plans (2026-10-18) contained `run_de_test()` with no idents (i.e.
+# FindAllMarkers) AND `run_de_test(group = condition, ...)`. The second answers
+# the question; the first costs a marker pass over 43k cells and can make a
+# report look like it produced two independent analyses. It is removed only when
+# all of the following hold, so nothing a plan depends on disappears:
+#
+#   * a targeted DE step exists (group, or both idents);
+#   * the goal does not ask for markers;
+#   * no other step references the all-cluster step's output
+#     (`${step.output...}` or its detest_id);
+#   * it is not the only DE step.
+#
+# Removals are recorded in `plan$metadata$removed_redundant_steps` so the report
+# can say what was dropped instead of silently shrinking the plan.
+sclet_ai_deduplicate_de_steps <- function(plan, goal = NULL) {
+    actions <- plan$actions %||% list()
+    if (length(actions) < 2L) return(plan)
+    de <- Filter(function(action) {
+        identical(as.character(action$action %||% "")[[1L]], "run_de_test")
+    }, actions)
+    if (length(de) < 2L) return(plan)
+    params_of <- function(action) action$params %||% list()
+    targeted <- Filter(function(action) {
+        params <- params_of(action)
+        !is.null(params$group) ||
+            (!is.null(params$ident.1) && !is.null(params$ident.2))
+    }, de)
+    if (!length(targeted)) return(plan)
+    goal_text <- if (is.null(goal)) "" else as.character(goal)[[1L]]
+    if (nzchar(goal_text) && grepl("marker", goal_text, ignore.case = TRUE)) {
+        return(plan)
+    }
+    all_cluster <- Filter(function(action) {
+        params <- params_of(action)
+        is.null(params$group) && is.null(params$ident.1) && is.null(params$ident.2)
+    }, de)
+    if (!length(all_cluster)) return(plan)
+
+    referenced_ids <- unlist(lapply(actions, function(action) {
+        refs <- sclet_ai_collect_plan_references(params_of(action))
+        vapply(refs, function(path) as.character(path[[1L]])[[1L]], character(1))
+    }))
+    removable <- Filter(function(action) {
+        id <- as.character(action$id %||% "")[[1L]]
+        nzchar(id) && !(id %in% referenced_ids)
+    }, all_cluster)
+    if (!length(removable)) return(plan)
+    remove_ids <- vapply(removable, function(action)
+        as.character(action$id)[[1L]], character(1))
+    plan$actions <- Filter(function(action)
+        !(as.character(action$id %||% "")[[1L]] %in% remove_ids), actions)
+    metadata <- plan$metadata %||% list()
+    metadata$removed_redundant_steps <- c(
+        metadata$removed_redundant_steps %||% character(),
+        paste0(remove_ids, ": run_de_test (all-cluster markers) superseded by ",
+            paste(vapply(targeted, function(action)
+                as.character(action$id)[[1L]], character(1)), collapse = ",")))
+    plan$metadata <- metadata
+    plan
+}
+
 # Which registered action a goal phrase asks for.
 #
 # A plan can be valid and still not answer the question that was asked: on the
@@ -1667,6 +1731,7 @@ AIPlanAnalysis <- function(
             goal_rounds_used <- 1L
         }
     }
+    best <- sclet_ai_deduplicate_de_steps(best, goal)
     best$metadata$goal_coverage <- coverage
     best$metadata$goal_repair_rounds_used <- goal_rounds_used
     # Keep the first attempt's error text, not just its count. It is the only
