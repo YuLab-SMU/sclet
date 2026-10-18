@@ -199,6 +199,13 @@ AIExplainAnalysis <- function(object, type = NULL, id = NULL, model = NULL, stru
         system_prompt = sclet_ai_explanation_prompt(evidence_lines),
         ...
     )
+    if (!is.list(result)) {
+        # A provider that returns something other than a structured result is
+        # reported by RunAIAnalysis as an invalid interpretation; no annotation
+        # or citation work can apply to it, and touching it would replace the
+        # caller's error with a `$` crash.
+        return(result)
+    }
     result <- sclet_ai_attach_ref_coverage(
         sclet_ai_sanitize_finding_refs(object, result))
 

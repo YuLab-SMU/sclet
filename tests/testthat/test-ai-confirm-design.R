@@ -58,7 +58,7 @@ test_that("confirm_design refuses unknown columns and empty roles", {
     sce <- SingleCellExperiment::SingleCellExperiment(
         list(counts = matrix(1, nrow = 5L, ncol = 4L)))
     SummarizedExperiment::colData(sce)$batch <- rep(c("b1", "b2"), each = 2L)
-    registry <- AIDefaultExecutionRegistry(sce, include = "read")
+    registry <- AIDefaultExecutionRegistry(sce, include = "integration")
     action <- registry$confirm_design
 
     none <- action$prerequisites(sce, list())

@@ -45,7 +45,7 @@ test_that("run_cnv_inference refuses a missing or endogenous reference", {
         reason <- action$prerequisites(sce, list())
         expect_true(grepl("reference_missing", reason, fixed = TRUE))
         expect_true(grepl("Do not use clusters", reason, fixed = TRUE))
-        small <- action$prerequisites(sce, list(reference_cells = "c1"))
+        small <- action$prerequisites(sce, list(reference_ids = "c1"))
         expect_true(grepl("reference_too_small", small, fixed = TRUE))
     }
 })

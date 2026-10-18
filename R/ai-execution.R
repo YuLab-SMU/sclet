@@ -896,21 +896,27 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
     # statement about the data, so it mutates the object and is recorded like
     # any other analysis step. It deliberately does not guess: every role must be
     # named in the plan, and an unknown column is refused.
-    if ("read" %in% include) {
-        actions <- c(actions, list(
-            confirm_design = AIAction(
+    # Design confirmation mutates the object, so it must not live in the
+    # read-only default group (that group is asserted to be non-mutating).
+    # Integration needs it; annotation/malignant claims use design columns too.
+    if (any(c("integration", "annotation", "malignant") %in% include)) {
+        actions <- c(actions, list(            confirm_design = AIAction(
                 name = "confirm_design",
                 description = paste0(
-                    "Confirm which colData columns play the design roles (batch, ",
-                    "condition, subject, sample) before integration or design-aware ",
-                    "analysis. Pass one column name per role, e.g. ",
-                    "batch = \"batch\", condition = \"condition\", subject = \"donor\"."
+                    "Confirm which colData columns play the design roles before ",
+                    "integration or design-aware analysis. Exposed roles: batch, ",
+                    "condition, individual (maps to the subject role) and ",
+                    "specimen (maps to the sample role), e.g. ",
+                    "batch = \"batch\", condition = \"condition\", individual = \"donor\"."
                 ),
                 handler = function(object, params) {
                     roles <- list()
-                    for (role in c("batch", "condition", "subject", "sample")) {
-                        if (!is.null(params[[role]])) {
-                            roles[[role]] <- sclet_ai_vector_param(params[[role]], "character")[[1L]]
+                    exposed <- c(batch = "batch", condition = "condition",
+                        individual = "subject", specimen = "sample")
+                    for (key in names(exposed)) {
+                        if (!is.null(params[[key]])) {
+                            roles[[exposed[[key]]]] <-
+                                sclet_ai_vector_param(params[[key]], "character")[[1L]]
                         }
                     }
                     if (!length(roles)) {
@@ -919,15 +925,20 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     ConfirmAIDesignSemantics(object, design = roles)
                 },
                 input_schema = list(
+                    # Names avoid "subject"/"sample": the privacy sanitizer
+                    # redacts fields matching identifier patterns, so a schema
+                    # key called `subject` was stripped out of available_actions
+                    # (with a warning) before the planner ever saw it. These map
+                    # onto the design roles internally.
                     batch = "character",
                     condition = "character",
-                    subject = "character",
-                    sample = "character"
+                    individual = "character",
+                    specimen = "character"
                 ),
                 prerequisites = function(object, params, planned = NULL) {
                     cd_names <- planned$colData_columns %||%
                         colnames(SummarizedExperiment::colData(object))
-                    roles <- c("batch", "condition", "subject", "sample")
+                    roles <- c("batch", "condition", "individual", "specimen")
                     given <- Filter(function(role) !is.null(params[[role]]), roles)
                     if (!length(given)) {
                         return(paste0("design_role_missing: name at least one of ",
@@ -2385,20 +2396,20 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 name = "run_cnv_inference",
                 description = paste0(
                     "Infer per-cell copy-number burden with inferCNV against an ",
-                    "EXOGENOUS reference: name normal cells with `reference_cells` ",
+                    "EXOGENOUS reference: name normal cells with `reference_ids` ",
                     "or a colData column with `reference_col`. Never use a cluster ",
                     "the analysis itself produced as the reference."
                 ),
                 handler = function(object, params) {
                     name <- params$name %||% "cnv"
-                    reference_cells <- if (!is.null(params$reference_cells)) {
-                        sclet_ai_vector_param(params$reference_cells, "character")
+                    reference_ids <- if (!is.null(params$reference_ids)) {
+                        sclet_ai_vector_param(params$reference_ids, "character")
                     } else {
                         NULL
                     }
                     object <- RunCNVInference(
                         object,
-                        reference_cells = reference_cells,
+                        reference_ids = reference_ids,
                         reference_col = params$reference_col %||% NULL,
                         species = params$species %||% "human",
                         assay = params$assay %||% "counts",
@@ -2419,7 +2430,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         n_cells = as.integer(record$n_cells_submitted),
                         n_cells_retained = as.integer(record$n_cells_retained),
                         n_cells_dropped = as.integer(length(record$dropped_cells)),
-                        n_reference_cells = as.integer(record$n_reference_cells),
+                        n_reference_ids = as.integer(record$n_reference_ids),
                         n_genes = as.integer(record$n_genes),
                         burden_q10 = as.numeric(stats::quantile(burden, 0.1,
                             na.rm = TRUE, names = FALSE)),
@@ -2439,7 +2450,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         scope = NULL), error = function(e) object)
                 },
                 input_schema = list(
-                    reference_cells = "character_vector",
+                    reference_ids = "character_vector",
                     reference_col = "character",
                     species = c("human", "mouse"),
                     assay = "character",
@@ -2459,11 +2470,11 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                             "' not found; inferCNV needs raw counts (available: ",
                             paste(assays, collapse = ", "), ")"))
                     }
-                    if (is.null(params$reference_col) && is.null(params$reference_cells)) {
+                    if (is.null(params$reference_col) && is.null(params$reference_ids)) {
                         return(paste0(
                             "reference_missing: copy-number inference needs an ",
                             "EXOGENOUS reference; name normal cells with ",
-                            "reference_cells, or a colData column with reference_col. ",
+                            "reference_ids, or a colData column with reference_col. ",
                             "Do not use clusters the analysis itself produced."))
                     }
                     if (!is.null(params$reference_col)) {
@@ -2475,8 +2486,8 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                                 paste(cd, collapse = ", "), ")"))
                         }
                     }
-                    if (!is.null(params$reference_cells)) {
-                        cells <- sclet_ai_vector_param(params$reference_cells, "character")
+                    if (!is.null(params$reference_ids)) {
+                        cells <- sclet_ai_vector_param(params$reference_ids, "character")
                         known <- intersect(cells, colnames(object))
                         if (length(known) < 5L) {
                             return(paste0("reference_too_small: ", length(known),
@@ -2505,18 +2516,18 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     "four-state malignant call (malignant / likely_malignant / ",
                     "undetermined / non_malignant). Requires a completed CNV run ",
                     "and either a signature score column or signature genes; ",
-                    "`identity_genes` names a competing identity programme to ",
+                    "`identity_markers` names a competing identity programme to ",
                     "demote."
                 ),
                 handler = function(object, params) {
                     name <- params$name %||% "malignant_call"
                     signature <- NULL
-                    if (!is.null(params$signature_genes)) {
-                        genes <- sclet_ai_vector_param(params$signature_genes, "character")
+                    if (!is.null(params$signature)) {
+                        genes <- sclet_ai_vector_param(params$signature, "character")
                         signature <- stats::setNames(list(genes), "malignant")
                     }
-                    identity_genes <- if (!is.null(params$identity_genes)) {
-                        sclet_ai_vector_param(params$identity_genes, "character")
+                    identity_markers <- if (!is.null(params$identity_markers)) {
+                        sclet_ai_vector_param(params$identity_markers, "character")
                     } else {
                         NULL
                     }
@@ -2528,7 +2539,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         transcriptomic_cut = params$transcriptomic_cut %||% NULL,
                         cnv_cut = params$cnv_cut %||% NULL,
                         reference_quantile = params$reference_quantile %||% 0.99,
-                        identity_genes = identity_genes,
+                        identity_markers = identity_markers,
                         identity_demote = params$identity_demote %||% 0.1,
                         assay = params$assay %||% NULL,
                         name = name
@@ -2564,12 +2575,12 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 },
                 input_schema = list(
                     cnv_id = "character",
-                    signature_genes = "character_vector",
+                    signature = "character_vector",
                     signature_score = "character",
                     transcriptomic_cut = "number",
                     cnv_cut = "number",
                     reference_quantile = "number",
-                    identity_genes = "character_vector",
+                    identity_markers = "character_vector",
                     identity_demote = "number",
                     assay = "character",
                     name = "character"
@@ -2589,11 +2600,11 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                             "TWO-line call and will not be silently downgraded ",
                             "to signature-only."))
                     }
-                    if (is.null(params$signature_genes) && is.null(params$signature_score)) {
+                    if (is.null(params$signature) && is.null(params$signature_score)) {
                         return(paste0(
                             "signature_missing: the malignant call needs a ",
                             "transcriptional line -- pass signature_score (a colData ",
-                            "column) or signature_genes"))
+                            "column) or signature"))
                     }
                     if (!is.null(params$signature_score)) {
                         cd <- colnames(SummarizedExperiment::colData(object))
@@ -3544,6 +3555,7 @@ sclet_ai_referenceable_output_fields <- function(descriptor = NULL) {
 
 sclet_ai_execution_summary <- function(value, descriptor = NULL) {
     if (inherits(value, "SingleCellExperiment")) {
+        active_reduction <- tryCatch(DefaultReduction(value), error = function(e) NULL)
         summary <- list(
             class = class(value),
             n_features = nrow(value),
@@ -3551,14 +3563,18 @@ sclet_ai_execution_summary <- function(value, descriptor = NULL) {
             assays = SummarizedExperiment::assayNames(value),
             reductions = SingleCellExperiment::reducedDimNames(value),
             active_assay = sclet_get_active_assay(value),
-            active_reduction = tryCatch(DefaultReduction(value), error = function(e) NULL),
-            # Alias for `active_reduction`: plans naturally chain
-            # `find_neighbors(reduction = "${step.output.reduction}")` after an
-            # integration step, and used to be rejected because only the longer
-            # name was referenceable (full Kang, 2026-10-18).
-            reduction = tryCatch(DefaultReduction(value), error = function(e) NULL),
             fingerprint = tryCatch(GetAnalysisLedger(value)$fingerprint, error = function(e) NULL)
         )
+        # Only when the object really has one: a NULL element still counts as
+        # "present" for the contract-fill loop below, so declaring `reduction`
+        # unconditionally suppressed the schema's own value on a plain object
+        # (measured in test-ai-phase3's produce/consume chain).
+        if (!is.null(active_reduction)) {
+            summary$active_reduction <- active_reduction
+            # Alias plans naturally chain after integration:
+            # `find_neighbors(reduction = "${step.output.reduction}")`.
+            summary$reduction <- active_reduction
+        }
         # Observed state, not declared state: the object really has these. They
         # are skipped when absent so the key means "the object has one", not
         # "the object has one and it is NULL".

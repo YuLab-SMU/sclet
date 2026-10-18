@@ -511,9 +511,10 @@ RunAIAnalysis <- function(
         interpretation_state$error <- NULL
         interpretation_state$result <- NULL
         tryCatch({
+            # AIExplainAnalysis() already sanitizes its own findings; doing it
+            # here as well crashed on a provider that returned a non-list, and
+            # replaced the informative "invalid interpretation result" error.
             interpretation_state$result <- AIExplainAnalysis(updated, id = execution$execution_id, model = model)
-            interpretation_state$result <- sclet_ai_sanitize_finding_refs(
-                updated, interpretation_state$result)
         }, error = function(e) {
             interpretation_state$error <- conditionMessage(e)
         })

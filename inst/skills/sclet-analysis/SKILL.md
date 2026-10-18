@@ -73,7 +73,7 @@ Malignant-cell identification is a TWO-line call. Run
 reference must be exogenous (normal cells or normal samples the user named);
 never use clusters the analysis itself produced as the reference. Then call
 `call_malignant_cells(cnv_id = "<the run name>", signature_score = "<colData column>")`
-or pass `signature_genes`. The four states are malignant / likely_malignant /
+or pass `signature`. The four states are malignant / likely_malignant /
 undetermined / non_malignant, and `identity_genes` demotes a competing identity
 programme (for a gastric tumour, the intestinal-metaplasia profile). A call
 without a CNV record is refused, because signature-only is not the two-line
