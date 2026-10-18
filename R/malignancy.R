@@ -48,6 +48,12 @@
 #' @param paired Logical. Use a paired design (`~ patient + condition`). Defaults
 #'   to `TRUE` when at least two patients contribute both conditions, which is
 #'   what the reference analysis was paired on.
+#' @param sample_col Name of the `sample_info` column holding the sample ids that
+#'   appear in `colnames(expr)`. Defaults to `"sample"`.
+#' @param case_values Character vector naming the tumour levels of `condition`.
+#'   Defaults to `"Tumor"`/`"Tumour"`/`"Cancer"`.
+#' @param control_values Character vector naming the normal levels of
+#'   `condition`. Defaults to `"Normal"`/`"Control"`/`"Adjacent"`.
 #' @param min_samples Integer. Fewest samples per side required to run.
 #' @param n_ctrl `AddModuleScore` control pool size, stored with the signature
 #'   so that scoring reproduces the reference's control-binned offsets.
@@ -283,7 +289,8 @@ FindMalignantSeedGenes <- function(
 #'
 #' Implements the iterative malignant-epithelium classification of Zhang et al.
 #' (Gut 2020) on a single-cell object: score every cell in `cells` with the
-#' malignant and the non-malignant signature ([sclet_add_module_score()]), split
+#' malignant and the non-malignant signature (an `AddModuleScore`-compatible
+#' control-binned score), split
 #' the cells into two groups with k-means on the two scores, re-derive each
 #' signature from the split by pseudobulk differential expression, and repeat
 #' until the labels stop changing. The first round is seeded from bulk data
@@ -294,6 +301,9 @@ FindMalignantSeedGenes <- function(
 #' @param seed Either the output of [FindMalignantSeedGenes()] or a
 #'   `c(tumor = ..., normal = ...)`-style list of two gene vectors. The
 #'   `tumor` side is the malignant signature.
+#' @param method `"iterative"` (default) runs the reference method ported here.
+#'   `"cnv"` delegates to [CallMalignantCells()], sclet's own two-line call, so
+#'   the two can be compared from one entry point.
 #' @param cells Character vector of cell names to classify. Defaults to every
 #'   cell. Supply the epithelial compartment; signatures are re-derived from
 #'   these cells, so non-epithelial cells would enter the contrast.
@@ -345,6 +355,7 @@ FindMalignantSeedGenes <- function(
 ClassifyMalignantEpithelium <- function(
     object,
     seed,
+    method = c("iterative", "cnv"),
     cells = NULL,
     sample_col = "sample",
     assay = NULL,
@@ -362,6 +373,22 @@ ClassifyMalignantEpithelium <- function(
     seed_genes = NULL,
     verbose = TRUE
 ) {
+    method <- match.arg(method)
+    if (identical(method, "cnv")) {
+        # Delegates to the two-line call. Kept as a dispatch so a caller can
+        # compare the reference method against sclet's own without changing
+        # their surrounding script.
+        warning(
+            "method = \"cnv\" runs the CNV + signature call; the iterative ",
+            "signature method is method = \"iterative\" (the default).",
+            call. = FALSE
+        )
+        return(CallMalignantCells(
+            object = object,
+            signature = seed,
+            name = name
+        ))
+    }
     if (!requireNamespace("limma", quietly = TRUE)) {
         stop("Package 'limma' is needed. Please install it.")
     }
