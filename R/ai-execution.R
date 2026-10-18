@@ -2409,7 +2409,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     }
                     object <- RunCNVInference(
                         object,
-                        reference_ids = reference_ids,
+                        reference_cells = reference_cells,
                         reference_col = params$reference_col %||% NULL,
                         species = params$species %||% "human",
                         assay = params$assay %||% "counts",
@@ -2539,7 +2539,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         transcriptomic_cut = params$transcriptomic_cut %||% NULL,
                         cnv_cut = params$cnv_cut %||% NULL,
                         reference_quantile = params$reference_quantile %||% 0.99,
-                        identity_markers = identity_markers,
+                        identity_genes = identity_genes,
                         identity_demote = params$identity_demote %||% 0.1,
                         assay = params$assay %||% NULL,
                         name = name
@@ -2619,8 +2619,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 },
                 returns = "sce",
                 output_schema = list(
-                    required_states = list(annotation = "any"),
-                    malignant_call_id = "malignant_call_record_id"
+                    required_states = list(annotation = "any")
                 ),
                 allowed_state_types = "annotation",
                 mutates_object = TRUE,
@@ -3621,15 +3620,7 @@ sclet_ai_execution_summary <- function(value, descriptor = NULL) {
             NULL
         }
         if (length(cnv_ids)) summary$cnv_id <- cnv_ids[[length(cnv_ids)]]
-        malignant_ids <- if (isTRUE((descriptor %||% list())$name == "call_malignant_cells")) {
-            tryCatch(names(sclet_get_analysis(value, "phenotype_call")),
-                error = function(e) character())
-        } else {
-            NULL
-        }
-        if (length(malignant_ids)) {
-            summary$malignant_call_id <- malignant_ids[[length(malignant_ids)]]
-        }
+
 
         # Declared contract keys fill whatever the observations did not already
         # establish. An observation must never be overwritten by a declaration.

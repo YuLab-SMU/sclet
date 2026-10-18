@@ -309,11 +309,6 @@ sclet_ai_apply_planned_output <- function(planned, descriptor, params) {
         planned$cnv_ids <- unique(c(planned$cnv_ids %||% character(),
             as.character(params$name %||% "cnv")))
     }
-    if (identical(descriptor$name, "call_malignant_cells")) {
-        planned$malignant_call_ids <- unique(c(
-            planned$malignant_call_ids %||% character(),
-            as.character(params$name %||% "malignant_call")))
-    }
     produced <- sclet_ai_planned_state_records(descriptor, params)
     for (type in names(produced)) {
         existing <- planned$state_records[[type]] %||% character()
