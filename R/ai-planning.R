@@ -1346,9 +1346,13 @@ sclet_ai_goal_coverage_repair_message <- function(coverage) {
         ". Add the missing analysis step(s) WITH every required parameter and a ",
         "concrete value: annotation needs ref + labels, integration needs batch, ",
         "and so on. A step added by name alone cannot pass validation and will ",
-        "be discarded, leaving the same gap. If the goal cannot be met on this ",
-        "object, say so in the rationale instead of silently returning a plan ",
-        "that does not answer the question."
+        "be discarded, leaving the same gap. If the required value is a USER ",
+        "CHOICE (for example which celldex reference to use), take it from ",
+        "context$analysis_story$user_decisions if it is recorded there; if it is ",
+        "not recorded, do NOT invent a reference -- leave that step out and name ",
+        "the missing choice in your rationale so the user can answer it. If the ",
+        "goal cannot be met on this object, say so instead of silently returning ",
+        "a plan that does not answer the question."
     )
 }
 

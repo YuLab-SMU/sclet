@@ -370,6 +370,8 @@ test_that("the coverage repair asks for parameters, not bare step names", {
     expect_true(grepl("ref + labels", message, fixed = TRUE))
     expect_true(grepl("integration needs batch", message, fixed = TRUE))
     expect_true(grepl("by name alone", message, fixed = TRUE))
+    expect_true(grepl("USER CHOICE", message, fixed = TRUE))
+    expect_true(grepl("do NOT invent a reference", message, fixed = TRUE))
 })
 
 test_that("the repair prompt sends a placeholder back to the user, not to a rewrite", {
