@@ -72,3 +72,34 @@ test_that("low citation coverage produces an explicit warning", {
     expect_null(threshold(list(n_findings = 1L, n_with_refs = 0L, fraction = 0)))
     expect_null(threshold(NULL))
 })
+
+test_that("explanation asks for one revision when citations are missing", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 5, 4)))
+    sce <- RecordAIEvidence(sce, list(id = "ev:findallmarkers",
+        kind = "deterministic_summary", claim_level = "associated",
+        values = list(n_rows = 3L)))
+    calls <- 0L
+    old <- options(sclet.ai.call = function(task, context, ...) {
+        calls <<- calls + 1L
+        if (calls == 1L) {
+            return(new_sclet_ai_result("analysis_explanation",
+                context = list(schema_version = "1.0", fingerprint = "test"),
+                findings = list(
+                    list(statement = "a", evidence_refs = character()),
+                    list(statement = "b", evidence_refs = character()),
+                    list(statement = "c", evidence_refs = character()))))
+        }
+        new_sclet_ai_result("analysis_explanation",
+            context = list(schema_version = "1.0", fingerprint = "test"),
+            findings = list(
+                list(statement = "a", evidence_refs = "ev:findallmarkers"),
+                list(statement = "b", evidence_refs = "ev:findallmarkers"),
+                list(statement = "c", evidence_refs = "ev:findallmarkers")))
+    })
+    on.exit(options(old), add = TRUE)
+
+    result <- AIExplainAnalysis(sce, model = "mock", structured_output = FALSE)
+    expect_equal(calls, 2L)
+    expect_equal(result$metadata$evidence_ref_coverage$fraction, 1)
+    expect_equal(result$metadata$explanation_revision_rounds, 1L)
+})

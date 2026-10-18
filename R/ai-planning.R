@@ -1334,10 +1334,29 @@ sclet_ai_deduplicate_de_steps <- function(plan, goal = NULL) {
     }, de)
     if (!length(all_cluster)) return(plan)
 
-    referenced_ids <- unlist(lapply(actions, function(action) {
-        refs <- sclet_ai_collect_plan_references(params_of(action))
-        vapply(refs, function(path) as.character(path[[1L]])[[1L]], character(1))
-    }))
+    ## Success criteria and stop conditions are part of the plan too: removing a
+    ## step they name produced `success_criterion_unresolvable: c9 references
+    ## unknown step step_10` on Kang (2026-10-18). A reference there is often
+    ## embedded in prose ("the marker table from ${m1.output.detest_id} is
+    ## non-empty"), and the token collector only recognises a string that IS the
+    ## token, so scan every string for the `${<step>.` prefix instead.
+    mentions_step <- function(value, id) {
+        pattern <- paste0("\\$\\{", id, "\\.")
+        if (is.character(value)) {
+            return(any(grepl(pattern, value)))
+        }
+        if (is.list(value)) {
+            return(any(vapply(value, mentions_step, logical(1L), id = id)))
+        }
+        FALSE
+    }
+    candidates <- c(lapply(actions, params_of),
+        plan$success_criteria %||% list(), plan$stop_conditions %||% list())
+    all_ids <- vapply(actions, function(action)
+        as.character(action$id %||% "")[[1L]], character(1))
+    referenced_ids <- all_ids[vapply(all_ids, function(id)
+        nzchar(id) && any(vapply(candidates, mentions_step, logical(1L), id = id)),
+        logical(1L))]
     removable <- Filter(function(action) {
         id <- as.character(action$id %||% "")[[1L]]
         nzchar(id) && !(id %in% referenced_ids)

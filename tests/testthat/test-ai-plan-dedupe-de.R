@@ -46,3 +46,13 @@ test_that("a plan with only markers is untouched", {
     expect_equal(length(out$actions), 1L)
     expect_null(out$metadata$removed_redundant_steps)
 })
+
+test_that("markers stay when a success criterion references them", {
+    plan <- dedupe_plan(markers_step(), contrast_step())
+    plan$success_criteria <- list(list(id = "c9",
+        criterion = "marker table from ${m1.output.detest_id} is non-empty"))
+    out <- sclet:::sclet_ai_deduplicate_de_steps(plan,
+        "Compare stimulated versus control cells within donors.")
+    expect_equal(length(out$actions), 2L)
+    expect_null(out$metadata$removed_redundant_steps)
+})

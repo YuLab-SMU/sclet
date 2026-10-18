@@ -189,17 +189,58 @@ sclet_ai_annotate_result_ceiling <- function(object, result) {
 AIExplainAnalysis <- function(object, type = NULL, id = NULL, model = NULL, structured_output = TRUE, ...) {
     target <- type %||% id
     context <- sclet_ai_context(object, target = target, detail = "full")
+    evidence_lines <- sclet_ai_evidence_prompt_lines(object)
     result <- sclet_ai_call(
         task = "analysis_explanation",
         context = context,
         tools = sclet_ai_tool_registry(object),
         model = model,
         structured_output = structured_output,
-        system_prompt = sclet_ai_explanation_prompt(
-            sclet_ai_evidence_prompt_lines(object)),
+        system_prompt = sclet_ai_explanation_prompt(evidence_lines),
         ...
     )
-    result <- sclet_ai_attach_ref_coverage(result)
+    result <- sclet_ai_attach_ref_coverage(
+        sclet_ai_sanitize_finding_refs(object, result))
+
+    # One revision round, only when it is justified: there is evidence to cite,
+    # enough findings for a ratio to mean something, and fewer than half of them
+    # are cited. Measured on Kang (2026-10-18): adding the id list to the prompt
+    # still produced 0.22-0.3 coverage, because the model kept writing findings
+    # with no reference. Asking it once to attach an id or remove the finding is
+    # cheaper than shipping a report that is mostly assertions.
+    coverage <- result$metadata$evidence_ref_coverage
+    if (length(evidence_lines) && isTRUE(
+            result$metadata$evidence_ref_coverage$n_findings >= 3L) &&
+            isTRUE(coverage$fraction < 0.5)) {
+        uncited <- vapply(Filter(function(finding)
+            !length(finding$evidence_refs %||% character()), result$findings %||% list()),
+            function(finding) as.character(finding$statement %||%
+                finding$description %||% "")[[1L]], character(1))
+        revision_prompt <- paste0(
+            sclet_ai_explanation_prompt(evidence_lines),
+            "\n\nYour previous explanation had findings WITHOUT evidence_refs: ",
+            paste0("- ", uncited, collapse = "\n"),
+            "\nRevise the explanation: attach at least one exact id from the ",
+            "list to each finding, or remove that finding and state it in ",
+            "`answer` as a hypothesis. Keep supported findings unchanged."
+        )
+        revised <- sclet_ai_call(
+            task = "analysis_explanation",
+            context = context,
+            tools = sclet_ai_tool_registry(object),
+            model = model,
+            structured_output = structured_output,
+            system_prompt = revision_prompt,
+            ...
+        )
+        revised <- sclet_ai_attach_ref_coverage(
+            sclet_ai_sanitize_finding_refs(object, revised))
+        revised_coverage <- revised$metadata$evidence_ref_coverage
+        if (isTRUE(revised_coverage$fraction > coverage$fraction)) {
+            revised$metadata$explanation_revision_rounds <- 1L
+            result <- revised
+        }
+    }
     sclet_ai_annotate_result_ceiling(object, result)
 }
 
