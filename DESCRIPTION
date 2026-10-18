@@ -60,6 +60,7 @@ Imports:
 Suggests:
     aisdk,
     ALRA,
+    AnnotationDbi,
     AUCell,
     batchelor,
     BiocNeighbors,
@@ -77,12 +78,16 @@ Suggests:
     enrichplot,
     ggraph,
     ggbump,
+    GenomeInfoDb,
+    GenomicFeatures,
+    GenomicRanges,
     graphics,
     grid,
     GSVA,
     harmony,
     HDF5Array,
     iSEE,
+    infercnv,
     limma,
     mgcv,
     miloR,
@@ -93,6 +98,7 @@ Suggests:
     presto,
     reshape2,
     reticulate,
+    rjags,
     scDblFinder,
     scrapper,
     Seurat,
@@ -181,6 +187,9 @@ Collate:
     'io.R'
     'layers.R'
     'malignancy.R'
+    'malignancy-cnv.R'
+    'malignancy-combine.R'
+    'phenotype-evidence.R'
     'markers.R'
     'matrix-utils.R'
     'multimodal.R'
