@@ -195,14 +195,48 @@ AIExplainAnalysis <- function(object, type = NULL, id = NULL, model = NULL, stru
         tools = sclet_ai_tool_registry(object),
         model = model,
         structured_output = structured_output,
-        system_prompt = paste(
-            "Explain the selected analysis in terms of inputs, method, outputs,",
-            "evidence and limitations. Distinguish measured results from hypotheses.",
-            "Do not upgrade association to causality."
-        ),
+        system_prompt = sclet_ai_explanation_prompt(),
         ...
     )
+    result <- sclet_ai_attach_ref_coverage(result)
     sclet_ai_annotate_result_ceiling(object, result)
+}
+
+# The explanation prompt exists as a function so the citation rules are
+# testable. On real data only 3 of 13 findings cited an evidence id (Kang
+# contrast run, 2026-10-18); the generic "explain evidence" prompt did not ask
+# for a per-finding reference, and an un-referenced finding is indistinguishable
+# from one the model made up.
+sclet_ai_explanation_prompt <- function() {
+    paste(
+        "Explain the selected analysis in terms of inputs, method, outputs,",
+        "evidence and limitations. Distinguish measured results from hypotheses.",
+        "Do not upgrade association to causality.",
+        "Every finding must list the exact evidence ids it rests on in",
+        "`evidence_refs`: they start with `ev:` and appear in",
+        "context$evidence. Do not cite an AI result id (`sclet-ai-...`) as",
+        "evidence. When nothing in context$evidence supports a statement, say",
+        "so in the finding text and set its claim_level to `hypothesis` rather",
+        "than attaching an unrelated id."
+    )
+}
+
+# Count how many findings carry an evidence id, so the caller (report,
+# benchmark, or a claim audit) can tell "cited" from "asserted".
+sclet_ai_attach_ref_coverage <- function(result) {
+    findings <- result$findings %||% list()
+    n_findings <- length(findings)
+    with_refs <- sum(vapply(findings, function(finding) {
+        length(finding$evidence_refs %||% character()) > 0L
+    }, logical(1L)))
+    metadata <- result$metadata %||% list()
+    metadata$evidence_ref_coverage <- list(
+        n_findings = as.integer(n_findings),
+        n_with_refs = as.integer(with_refs),
+        fraction = if (n_findings > 0L) with_refs / n_findings else NA_real_
+    )
+    result$metadata <- metadata
+    result
 }
 
 #' Ask the AI to recommend a conservative next analysis step
