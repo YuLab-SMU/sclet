@@ -1004,7 +1004,14 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         return(paste0("batch column is not available in colData: ", batch))
                     }
                     confirmation <- sclet_ai_find_design_confirmation(object, batch = batch)
-                    if (is.null(confirmation)) {
+                    # A `confirm_design` step earlier in the SAME plan will
+                    # write the confirmation at execution time; validation must
+                    # accept that promise (deferred projection), otherwise an
+                    # integration plan can never validate on an unconfirmed
+                    # object. Execution re-checks against the real state.
+                    planned_design <- planned$state_records$ai_design_confirmation %||%
+                        character()
+                    if (is.null(confirmation) && !length(planned_design)) {
                         return(paste0(
                             "design_semantics_not_confirmed: call ConfirmAIDesignSemantics(object, design = list(batch = '",
                             batch, "', ...)) before running integration"

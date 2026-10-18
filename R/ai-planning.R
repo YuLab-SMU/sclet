@@ -245,6 +245,20 @@ sclet_ai_planned_state_records <- function(descriptor, params) {
         run_velocity = single("velocity", "velocity"),
         run_fate_analysis = single("trajectory", "cellfate"),
         run_doublet_detection = list(preprocess = "doublet_finder"),
+        confirm_design = {
+            # Mirror ConfirmAIDesignSemantics()'s record id closely enough for a
+            # later step to see that the confirmation will exist. Integration
+            # checks that (see run_integration prerequisites), so a plan with
+            # confirm_design before run_integration validates -- measured
+            # 2026-10-18, where the goal to "integrate the two batches" was
+            # unplannable because validation only looked at the object.
+            roles <- c("batch", "condition", "subject", "sample")
+            given <- Filter(function(role) !is.null(params[[role]]), roles)
+            values <- vapply(given, function(role)
+                as.character(params[[role]])[[1L]], character(1))
+            id <- paste0("design;", paste0(given, "=", values, collapse = ","))
+            list(ai_design_confirmation = id)
+        },
         list()
     )
 }

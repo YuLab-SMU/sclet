@@ -36,6 +36,24 @@ test_that("confirm_design clears the integration design gate", {
     expect_true(!grepl("design_semantics_not_confirmed", after, fixed = TRUE))
 })
 
+test_that("a plan that confirms the design can validate the integration step", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 10L, ncol = 8L,
+            dimnames = list(paste0("g", 1:10), paste0("c", 1:8)))))
+    SummarizedExperiment::colData(sce)$batch <- rep(c("b1", "b2"), each = 4L)
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "integration"))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "design then integrate",
+        actions = list(
+            list(id = "d1", action = "confirm_design", params = list(batch = "batch")),
+            list(id = "i1", action = "run_integration",
+                params = list(method = "fastMNN", batch = "batch"))
+        ))
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
+    expect_true(validation$valid)
+    expect_false(any(grepl("design_semantics_not_confirmed", validation$errors)))
+})
+
 test_that("confirm_design refuses unknown columns and empty roles", {
     sce <- SingleCellExperiment::SingleCellExperiment(
         list(counts = matrix(1, nrow = 5L, ncol = 4L)))
