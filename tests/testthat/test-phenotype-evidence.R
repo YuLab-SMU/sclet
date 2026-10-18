@@ -228,3 +228,101 @@ test_that("the signature cutoff source is recorded", {
     expect_equal(rec2$signature_cut$source, "caller")
     expect_equal(rec2$signature_cut$value, 0.5)
 })
+
+## ---------------------------------------------------------------------------
+## Regression tests for the audit findings. Each one failed before its fix.
+## ---------------------------------------------------------------------------
+
+test_that("a competing hypothesis cannot overturn a refusal", {
+    # Before the fix the demotion read `call` itself: the signature selected the
+    # cells, the competing programme was then asked whether it explained "the
+    # cells the signature selected" (it must), and every non-supported cell was
+    # swept into `undetermined` -- including cells that had been properly refused.
+    sce <- sclet_ph_test_sce()
+    alt <- sprintf("BG%03d", seq_len(5L))
+    lc <- SummarizedExperiment::assay(sce, "logcounts")
+    lc[alt, 1:30] <- lc[alt, 1:30] + 3
+    SummarizedExperiment::assay(sce, "logcounts") <- lc
+
+    half <- sclet_ph_stub_provider("half_yes", "positive")
+    half$decide <- function(object, ...) {
+        list(state = ifelse(seq_len(ncol(object)) <= 30, "positive", "negative"))
+    }
+    PhenotypeEvidenceProviders("register", provider = half)
+    on.exit(PhenotypeEvidenceProviders("unregister", name = "half_yes"), add = TRUE)
+
+    # Baseline without the competing hypothesis: 30 supported, 30 refused.
+    base <- CallPhenotypeCells(sce, signature = sclet_ph_test_sig(),
+                               evidence = "half_yes", transcriptomic_cut = 0)
+    expect_equal(sum(SummarizedExperiment::colData(base)$phenotype_call_call == "refuted"), 30L)
+
+    res <- suppressWarnings(CallPhenotypeCells(sce, signature = sclet_ph_test_sig(),
+                                               evidence = "half_yes",
+                                               competing = list(alt = alt),
+                                               competing_demote = 0.05,
+                                               transcriptomic_cut = 0))
+    cd <- SummarizedExperiment::colData(res)
+    # The affirmative calls are demoted...
+    expect_equal(sum(cd$phenotype_call_call == "supported"), 0L)
+    # ...and the refusals are untouched.
+    expect_equal(sum(cd$phenotype_call_call == "refuted"), 30L)
+})
+
+test_that("providers declaring the same source count as one line", {
+    # Before the fix, registering one measurement under two names made every
+    # cell `supported` although only ONE line had been observed.
+    sce <- sclet_ph_test_sce()
+    a <- sclet_ph_stub_provider("yes_a", "positive"); a$source <- "one-measurement"
+    b <- sclet_ph_stub_provider("yes_b", "positive"); b$source <- "one-measurement"
+    PhenotypeEvidenceProviders("register", provider = a)
+    PhenotypeEvidenceProviders("register", provider = b)
+    on.exit({
+        PhenotypeEvidenceProviders("unregister", name = "yes_a")
+        PhenotypeEvidenceProviders("unregister", name = "yes_b")
+    }, add = TRUE)
+
+    res <- CallPhenotypeCells(sce, signature = sclet_ph_test_sig(),
+                              evidence = c("yes_a", "yes_b"), transcriptomic_cut = 0)
+    rec <- sclet_ph_ns("sclet_get_state_record")(res, "annotation", "phenotype_call")
+    expect_equal(rec$summary$independent_lines, 1L)
+    # Both providers are listed as participating, but they are ONE line.
+    expect_setequal(rec$summary$independent_providers, c("yes_a", "yes_b"))
+
+    # Two genuinely different sources do count twice.
+    c2 <- sclet_ph_stub_provider("yes_c", "positive"); c2$source <- "another-measurement"
+    PhenotypeEvidenceProviders("register", provider = c2)
+    on.exit(PhenotypeEvidenceProviders("unregister", name = "yes_c"), add = TRUE)
+    res2 <- CallPhenotypeCells(sce, signature = sclet_ph_test_sig(),
+                               evidence = c("yes_a", "yes_c"), transcriptomic_cut = 0)
+    rec2 <- sclet_ph_ns("sclet_get_state_record")(res2, "annotation", "phenotype_call")
+    expect_equal(rec2$summary$independent_lines, 2L)
+})
+
+test_that("re-registering an existing provider name is refused", {
+    p <- sclet_ph_stub_provider("dup_name", "positive")
+    PhenotypeEvidenceProviders("register", provider = p)
+    on.exit(PhenotypeEvidenceProviders("unregister", name = "dup_name"), add = TRUE)
+    expect_error(PhenotypeEvidenceProviders("register", provider = p), "already")
+})
+
+test_that("a provider source must be a single string when supplied", {
+    bad <- sclet_ph_stub_provider("bad_src", "positive")
+    bad$source <- c("a", "b")
+    expect_error(PhenotypeEvidenceProviders("register", provider = bad), "source")
+})
+
+test_that("the competing report states the groups it compared", {
+    sce <- sclet_ph_test_sce()
+    half <- sclet_ph_stub_provider("half2", "positive")
+    half$decide <- function(object, ...) {
+        list(state = ifelse(seq_len(ncol(object)) <= 30, "positive", "negative"))
+    }
+    PhenotypeEvidenceProviders("register", provider = half)
+    on.exit(PhenotypeEvidenceProviders("unregister", name = "half2"), add = TRUE)
+    res <- CallPhenotypeCells(sce, signature = sclet_ph_test_sig(), evidence = "half2",
+                              competing = list(alt = sprintf("MAL%02d", seq_len(10L))),
+                              transcriptomic_cut = 0)
+    rec <- sclet_ph_ns("sclet_get_analysis")(res, "phenotype_call")$phenotype_call
+    expect_equal(rec$competing$alt$n_in_scope, 30L)
+    expect_equal(rec$competing$alt$n_residual, 30L)
+})

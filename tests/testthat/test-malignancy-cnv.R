@@ -48,7 +48,6 @@ sclet_cnv_test_signature <- function() sprintf("MAL%02d", seq_len(10L))
 sclet_cnv_test_record <- function(sce, burden, name = "cnv") {
     cd <- SummarizedExperiment::colData(sce)
     cd[[paste0(name, "_burden")]] <- burden
-    cd[[paste0(name, "_n_cnv_regions")]] <- rep(NA_integer_, nrow(cd))
     cd[[paste0(name, "_is_reference")]] <- cd$reference
     SummarizedExperiment::colData(sce) <- cd
     rec <- list(status = "completed", reference_cells = rownames(cd)[cd$reference],
@@ -217,4 +216,55 @@ test_that("burden centres on each cell's own median, not on the raw level", {
     raw <- colMeans(abs(expr))
     expect_lt(abs(raw[["c03"]] - raw[["c01"]]), 0.01)
     expect_gt(b[["c03"]] - b[["c01"]], 0.1)
+})
+
+## ---------------------------------------------------------------------------
+## Regression tests for the audit findings.
+## ---------------------------------------------------------------------------
+
+test_that("a non-count assay is refused instead of silently truncated", {
+    # Before the fix the assay was coerced with mode(x) <- "integer", which turns
+    # 3.2 into 3 without a word: inferCNV would then model a matrix that is not
+    # what the caller supplied, and the burden would look perfectly reasonable.
+    sce <- sclet_cnv_test_sce()
+    ord <- data.frame(gene = rownames(sce), chr = "chr1",
+                      start = seq_len(nrow(sce)), end = seq_len(nrow(sce)) + 1L)
+    expect_error(
+        RunCNVInference(sce, reference_col = "reference", gene_order = ord,
+                        assay = "logcounts"),
+        "non-integer"
+    )
+    # A negative-valued assay is refused with a pointer at the likely cause.
+    sce_neg <- sce
+    SummarizedExperiment::assay(sce_neg, "counts") <- -SummarizedExperiment::assay(sce_neg, "counts")
+    expect_error(
+        RunCNVInference(sce_neg, reference_col = "reference", gene_order = ord),
+        "negative"
+    )
+})
+
+test_that("no fake n_cnv_regions column is written", {
+    # The column was declared in colData and the state record but never
+    # computed: it was always NA, an interface that promised a measurement it
+    # did not make.
+    sce <- sclet_cnv_test_sce()
+    sce <- suppressWarnings(RunCNVInference(sce, gene_order = NULL))
+    expect_false("cnv_n_cnv_regions" %in% colnames(SummarizedExperiment::colData(sce)))
+
+    sce2 <- sclet_cnv_test_record(sce, rep(0.1, ncol(sce)))
+    expect_false("cnv_n_cnv_regions" %in% colnames(SummarizedExperiment::colData(sce2)))
+})
+
+test_that("the generic-to-malignant mapping has one rule, not two", {
+    # `refuted` already means "an explicit negative and no positive", so it must
+    # map to non_malignant without a second n_lines overlay.
+    sce <- sclet_cnv_test_sce()
+    n <- ncol(sce)
+    burden <- c(rep(0.120, 30), rep(0.052, n - 30))
+    sce <- sclet_cnv_test_record(sce, burden)
+    res <- suppressWarnings(CallMalignantCells(sce, signature = sclet_cnv_test_signature()))
+    cd <- SummarizedExperiment::colData(res)
+    # Cells with a negative CNV line and a negative signature are non_malignant,
+    # not undetermined.
+    expect_gt(sum(cd$malignant_call_state == "non_malignant"), 0L)
 })

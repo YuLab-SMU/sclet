@@ -203,6 +203,27 @@ RunCNVInference <- function(object,
     if (inherits(cnv_counts, "DelayedArray")) {
         cnv_counts <- as.matrix(cnv_counts)
     }
+    # inferCNV models raw counts. Coercing a normalised matrix to integer would
+    # truncate every value without a word and produce a numerically plausible,
+    # biologically meaningless result, so a non-count matrix is refused.
+    if (!is.numeric(cnv_counts)) {
+        stop("Assay '", assay, "' is not numeric.")
+    }
+    if (any(cnv_counts < 0, na.rm = TRUE)) {
+        stop(
+            "Assay '", assay, "' has negative values; inferCNV needs raw counts.",
+            if (assay %in% c("logcounts", "scaled")) {
+                " This looks like a transformed assay -- use assay = \"counts\"."
+            } else ""
+        )
+    }
+    if (any(cnv_counts != round(cnv_counts), na.rm = TRUE)) {
+        stop(
+            "Assay '", assay, "' holds non-integer values; inferCNV needs raw counts. ",
+            "Coercing would truncate every value silently. Use assay = \"counts\", ",
+            "or round explicitly if you are certain the values are counts."
+        )
+    }
     mode(cnv_counts) <- "integer"
 
     order_file <- file.path(out_dir, "gene_order.tsv")
@@ -245,18 +266,15 @@ RunCNVInference <- function(object,
     )
 
     burden <- sclet_cnv_burden(cnv_obj, cells = colnames(object), ref = ref)
-    states <- sclet_cnv_states(cnv_obj, cells = colnames(object))
 
     cdata <- SummarizedExperiment::colData(object)
     cdata[[paste0(name, "_burden")]] <- burden$burden[match(rownames(cdata), burden$cell)]
-    cdata[[paste0(name, "_n_cnv_regions")]] <- burden$n_regions[match(rownames(cdata), burden$cell)]
     cdata[[paste0(name, "_is_reference")]] <- rownames(cdata) %in% ref
     SummarizedExperiment::colData(object) <- cdata
 
     result <- list(
         status = "completed",
         burden = burden,
-        states = states,
         reference_cells = ref,
         n_reference_cells = length(ref),
         n_genes = length(common),
@@ -294,7 +312,7 @@ RunCNVInference <- function(object,
                 gene_order_source = readiness$gene_order_source
             ),
             artifacts = list(
-                columns = paste0(name, c("_burden", "_n_cnv_regions", "_is_reference")),
+                columns = paste0(name, c("_burden", "_is_reference")),
                 metadata = paste0("malignant_cnv$", name)
             ),
             params = result$params,
@@ -452,24 +470,15 @@ sclet_cnv_burden <- function(cnv_obj, cells, ref) {
     data.frame(
         cell = obs_cells,
         burden = as.numeric(burden[obs_cells]),
-        n_regions = rep(NA_integer_, length(obs_cells)),
         is_reference = obs_cells %in% ref,
         stringsAsFactors = FALSE
     )
 }
 
-sclet_cnv_states <- function(cnv_obj, cells) {
-    states <- tryCatch(methods::slot(cnv_obj, "cnv_regions"), error = function(e) NULL)
-    if (is.null(states)) {
-        return(NULL)
-    }
-    states
-}
 
 sclet_cnv_record_unavailable <- function(object, name, readiness) {
     cdata <- SummarizedExperiment::colData(object)
     cdata[[paste0(name, "_burden")]] <- rep(NA_real_, nrow(cdata))
-    cdata[[paste0(name, "_n_cnv_regions")]] <- rep(NA_integer_, nrow(cdata))
     cdata[[paste0(name, "_is_reference")]] <- rep(NA, nrow(cdata))
     SummarizedExperiment::colData(object) <- cdata
 
@@ -498,7 +507,7 @@ sclet_cnv_record_unavailable <- function(object, name, readiness) {
             method = "inferCNV per-cell copy-number burden",
             status = "unavailable",
             reason = readiness$issues,
-            artifacts = list(columns = paste0(name, c("_burden", "_n_cnv_regions", "_is_reference"))),
+            artifacts = list(columns = paste0(name, c("_burden", "_is_reference"))),
             summary = list(status = "unavailable", n_issues = length(readiness$issues))
         )
     )

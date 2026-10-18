@@ -43,7 +43,15 @@ cannot run must say \code{FALSE} with a reason; it must never report
 state is \code{"positive"}, \code{"negative"} or \code{"unavailable"}.}
 \item{\code{dependence}}{\code{"independent"} or \code{"shared_with_signature"}. Only
 independent lines count toward a two-line call.}
+\item{\code{source}}{Optional string naming the MEASUREMENT a provider reads.
+Providers declaring the same \code{source} are one line of evidence, not
+several: two wrappers over one measurement are not corroborating
+observations. Use it whenever you register more than one provider over the
+same data.}
 }
+
+Registering a name that already exists is refused; unregister it first if you
+mean to replace it.
 }
 
 \seealso{

@@ -117,14 +117,13 @@ CallMalignantCells <- function(object,
 
     # ---- map the generic call onto the malignant vocabulary ------------------
     cdata <- SummarizedExperiment::colData(object)
+    # One mapping, stated once. The generic layer already guarantees that
+    # `refuted` means "an explicit negative and no positive", so it cannot be
+    # reached with zero lines -- there is no second rule to overlay.
     generic <- as.character(cdata[[paste0(name, "_call")]])
     state <- ifelse(generic == "supported", "malignant",
                     ifelse(generic == "probable", "likely_malignant",
                            ifelse(generic == "refuted", "non_malignant", "undetermined")))
-    # A refuted cell is one where a usable line said no: keep that as
-    # non_malignant, but a cell with no usable line at all stays undetermined.
-    n_lines <- cdata[[paste0(name, "_n_lines")]]
-    state[is.na(n_lines) | n_lines == 0] <- "undetermined"
 
     evidence <- paste0(name, "_evidence")
     cnv_state <- cdata[[paste0(name, "_cnv_state")]]
@@ -206,25 +205,4 @@ sclet_cnv_reference_cut <- function(ref_burden, reference_quantile = 0.99) {
 sclet_state_count <- function(counts, level) {
     v <- unname(counts[[level]])
     if (length(v) == 0 || is.na(v)) 0L else as.integer(v)
-}
-
-sclet_call_resolve_signature <- function(signature) {
-    if (is.null(signature)) {
-        stop("Supply `signature` (gene vector, named list) or `signature_score`.")
-    }
-    if (is.character(signature)) {
-        return(signature)
-    }
-    if (is.list(signature) && !is.null(signature$tumor_genes)) {
-        return(signature$tumor_genes)
-    }
-    if (is.list(signature) && !is.null(names(signature))) {
-        idx <- match(c("malignant", "tumor"), tolower(names(signature)))
-        idx <- idx[!is.na(idx)]
-        if (length(idx) == 0) {
-            stop("A named `signature` list needs a 'malignant' or 'tumor' element.")
-        }
-        return(signature[[idx[[1]]]])
-    }
-    stop("`signature` must be a gene vector, a named list, or FindMalignantSeedGenes() output.")
 }

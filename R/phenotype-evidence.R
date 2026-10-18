@@ -60,6 +60,11 @@
 #'     state is `"positive"`, `"negative"` or `"unavailable"`.}
 #'   \item{`dependence`}{`"independent"` or `"shared_with_signature"`. Only
 #'     independent lines count toward a two-line call.}
+#'   \item{`source`}{Optional string naming the MEASUREMENT a provider reads.
+#'     Providers declaring the same `source` are one line of evidence, not
+#'     several: two wrappers over one measurement are not corroborating
+#'     observations. Use it whenever you register more than one provider over the
+#'     same data.}
 #' }
 #'
 #' @seealso [CallPhenotypeCells()], [RunCNVInference()]
@@ -96,6 +101,14 @@ PhenotypeEvidenceProviders <- function(action = c("list", "get", "register", "un
             }
             check_phenotype_provider(provider)
             reg <- sclet_phenotype_registry()
+            # A silent overwrite would let two different definitions share one
+            # name, so replacing an existing provider must be asked for.
+            if (provider$name %in% names(reg)) {
+                stop(
+                    "An evidence provider named '", provider$name, "' is already ",
+                    "registered. Unregister it first if you mean to replace it."
+                )
+            }
             reg[[provider$name]] <- provider
             sclet_phenotype_registry_set(reg)
             invisible(NULL)
@@ -146,6 +159,10 @@ check_phenotype_provider <- function(provider) {
             dep, "\""
         ))
     }
+    if (!is.null(provider$source) &&
+        (!is.character(provider$source) || length(provider$source) != 1 || !nzchar(provider$source))) {
+        problems <- c(problems, "`source` must be a single non-empty string when supplied")
+    }
     if (length(problems) > 0) {
         stop("Invalid phenotype evidence provider: ", paste(problems, collapse = "; "), ".")
     }
@@ -169,10 +186,13 @@ check_phenotype_provider <- function(provider) {
 #'   `NULL` uses the median. The choice is recorded in the result either way.
 #' @param competing Optional named list of competing signatures (`list(
 #'   hypothesis_name = genes, ...)`). For each, the call reports how well the
-#'   signature separates the evidence-positive cells from the rest, which is the
-#'   question "is this the axis we think it is?".
-#' @param competing_demote Numeric. Separation on the dominant competing
-#'   signature above which a two-line call is demoted to `undetermined`.
+#'   signature separates the evidence-positive cells from the rest. The groups
+#'   come from the EVIDENCE (at least one line positive vs none), never from the
+#'   resulting call: comparing against the call would be circular, because the
+#'   signature selects the cells it is then asked to explain.".
+#' @param competing_demote Numeric. Separation on the competing signature above
+#'   which affirmative calls are demoted to `undetermined`. A `refuted` call is
+#'   never demoted: it was never evidence-positive.
 #' @param assay Assay for scoring. Defaults to `"logcounts"`.
 #' @param name Analysis record id. Defaults to `"phenotype_call"`.
 #' @param ... Arguments passed to each provider's `decide()`.
@@ -283,6 +303,7 @@ CallPhenotypeCells <- function(object,
                 state = "unavailable",
                 label = provider$label,
                 dependence = provider$dependence %||% "independent",
+                source = provider$source,
                 issues = avail$issues %||% character(0)
             )
             next
@@ -297,6 +318,7 @@ CallPhenotypeCells <- function(object,
                 state = "unavailable",
                 label = provider$label,
                 dependence = provider$dependence %||% "independent",
+                source = provider$source,
                 issues = decided$error %||% "provider returned no state"
             )
             next
@@ -316,36 +338,52 @@ CallPhenotypeCells <- function(object,
             state = "measured",
             label = provider$label,
             dependence = provider$dependence %||% "independent",
+            source = provider$source,
             issues = character(0),
             detail = decided$detail %||% NULL
         )
     }
 
+    # ---- line accounting -----------------------------------------------------
+    #
+    # Providers that declare the same `source` are ONE line of evidence, not
+    # several: two wrappers over one measurement are not corroborating
+    # observations. Providers with no `source` are their own line.
+    #
+    # This closes the hole where registering the same thing twice under two names
+    # (or two providers that silently read the same matrix) manufactured a
+    # two-line call. The registry cannot see inside a provider, so `source` is a
+    # declaration the provider makes; what it CAN enforce is that a declaration
+    # is honoured, and that `dependence` still gates whether a line counts.
     independent <- names(Filter(
         function(p) identical(p$dependence %||% "independent", "independent") &&
             identical(p$state, "measured"),
         provider_report
     ))
+    line_ids <- vapply(independent, function(p) {
+        src <- provider_report[[p]]$source
+        if (is.null(src) || !nzchar(src)) p else paste0("src:", src)
+    }, character(1))
+    unique_lines <- unique(line_ids)
 
-    # ---- counting lines ------------------------------------------------------
-    n_positive <- if (length(independent) == 0) {
-        rep(0L, nrow(cdata))
-    } else {
-        Reduce(`+`, lapply(independent, function(p) as.integer(provider_states[[p]] == "positive")),
-               init = rep(0L, nrow(cdata)))
+    count_line <- function(target) {
+        if (length(unique_lines) == 0) {
+            return(rep(0L, nrow(cdata)))
+        }
+        Reduce(`+`, lapply(unique_lines, function(ln) {
+            members <- independent[line_ids == ln]
+            # A line is positive if ANY of its members is positive...
+            pos <- Reduce(`|`, lapply(members, function(p) provider_states[[p]] == "positive"),
+                          init = rep(FALSE, nrow(cdata)))
+            # ...and negative only if it is positive nowhere and some member says
+            # no. Agreement inside a line is not dissent.
+            neg <- !pos & Reduce(`|`, lapply(members, function(p) provider_states[[p]] == "negative"),
+                                 init = rep(FALSE, nrow(cdata)))
+            as.integer(pos == target)
+        }), init = rep(0L, nrow(cdata)))
     }
-    n_negative <- if (length(independent) == 0) {
-        rep(0L, nrow(cdata))
-    } else {
-        Reduce(`+`, lapply(independent, function(p) as.integer(provider_states[[p]] == "negative")),
-               init = rep(0L, nrow(cdata)))
-    }
-    n_measured <- if (length(independent) == 0) {
-        rep(0L, nrow(cdata))
-    } else {
-        Reduce(`+`, lapply(independent, function(p) as.integer(provider_states[[p]] %in% c("positive", "negative"))),
-               init = rep(0L, nrow(cdata)))
-    }
+    n_positive <- count_line(TRUE)
+    n_negative <- count_line(FALSE)
 
     # The signature is itself one line of evidence, and the only one that is
     # always available. Count it alongside the independent providers: a positive
@@ -370,6 +408,19 @@ CallPhenotypeCells <- function(object,
     total_lines <- n_yes + n_no
 
     # ---- competing hypotheses ------------------------------------------------
+    #
+    # The comparison groups come from the EVIDENCE-POSITIVE cells, not from
+    # `call`. Using `call` would make this circular: the signature selects the
+    # cells, then the competing programme is asked whether it explains "the cells
+    # the signature selected", which it must, because the signature chose them.
+    # The axis question is therefore asked of the evidence alone:
+    #
+    #   in_scope : at least one line is positive
+    #   residual : every line is negative, or nothing was measured
+    #
+    # A competing programme separating those two groups says the evidence is
+    # picking up that programme; it does not say so about cells that were already
+    # refused, which must keep their refusal.
     competing_report <- NULL
     if (!is.null(competing)) {
         if (is.null(assay)) {
@@ -378,6 +429,8 @@ CallPhenotypeCells <- function(object,
         if (!is.null(assay)) {
             expr <- sclet_malignancy_dense(SummarizedExperiment::assay(object, assay))
             bins <- sclet_gene_expression_bins(expr, n_bins = 25)
+            in_scope <- n_yes > 0
+            residual <- !in_scope
             competing_report <- list()
             for (hname in names(competing)) {
                 genes <- intersect(competing[[hname]], rownames(object))
@@ -387,10 +440,9 @@ CallPhenotypeCells <- function(object,
                 }
                 cscore <- sclet_add_module_score(expr, genes, bins = bins, n_ctrl = 100,
                                                  exclude = genes)
-                on <- call %in% c("supported", "probable")
-                off <- !on & !is.na(cscore)
-                sep <- if (sum(on) > 2 && sum(off) > 2) {
-                    mean(cscore[on]) - mean(cscore[off])
+                usable <- !is.na(cscore)
+                sep <- if (sum(in_scope & usable) > 2 && sum(residual & usable) > 2) {
+                    mean(cscore[in_scope & usable]) - mean(cscore[residual & usable])
                 } else {
                     NA_real_
                 }
@@ -398,11 +450,16 @@ CallPhenotypeCells <- function(object,
                     status = "measured",
                     genes = length(genes),
                     separation = sep,
+                    n_in_scope = sum(in_scope & usable),
+                    n_residual = sum(residual & usable),
                     demote = !is.na(sep) && abs(sep) > competing_demote
                 )
             }
             demoting <- names(Filter(function(x) isTRUE(x$demote), competing_report))
             if (length(demoting) > 0) {
+                # Only the affirmative states are demoted. `refuted` is a refusal
+                # the competing programme cannot overturn -- it was never
+                # evidence-positive, so the axis question does not apply to it.
                 call[call %in% c("supported", "probable")] <- "undetermined"
             }
         }
@@ -463,7 +520,8 @@ CallPhenotypeCells <- function(object,
                 n_probable = as.integer(result$call[["probable"]]),
                 n_undetermined = as.integer(result$call[["undetermined"]]),
                 n_refuted = as.integer(result$call[["refuted"]]),
-                independent_lines = length(independent),
+                independent_lines = length(unique_lines),
+                independent_providers = independent,
                 unavailable_providers = names(Filter(
                     function(p) identical(p$state, "unavailable"), provider_report))
             ),

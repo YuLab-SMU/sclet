@@ -132,6 +132,36 @@ score a suspected competing programme (for gastric cancer, the intestinal-
 metaplasia profile), and if it separates the two evidence-positive sides beyond
 `identity_demote`, demote those cells to `undetermined` and say so.
 
+
+## What the audit found (and why these were not test failures)
+
+The first round of tests all passed while two of the framework's central promises
+were broken. Neither defect was a boundary case: one disabled the competing-
+hypothesis test, the other disabled the independence rule.
+
+**Circular competing hypothesis.** The test used `call` to define "the cells
+under discussion". Since the signature selects those cells, the competing
+programme was guaranteed to separate them -- the question answered itself. Worse,
+the demotion swept `refuted` cells into `undetermined`, so a refusal could be
+overturned by the very test meant to challenge the affirmative calls. Fixed:
+groups are now defined by the evidence (`in_scope` = at least one line positive,
+`residual` = none), never by the call, and `refuted` is never demoted.
+
+**Independence by declaration only.** Registering one measurement under two names
+made every cell `supported`. The registry cannot see inside a provider, but it
+can honour a declaration: providers sharing a `source` now count as one line, and
+re-registering an existing name is refused instead of silently replacing it.
+
+Three smaller ones, also fixed: `n_cnv_regions` was written to colData and the
+state record but never computed (always `NA`, a promised measurement that did not
+exist); a non-count assay was coerced with `mode(x) <- "integer"`, truncating
+every value silently; and the generic-to-malignant mapping had two overlapping
+rules that agreed only by evaluation order.
+
+The lesson worth keeping: the defects were all in the *meaning* of the columns,
+and "every assertion passes" said nothing about them. Each fix now has a
+regression test that fails without it.
+
 ## What this deliberately does not claim
 
 There is no per-cell ground truth for malignant identity. `cnv_cut` and
