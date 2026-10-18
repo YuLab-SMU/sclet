@@ -2402,7 +2402,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 ),
                 handler = function(object, params) {
                     name <- params$name %||% "cnv"
-                    reference_ids <- if (!is.null(params$reference_ids)) {
+                    reference_cells <- if (!is.null(params$reference_ids)) {
                         sclet_ai_vector_param(params$reference_ids, "character")
                     } else {
                         NULL
@@ -2526,7 +2526,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         genes <- sclet_ai_vector_param(params$signature, "character")
                         signature <- stats::setNames(list(genes), "malignant")
                     }
-                    identity_markers <- if (!is.null(params$identity_markers)) {
+                    identity_genes <- if (!is.null(params$identity_markers)) {
                         sclet_ai_vector_param(params$identity_markers, "character")
                     } else {
                         NULL
