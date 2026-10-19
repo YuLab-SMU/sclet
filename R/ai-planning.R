@@ -294,6 +294,17 @@ sclet_ai_apply_planned_output <- function(planned, descriptor, params) {
         planned$reduction_dims$PCA <- sclet_ai_coerce_integer(params$ncomponents, default = 50L)
         planned$active_reduction <- "PCA"
     }
+    # `run_integration` registers its reduction under a method-dependent name,
+    # so its schema cannot state one statically. Without this, the natural
+    # chain `find_neighbors(reduction = "${integration.output.reduction}")`
+    # cannot project (the reference stays a literal) and its prerequisite
+    # refuses the plan with "reduction is not available:
+    # ${step_6.output.reduction}" -- measured 2026-10-19 on the Kang goal, where
+    # it made the standard integrate -> cluster -> annotate -> DE pipeline
+    # unplannable. Same deferred-projection treatment as run_pca above.
+    if (identical(descriptor$name, "run_integration")) {
+        planned$active_reduction <- sclet_ai_integration_reduction(params$method %||% "fastMNN")
+    }
     # Add the records this step will register, so a later step in the same plan
     # can depend on them. Deferred projection again: validation accepts the
     # promise, and if the step really fails to register, its own execution-time
@@ -951,6 +962,15 @@ ValidateAIPlan <- function(
                 }
                 planned <- sclet_ai_apply_planned_output(planned, descriptor, planned_params)
                 planned_outputs[[step$id]] <- descriptor$output_schema %||% list()
+                # `run_integration` cannot declare its reduction statically (the
+                # name depends on the method), but a later step may reference it.
+                # Fill the projected output with the name this method registers,
+                # so `${integration.output.reduction}` resolves instead of
+                # passing the template through to a prerequisite.
+                if (identical(step$action, "run_integration")) {
+                    planned_outputs[[step$id]]$reduction <- sclet_ai_integration_reduction(
+                        planned_params$method %||% "fastMNN")
+                }
             }
         }
     } else if (length(normalized)) {
@@ -1819,4 +1839,20 @@ print.sclet_ai_plan <- function(x, ...) {
         cat(x$rationale, "\n", sep = "")
     }
     invisible(x)
+}
+
+# The reduction name `run_integration` registers for a method.
+#
+# Measured on this machine 2026-10-14 and re-confirmed 2026-10-19 (Harmony on
+# the Kang fixture: reducedDimNames() -> c("PCA","HARMONY"), DefaultReduction()
+# -> "HARMONY"). fastMNN keeps "corrected" whatever `name` says. This is the one
+# place that mapping lives; the descriptor's `allowed_reductions` lists the
+# possible names for validation, and this names the one a plan will actually get.
+sclet_ai_integration_reduction <- function(method) {
+    switch(as.character(method)[[1L]],
+        fastMNN = "corrected",
+        Harmony = "HARMONY",
+        scVI = "scVI",
+        "corrected"
+    )
 }
