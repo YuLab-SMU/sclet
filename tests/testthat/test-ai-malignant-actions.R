@@ -94,3 +94,44 @@ test_that("a two-step malignant plan validates on an unconfirmed object", {
     ## the call step must still not complain about a missing CNV record.
     expect_false(any(grepl("cnv_record_missing", validation$errors)))
 })
+
+test_that("a plan may reference the CNV step's output id", {
+    ## Measured 2026-10-19 in the first real-data malignant benchmark: the model
+    ## wrote `cnv_id = "${step_1.output.cnv_id}"` -- the documented spelling --
+    ## and validation substituted the schema's TYPE MARKER ("cnv_record_id")
+    ## for the reference, then refused the step with "no CNV run
+    ## 'cnv_record_id'". A reference must stay a reference until execution.
+    sce <- malignant_test_object()
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "malignant"))
+
+    projected <- sclet:::sclet_ai_project_plan_value(
+        "${cnv1.output.cnv_id}",
+        list(cnv1 = registry$run_cnv_inference$output_schema))
+    expect_identical(projected, "${cnv1.output.cnv_id}")
+
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "malignant",
+        actions = list(
+            list(id = "cnv1", action = "run_cnv_inference",
+                params = list(reference_col = "reference", name = "cnv_crc",
+                    assay = "counts")),
+            list(id = "call1", action = "call_malignant_cells",
+                params = list(cnv_id = "${cnv1.output.cnv_id}",
+                    signature_score = "malignant_score",
+                    name = "malignant_call"))
+        ))
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
+    expect_false(any(grepl("cnv_record_missing", validation$errors)))
+    ## The reference must be tied to a step: with no CNV step in the plan the
+    ## call is still refused, and the message says so.
+    orphan <- sclet:::new_sclet_ai_plan(
+        task = "malignant",
+        actions = list(
+            list(id = "call1", action = "call_malignant_cells",
+                params = list(cnv_id = "${cnv1.output.cnv_id}",
+                    signature_score = "malignant_score"))
+        ))
+    orphan_validation <- ValidateAIPlan(orphan, object = sce,
+        registry = registry, strict = FALSE)
+    expect_true(any(grepl("cnv_record_missing", orphan_validation$errors)))
+})

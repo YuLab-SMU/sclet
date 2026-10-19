@@ -176,13 +176,18 @@ sclet_ai_project_plan_value <- function(value, planned_outputs) {
 # exists after execution? The marker is deliberately a scalar string so it
 # cannot be mistaken for a real gene vector or a real record id. `hvg` stands
 # for the variable-feature set; `detest_record_id` stands for the id
-# run_de_test registers (written into the execution summary as an observation,
-# so projecting the marker here would hand the enrichment gate a literal that
-# no planned-record list can contain -- measured as the reason a chained
-# DE -> enrichment plan still failed after detest_id became referenceable).
+# run_de_test registers; `cnv_record_id` stands for the id run_cnv_inference
+# registers (measured 2026-10-19: a model wrote
+# `cnv_id = "${step_1.output.cnv_id}"`, the projection substituted this
+# marker, and the call step was refused with `cnv_record_missing` naming
+# "cnv_record_id" -- a literal no planned CNV run could ever have). Each is
+# written into the execution summary as an observation, so projecting the
+# marker here would hand a prerequisite a literal that no planned-record list
+# can contain.
 sclet_ai_is_deferred_promise <- function(value) {
     is.character(value) && length(value) == 1L &&
-        (identical(value, "hvg") || identical(value, "detest_record_id"))
+        (identical(value, "hvg") || identical(value, "detest_record_id") ||
+            identical(value, "cnv_record_id"))
 }
 sclet_ai_plan_capabilities <- function(object) {
     state <- sclet_get_state(object)

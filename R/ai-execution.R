@@ -2593,6 +2593,31 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     cnv_id <- params$cnv_id %||% "cnv"
                     records <- sclet_get_analysis(object, "malignant_cnv")
                     planned_cnv <- planned$cnv_ids %||% character()
+                    # A well-formed output reference counts as pointing at the
+                    # promise: `cnv_id = "${<step>.output.cnv_id}"` resolves at
+                    # execution from the producing step's summary, which carries
+                    # the real record id. Demanding the LITERAL id here rejected
+                    # the exact spelling the 2026-10-19 benchmark measured as the
+                    # one a model actually writes (the same defect the enrichment
+                    # gate had for detest_id). The reference shape ties the id to
+                    # a step of this plan; execution stays the authority on
+                    # whether that step really registered a CNV run.
+                    is_output_reference <- is.character(cnv_id) &&
+                        length(cnv_id) == 1L &&
+                        grepl("^\\$\\{[A-Za-z0-9_.-]+\\.output\\.[A-Za-z0-9_.-]+\\}$",
+                            cnv_id)
+                    if (is_output_reference) {
+                        if (!length(planned_cnv)) {
+                            return(paste0(
+                                "cnv_record_missing: the call references ",
+                                cnv_id, ", but no run_cnv_inference step ",
+                                "precedes it in this plan; run run_cnv_inference ",
+                                "first. The malignant call is a TWO-line call and ",
+                                "will not be silently downgraded to ",
+                                "signature-only."))
+                        }
+                        cnv_id <- planned_cnv[[length(planned_cnv)]]
+                    }
                     have_real <- !is.null(records) && !is.null(records[[cnv_id]])
                     have_planned <- length(planned_cnv) &&
                         cnv_id %in% planned_cnv
