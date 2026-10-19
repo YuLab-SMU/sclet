@@ -103,3 +103,56 @@ test_that("explanation asks for one revision when citations are missing", {
     expect_equal(result$metadata$evidence_ref_coverage$fraction, 1)
     expect_equal(result$metadata$explanation_revision_rounds, 1L)
 })
+
+test_that("a second revision runs when the first still leaves most findings uncited", {
+    ## 2026-10-19: four real-data records at 0.3, 0.56, 0.5 and 1.0. One round
+    ## was not enough to put the report layer above the 0.8 target, so a second
+    ## round runs only while coverage stays below half -- and stops as soon as
+    ## a round stops helping.
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 5, 4)))
+    sce <- RecordAIEvidence(sce, list(id = "ev:findallmarkers",
+        kind = "deterministic_summary", claim_level = "associated",
+        values = list(n_rows = 3L)))
+    uncited <- function() list(statement = "asserted", evidence_refs = character())
+    incited <- function() list(statement = "cited", evidence_refs = "ev:findallmarkers")
+    calls <- 0L
+    old <- options(sclet.ai.call = function(task, context, ...) {
+        calls <<- calls + 1L
+        findings <- switch(as.character(calls),
+            "1" = list(uncited(), uncited(), uncited()),
+            "2" = list(incited(), uncited(), uncited()),
+            list(incited(), incited(), incited()))
+        new_sclet_ai_result("analysis_explanation",
+            context = list(schema_version = "1.0", fingerprint = "test"),
+            findings = findings)
+    })
+    on.exit(options(old), add = TRUE)
+
+    result <- AIExplainAnalysis(sce, model = "mock", structured_output = FALSE)
+    expect_equal(calls, 3L)
+    expect_equal(result$metadata$evidence_ref_coverage$fraction, 1)
+    expect_equal(result$metadata$explanation_revision_rounds, 2L)
+})
+
+test_that("a revision that does not help ends the loop", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(counts = matrix(1, 5, 4)))
+    sce <- RecordAIEvidence(sce, list(id = "ev:findallmarkers",
+        kind = "deterministic_summary", claim_level = "associated",
+        values = list(n_rows = 3L)))
+    uncited <- function() list(statement = "asserted", evidence_refs = character())
+    calls <- 0L
+    old <- options(sclet.ai.call = function(task, context, ...) {
+        calls <<- calls + 1L
+        new_sclet_ai_result("analysis_explanation",
+            context = list(schema_version = "1.0", fingerprint = "test"),
+            findings = list(uncited(), uncited(), uncited()))
+    })
+    on.exit(options(old), add = TRUE)
+
+    result <- AIExplainAnalysis(sce, model = "mock", structured_output = FALSE)
+    ## First proposal plus exactly one round: a round with no improvement is
+    ## not repeated.
+    expect_equal(calls, 2L)
+    expect_null(result$metadata$explanation_revision_rounds)
+    expect_equal(result$metadata$evidence_ref_coverage$fraction, 0)
+})

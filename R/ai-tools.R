@@ -209,22 +209,35 @@ AIExplainAnalysis <- function(object, type = NULL, id = NULL, model = NULL, stru
     result <- sclet_ai_attach_ref_coverage(
         sclet_ai_sanitize_finding_refs(object, result))
 
-    # One revision round, only when it is justified: there is evidence to cite,
+    # Revision rounds, only when they are justified: there is evidence to cite,
     # enough findings for a ratio to mean something, and fewer than half of them
     # are cited. Measured on Kang (2026-10-18): adding the id list to the prompt
     # still produced 0.22-0.3 coverage, because the model kept writing findings
     # with no reference. Asking it once to attach an id or remove the finding is
     # cheaper than shipping a report that is mostly assertions.
-    coverage <- result$metadata$evidence_ref_coverage
-    if (length(evidence_lines) && isTRUE(
-            result$metadata$evidence_ref_coverage$n_findings >= 3L) &&
-            isTRUE(coverage$fraction < 0.5)) {
+    #
+    # Two rounds, not one (2026-10-19): one round left coverage short of the
+    # 0.8 target on 3 of 4 real-data records (0.3, 0.56, 0.5, 1.0 -- the last
+    # one a lucky draw). The second round costs one more call only when the
+    # first did not close the gap, and `explanation_revision_rounds` records
+    # how many it took, so the extra call is visible per run.
+    max_rounds <- 2L
+    coverage <- sclet_ai_ref_coverage(result)
+    rounds <- 0L
+    while (rounds < max_rounds && length(evidence_lines) &&
+            isTRUE(coverage$n_findings >= 3L) &&
+            isTRUE(is.na(coverage$fraction) || coverage$fraction < 0.5)) {
         uncited <- vapply(Filter(function(finding)
             !length(finding$evidence_refs %||% character()), result$findings %||% list()),
             function(finding) as.character(finding$statement %||%
                 finding$description %||% "")[[1L]], character(1))
         revision_prompt <- paste0(
             sclet_ai_explanation_prompt(evidence_lines),
+            if (rounds > 0L) {
+                paste0("\n\nThis is revision round ", rounds + 1L,
+                    ". The cited fraction is still below half: ",
+                    coverage$n_with_refs, " of ", coverage$n_findings, ".")
+            } else "",
             "\n\nYour previous explanation had findings WITHOUT evidence_refs: ",
             paste0("- ", uncited, collapse = "\n"),
             "\nRevise the explanation: attach at least one exact id from the ",
@@ -240,13 +253,17 @@ AIExplainAnalysis <- function(object, type = NULL, id = NULL, model = NULL, stru
             system_prompt = revision_prompt,
             ...
         )
+        if (!is.list(revised)) break
         revised <- sclet_ai_attach_ref_coverage(
             sclet_ai_sanitize_finding_refs(object, revised))
-        revised_coverage <- revised$metadata$evidence_ref_coverage
-        if (isTRUE(revised_coverage$fraction > coverage$fraction)) {
-            revised$metadata$explanation_revision_rounds <- 1L
-            result <- revised
-        }
+        revised_coverage <- sclet_ai_ref_coverage(revised)
+        # Keep a revision that helped; a round that made things worse (or said
+        # nothing new) ends the loop rather than burning a third call.
+        if (!isTRUE(revised_coverage$fraction > coverage$fraction)) break
+        rounds <- rounds + 1L
+        revised$metadata$explanation_revision_rounds <- rounds
+        result <- revised
+        coverage <- revised_coverage
     }
     sclet_ai_annotate_result_ceiling(object, result)
 }
@@ -327,6 +344,20 @@ sclet_ai_coverage_warning <- function(coverage, min_fraction = 0.5, min_findings
         "only ", coverage$n_with_refs %||% 0L, " of ", n,
         " findings cite an evidence id; the rest are assertions and should be ",
         "read as hypotheses"
+    )
+}
+
+# The coverage of a result as a list; never NULL, so callers can read
+# `$fraction` without guarding the whole structure.
+sclet_ai_ref_coverage <- function(result) {
+    coverage <- result$metadata$evidence_ref_coverage
+    if (is.null(coverage)) {
+        coverage <- sclet_ai_attach_ref_coverage(result)$metadata$evidence_ref_coverage
+    }
+    list(
+        n_findings = as.integer(coverage$n_findings %||% 0L),
+        n_with_refs = as.integer(coverage$n_with_refs %||% 0L),
+        fraction = as.numeric(coverage$fraction %||% NA_real_)
     )
 }
 
