@@ -550,6 +550,14 @@ RunAIAnalysis <- function(
                     report$interpretation_coverage <- coverage
                     warning <- sclet_ai_coverage_warning(coverage)
                     if (!is.null(warning)) report$interpretation_warning <- warning
+                    # A finding published as a hypothesis because it cited
+                    # nothing is not an error, but a reader must be able to see
+                    # it without opening the explanation object.
+                    demoted <- interpretation_state$result$metadata$
+                        findings_demoted_for_citation
+                    if (!is.null(demoted)) report$interpretation_demoted <- demoted
+                    rule <- interpretation_state$result$metadata$citation_demotion_rule
+                    if (!is.null(rule)) report$citation_demotion_rule <- rule
                 }
             } else {
                 report$interpretation <- interpretation_state$result

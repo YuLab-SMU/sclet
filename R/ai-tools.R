@@ -265,6 +265,10 @@ AIExplainAnalysis <- function(object, type = NULL, id = NULL, model = NULL, stru
         result <- revised
         coverage <- revised_coverage
     }
+    # Prompting has a ceiling: 0.57-0.58 was where every real run stopped
+    # (2026-10-19, three runs, two revision rounds each). What the prompt cannot
+    # achieve, the report must not pretend it did.
+    result <- sclet_ai_demote_uncited_findings(result)
     sclet_ai_annotate_result_ceiling(object, result)
 }
 
@@ -345,6 +349,48 @@ sclet_ai_coverage_warning <- function(coverage, min_fraction = 0.5, min_findings
         " findings cite an evidence id; the rest are assertions and should be ",
         "read as hypotheses"
     )
+}
+
+# Below this fraction with no evidence id at all, a finding is not published as
+# a finding. Measured on three real runs (2026-10-19): the citation revisions
+# prompt the model and the result hovers at 0.57-0.58 -- every run leaves four
+# or five assertions in a report that reads like measurements, and no amount of
+# prompting moved it. A report layer that says "association" while most of its
+# claims rest on nothing is the failure this package exists to prevent, so
+# uncited statements are demoted to `hypothesis` and counted.
+sclet_ai_min_finding_fraction <- function() 0.5
+
+sclet_ai_demote_uncited_findings <- function(result,
+        min_fraction = sclet_ai_min_finding_fraction()) {
+    findings <- result$findings %||% list()
+    if (!length(findings)) return(result)
+    n <- length(findings)
+    n_with_refs <- sum(vapply(findings, function(finding)
+        length(finding$evidence_refs %||% character()) > 0L, logical(1L)))
+    if (n < 3L || (n_with_refs / n) >= min_fraction) return(result)
+    demoted <- 0L
+    findings <- lapply(findings, function(finding) {
+        if (!length(finding$evidence_refs %||% character())) {
+            demoted <<- demoted + 1L
+            finding$claim_level <- "hypothesis"
+            finding$demoted_for_citation <- TRUE
+            # A data.frame-ish finding (or one built from columns) turns the
+            # scalar assignment above into a one-row column; keep the entry a
+            # plain named list so downstream readers see one finding, not a
+            # list where a list is expected.
+            finding <- as.list(finding)
+        }
+        finding
+    })
+    result$findings <- findings
+    metadata <- result$metadata %||% list()
+    metadata$findings_demoted_for_citation <- as.integer(demoted)
+    metadata$citation_demotion_rule <- paste0(
+        "fewer than ", round(min_fraction * 100L), "% of ", n,
+        " findings cite an evidence id, so the ", demoted,
+        " uncited finding(s) were published as hypotheses")
+    result$metadata <- metadata
+    result
 }
 
 # The coverage of a result as a list; never NULL, so callers can read

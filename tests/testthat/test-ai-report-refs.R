@@ -156,3 +156,51 @@ test_that("a revision that does not help ends the loop", {
     expect_null(result$metadata$explanation_revision_rounds)
     expect_equal(result$metadata$evidence_ref_coverage$fraction, 0)
 })
+
+test_that("uncited findings are published as hypotheses when coverage stays low", {
+    ## Three real runs stopped at 0.57-0.58 after two revision rounds each
+    ## (2026-10-19); prompting could not lift them. Below half, the uncited
+    ## findings must not be presented as measurements.
+    result <- new_sclet_ai_result("analysis_explanation",
+        context = list(schema_version = "1.0", fingerprint = "test"),
+        findings = list(
+            list(statement = "cited a", evidence_refs = "ev:findallmarkers",
+                claim_level = "associated"),
+            list(statement = "cited b", evidence_refs = "ev:findallmarkers",
+                claim_level = "associated"),
+            list(statement = "asserted", evidence_refs = character()),
+            list(statement = "asserted too", evidence_refs = character()),
+            list(statement = "asserted three", evidence_refs = character())))
+    out <- sclet:::sclet_ai_demote_uncited_findings(result)
+    levels <- vapply(out$findings, function(f)
+        if (is.null(f$claim_level)) NA_character_ else f$claim_level,
+        character(1))
+    ## Cited findings keep whatever the model said; uncited ones are set to
+    ## `hypothesis` whether or not the model had claimed more.
+    expect_equal(levels, c("associated", "associated", "hypothesis", "hypothesis",
+        "hypothesis"))
+    expect_equal(out$metadata$findings_demoted_for_citation, 3L)
+    expect_match(out$metadata$citation_demotion_rule, "hypotheses", fixed = TRUE)
+    ## The rule is strict: exactly half cited is NOT enough (2 of 4 is "half or
+    ## more", but a report where half the findings are assertions is not
+    ## published as measurements either). A cited finding keeps its level; only
+    ## findings that cite nothing are touched.
+    expect_true(isTRUE(out$findings[[3L]]$demoted_for_citation))
+    expect_null(out$findings[[1L]]$demoted_for_citation)
+})
+
+test_that("the demotion rule is inert when half or more of the findings are cited", {
+    result <- new_sclet_ai_result("analysis_explanation",
+        context = list(schema_version = "1.0", fingerprint = "test"),
+        findings = list(
+            list(statement = "cited a", evidence_refs = "ev:x",
+                claim_level = "associated"),
+            list(statement = "cited b", evidence_refs = "ev:x",
+                claim_level = "associated"),
+            list(statement = "asserted", evidence_refs = character())))
+    out <- sclet:::sclet_ai_demote_uncited_findings(result)
+    expect_null(out$metadata$findings_demoted_for_citation)
+    ## Untouched: the uncited finding keeps whatever level the model gave it.
+    expect_null(out$findings[[3L]]$claim_level)
+    expect_null(out$findings[[3L]]$demoted_for_citation)
+})
