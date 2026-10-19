@@ -87,7 +87,6 @@ Suggests:
     harmony,
     HDF5Array,
     iSEE,
-    inferCNV,
     infercnv,
     limma,
     mgcv,

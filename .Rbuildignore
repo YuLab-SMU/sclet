@@ -25,3 +25,4 @@ inst/regvelo-smoke-test/__pycache__/
 ^\.dev($|/)
 AGENTS.md
 tests/testthat/_snaps
+notes/
