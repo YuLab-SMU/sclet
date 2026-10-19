@@ -167,6 +167,9 @@ test_that("a condition contrast the action set cannot express is refused, not fa
         "Compare stimulated versus control cells", find_all, sce)
     expect_true(contrast$blocked)
     expect_true(grepl("FindAllMarkers", contrast$reason, fixed = TRUE))
+    ## The refusal must name the parameters that WOULD express the contrast;
+    ## before design-aware DE existed it claimed no such action existed.
+    expect_true(grepl("covariates", contrast$reason, fixed = TRUE))
     expect_equal(contrast$group_columns, "condition")
 
     two_groups <- sclet:::new_sclet_ai_plan(task = "contrast",
@@ -174,6 +177,16 @@ test_that("a condition contrast the action set cannot express is refused, not fa
             params = list(ident.1 = "c1", ident.2 = "c2", name = "m"))))
     expect_false(sclet:::sclet_ai_goal_contrast_check(
         "Compare stimulated versus control cells", two_groups, sce)$blocked)
+
+    ## design-aware DE (run_de_test group + idents + covariates, 2026-10-18)
+    ## expresses the contrast the Kang goal asked for; it must not be blocked.
+    design_aware <- sclet:::new_sclet_ai_plan(task = "contrast",
+        actions = list(list(id = "s1", action = "run_de_test",
+            params = list(group = "condition", ident.1 = "stim",
+                ident.2 = "ctrl", covariates = "donor", name = "m"))))
+    expect_false(sclet:::sclet_ai_goal_contrast_check(
+        "Compare stimulated versus control cells within donors",
+        design_aware, sce)$blocked)
 
     ## A goal that does not ask for a group comparison is never blocked.
     expect_false(sclet:::sclet_ai_goal_contrast_check(

@@ -1262,12 +1262,14 @@ sclet_ai_user_decision_prompt_line <- function() {
 # worse than refusing: a report about cluster markers reads like a report about
 # stimulation.
 #
-# The current registry has no design/condition-aware DE action, so a condition
-# contrast cannot be expressed at all. This check therefore BLOCKS execution
-# when all of the following hold: the goal names both a comparison and an
-# experimental group word; the object has a non-identity column that looks like
-# such a group; and no DE step names both `ident.1` and `ident.2`. It returns a
-# reason list so the caller can report what was missing instead of guessing.
+# `run_de_test` CAN express a condition contrast since 2026-10-18 (`group` +
+# `ident.1`/`ident.2`, with `covariates` for a paired analysis). What it cannot
+# do is infer one: with no idents it runs FindAllMarkers, a comparison of
+# CLUSTERS. This check therefore BLOCKS execution when all of the following
+# hold: the goal names both a comparison and an experimental group word; the
+# object has a non-identity column that looks like such a group; and no DE step
+# names both `ident.1` and `ident.2`. It returns a reason list so the caller can
+# report what was missing instead of guessing.
 sclet_ai_goal_contrast_check <- function(goal, plan, object) {
     empty <- list(blocked = FALSE, reason = NULL, group_columns = character())
     if (is.null(goal) || !length(goal) || !nzchar(trimws(as.character(goal)[[1L]]))) {
@@ -1299,11 +1301,13 @@ sclet_ai_goal_contrast_check <- function(goal, plan, object) {
         reason = paste0(
             "goal_contrast_unavailable: the goal asks for a comparison between ",
             paste(candidates, collapse = "/"),
-            " groups, but no step compares those groups. The current action set ",
-            "has no condition/donor-aware DE action: `run_de_test` with no ",
+            " groups, but no step compares those groups. `run_de_test` with no ",
             "ident.1/ident.2 is FindAllMarkers, a comparison of CLUSTERS. ",
-            "Reporting cluster markers as the requested contrast would answer a ",
-            "different question."
+            "A condition-aware contrast is expressible instead: set ",
+            "group = <the column>, ident.1/ident.2 = <its levels>, and ",
+            "covariates = <the subject column> for a paired analysis. Reporting ",
+            "cluster markers as the requested contrast would answer a different ",
+            "question."
         ),
         group_columns = candidates
     )
