@@ -2434,7 +2434,16 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     "Infer per-cell copy-number burden with inferCNV against an ",
                     "EXOGENOUS reference: name normal cells with `reference_ids` ",
                     "or a colData column with `reference_col`. Never use a cluster ",
-                    "the analysis itself produced as the reference."
+                    "the analysis itself produced as the reference. ",
+                    "EXPENSIVE: this is the slowest action in the registry. ",
+                    "Measured 2026-10-19 on 1,400 cells with HMM on (the ",
+                    "default): 66 minutes and 22.6 GB of memory; HMM post-",
+                    "processing alone (Gibbs sampling) was 27 minutes. ",
+                    "Run it only when the goal asks for copy-number or ",
+                    "malignant evidence, and tell the user it is a long step ",
+                    "before starting it. `hmm = FALSE` skips the HMM stage and ",
+                    "is much faster, but `run_cnv_inference`'s burden is then ",
+                    "built from the non-HMM profile."
                 ),
                 handler = function(object, params) {
                     name <- params$name %||% "cnv"

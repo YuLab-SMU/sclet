@@ -79,6 +79,14 @@ programme (for a gastric tumour, the intestinal-metaplasia profile). A call
 without a CNV record is refused, because signature-only is not the two-line
 answer.
 
+**The CNV run is the slowest action in the registry.** Measured 2026-10-19 on
+1,400 cells with HMM on: 66 minutes, 22.6 GB of memory, 27 minutes of it HMM
+Gibbs sampling. Do not add it because it sounds thorough; add it only when the
+goal asks about copy number or malignant cells, and say in the rationale that
+the user is starting a long step. Cluster-vs-cluster markers do not support a
+malignant claim, so the alternative is to ask the user, never to skip the CNV
+line silently.
+
 Condition contrasts are NOT marker tests. To compare stimulated vs control
 (any experimental group column), use
 `run_de_test(group = "condition", ident.1 = "stim", ident.2 = "ctrl")`.
