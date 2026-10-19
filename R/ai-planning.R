@@ -1365,22 +1365,34 @@ sclet_ai_deduplicate_de_steps <- function(plan, goal = NULL) {
     ## embedded in prose ("the marker table from ${m1.output.detest_id} is
     ## non-empty"), and the token collector only recognises a string that IS the
     ## token, so scan every string for the `${<step>.` prefix instead.
-    mentions_step <- function(value, id) {
-        pattern <- paste0("\\$\\{", id, "\\.")
+    ##
+    ## A reference is also spelled as a bare id in a structured field:
+    ## `depends_on = "step_10"` on a later action, or a success criterion's
+    ## `step_id`. Scanning only params plus token strings missed both, and on
+    ## the 2026-10-19 Kang reliability repeats the dedupe removed a step_10
+    ## that a criterion and a `depends_on` still named -- 2 of 3 trials died
+    ## with "depends on unknown step(s)" / "references unknown step step_10".
+    ## A bare id is compared for equality; a token is searched for as a prefix.
+    references_id <- function(value, id) {
         if (is.character(value)) {
-            return(any(grepl(pattern, value)))
+            return(any(grepl(paste0("\\$\\{", id, "\\."), value)) ||
+                any(value == id))
         }
         if (is.list(value)) {
-            return(any(vapply(value, mentions_step, logical(1L), id = id)))
+            return(any(vapply(value, references_id, logical(1L), id = id)))
         }
         FALSE
     }
-    candidates <- c(lapply(actions, params_of),
+    ## An action must not count as referencing itself: drop its own `id` and
+    ## keep params, depends_on and every other field it carries.
+    action_candidates <- lapply(actions, function(action)
+        action[setdiff(names(action), "id")])
+    candidates <- c(action_candidates,
         plan$success_criteria %||% list(), plan$stop_conditions %||% list())
     all_ids <- vapply(actions, function(action)
         as.character(action$id %||% "")[[1L]], character(1))
     referenced_ids <- all_ids[vapply(all_ids, function(id)
-        nzchar(id) && any(vapply(candidates, mentions_step, logical(1L), id = id)),
+        nzchar(id) && any(vapply(candidates, references_id, logical(1L), id = id)),
         logical(1L))]
     removable <- Filter(function(action) {
         id <- as.character(action$id %||% "")[[1L]]
