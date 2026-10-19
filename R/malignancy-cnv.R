@@ -47,6 +47,44 @@
 #'
 #' @seealso [RunCNVInference()]
 #' @export
+# A reference from another lineage can look like copy-number change.
+#
+# Measured on GSE144735 (2026-10-19): an immune/stromal reference gave CNV
+# burden AUROC 0.709 for tumour vs normal epithelium and 0.6% tumour cells above
+# the q99 reference cut; using normal epithelium as the reference raised AUROC to
+# 0.773 and q99 sensitivity to 13.3% (4.7% held-out normal false positives). The
+# difference is lineage expression, not copy number: reference-centring against
+# immune cells leaves epithelial identity itself as a genomic pattern. The
+# package cannot choose the reference for the caller, but it can say when the
+# labels suggest this situation.
+sclet_cnv_lineage_note <- function(object, ref) {
+    cd <- SummarizedExperiment::colData(object)
+    cols <- grep("^cell[._]?type|celltype|^annotation$|^cell_type", colnames(cd),
+        ignore.case = TRUE, value = TRUE)
+    if (!length(cols)) return(NULL)
+    is_ref <- colnames(object) %in% ref
+    for (col in cols) {
+        labels <- as.character(cd[[col]])
+        ref_labels <- unique(labels[is_ref])
+        obs_labels <- unique(labels[!is_ref])
+        ref_labels <- ref_labels[!is.na(ref_labels) & nzchar(ref_labels)]
+        obs_labels <- obs_labels[!is.na(obs_labels) & nzchar(obs_labels)]
+        if (length(ref_labels) && length(obs_labels) &&
+            !length(intersect(ref_labels, obs_labels))) {
+            return(sprintf(paste0(
+                "Reference cells and observation cells share no '%s' label ",
+                "(reference: %s; observation: %s). A reference from another ",
+                "lineage can be measured as copy-number burden, because ",
+                "lineage expression survives reference-centring; prefer normal ",
+                "cells of the same lineage when such cells exist."),
+                col,
+                paste(utils::head(ref_labels, 3), collapse = "/"),
+                paste(utils::head(obs_labels, 3), collapse = "/")))
+        }
+    }
+    NULL
+}
+
 check_cnv_readiness <- function(object,
                                 reference_cells = NULL,
                                 reference_col = NULL,
@@ -73,6 +111,7 @@ check_cnv_readiness <- function(object,
 
     ref <- sclet_cnv_resolve_reference(object, reference_cells = reference_cells,
                                        reference_col = reference_col)
+    lineage_note <- if (length(ref)) sclet_cnv_lineage_note(object, ref) else NULL
     if (length(ref) == 0) {
         issues <- c(issues, paste(
             "No reference cells. Name normal cells or normal samples via",
@@ -111,6 +150,7 @@ check_cnv_readiness <- function(object,
     # Merging duplicated rows is routine (GTF/Ensembl export one row per
     # transcript), so it is reported as a note and never blocks the run.
     notes <- character(0)
+    if (!is.null(lineage_note)) notes <- c(notes, lineage_note)
     if (!is.null(attr(order, "n_duplicate_genes")) &&
         attr(order, "n_duplicate_genes") > 0) {
         notes <- c(notes, sprintf(
@@ -345,6 +385,7 @@ RunCNVInference <- function(object,
         n_reference_cells = length(ref),
         n_genes = length(common),
         gene_order_source = readiness$gene_order_source,
+        reference_notes = readiness$notes %||% character(),
         params = list(
             assay = assay, hmm = isTRUE(hmm), cutoff = cutoff,
             window_length = window_length, cluster_by_groups = cluster_by_groups,

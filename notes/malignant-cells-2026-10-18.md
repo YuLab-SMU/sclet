@@ -261,3 +261,27 @@ Caveat: one dataset, one 1,400-cell subset, in-sample signature, and inferCNV
 run without HMM. The next step if sensitivity matters is not to lower the cut but
 to improve the CNV evidence (HMM region calls, larger/cleaner reference, or a
 different burden statistic) and re-check the same AUROC.
+
+### Follow-up: what improves the CNV line (2026-10-19, same data)
+
+| variant | AUROC tumour vs held-out normal epithelium | at reference q99 cut (with 3*MAD) |
+|---|---|---|
+| immune/stromal reference, burden (default) | 0.709 | 0.6% tumour, 0% normal |
+| normal-epithelium reference, burden | 0.773 | 0.4% tumour, 0% normal |
+| normal-epithelium reference, HMM altered fraction | 0.846 | 86.9% tumour, 42.7% normal |
+
+The reference lineage is the only lever that improves separation without a
+specificity collapse: normal epithelium as the reference raises AUROC from
+0.709 to 0.773. HMM region calls raise AUROC further (0.846), but their
+reference-quantile cut marks 42.7% of held-out normal epithelium positive, so
+they cannot be used as a drop-in replacement at the same cut. No burden
+statistic (MAD from median, deviation from the reference, SD, thresholded,
+top-10%) changed AUROC beyond 0.71-0.73 on the default reference.
+
+So the conservative call is not a threshold bug: the CNV measurements available
+here overlap substantially between tumour and normal epithelium. The actionable
+change is to make the reference-lineage confound visible before the run
+(`check_cnv_readiness()` note, `reference_notes` in the CNV record), which is
+what the code now does; HMM region evidence would need its own threshold
+calibration and a much longer runtime (roughly 15 min for 1,100 cells here),
+which is not justified by these numbers.

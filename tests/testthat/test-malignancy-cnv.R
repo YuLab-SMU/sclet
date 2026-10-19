@@ -349,3 +349,19 @@ test_that("a sparse counts Matrix is accepted by the CNV input gate", {
     sce <- SingleCellExperiment::SingleCellExperiment(list(counts = m))
     expect_silent(sclet:::sclet_malignancy_dense(SummarizedExperiment::assay(sce, "counts")))
 })
+
+test_that("readiness notes when the reference shares no cell-type label", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1, nrow = 20, ncol = 6,
+            dimnames = list(paste0("g", 1:20), paste0("c", 1:6)))))
+    SummarizedExperiment::colData(sce)$cell_type <- c(rep("T cells", 3),
+        rep("Epithelial cells", 3))
+    SummarizedExperiment::colData(sce)$reference <- c(TRUE, TRUE, TRUE, FALSE, FALSE, FALSE)
+    r <- check_cnv_readiness(sce, reference_col = "reference")
+    expect_true(any(grepl("share no 'cell_type' label", r$notes)))
+
+    ## Overlapping labels produce no lineage note.
+    SummarizedExperiment::colData(sce)$cell_type <- rep("Epithelial cells", 6)
+    r2 <- check_cnv_readiness(sce, reference_col = "reference")
+    expect_false(any(grepl("share no", r2$notes)))
+})
