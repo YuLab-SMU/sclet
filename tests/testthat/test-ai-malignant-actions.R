@@ -95,6 +95,25 @@ test_that("a two-step malignant plan validates on an unconfirmed object", {
     expect_false(any(grepl("cnv_record_missing", validation$errors)))
 })
 
+test_that("run_cnv_inference refuses a transformed assay at validation", {
+    ## Measured 2026-10-19: the planner named `assay = "logcounts"`, validation
+    ## accepted it, and the handler refused the step at execution -- after the
+    ## plan had been paid for. Validation must report the same typed problem.
+    sce <- malignant_test_object()
+    SummarizedExperiment::assay(sce, "logcounts") <-
+        log1p(as.matrix(SummarizedExperiment::assay(sce, "counts")))
+    action <- AIDefaultExecutionRegistry(sce, include = "malignant")$run_cnv_inference
+    problem <- action$prerequisites(sce, list(reference_col = "reference",
+        assay = "logcounts"))
+    if (requireNamespace("infercnv", quietly = TRUE)) {
+        expect_true(grepl("counts_assay_not_count", problem, fixed = TRUE))
+        expect_true(grepl("assay = \"counts\"", problem, fixed = TRUE))
+    }
+    ok <- action$prerequisites(sce, list(reference_col = "reference",
+        assay = "counts"))
+    expect_false(grepl("counts_assay_not_count", as.character(ok), fixed = TRUE))
+})
+
 test_that("a plan may reference the CNV step's output id", {
     ## Measured 2026-10-19 in the first real-data malignant benchmark: the model
     ## wrote `cnv_id = "${step_1.output.cnv_id}"` -- the documented spelling --

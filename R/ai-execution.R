@@ -120,6 +120,42 @@ sclet_ai_vector_param <- function(value, type = c("character", "integer")) {
     suppressWarnings(as.integer(value))
 }
 
+# Does a named assay hold raw counts, as inferCNV requires?
+#
+# `run_cnv_inference` defaults to the `counts` assay, but the model may name
+# another one. The handler refuses a transformed assay with a clear message;
+# validation did not, so the refusal surfaced only at execution, after a plan
+# had been paid for (measured 2026-10-19: the first real-data malignant
+# benchmark planned `assay = "logcounts"`, validated, and failed the step).
+# Returning a typed problem here gives the repair loop the same sentence
+# before anything runs.
+#
+# Deliberately a sample, not a full scan: a sparse assay's nonzeros are exact,
+# and proving the negative case does not require reading a dense matrix twice.
+# The handler keeps its full check as the authority.
+sclet_ai_assay_count_problem <- function(object, assay) {
+    if (!assay %in% SummarizedExperiment::assayNames(object)) return(NULL)
+    x <- SummarizedExperiment::assay(object, assay)
+    values <- if (methods::is(x, "sparseMatrix")) {
+        x@x
+    } else {
+        rows <- seq_len(min(nrow(x), 100L))
+        cols <- seq_len(min(ncol(x), 100L))
+        as.numeric(as.matrix(x[rows, cols, drop = FALSE]))
+    }
+    values <- values[!is.na(values)]
+    if (!length(values)) return(NULL)
+    if (any(values < 0) || any(values != round(values))) {
+        return(paste0(
+            "counts_assay_not_count: assay '", assay, "' does not hold raw ",
+            "counts (it has negative or non-integer values); inferCNV needs ",
+            "raw counts. Use assay = \"counts\" (or the name of the object's ",
+            "count assay)."))
+    }
+    NULL
+}
+
+
 # Is this selector value a promise that can only be resolved once the
 # producing step has run, rather than a value that can be checked now?
 #
@@ -2470,6 +2506,8 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                             "' not found; inferCNV needs raw counts (available: ",
                             paste(assays, collapse = ", "), ")"))
                     }
+                    count_problem <- sclet_ai_assay_count_problem(object, assay)
+                    if (!is.null(count_problem)) return(count_problem)
                     if (is.null(params$reference_col) && is.null(params$reference_ids)) {
                         return(paste0(
                             "reference_missing: copy-number inference needs an ",
