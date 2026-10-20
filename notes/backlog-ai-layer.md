@@ -114,6 +114,14 @@ report contract（`.dev/ai-product-roadmap.md` §3.3）里的 Analysis Report �
 对象，输出 = markdown/html），否则每个驱动者都会各写一份渲染器。
 - 回访触发：M2 收尾前决定。
 
+### B15 两个证据访问器形状不一致 · `noise`
+`sclet_ai_evidence_get_all()` 返回裸节点（`$values` 在顶层），账本的
+`state_records$ai_evidence[[id]]` 包在 `$summary` 里。取错会静默得到 `NULL`——M2 生成脚本
+因此写出过一条空数字的 finding，被复验拦下。建议：给裸节点补一个 `$summary` 别名，或在
+`sclet_ai_evidence_get_all()` 文档里写明形状。
+- 证据：`/tmp/sclet-agentrun/220-m2-report.R` 的修复注释；NEWS 当日条目末段。
+- 回访触发：下次有人取证据节点的 values 时（大概率还会踩）。
+
 ## 维护约定
 
 - 新增条目只写三件事：现象 + 证据位置 + 回访触发条件。
