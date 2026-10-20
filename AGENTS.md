@@ -22,9 +22,30 @@ git -C bookdown  branch --show-current   # → docs
 
 ## R package development
 
-- **Run checks through the Makefile**: `make check` for routine validation,
-  `make check2` for a tarball check, `make clean` for `*.Rcheck/`. Run the
-  focused `testthat` filter for the changed module before a broad check.
+- **Run checks through the Makefile**: `make check` for full validation,
+  `make check2` for a tarball check, `make clean` for `*.Rcheck/`. See the tier
+  list below — `make check` is the outer loop, not the inner one.
+- **Verify in three tiers — do not use `make check` as the inner loop.**
+  Measured 2026-10-21: `make check` takes **15.6 min** (19 runs in one day =
+  5 h, 38% of a working day) while a single test file takes **15.3 s** and the
+  three files around a change take ~81 s. 14 of those 19 checks came back OK,
+  so the time bought confirmation, not signal.
+
+  ```bash
+  # 1) seconds — after every edit
+  Rscript -e 'devtools::load_all(".", quiet=TRUE); testthat::test_file("tests/testthat/test-x.R")'
+  # 2) minutes — when a change is done
+  Rscript -e 'devtools::test()'
+  # 3) ~16 min — milestone close-out / before commit, a few times a day at most
+  make check
+  ```
+- **`devtools::test()` is itself slow**: >10 min, almost entirely
+  `malignancy-cnv` on real data. Gate that with
+  `skip_if_not(Sys.getenv("SLOW_TESTS") == "1")` so tier 2 stays useful.
+- **Long runs must go through the job system, not `nohup ... &`**: the shell
+  returns in seconds and the harness watches that dead shell, so the completion
+  notice never fires and the run has to be polled with `sleep`. Use
+  `run_in_background: true` then `job_output(wait: true)`.
 - **Sparse assays break reshape/plot code.** Never transpose the full assay;
   materialize just the requested features:
   `as.data.frame(t(as.matrix(assay(sce, a)[features, , drop = FALSE])))`.

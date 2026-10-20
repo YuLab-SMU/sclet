@@ -167,6 +167,22 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
     `velociraptor::embedVelocity(emb, vel_res)` 现算，且速度状态里保留了 `results`。
     字段取名 `n_reductions_written` 是准确的，不改。
 
+26. **代码审计（2026-10-21）：按 `tryCatch(error = function(e) ...)` 的形状扫全包**，
+    227 处 tryCatch、225 个 error handler。分类后找到**三类新缺陷、全修**：
+    - **marker 证据节点同样是 stale（B23 的第二个实例）**：`ev:findallmarkers` 是**固定 id**，
+      用不同阈值重跑 `run_de_test` 会撞同一 id。实测：第二次（更严格）run 的记录里有 0 行，
+      节点仍写 `n_rows = 2, min_pct = 0.01`。已路由到 `sclet_ai_record_evidence_for_run()`
+      并加 `replace_evidence` 参数（默认关，两种运行不一致要可见）。
+    - **澄清 transcript 谎报**：`ResolveAIClarifications()` 把记录失败吞掉、
+      仍写 `recorded = TRUE`。用 mock 强制失败实测：transcript 说 recorded，账本 0 个节点。
+      现在 `recorded` 报告**结果**不是**意图**，并附 `record_error`（实测两种路径都正确）。
+    - **成功判据误报原因**：`sclet_ai_assess_success_criteria()` 在账本读失败时返回 `list()`，
+      于是"证据节点不存在"，把**读取失败**说成**分析没跑**。现在区分
+      `could not read the evidence ledger (...)` 与 `no evidence node found for ...`。
+    其余 30 处"未加 guard"的 tryCatch 逐处核过：都是记录不存在时的合理回退
+    （`%||% ""` / `!length()` / `is.null()` 在后文），不改。
+    全部 pin 在 `test-ai-evidence-rerun.R`（写到 38 个断言）。
+
 ## 未修
 
 ### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`（2026-10-20 关闭：M3）

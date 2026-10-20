@@ -972,21 +972,35 @@ ResolveAIClarifications <- function(
         # `applied = FALSE`: nothing on the object changed, and reporting it as
         # applied made the transcript read like a modification that never
         # happened.
+        # `recorded` must report the OUTCOME, not the intent. The recorder can
+        # refuse (an answer whose value fails the privacy validator, or an
+        # evidence id already taken), and the old code swallowed that and still
+        # wrote `recorded = TRUE` -- measured 2026-10-21 by mocking the
+        # recorder to fail: transcript said recorded, the ledger had 0 nodes.
+        # A transcript that claims a durable record the ledger does not have is
+        # how a later round reads a decision the ledger never stored.
+        record_error <- NULL
+        recorded_ok <- FALSE
         if (isTRUE(record)) {
-            object <- tryCatch(
-                sclet_ai_record_clarification_response(
+            recorded <- tryCatch(
+                list(object = sclet_ai_record_clarification_response(
                     object,
                     question_id = question_id,
                     answer = answer,
                     blocked_action = blocked
-                ),
-                error = function(e) object
+                ), error = NULL),
+                error = function(e) list(object = object, error = e)
             )
+            object <- recorded$object
+            record_error <- recorded$error
+            recorded_ok <- is.null(record_error)
         }
         resolved <- c(resolved, question_id)
         transcript[[length(transcript) + 1L]] <- list(
             id = question_id, outcome = "resolved", applied = applied,
-            blocked_action = blocked, recorded = isTRUE(record)
+            blocked_action = blocked,
+            recorded = recorded_ok,
+            record_error = if (is.null(record_error)) NULL else conditionMessage(record_error)
         )
     }
 

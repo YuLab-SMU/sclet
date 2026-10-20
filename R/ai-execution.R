@@ -1266,11 +1266,19 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                                 values = aggregate_values,
                                 claim_level = "associated"
                             )
-                            tryCatch(RecordAIEvidence(result, evidence,
+                            # Route through the re-run-aware recorder. The
+                            # marker node id is FIXED ("ev:findallmarkers"), so
+                            # re-running run_de_test with different thresholds
+                            # hits the same id; swallowing that left the first
+                            # run's n_rows/min_pct in the ledger while the
+                            # record held the second run's table (measured
+                            # 2026-10-21: record 0 rows, node still n_rows = 2,
+                            # min_pct = 0.01 after a stricter re-run).
+                            sclet_ai_record_evidence_for_run(result, evidence,
                                 source = rec_name,
                                 parents = if (!is.null(rec$id)) as.character(rec$id) else character(),
-                                scope = NULL),
-                                error = function(e) result)
+                                scope = NULL,
+                                replace = isTRUE(params$replace_evidence))
                         } else result
                     } else result
                 },
@@ -1281,7 +1289,12 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     covariates = "character_vector",
                     name = "character",
                     min.pct = "number",
-                    logfc.threshold = "number"
+                    logfc.threshold = "number",
+                    # Re-running marker detection with different thresholds on
+                    # an object that already has the node: refresh instead of
+                    # refusing. Off by default so two runs that disagree are
+                    # visible.
+                    replace_evidence = "logical"
                 ),
                 prerequisites = function(object, params, planned = NULL) {
                     ident.1 <- if (is.null(params$ident.1)) NULL else sclet_ai_vector_param(params$ident.1, "character")
@@ -3975,9 +3988,16 @@ sclet_ai_record_execution <- function(object, plan, results, status, dry_run) {
 sclet_ai_assess_success_criteria <- function(plan, outputs, object_after, before_evidence_ids) {
     criteria <- sclet_ai_normalize_success_criteria(plan$success_criteria %||% list())
     if (!length(criteria)) return(list())
+    # An unreadable ledger must not be reported as "no evidence node found":
+    # that sentence blames the analysis for a failure of the read, and a caller
+    # chasing it will look for a step that never ran. Keep the difference.
+    evidence_read_error <- NULL
     after_evidence <- tryCatch(
         sclet_ai_evidence_get_all(object_after),
-        error = function(e) list()
+        error = function(e) {
+            evidence_read_error <<- conditionMessage(e)
+            list()
+        }
     )
     new_evidence_ids <- setdiff(names(after_evidence), before_evidence_ids)
     step_ids <- vapply(plan$actions %||% list(), function(s) as.character(s$id %||% ""), character(1))
@@ -4062,7 +4082,12 @@ sclet_ai_assess_success_criteria <- function(plan, outputs, object_after, before
                     id = crit$id,
                     description = crit$description,
                     status = "not_available",
-                    reason = paste("no evidence node found for", crit$evidence_id),
+                    reason = if (!is.null(evidence_read_error)) {
+                        paste0("could not read the evidence ledger (", evidence_read_error,
+                            "), so this criterion was not evaluated")
+                    } else {
+                        paste("no evidence node found for", crit$evidence_id)
+                    },
                     observed_value = NULL
                 ))
             }
