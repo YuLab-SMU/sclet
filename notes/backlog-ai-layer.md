@@ -75,6 +75,15 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
       每次执行都在最贵的那一步之后死于 `no metadata method for class list`。
       覆盖率表里 `run_milo` 一直是 `none`，这正是它没被发现的原因。
 
+17. **M7 doublet / rare 闭环（并回答了 M5 留下的问题）**：PBMC 10k 上 scDblFinder 判出
+    863/11,769 双细胞（7.33%，467 s）。两个具体结论：
+    - **cluster 12 是双细胞群（291/296，98.3%）**，它在 M5 里被 Monaco 标成 Monocytes——
+      这是对先前组成行的**修正**，M7 报告里明说，M5 的记录不改（记录是历史）。
+    - **cluster 9 的 doublet 是 0/719**，所以 M5 里"过渡态或双细胞"的假设排除了双细胞那一半。
+    - 稀有群：2,350 个密度极大值解散后 **0 个群体**，按设计不注册证据节点，报告把它写成
+      hypothesis 而不是结论。
+    报告 `notes/pbmc10k-doublet-report.md`，复验 8/8（含"零稀有群 ⇒ 无证据节点"这条规则）。
+
 ## 未修
 
 ### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`

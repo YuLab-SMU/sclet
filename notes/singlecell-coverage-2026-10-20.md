@@ -23,7 +23,7 @@ spatial/multimodal 六个是 typed refusal（数据不具备，并非未尝试�
 | 富集 | `run_enrichment`（GO + KEGG） | run | ✅ M1（6,430 / 645 条） |
 | 批次整合 | `run_integration` / `compare_integration_routes` / `confirm_design` | run | ✅ M2（Kang，3 路线 + scVI 子集） |
 | 细胞类型注释 | `run_annotation` | run | ✅ M5（MonacoImmuneData，13 群 → 7 类） |
-| doublet / rare | `run_doublet_detection` / `run_rare_cell_detection` | run | ❌ |
+| doublet / rare | `run_doublet_detection` / `run_rare_cell_detection` | run | ✅ M7（PBMC 10k，双细胞 7.33%，稀有群 0） |
 | 轨迹 / 速度 / fate | `run_trajectory` / `run_velocity` / `run_fate_analysis` / `confirm_fate_terminal_states` / `summarize_fate_drivers` | run / gated | ❌ |
 | 细胞通讯 | `run_cci` | run（gated） | ❌ |
 | 差异丰度 | `run_milo` | run | ✅ M6（Kang，25 units，3,414 邻域） |
@@ -34,7 +34,6 @@ spatial/multimodal 六个是 typed refusal（数据不具备，并非未尝试�
 
 ## 仍然缺的（纯单细胞）
 
-1. **doublet / rare**：`smallest_group_n = 39` 这类数字只有配上 doublet 证据才有意义。
 2. **trajectory → velocity → fate**（一条链，别拆三次）。
 3. **`run_milo`**：唯一连动作级都没跑过的单细胞动作；Kang 的 donor×condition 正好能做。
 4. **`run_cci`**：需要一次带用户决策（引擎选择）的闭环。
