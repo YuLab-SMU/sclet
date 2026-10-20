@@ -24,7 +24,7 @@ spatial/multimodal 六个仍是 typed refusal（数据不具备，并非未尝�
 | 批次整合 | `run_integration` / `compare_integration_routes` / `confirm_design` | run | ✅ M2（Kang，3 路线 + scVI 子集） |
 | 细胞类型注释 | `run_annotation` | run | ✅ M5（MonacoImmuneData，13 群 → 7 类） |
 | doublet / rare | `run_doublet_detection` / `run_rare_cell_detection` | run | ✅ M7（PBMC 10k，双细胞 7.33%，稀有群 0） |
-| 轨迹 / 速度 / fate | `run_trajectory` / `run_velocity` / `run_fate_analysis` / … | run / gated | ✅ M9（轨迹：真实 sperm；速度+fate：合成 fixture） |
+| 轨迹 / 速度 / fate | `run_trajectory` / `run_velocity` / `run_fate_analysis` / … | run | ✅ M9（sperm 轨迹）+ **M11（真实数据速度+fate）** |
 | 细胞通讯 | `run_cci` | run | ✅ M8（CellChat，733 互作） |
 | 差异丰度 | `run_milo` | run | ✅ M6（Kang，25 units，3,414 邻域） |
 | 拷贝数 / 恶性 | `run_cnv_inference` / `call_malignant_cells` | run | ✅ M10（GSE144735 KUL3，61.8 min） |
@@ -50,8 +50,8 @@ spatial/multimodal 六个仍是 typed refusal（数据不具备，并非未尝�
 |---|---|
 | 动作级 | 33/33 有执行记录（6 个是 typed refusal） |
 | 闭环级 | **10 个域**：主干、markers/条件 DE、富集、整合+路线比较、注释、差异丰度、doublet/rare、通讯、轨迹（真实数据）、速度+fate（合成 fixture） |
-| 已闭环 | **11 个域**（M10 补上 CNV/malignant：真实 CRC 队列，inferCNV 61.8 min） |
-| 仍缺 | 一个**带 counts 的真实 velocity 数据集**（有它才能把速度+fate 从合成升到真实） |
+| 已闭环 | **12 个域**（M10 补上 CNV/malignant；M11 把速度+命运链从合成 fixture 升到真实数据） |
+| 仍缺 | 无。真实数据缺口在 M11 关闭（scvelo pancreas，3,696 细胞，带 counts/spliced/unspliced） |
 
 ## 剩余工作量估计
 

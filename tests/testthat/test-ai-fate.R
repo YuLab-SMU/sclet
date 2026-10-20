@@ -197,6 +197,24 @@ test_that("run_fate_analysis executes end to end on a mocked CellRank backend", 
     ceiling <- check_claim_ceiling(out, evidence_ids = "ev:fate_fate_e2e")
     expect_equal(ceiling$n_independent_groups, 1L)
     expect_equal(ceiling$ceiling_claim_level, "associated")
+
+    ## The node carries BOTH populations, and they answer different questions.
+    ## Measured on real data (2026-10-20, scvelo pancreas): CellRank labels a
+    ## fixed small set of cells terminal (90 of 3,696), so the share among
+    ## those cells is ~1/k by construction (0.333/0.333/0.333) while the
+    ## argmax destination distribution is 0.107/0.599/0.294. Reading the first
+    ## as "where cells go" is the defect this pins.
+    fate_values <- fate_ev$values
+    cd <- SummarizedExperiment::colData(out)
+    labeled <- sum(!is.na(cd[["cellrank_terminal_states"]]))
+    expect_equal(as.integer(fate_values$n_terminal_state_cells), as.integer(labeled))
+    expect_equal(sum(fate_values$terminal_state_fractions), 1, tolerance = 1e-4)
+    expect_equal(sum(fate_values$destination_fractions), 1, tolerance = 1e-4)
+    expect_equal(length(fate_values$destination_fractions),
+        length(fate_values$terminal_state_fractions))
+    expect_true(isTRUE(fate_values$destination_fractions_are_argmax))
+    expect_equal(length(fate_values$fate_dimension_mean_absorption),
+        length(fate_values$destination_fractions))
 })
 
 ## -- Scenario 5: fate evidence stays bounded and privacy-clean ---------------

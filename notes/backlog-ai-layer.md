@@ -127,6 +127,17 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
     报告 `notes/crc-malignant-report.md`，复验 10/10；对 Issue #26 的核查见
     `notes/malignant-gse150290-analysis-2026-10-20.md`。
 
+22. **M11 真实数据的 速度-轨迹-命运 链（补上最后一个数据缺口）**：用 scvelo 的 pancreas 数据
+    （Bastidas-Ponce 2019，3,696 细胞，带 counts/spliced/unspliced）——真实数据，不是 fixture。
+    ``run_velocity`` deterministic 45 s；slingshot 从 Ngn3 low EP 出发得 **5 条 lineage**；
+    CellRank 9 min 得 **3 个终态**。
+    顺带发现并修掉一个 report 级缺陷：证据里的 ``terminal_state_fractions`` 是**终态细胞之间**
+    的占比（90/3,696，按 1/k 构造，实测 0.333/0.333/0.333），读起来却像"每个命运去多少细胞"。
+    现在节点同时记录 ``n_terminal_state_cells``、``destination_fractions``（全细胞吸收概率
+    argmax，实测 **0.107/0.599/0.294**）与 ``fate_dimension_mean_absorption``，
+    pin 在 ``test-ai-fate.R``。
+    报告 ``notes/pancreas-velocity-fate-report.md``，复验 10/10。
+
 ## 未修
 
 ### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`（2026-10-20 关闭：M3）

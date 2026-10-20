@@ -135,7 +135,7 @@ check_fate_readiness <- function(object, reduction = NULL, velocity_id = NULL) {
 # Record a bounded aggregate evidence node for a CellRank fate analysis.
 # Only aggregate counts and quantiles enter the node; no per-cell vector is
 # ever read into evidence, and no terminal state is ranked or recommended.
-sclet_ai_record_fate_evidence <- function(object, name, cluster_key) {
+sclet_ai_record_fate_evidence <- function(object, name, cluster_key, replace = FALSE) {
     # One predicate for "this is a usable CellRank result", shared with the
     # action handler: a duplicated copy drifted once already (it missed the
     # `status = "completed"` requirement and the lowercased analysis key, so a
@@ -196,12 +196,49 @@ sclet_ai_record_fate_evidence <- function(object, name, cluster_key) {
             max = round(max(values), 4L)
         )
     }
+    # `terminal_state_fractions` is the share of the TERMINAL-STATE CELLS per
+    # state, not the share of cells that will end there. CellRank labels a fixed
+    # small set of cells as terminal, so on real data that share is close to
+    # 1/k by construction (measured 2026-10-20 on the pancreas dataset: 30 / 30
+    # / 30 of 3,696 cells, i.e. 0.333 each). A reader will read it as "one third
+    # of the cells go to each fate", which is wrong. The honest destination
+    # distribution is the argmax over the absorption probabilities across ALL
+    # cells, recorded alongside it, plus the per-dimension means.
+    n_terminal_state_cells <- if (length(terminal_state_column) == 1L &&
+            nzchar(terminal_state_column) &&
+            terminal_state_column %in% colnames(coldata)) {
+        as.integer(sum(!is.na(coldata[[terminal_state_column]])))
+    } else {
+        0L
+    }
+    destination_fractions <- numeric()
+    fate_dimension_means <- numeric()
+    if (length(fate_summary)) {
+        fate_dimension_means <- round(vapply(fate_summary, function(x) as.numeric(x$mean),
+            numeric(1L)), 4L)
+    }
+    if (length(fate_columns) >= 2L) {
+        mat <- do.call(cbind, lapply(fate_columns, function(cn) {
+            as.numeric(coldata[[cn]])
+        }))
+        complete <- stats::complete.cases(mat)
+        if (sum(complete) > 0L) {
+            dest <- max.col(mat[complete, , drop = FALSE], ties.method = "first")
+            destination_fractions <- round(as.numeric(tabulate(dest,
+                nbins = length(fate_columns))) / sum(complete), 4L)
+        }
+    }
     values <- list(
         n_terminal_states = n_terminal_states,
         n_fate_dimensions = n_fate_dimensions,
         n_lineage_drivers = n_lineage_drivers,
         terminal_state_codes = terminal_state_codes,
         terminal_state_fractions = terminal_state_fractions,
+        n_terminal_state_cells = as.integer(n_terminal_state_cells),
+        # argmax over the absorption probabilities: where the cells actually go
+        destination_fractions = destination_fractions,
+        destination_fractions_are_argmax = TRUE,
+        fate_dimension_mean_absorption = fate_dimension_means,
         absorption_probability_is_model_estimate = TRUE,
         pseudotime_is_absolute_time = FALSE,
         raw_values_included = FALSE
@@ -219,7 +256,8 @@ sclet_ai_record_fate_evidence <- function(object, name, cluster_key) {
         values = values,
         claim_level = "consistent_with"
     )
-    RecordAIEvidence(object, evidence, source = name, parents = character(), scope = NULL)
+    RecordAIEvidence(object, evidence, source = name, parents = character(),
+        scope = NULL, replace = replace)
 }
 
 # Sanitize a record id for use inside an evidence id.
