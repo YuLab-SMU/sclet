@@ -82,6 +82,38 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
 "计划里跑过 QC"这件事在账本里无法独立查到。
 - 回访触发：报告需要写"做过哪些检查"时。
 
+### B11 `observed` 表达不了"对象结构事实" · `report`
+写报告时发现：一条不带 `evidence_refs` 的结构事实（"对象有 11,769 个细胞"）会被审计
+降级为 `hypothesis`——`observed` 要求"事实在对象上"，但审计只认可解析的证据 id，而
+"对象形状"没有对应证据节点。M1 的做法是把这类事实放进报告的「方法与参数」正文，不当作
+finding。若要让结构事实以 `observed` 入账，需要一条对象状态证据节点，或允许 `observed`
+绑定状态记录 id。
+- 证据：`/tmp/sclet-agentrun/100-claim-probe.R`，`observed` + 无引用 → `derived=hypothesis`，
+  `rule=no_prose_reference`。
+- 回访触发：报告层正式化时。
+
+### B12 审计与写入对"未知证据 id"行为不一致 · `report`
+`sclet_ai_audit_result_claims()` 把未知 id 静默降级为 `hypothesis`（理由写
+`unknown or incomplete evidence id(s)`），而 `RecordAIResult()` 在同一情形直接拒绝。
+只调审计的调用方会以为"等级被校正"，实际是引用写错了。
+- 证据：`100-claim-probe.R`（写错 `..._kegg_entrez` → 降为 hypothesis）；
+  `102-record-probe.R`（同形状经 `RecordAIResult` → `REFUSED: evidence ref not valid`）。
+- 回访触发：下一次有人只用审计 API 做校验时。
+
+### B13 账本默认丢 artifacts，读回自己的结果会静默为空 · `noise`
+`GetAnalysisLedger(detail = "full")` 默认 `include_artifacts = FALSE`，所以刚记入的
+AI 报告的 `artifacts$findings` 读回来是 `NULL`，`length(...)` 为 0 且不报错（M1 生成脚本
+第一次就打印了 `recorded findings: 0`）。建议：要么文档写明，要么在 detail = "full" 下
+默认带上 artifacts 的元数据。
+- 回访触发：任何"读回来怎么是空的"时刻。
+
+### B14 没有报告渲染层 · `product`
+report contract（`.dev/ai-product-roadmap.md` §3.3）里的 Analysis Report 目前只以
+`sclet_ai_result` 记录存在，包内没有把它渲染成可读产物的函数；M1 的 markdown 由驱动脚本
+手工拼装。若报告要作为产品出口，需要 `RenderAIReport()` 之类的一层（输入 = 记录 id +
+对象，输出 = markdown/html），否则每个驱动者都会各写一份渲染器。
+- 回访触发：M2 收尾前决定。
+
 ## 维护约定
 
 - 新增条目只写三件事：现象 + 证据位置 + 回访触发条件。
