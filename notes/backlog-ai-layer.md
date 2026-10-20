@@ -102,9 +102,20 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
     报告如实标注。附带成本：cellrank 的 basilisk env 按包版本号存路径，1.0.1 → 1.0.2
     升版后要重建（一次 ~10 分钟）。
 
+20. **收尾这一轮修的四个 report 级问题**：
+    - CCI 证据的 `n_significant_pairs` 在 CellChat 上恒等于行数（表已被引擎按 p<0.05 过滤，
+      实测 733/733、max p = 0.04）。新增 `p_value_max`，让读者能分辨“表已过滤”与“真的都显著”，
+      字段语义因此成立。
+    - 审计对未知证据 id 以前只把等级降成 `hypothesis`，而 `RecordAIResult()` 会直接拒绝——
+      只审计不写入的调用方看到的是“安静降级”。现在 entry 带 `unresolved_evidence_refs` 标志，
+      原因可见；pin 在 `test-ai-report-layer.R`。
+    - B13/B15 写进 `GetAnalysisLedger()` 文档与 `sclet-driver` 技能。
+    - B11 写进 `sclet-claims` 技能：结构事实属于出处/方法，不属于 findings（无引用的 finding
+      必然降为 hypothesis）。
+
 ## 未修
 
-### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`
+### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`（2026-10-20 关闭：M3）
 `"multiple ai_execution records exist; only the active one (if any) is in active_states"`
 对任何多轮分析都成立——`ai_execution` 本来就是追加式日志。总在响的冲突标志会让读者
 学会忽略冲突字段。建议：把 `ai_execution`（以及 `ai_evidence`）排除在"冲突"之外，
@@ -112,56 +123,56 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
 - 证据：`/tmp/sclet-agentrun/31-deep.R` 在 r2 上打印 1 条 conflict。
 - 回访触发：报告层开始渲染 conflicts 时。
 
-### B2 marker 证据里几个字段名不副实 · `report`
+### B2 marker 证据里几个字段名不副实 · `report`（2026-10-20 关闭：M3）
 `top_up_ranks` 恒为 `1:10`（不是名次），`top_up_fractions` 恒为 10 个 `NA`，
 `annotation_method_code` / `annotation_scope_code` 是不透明整数。都是"承诺了但没测量"的形状。
 - 回访触发：证据要进入报告正文时。
 
-### B3 `n_significant` 几乎等于 `n_rows` · `report`
+### B3 `n_significant` 几乎等于 `n_rows` · `report`（2026-10-20 关闭：M3）
 `FindAllMarkers` 的返回表已经是按 `p_val_adj` 过滤过的，所以再按 0.05 数一遍
 几乎必然全中（实测 12,559 / 12,572）。这个数字读起来像"99.9% 显著"，实际是
 "表已经过滤过"。建议改名（`n_rows_reported`）或直接删掉。
 - 回访触发：同上。
 
-### B4 detest 记录的 `params` 仍为空 · `report`
+### B4 detest 记录的 `params` 仍为空 · `report`（2026-10-20 关闭：M3）
 阈值现在能在两处看到（证据节点 `values`、执行记录 `params$steps`），但 detest 记录本身
 没有，单独读 `get_detest()` 的人看不到阈值。`RunDEtest()` 加可选参数即可，但会动公开 API。
 - 回访触发：有人只凭 `get_detest()` 复跑时。
 
-### B5 没有 symbol→ENTREZID 的 action，KEGG 在计划层面不可达 · `product`
+### B5 没有 symbol→ENTREZID 的 action，KEGG 在计划层面不可达 · `product`（2026-10-20 关闭：KEGG+SYMBOL 现在验证期就拒绝，并给出两条出路）
 今天跑 KEGG 必须在校验层之外先 `bitr`，再把转换后的表注册成一个派生的 detest 记录，
 计划才跑得通。这既是缺口也是真实用户会踩的坑。可选：加一个 `convert_gene_ids` action，
 或在 `run_enrichment` 的 KEGG 分支里做转换并记录。
 - 回访触发：下一次出现 KEGG/Reactome 之类的目标。
 
-### B6 账本没有构建身份 · `dev`
+### B6 账本没有构建身份 · `dev`（2026-10-20 关闭：账本带 `sclet_version` 与安装时间）
 版本号长期停在 1.0.2，同一版本号下 `~/Rlib` 可能是几天前的构建。今天实际踩到：
 先跑了两天前的 build，靠 schema 差异才发现。建议 `dataset` 或顶层带
 `sclet_version` + 构建时的 git sha。
 - 回访触发：下一次"这不是已经修了吗"的时刻。
 
-### B7 `sclet-analysis` 的表格断行 · `noise`
+### B7 `sclet-analysis` 的表格断行 · `noise`（2026-10-20 关闭：补回表头与空行）
 `inst/skills/sclet-analysis/SKILL.md` 99–102 行：四行表格行落在两段正文之后，
 渲染不成表格。
 - 回访触发：下次改这个文件时顺手修。
 
-### B8 旧对象上的 `.dimred` 没有迁移 · `noise`
+### B8 旧对象上的 `.dimred` 没有迁移 · `noise`（won't fix：旧对象重跑即可，不写迁移代码）
 新代码不再产生 `.dimred`，但旧 `saveRDS` 的对象里还留着。载入旧 fixture 时可能看到
 `reducedDimNames` 多一项。
 - 回访触发：复用到 2026-10-19 之前保存的对象时。
 
-### B9 载入期噪声 · `noise`
+### B9 载入期噪声 · `noise`（won't fix：来自 SeuratObject/alabaster 的 S4 类重名，不在本包控制内）
 `library(sclet)` 之后首次用到 enrichment 会打印 `Loading required namespace: enrichit`，
 以及 `Found more than one class "package_version"`（SeuratObject vs alabaster.base）。
 不影响结果，但污染脚本日志，也让人以为是错误。
 - 回访触发：做批量运行时。
 
-### B10 `check_qc` 不留分析记录 · `report`
+### B10 `check_qc` 不留分析记录 · `report`（2026-10-20 关闭：M3 渲染器的「Executed steps」）
 只读动作返回一个值，账本里没有对应记录；今天补的执行记录 `params$steps` 是它唯一的痕迹。
 "计划里跑过 QC"这件事在账本里无法独立查到。
 - 回访触发：报告需要写"做过哪些检查"时。
 
-### B11 `observed` 表达不了"对象结构事实" · `report`
+### B11 `observed` 表达不了"对象结构事实" · `report`（2026-10-20 关闭：写进 skill，不改阶梯）
 写报告时发现：一条不带 `evidence_refs` 的结构事实（"对象有 11,769 个细胞"）会被审计
 降级为 `hypothesis`——`observed` 要求"事实在对象上"，但审计只认可解析的证据 id，而
 "对象形状"没有对应证据节点。M1 的做法是把这类事实放进报告的「方法与参数」正文，不当作
@@ -173,7 +184,7 @@ finding。若要让结构事实以 `observed` 入账，需要一条对象状态�
   只有带证据的结论才进 findings。真正的 `observed` 入账仍需设计（对象状态证据节点）。
 - 回访触发：有人确实需要把"对象有 N 个细胞"作为 observed finding 入账时。
 
-### B12 审计与写入对"未知证据 id"行为不一致 · `report`
+### B12 审计与写入对"未知证据 id"行为不一致 · `report`（2026-10-20 关闭：审计新增 `unresolved_evidence_refs` 标志）
 `sclet_ai_audit_result_claims()` 把未知 id 静默降级为 `hypothesis`（理由写
 `unknown or incomplete evidence id(s)`），而 `RecordAIResult()` 在同一情形直接拒绝。
 只调审计的调用方会以为"等级被校正"，实际是引用写错了。
@@ -181,7 +192,7 @@ finding。若要让结构事实以 `observed` 入账，需要一条对象状态�
   `102-record-probe.R`（同形状经 `RecordAIResult` → `REFUSED: evidence ref not valid`）。
 - 回访触发：下一次有人只用审计 API 做校验时。
 
-### B13 账本默认丢 artifacts，读回自己的结果会静默为空 · `noise`（M3 后：靠约定避开）
+### B13 账本默认丢 artifacts，读回自己的结果会静默为空 · `noise`（2026-10-20 关闭：写进 GetAnalysisLedger 文档 + driver skill）
 `RenderAIReport()` 内部固定 `include_artifacts = TRUE`；任何读回自己写的 AI 结果的代码都必须显式传。
 `GetAnalysisLedger(detail = "full")` 默认 `include_artifacts = FALSE`，所以刚记入的
 AI 报告的 `artifacts$findings` 读回来是 `NULL`，`length(...)` 为 0 且不报错（M1 生成脚本
@@ -189,14 +200,14 @@ AI 报告的 `artifacts$findings` 读回来是 `NULL`，`length(...)` 为 0 且�
 默认带上 artifacts 的元数据。
 - 回访触发：任何"读回来怎么是空的"时刻。
 
-### B14 没有报告渲染层 · `product`
+### B14 没有报告渲染层 · `product`（2026-10-20 关闭：`RenderAIReport()`）
 report contract（`.dev/ai-product-roadmap.md` §3.3）里的 Analysis Report 目前只以
 `sclet_ai_result` 记录存在，包内没有把它渲染成可读产物的函数；M1 的 markdown 由驱动脚本
 手工拼装。若报告要作为产品出口，需要 `RenderAIReport()` 之类的一层（输入 = 记录 id +
 对象，输出 = markdown/html），否则每个驱动者都会各写一份渲染器。
 - 回访触发：M2 收尾前决定。
 
-### B15 两个证据访问器形状不一致 · `noise`
+### B15 两个证据访问器形状不一致 · `noise`（2026-10-20 关闭：写进 driver skill）
 `sclet_ai_evidence_get_all()` 返回裸节点（`$values` 在顶层），账本的
 `state_records$ai_evidence[[id]]` 包在 `$summary` 里。取错会静默得到 `NULL`——M2 生成脚本
 因此写出过一条空数字的 finding，被复验拦下。建议：给裸节点补一个 `$summary` 别名，或在
@@ -211,7 +222,9 @@ M2 的 scVI 只在 9,000 细胞子集上跑（2,878s 含首次 env 构建）。e
 （CPU 上数小时量级）。跑完把 scVI 行并入 `notes/m2-report-kang.md` 的路线表，并重跑
 `compare_integration_routes`（会得到 4 条路线的新证据节点）。
 - 证据：`/tmp/sclet-agentrun/211-m2-scvi.R`（子集脚本，改 keep 的每组上限即可全量）。
-- 回访触发：路线比较表需要第三条路线时，或有人问"scVI 全量是多少"。
+- 命令：在 `m2-final.rds` 上 `RunIntegration(method = "scVI", batch = "batch", name = "scvi")`
+  再 `sclet_ai_record_route_metrics()`；env 已按 1.0.2 建好（M9 顺带重建了 cellrank env）。
+- 回访触发：需要一个覆盖全部 43,095 细胞的第三条路线时。
 
 ## 维护约定
 

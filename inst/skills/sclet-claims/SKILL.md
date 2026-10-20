@@ -85,6 +85,18 @@ corpus:
    action names; a prose sentence ("compute QC metrics and inspect them")
    belongs in `recommendations`, not there.
 
+## Structural facts are provenance, not findings
+
+"The object has 11,769 cells", "clustering ran at resolution 0.8 with seed 1",
+"the KEGG run used ENTREZID" -- these are facts read off the object and its
+records, and they belong in the report's methods/provenance section, not in
+`findings`. A finding with no `evidence_refs` derives to `hypothesis` (the
+engine cannot verify a statement it has nothing to check), so writing a
+structural fact as a finding either downgrades a true statement to a
+hypothesis or invites inventing a citation for it. The renderer prints the
+recorded analyses and the executed steps for exactly this purpose; cite a
+record only when the claim is *supported by* it.
+
 ## Honest reporting of refusals and missing evidence
 
 - If the evidence ceiling is `absent` (no evidence nodes), say what the

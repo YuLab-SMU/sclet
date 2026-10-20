@@ -212,6 +212,23 @@ One thing not to attempt: a plan has no conditional steps. Its actions run
 unconditionally in order, so "if this succeeds, also do X" is a second
 round, not a longer plan.
 
+### Reading evidence back: two shapes
+
+Evidence nodes are reachable in two forms, and they are not interchangeable:
+
+- `GetAnalysisLedger(object, include_artifacts = TRUE)$state_records$ai_evidence[[id]]$summary`
+  -- the ledger form, wrapped in `summary`;
+- `sclet_ai_evidence_get_all(object)[[id]]` (internal) -- the bare node, with
+  `values` at the top level.
+
+Picking the wrong one yields `NULL` silently, which reads like "no evidence"
+instead of "wrong accessor" (one report was generated with empty numbers that
+way before the verification pass caught it). Prefer the ledger form, and treat
+a `NULL` from the other one as a shape mismatch, not an absent node.
+
+Also: the ledger drops `artifacts` unless `include_artifacts = TRUE`, so a
+recorded result's `findings` live there.
+
 ## Recovering from validation errors
 
 Validation errors are the repair loop, one round, done by you:

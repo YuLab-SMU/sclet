@@ -383,3 +383,63 @@ test_that("run_velocity refuses a velocity object without counts", {
     cleared <- ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
     expect_false(any(grepl("counts_assay_missing", cleared$errors)))
 })
+
+## -- 9: an unresolvable citation is flagged, not silently downgraded ------
+## The audit moved a finding with an unknown evidence id to `hypothesis` and
+## only mentioned the cause inside ceiling_reasons, while RecordAIResult()
+## refuses the same input outright. A caller that audits without recording saw
+## a quiet correction where the writer would have raised an error.
+test_that("the audit flags an unresolvable evidence reference", {
+    sce <- render_report_object()
+    sce <- render_report_evidence(sce)
+    result <- sclet:::new_sclet_ai_result(
+        task = "unresolved ref",
+        findings = list(list(
+            statement = "a claim citing nothing real",
+            claim_level = "associated",
+            evidence_refs = list("ev:does_not_exist")
+        ))
+    )
+    audit <- sclet:::sclet_ai_audit_result_claims(sce, result)
+    entry <- audit$findings[[1L]]
+    expect_true(isTRUE(entry$unresolved_evidence_refs))
+    expect_true(grepl("unknown or incomplete evidence id",
+        paste(entry$ceiling_reasons, collapse = " "), fixed = TRUE))
+    ## The recording path still refuses, which is the behaviour the flag makes
+    ## visible to an audit-only caller.
+    expect_error(RecordAIResult(sce, result, id = "ai_report_unresolved"),
+        "unresolvable evidence")
+})
+
+## -- 10: KEGG with SYMBOL is refused before it wastes a run ----------------
+## Measured on PBMC 10k (2026-10-19): a KEGG plan with a SYMBOL marker table
+## validated, ran 46.8 s, and came back empty; the `enrichment_no_result` guard
+## then reported it. True, but late -- the caller could have been told up front.
+test_that("run_enrichment refuses KEGG with SYMBOL keyType", {
+    sce <- render_report_object()
+    sce <- sclet_set_analysis_state(
+        object = sce, type = "detest", id = "markers",
+        method = "FindAllMarkers", inputs = list(),
+        artifacts = list(result = data.frame(gene = "gene_1")),
+        params = list(), summary = list(n_markers = 1L), active = TRUE
+    )
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "enrichment"))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "kegg symbol",
+        actions = list(list(id = "e1", action = "run_enrichment",
+            params = list(detest_id = "markers", db = "KEGG", keyType = "SYMBOL")))
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
+    expect_false(isTRUE(validation$valid))
+    expect_true(any(grepl("key_type_incompatible", validation$errors)))
+
+    ## ENTREZID is accepted by this gate (the marker-table shape checks are a
+    ## different gate and are not what this test is about).
+    entrez <- sclet:::new_sclet_ai_plan(
+        task = "kegg entrez",
+        actions = list(list(id = "e1", action = "run_enrichment",
+            params = list(detest_id = "markers", db = "KEGG", keyType = "ENTREZID")))
+    )
+    cleared <- ValidateAIPlan(entrez, object = sce, registry = registry, strict = FALSE)
+    expect_false(any(grepl("key_type_incompatible", cleared$errors)))
+})

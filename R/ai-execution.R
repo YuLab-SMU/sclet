@@ -2940,6 +2940,20 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                             "modelling choice and is never selected automatically."
                         ))
                     }
+                    # KEGG annotates ENTREZID. A SYMBOL table is accepted by
+                    # the handler and then comes back empty, which the M3 guard
+                    # turns into `enrichment_no_result` -- a true but late
+                    # diagnosis (measured 2026-10-19: 46.8 s spent to learn it).
+                    # Refuse here, where the caller can act on it.
+                    if (identical(as.character(params$db %||% ""), "KEGG") &&
+                        identical(as.character(params$keyType %||% "SYMBOL"), "SYMBOL")) {
+                        return(paste0(
+                            "key_type_incompatible: KEGG annotates ENTREZID, not SYMBOL, so a SYMBOL ",
+                            "marker table comes back empty. Convert the ids first (register the ",
+                            "converted table as its own detest record and set keyType = \"ENTREZID\"), ",
+                            "or use db = \"GO\" with keyType = \"SYMBOL\"."
+                        ))
+                    }
                     detest <- tryCatch(get_detest(object, params$detest_id),
                         error = function(e) NULL)
                     # TRUE only when the record is on the object right now, so

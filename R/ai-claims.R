@@ -446,6 +446,17 @@ sclet_ai_audit_result_claims <- function(object, result) {
             }
         }
 
+        # An unresolvable citation is not a small downgrade: the finding points
+        # at evidence that does not exist, and RecordAIResult() refuses it
+        # outright. The audit used to move the level to `hypothesis` and say
+        # only "unknown evidence id" in the reason, so a caller that audits
+        # WITHOUT recording saw a quiet correction where the writer would have
+        # raised an error (measured 2026-10-20). The verdict stays `corrected`
+        # -- the ladder did come down -- but the flag makes the cause legible.
+        unresolved_refs <- !is.null(derivation$ceiling_status) &&
+            !is.null(derivation$ceiling_reasons) &&
+            any(grepl("unknown or incomplete evidence id", derivation$ceiling_reasons,
+                fixed = TRUE))
         entry <- list(
             index = i,
             claim_level = derived,
@@ -454,6 +465,7 @@ sclet_ai_audit_result_claims <- function(object, result) {
             allowed_claim_level = derived,
             ceiling_status = derivation$ceiling_status,
             ceiling_reasons = derivation$ceiling_reasons,
+            unresolved_evidence_refs = unresolved_refs,
             # Authorship, made visible rather than laundered into the verdict.
             # A reader must be able to tell a reference the model cited from one
             # the engine attached on its behalf, because only the former is

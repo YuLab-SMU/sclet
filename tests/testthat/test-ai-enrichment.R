@@ -392,30 +392,48 @@ test_that("enrichment is an opt-in group and defaults hide it", {
 })
 
 ## -- Block 9: an empty result is not a completed step --------------------
+## Two layers guard "an enrichment step that produces nothing".
+##
 ## Measured on PBMC 10k, 2026-10-19: the KEGG round (symbol input, which KEGG
 ## cannot annotate without ENTREZID) wrote an enrichment record with
 ## n_enriched = 0 and artifacts$result NULL and still reported "completed", with
-## no evidence node. The existing `wrote_record` guard only asks whether a
-## record appeared, so an empty run satisfied it. The step must fail instead: a
-## completed step with no result is what tells a planning agent the analysis ran.
+## no evidence node. The execution-time guard was added for that shape.
+##
+## 2026-10-20: a SYMBOL table handed to KEGG is now refused at VALIDATION
+## (key_type_incompatible), because spending a run to learn it is waste. Both
+## layers still need a test: the early gate is pinned in
+## test-ai-report-layer.R, and this test keeps exercising the execution-time
+## guard with a run that gets past validation and genuinely finds nothing.
 test_that("an enrichment round that finds nothing fails instead of completing", {
     skip_if_not_installed("clusterProfiler")
     skip_if_not_installed("org.Hs.eg.db")
     sce <- sclet_ai_test_enrichment_object()
     registry <- sclet_ai_test_enrichment_registry(sce)
-    ## KEGG with SYMBOL input: the real call warns "No enrichment found" and
-    ## stores NULL, which is the shape the guard has to catch.
-    plan <- sclet:::new_sclet_ai_plan(
-        task = "empty enrichment",
+
+    ## Layer 1: KEGG with SYMBOL input never reaches execution.
+    kegg <- sclet:::new_sclet_ai_plan(
+        task = "kegg symbol",
         actions = list(list(id = "en1", action = "run_enrichment",
             params = list(detest_id = "de_ai", db = "KEGG", keyType = "SYMBOL",
                 name = "empty_kegg")))
     )
+    kegg_validation <- ValidateAIPlan(kegg, object = sce, registry = registry, strict = FALSE)
+    expect_false(isTRUE(kegg_validation$valid))
+    expect_true(any(grepl("key_type_incompatible", kegg_validation$errors)))
+
+    ## Layer 2: a GO run that passes validation and still finds nothing fails
+    ## at execution. An impossible p-value cutoff makes every marker ineligible,
+    ## which is the same "wrote nothing" shape without depending on an empty
+    ## annotation database.
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "empty enrichment",
+        actions = list(list(id = "en1", action = "run_enrichment",
+            params = list(detest_id = "de_ai", db = "GO", keyType = "SYMBOL",
+                p_val_cutoff = 1e-300, name = "empty_go")))
+    )
     validation <- ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
     expect_true(validation$valid)
 
-    ## clusterProfiler warns "No enrichment found in any gene cluster" here;
-    ## that warning is the input to this test, not a problem with it.
     executed <- suppressWarnings(ExecuteAIPlan(sce, plan, registry,
         validation = validation, dry_run = FALSE,
         confirmation = validation$confirmation_token))

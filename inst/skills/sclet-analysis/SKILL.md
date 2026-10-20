@@ -96,6 +96,9 @@ design `~ condition + donor`. Without covariates it is a cell-level test and
 the donor/batch structure is NOT adjusted -- do not present it as paired.
 Never pass condition levels to ident.1/ident.2 without `group`: those are
 identity levels, so the test would compare clusters.
+
+| The user asks about... | The right action | Not the answer |
+|---|---|---|
 | populations signalling to each other | `run_cci` (engine REQUIRED, see below) | `run_de_test` |
 | neighbourhoods changing in abundance | `run_milo` (design REQUIRED, see below) | `run_de_test` |
 | a trajectory and its terminal states | `run_trajectory` / `run_fate_analysis` | |

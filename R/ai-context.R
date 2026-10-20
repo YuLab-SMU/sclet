@@ -13,7 +13,10 @@
 #'   `"planning"`, `"markers"`, `"trajectory"`, `"velocity"`,
 #'   `"perturbation"`, or `"report"`.
 #' @param include_artifacts Logical. Include bounded artifact references in
-#'   analysis records. Defaults to `FALSE`.
+#'   analysis records. Defaults to `FALSE`, which also hides the `findings` a
+#'   recorded AI result keeps under `artifacts` -- read a result back with
+#'   `include_artifacts = TRUE`, or its findings come back empty rather than
+#'   absent (a silent-empty trap measured 2026-10-20).
 #' @param include_data Logical. Include bounded metadata previews and assay
 #'   dimensions. Complete expression matrices are never included. Defaults to
 #'   `FALSE`.
@@ -93,6 +96,19 @@ sclet_ai_build_context <- function(
 
     result <- list(
         schema_version = "1.0",
+        # Which build produced this ledger. The package version alone is not
+        # enough: during 2026-10-19/20 the installed tree sat two days behind
+        # the source at the SAME version number, and only a schema difference
+        # revealed it. `sclet_version` plus the install timestamp makes "which
+        # code am I talking to" answerable from the ledger itself.
+        sclet_version = tryCatch(
+            as.character(utils::packageVersion("sclet")),
+            error = function(e) NA_character_
+        ),
+        sclet_installed_at = tryCatch({
+            path <- system.file("DESCRIPTION", package = "sclet")
+            if (nzchar(path)) format(file.info(path)$mtime, "%Y-%m-%d %H:%M:%S") else NA_character_
+        }, error = function(e) NA_character_),
         dataset = dataset,
         active_view = active_view,
         active_states = active_states,

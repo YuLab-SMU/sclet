@@ -256,6 +256,12 @@ sclet_ai_communication_table_facts <- function(table) {
         p_value_quantile_25 = as.numeric(p_quantiles[[1L]]),
         p_value_median = as.numeric(p_quantiles[[2L]]),
         p_value_quantile_75 = as.numeric(p_quantiles[[3L]]),
+        # `n_significant_pairs` counts p < 0.05 rows IN THIS TABLE. When the
+        # engine already filtered the table on its own test (CellChat does:
+        # measured 733 of 733 rows with max p = 0.04 on PBMC 10k, 2026-10-20),
+        # that count restates the row count. `p_value_max` is what lets a
+        # reader tell the two situations apart without trusting a note.
+        p_value_max = if (length(p_value)) round(max(p_value), 8L) else NA_real_,
         n_significant_pairs = as.integer(sum(p_value < 0.05))
     )
 }
@@ -313,6 +319,7 @@ sclet_ai_record_communication_evidence <- function(object, name, method = NULL) 
         p_value_quantile_25 = facts$p_value_quantile_25,
         p_value_median = facts$p_value_median,
         p_value_quantile_75 = facts$p_value_quantile_75,
+        p_value_max = facts$p_value_max,
         n_significant_pairs = facts$n_significant_pairs,
         method_code = sclet_ai_communication_method_code(resolved_method),
         communication_is_model_estimate = TRUE,
