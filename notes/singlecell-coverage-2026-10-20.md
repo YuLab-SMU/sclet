@@ -24,20 +24,18 @@ spatial/multimodal 六个是 typed refusal（数据不具备，并非未尝试�
 | 批次整合 | `run_integration` / `compare_integration_routes` / `confirm_design` | run | ✅ M2（Kang，3 路线 + scVI 子集） |
 | 细胞类型注释 | `run_annotation` | run | ✅ M5（MonacoImmuneData，13 群 → 7 类） |
 | doublet / rare | `run_doublet_detection` / `run_rare_cell_detection` | run | ✅ M7（PBMC 10k，双细胞 7.33%，稀有群 0） |
-| 轨迹 / 速度 / fate | `run_trajectory` / `run_velocity` / `run_fate_analysis` / `confirm_fate_terminal_states` / `summarize_fate_drivers` | run / gated | ❌ |
+| 轨迹 / 速度 / fate | `run_trajectory` / `run_velocity` / `run_fate_analysis` / … | run / gated | ✅ M9（轨迹：真实 sperm；速度+fate：合成 fixture） |
 | 细胞通讯 | `run_cci` | run | ✅ M8（CellChat，733 互作） |
 | 差异丰度 | `run_milo` | run | ✅ M6（Kang，25 units，3,414 邻域） |
 | 拷贝数 / 恶性 | `run_cnv_inference` / `call_malignant_cells` | run（GSE144735） | ❌ |
 | 检查类 | `check_qc` / `inspect_status` | run | ✅（M1 流水线内） |
-| 账本只读 | `inspect_ledger` | **none** | ❌ |
+| 账本只读 | `inspect_ledger` | run | ✅ M9（动作级） |
 | 空间 / 多模态 | 6 个只读门 | gated（拒） | 不属纯单细胞范围 |
 
 ## 仍然缺的（纯单细胞）
 
-2. **trajectory → velocity → fate**（一条链，别拆三次）。
 3. **`run_milo`**：唯一连动作级都没跑过的单细胞动作；Kang 的 donor×condition 正好能做。
 5. **CNV / malignant**：最贵（实测 66 min、22.6 GB），有 GSE144735 记录，闭环可最后做。
-6. **`inspect_ledger`**：便宜，顺手。
 
 ## 数据形状的缺口
 

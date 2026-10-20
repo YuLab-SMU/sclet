@@ -1939,6 +1939,22 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                             paste(available, collapse = ", ")
                         ))
                     }
+                    # velociraptor's scvelo method also reads a `counts` assay
+                    # (for its normalisation) and fails inside the Python call
+                    # with "'counts' not in names(assays(...))" when it is
+                    # absent -- a gate that passed validation and died at
+                    # execution, which is what the prerequisite is for. The
+                    # spliced/unspliced velocity exports in this repository
+                    # (hermann sperm, regvelo smoke) carry only logcounts, so
+                    # this is the ordinary case, not an exotic one (measured
+                    # 2026-10-20).
+                    if (!"counts" %in% available) {
+                        return(paste0(
+                            "counts_assay_missing: run_velocity also needs a 'counts' assay (velociraptor normalises from it); available: ",
+                            paste(available, collapse = ", "),
+                            ". Supply the raw counts, or use a velocity object that keeps them."
+                        ))
+                    }
                     reduction <- params$use.dimred %||% planned$active_reduction %||%
                         tryCatch(DefaultReduction(object), error = function(e) NULL)
                     available_reductions <- planned$reductions %||% tryCatch(SingleCellExperiment::reducedDimNames(object), error = function(e) character())

@@ -92,6 +92,16 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
     报告 `notes/pbmc10k-cci-report.md`，复验 9/9。
     复验脚本自己也踩过一个坑：用 `IL` 做泄漏检查会命中 `probabILity`，改成词边界后才有意义。
 
+19. **M9 轨迹链 + inspect_ledger**：`inspect_ledger` 已执行（最后一个 `none` 动作清掉）。
+    真实数据上 slingshot 得到 1 条 lineage（起点 cluster_1 = Pachytene，5 群 300 细胞）。
+    **velocity 在真实数据上被数据挡住**：velociraptor 需要 `counts` assay，而本仓库所有
+    velocity 导出（hermann sperm、regvelo smoke）只有 spliced/unspliced/logcounts →
+    计划层现在直接拒绝（`counts_assay_missing`），不再等到 Python 里崩。
+    速度 + fate 在**合成 fixture** 上跑通（scvelo deterministic + CellRank 43 s），但 fate
+    **退化为单一终态**（1 个 terminal state、吸收概率全 1）——链路通不等于结果有意义，
+    报告如实标注。附带成本：cellrank 的 basilisk env 按包版本号存路径，1.0.1 → 1.0.2
+    升版后要重建（一次 ~10 分钟）。
+
 ## 未修
 
 ### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`

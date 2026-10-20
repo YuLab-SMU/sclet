@@ -352,3 +352,34 @@ test_that("a level contrast is translated to the model's coefficient names", {
     expect_equal(translate("stim - ctrl - other", c("ctrl", "stim"), "condition"),
         "stim - ctrl - other")
 })
+
+## -- 8: velocity needs counts, and says so at validation -------------------
+## Measured on the Hermann sperm object (2026-10-20): it carries
+## spliced/unspliced/logcounts but no counts, so the plan validated and then
+## died inside the Python call with "'counts' not in names(assays(...))".
+test_that("run_velocity refuses a velocity object without counts", {
+    sce <- SingleCellExperiment::SingleCellExperiment(list(
+        spliced = matrix(1L, 10L, 6L),
+        unspliced = matrix(1L, 10L, 6L),
+        logcounts = matrix(1L, 10L, 6L)
+    ))
+    SummarizedExperiment::colData(sce)$cluster <- factor(rep(c("a", "b"), each = 3L))
+    SingleCellExperiment::reducedDim(sce, "UMAP") <- matrix(stats::rnorm(6L * 5L),
+        nrow = 6L)
+    ActiveIdent(sce) <- "cluster"
+    registry <- AIDefaultExecutionRegistry(sce, include = "all")
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "velocity gate",
+        actions = list(list(id = "v1", action = "run_velocity",
+            params = list(mode = "deterministic", use.dimred = "UMAP")))
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
+    expect_false(isTRUE(validation$valid))
+    expect_true(any(grepl("counts_assay_missing", validation$errors)))
+
+    ## Supplying counts clears the gate (the missing-reduction/package checks
+    ## are separate and are not what this test is about).
+    SummarizedExperiment::assay(sce, "counts") <- matrix(1L, 10L, 6L)
+    cleared <- ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
+    expect_false(any(grepl("counts_assay_missing", cleared$errors)))
+})
