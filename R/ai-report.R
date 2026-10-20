@@ -157,8 +157,14 @@ RenderAIReport <- function(object, id = NULL, path = NULL) {
     }
     dims <- dim(object)
     lines <- c(
-        paste0("# ", sub("^ai_", "", as.character(record$type %||% "ai_result")),
-            " - ", as.character(record$id)),
+        {
+            label <- sub("^ai_", "", as.character(record$type %||% "ai_result"))
+            if (identical(label, as.character(record$id))) {
+                paste0("# ", label)
+            } else {
+                paste0("# ", label, " - ", as.character(record$id))
+            }
+        },
         "",
         sprintf("- Recorded: %s", as.character(record$created_at %||% "-")),
         sprintf("- Data: %s genes x %s cells", dims[1L], dims[2L]),
@@ -215,6 +221,14 @@ RenderAIReport <- function(object, id = NULL, path = NULL) {
             }, character(1L))))
         }
         lines <- c(lines, "")
+    }
+    limitations <- sclet_ai_report_limitations(findings)
+    if (length(limitations)) {
+        lines <- c(lines, "## Limitations stated in the findings", "", limitations, "")
+    }
+    sections <- sclet_ai_report_analysis_sections(ledger)
+    if (length(sections)) {
+        lines <- c(lines, "## Recorded analyses", "", sections)
     }
     steps <- sclet_ai_report_steps(ledger)
     if (length(steps)) {
@@ -278,6 +292,105 @@ sclet_ai_report_steps <- function(ledger) {
                 format(round(as.numeric(step$duration_sec %||% NA_real_), 2L))))
         }
         rows <- c(rows, "")
+    }
+    rows
+}
+
+# Compact, deterministic renderings of the analysis records a reader needs in
+# order to see WHERE the numbers in the findings came from. Mechanical pipeline
+# steps (normalisation, PCA, the graph) are already covered by the executed-step
+# table; these are the analysis records that carry results.
+sclet_ai_report_scalar <- function(value) {
+    if (is.null(value) || !length(value) || is.list(value)) return(NULL)
+    if (length(value) > 1L) {
+        return(paste(utils::head(as.character(value), 5L), collapse = ", "))
+    }
+    if (is.logical(value)) return(if (isTRUE(value)) "TRUE" else "FALSE")
+    as.character(value)
+}
+
+sclet_ai_report_analysis_sections <- function(ledger) {
+    state <- ledger$state_records %||% list()
+    reportable <- c("clustering", "detest", "enrichment", "integration",
+        "annotation", "trajectory", "velocity", "fate", "milo", "da",
+        "communication", "rare_cells", "perturbation", "spatial",
+        "multimodal", "geneset_scoring", "scenic")
+    rows <- character()
+    for (type in intersect(reportable, names(state))) {
+        records <- state[[type]]
+        for (id in names(records)) {
+            record <- records[[id]]
+            summary <- record$summary %||% list()
+            params <- record$params %||% list()
+            inputs <- record$inputs %||% list()
+            method <- as.character(record$method %||% "")
+            rows <- c(rows, sprintf("### %s `%s`", type, id), "")
+            if (nzchar(method)) {
+                rows <- c(rows, sprintf("- Method: %s", method))
+            }
+            # A route comparison is the one record whose value IS a table.
+            if (identical(type, "integration") &&
+                identical(method, "sclet_ai_route_comparison")) {
+                routes <- summary$routes %||% list()
+                if (length(routes)) {
+                    rows <- c(rows, "",
+                        "| route | batch mixing (higher better) | biological preservation (higher better) | seconds | embedding | baseline |",
+                        "|---|---|---|---|---|---|")
+                    for (route in routes) {
+                        rows <- c(rows, sprintf("| %s | %s | %s | %s | %s | %s |",
+                            as.character(route$id %||% ""),
+                            as.character(round(as.numeric(route$batch_mixing), 4L)),
+                            as.character(round(as.numeric(route$biological_preservation), 4L)),
+                            as.character(round(as.numeric(route$runtime_sec), 2L)),
+                            as.character(route$reduction %||% "-"),
+                            if (isTRUE(route$baseline)) "yes" else "no"))
+                    }
+                }
+                rows <- c(rows, "",
+                    sprintf("- Batch mixing improved: %s; best route kept the biological signal: %s; trade-off: %s",
+                        as.character(summary$batch_mixing_improved %||% NA),
+                        as.character(summary$biological_preservation_retained %||% NA),
+                        as.character(summary$tradeoff_detected %||% NA)),
+                    "")
+                next
+            }
+            # The design and cutoffs are what make a result reproducible.
+            for (field in c("design", "adjustment", "db", "ontology",
+                "key_type", "reduction", "batch", "n_pseudobulk_samples")) {
+                value <- sclet_ai_report_scalar(inputs[[field]] %||% params[[field]])
+                if (!is.null(value) && nzchar(value)) {
+                    rows <- c(rows, sprintf("- %s: %s", field, value))
+                }
+            }
+            for (field in c("n_markers", "n_enriched", "n_clusters",
+                "resolution", "seed", "min.pct", "logfc.threshold",
+                "n_pseudobulk_samples", "n_cells_used")) {
+                value <- sclet_ai_report_scalar(summary[[field]] %||% params[[field]])
+                if (!is.null(value) && nzchar(value)) {
+                    rows <- c(rows, sprintf("- %s: %s", field, value))
+                }
+            }
+            rows <- c(rows, "")
+        }
+    }
+    rows
+}
+
+# Limitations and uncertainty are part of a finding, not decoration: they are
+# what keeps a claim from being read as more than it is. The report prints them
+# next to the claim rather than burying them in the record.
+sclet_ai_report_limitations <- function(findings) {
+    rows <- character()
+    for (finding in findings) {
+        items <- c(
+            as.character(unlist(finding$limitations %||% list(), use.names = FALSE)),
+            as.character(unlist(finding$uncertainty %||% list(), use.names = FALSE))
+        )
+        items <- items[nzchar(items)]
+        if (!length(items)) next
+        rows <- c(rows, sprintf("- **%s**: %s",
+            gsub("\\|", "/", as.character(finding$statement %||% "")),
+            paste(items, collapse = "; ")))
     }
     rows
 }

@@ -253,3 +253,80 @@ test_that("enrichment from a derived detest record keeps its parent chain", {
     parents <- sclet:::sclet_ai_enrichment_parent_nodes(sce, "markers_entrez")
     expect_equal(parents, "ev:findallmarkers")
 })
+
+## -- 6: the report shows the analyses that produced the numbers ------------
+## M4: the milestone reports used to be hand-assembled by their driver scripts,
+## so the tables in them (route comparisons, thresholds) came from code rather
+## than from the ledger. The renderer now prints the recorded analyses, which is
+## what makes "the report is the ledger" true.
+test_that("the report renders the recorded analyses, not just the findings", {
+    sce <- render_report_object()
+    sce <- sclet_set_analysis_state(
+        object = sce, type = "detest", id = "markers_by_cluster",
+        method = "FindAllMarkers", inputs = list(ident.1 = NULL),
+        artifacts = list(result = data.frame(gene = "gene_1")),
+        params = list(min.pct = 0.2, logfc.threshold = 0.3),
+        summary = list(n_markers = 1L), active = FALSE
+    )
+    sce <- sclet_set_analysis_state(
+        object = sce, type = "integration", id = "integration_comparison",
+        method = "sclet_ai_route_comparison",
+        inputs = list(routes = c("raw", "fastmnn")),
+        summary = list(
+            n_routes = 2L,
+            routes = list(
+                list(id = "raw", batch_mixing = 0.5, biological_preservation = 0.25,
+                    runtime_sec = 0, reduction = "PCA", baseline = TRUE),
+                list(id = "fastmnn", batch_mixing = 0.9, biological_preservation = 0.3,
+                    runtime_sec = 12.5, reduction = "corrected", baseline = FALSE)
+            ),
+            batch_mixing_improved = TRUE,
+            biological_preservation_retained = TRUE,
+            tradeoff_detected = FALSE
+        ),
+        active = FALSE
+    )
+    result <- sclet:::new_sclet_ai_result(task = "recorded analyses", answer = "x")
+    sce <- RecordAIResult(sce, result, id = "ai_report_analyses")
+
+    text <- RenderAIReport(sce, id = "ai_report_analyses")
+    expect_match(text, "## Recorded analyses", fixed = TRUE)
+    ## The detest record's own cutoffs and size are printed.
+    expect_match(text, "### detest `markers_by_cluster`", fixed = TRUE)
+    expect_match(text, "min.pct: 0.2", fixed = TRUE)
+    expect_match(text, "logfc.threshold: 0.3", fixed = TRUE)
+    expect_match(text, "n_markers: 1", fixed = TRUE)
+    ## The route comparison is rendered as its table, from the record.
+    expect_match(text, "| raw | 0.5 | 0.25 | 0 | PCA | yes |", fixed = TRUE)
+    expect_match(text, "| fastmnn | 0.9 | 0.3 | 12.5 | corrected | no |", fixed = TRUE)
+    expect_match(text, "trade-off: FALSE", fixed = TRUE)
+})
+
+test_that("the report prints the limitations each finding states", {
+    sce <- render_report_object()
+    sce <- render_report_evidence(sce)
+    result <- sclet:::new_sclet_ai_result(
+        task = "limitations",
+        findings = list(list(
+            statement = "a claim",
+            claim_level = "associated",
+            evidence_refs = list("ev:render_test"),
+            limitations = list("not a cell-type call"),
+            uncertainty = list("no replicate")
+        ))
+    )
+    sce <- RecordAIResult(sce, result, id = "ai_report_limits")
+    text <- RenderAIReport(sce, id = "ai_report_limits")
+    expect_match(text, "## Limitations stated in the findings", fixed = TRUE)
+    expect_match(text, "not a cell-type call", fixed = TRUE)
+    expect_match(text, "no replicate", fixed = TRUE)
+})
+
+test_that("the report title does not repeat the record id", {
+    sce <- render_report_object()
+    result <- sclet:::new_sclet_ai_result(task = "ai_report_titled")
+    sce <- RecordAIResult(sce, result, id = "ai_report_titled")
+    text <- RenderAIReport(sce, id = "ai_report_titled")
+    first <- strsplit(text, "\n", fixed = TRUE)[[1L]][[1L]]
+    expect_equal(first, "# ai_report_titled")
+})

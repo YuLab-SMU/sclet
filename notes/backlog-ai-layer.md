@@ -51,6 +51,11 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
     真实数据复验：M1 全量证据的 `n_independent_groups` 从 2 变回 1。
     pin：`test-ai-report-layer.R` 第 6 组；M1 复验 V10。
 
+14. **M4 单一报告来源**：`notes/m1-report-pbmc10k.md`、`notes/m2-report-kang.md` 改为
+    `RenderAIReport()` 输出；渲染器新增「Recorded analyses」（含路线比较表）与
+    「Limitations stated in the findings」两区。手写叙述中无法从账本重建的部分：
+    scVI 子集尝试（另一个对象）→ 归 B16，报告不再提；其余全部由记录渲染。
+
 ## 未修
 
 ### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`
