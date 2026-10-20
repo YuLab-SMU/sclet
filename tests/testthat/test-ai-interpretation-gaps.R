@@ -130,18 +130,35 @@ test_that("doublet evidence holds no per-cell vector, barcode or class label", {
         character(1)), collapse = "|"), fixed = TRUE))
 })
 
-test_that("re-running doublet detection neither errors nor duplicates evidence", {
+test_that("a second doublet run refuses loudly instead of citing the first run's numbers", {
+    ## This test used to assert the opposite: that a second real run "degrades
+    ## to a no-op in the recorder". scDblFinder is stochastic, so the second
+    ## run really does produce different numbers (measured 2026-10-21 on this
+    ## fixture: 4 doublets then 2), and a no-op means the citable node keeps
+    ## describing the FIRST run while colData describes the second. That is a
+    ## stale citation, not idempotence -- so the recorder now refuses, and a
+    ## caller who wants the refresh asks for it.
     object <- sclet_ai_test_gap_object()
     once <- sclet:::sclet_ai_record_doublet_evidence(
         suppressMessages(suppressWarnings(RunDoubletFinder(object))), name = "doublet_finder")
     ids_after_one <- names(sclet:::sclet_ai_evidence_get_all(once))
-    ## The action is idempotent = FALSE, so a second real run must degrade to a
-    ## no-op in the recorder rather than failing on the stable evidence id.
-    twice <- sclet:::sclet_ai_record_doublet_evidence(
-        suppressMessages(suppressWarnings(RunDoubletFinder(once))), name = "doublet_finder")
-    ids_after_two <- names(sclet:::sclet_ai_evidence_get_all(twice))
-    expect_setequal(ids_after_one, ids_after_two)
-    expect_equal(sum(grepl("^ev:doublet_", ids_after_two)), 1L)
+    expect_equal(sum(grepl("^ev:doublet_", ids_after_one)), 1L)
+
+    rescored <- suppressMessages(suppressWarnings(RunDoubletFinder(once)))
+    expect_error(
+        sclet:::sclet_ai_record_doublet_evidence(rescored, name = "doublet_finder"),
+        "evidence_id_conflict"
+    )
+
+    ## With replace = TRUE the node follows the object, and stays unique.
+    refreshed <- sclet:::sclet_ai_record_doublet_evidence(rescored,
+        name = "doublet_finder", replace = TRUE)
+    ids_after_refresh <- names(sclet:::sclet_ai_evidence_get_all(refreshed))
+    expect_setequal(ids_after_one, ids_after_refresh)
+    expect_equal(sum(grepl("^ev:doublet_", ids_after_refresh)), 1L)
+    node <- sclet:::sclet_ai_evidence_get_all(refreshed)[["ev:doublet_doublet_finder"]]$values
+    expect_equal(as.integer(node$n_called_doublets),
+        as.integer(sclet:::sclet_ai_doublet_facts(refreshed)$n_called_doublets))
 })
 
 test_that("doublet recorder is a no-op when no scores exist", {

@@ -138,6 +138,22 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
     pin 在 ``test-ai-fate.R``。
     报告 ``notes/pancreas-velocity-fate-report.md``，复验 10/10。
 
+23. **重跑后证据节点静默保留旧数字（2026-10-21 自查发现，未在台账里）**：
+    节点 id 从分析名派生（`ev:doublet_doublet_finder`），所以同一动作跑两次会撞同一个 id；
+    `RecordAIEvidence()` 拒绝重复，而**七个 recorder 全都**用
+    `tryCatch(error = function(e) object)` 把它吞掉。实测：colData 里 0 个 doublet，
+    节点仍写 150；scDblFinder 是随机的，真的第二次跑会得到不同数字（fixture 上 4 → 2）。
+    这是"引用了过时数字"的缺陷——比没有节点更糟，因为它可引用、会渲染、看起来像本次结果。
+    修法是一处共享函数 `sclet_ai_record_evidence_for_run()`，把三种诚实的结局分清：
+    - 数字相同 → no-op（幂等，不报错）；
+    - 数字不同且未要求 replace → **报 `evidence_id_conflict`**，说明两次运行不一致；
+    - `replace = TRUE` → 刷新节点。
+    7 个 recorder（doublet / cnv / milo / velocity / trajectory / fate / enrichment /
+    communication / routes / malignant）全部改走这条路径，并在 `test-ai-evidence-rerun.R`
+    里逐函数断言"必须路由到它"，所以以后新增 recorder 漏掉会被测出来。
+    顺带修掉一个**把 bug 当预期固定下来的测试**：`test-ai-interpretation-gaps.R` 原来断言
+    "第二次真实运行必须降级为 no-op"，现已改成断言拒绝 + replace 刷新。
+
 ## 未修
 
 ### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`（2026-10-20 关闭：M3）

@@ -329,12 +329,9 @@ sclet_ai_record_enrichment_evidence <- function(object, name, detest_id = NULL) 
         values = values,
         claim_level = "consistent_with"
     )
-    tryCatch(
-        RecordAIEvidence(object, evidence,
-            source = as.character(record$id %||% name),
-            parents = parents, scope = NULL),
-        error = function(e) object
-    )
+    sclet_ai_record_evidence_for_run(object, evidence,
+        source = as.character(record$id %||% name),
+        parents = parents, scope = NULL)
 }
 
 #' Summarize recorded enrichment evidence without claiming a result

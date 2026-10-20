@@ -642,9 +642,6 @@ sclet_ai_record_integration_comparison <- function(object, name = "integration_c
         values = values,
         claim_level = "associated"
     )
-    tryCatch(
-        RecordAIEvidence(object, evidence, source = name,
-            parents = as.character(ids), scope = list(route_family = "route_1")),
-        error = function(e) object
-    )
+    sclet_ai_record_evidence_for_run(object, evidence, source = name,
+        parents = as.character(ids), scope = list(route_family = "route_1"))
 }

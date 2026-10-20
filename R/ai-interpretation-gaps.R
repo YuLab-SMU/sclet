@@ -65,7 +65,8 @@ sclet_ai_doublet_facts <- function(object) {
 #'   unchanged when no doublet columns exist or the node already exists.
 #' @keywords internal
 #' @noRd
-sclet_ai_record_doublet_evidence <- function(object, name = "doublet_finder") {
+sclet_ai_record_doublet_evidence <- function(object, name = "doublet_finder",
+                                             replace = FALSE) {
     facts <- sclet_ai_doublet_facts(object)
     if (is.null(facts)) return(object)
     evidence <- list(
@@ -78,10 +79,12 @@ sclet_ai_record_doublet_evidence <- function(object, name = "doublet_finder") {
         )),
         claim_level = "associated"
     )
-    tryCatch(
-        RecordAIEvidence(object, evidence, source = name, parents = character(), scope = NULL),
-        error = function(e) object
-    )
+    # Routed through the re-run-aware recorder: a second doublet call on the
+    # same object reproduces the node id, and swallowing the duplicate-id error
+    # left the FIRST run's counts in the ledger while colData showed the second
+    # (measured 2026-10-21: colData 0 doublets, node still 150).
+    sclet_ai_record_evidence_for_run(object, evidence, source = name,
+        parents = character(), scope = NULL, replace = replace)
 }
 
 # Record the bounded aggregate evidence node for a completed CNV run.
@@ -116,7 +119,7 @@ sclet_ai_record_cnv_evidence <- function(object, name = "cnv", replace = FALSE) 
         parameter_cutoff = as.numeric(record$params$cutoff),
         parameter_n_genes = as.integer(record$n_genes)
     )
-    tryCatch(RecordAIEvidence(object, list(
+    sclet_ai_record_evidence_for_run(object, list(
             id = paste0("ev:cnv_", sclet_ai_evidence_id_token(name)),
             kind = "deterministic_summary",
             values = values,
@@ -125,7 +128,7 @@ sclet_ai_record_cnv_evidence <- function(object, name = "cnv", replace = FALSE) 
         source = name,
         parents = character(),
         scope = NULL,
-        replace = replace), error = function(e) object)
+        replace = replace)
 }
 
 # ---------------------------------------------------------------------------
@@ -496,7 +499,7 @@ sclet_ai_milo_table_facts <- function(record) {
 #'   unchanged when no Milo record exists.
 #' @keywords internal
 #' @noRd
-sclet_ai_record_milo_evidence <- function(object, name) {
+sclet_ai_record_milo_evidence <- function(object, name, replace = FALSE) {
     record <- tryCatch(sclet_get_state_record(object, "milo", name), error = function(e) NULL)
     if (is.null(record)) return(object)
     facts <- sclet_ai_milo_table_facts(record)
@@ -522,10 +525,10 @@ sclet_ai_record_milo_evidence <- function(object, name) {
         claim_level = "associated",
         dependency_group = sclet_ai_milo_dependency_group(object, roles)
     )
-    tryCatch(
-        RecordAIEvidence(object, evidence, source = name, parents = character(), scope = NULL),
-        error = function(e) object
-    )
+    # Same stale-node trap as the doublet recorder: route the re-run through
+    # the shared recorder, which refreshes on request and otherwise refuses.
+    sclet_ai_record_evidence_for_run(object, evidence, source = name,
+        parents = character(), scope = NULL, replace = replace)
 }
 
 #' Summarize Milo results in bounded form without claiming a conclusion

@@ -256,8 +256,8 @@ sclet_ai_record_fate_evidence <- function(object, name, cluster_key, replace = F
         values = values,
         claim_level = "consistent_with"
     )
-    RecordAIEvidence(object, evidence, source = name, parents = character(),
-        scope = NULL, replace = replace)
+    sclet_ai_record_evidence_for_run(object, evidence, source = name,
+        parents = character(), scope = NULL, replace = replace)
 }
 
 # Sanitize a record id for use inside an evidence id.
@@ -343,8 +343,6 @@ sclet_ai_record_fate_terminal_state_confirmation <- function(object, cellrank_id
         values = values,
         claim_level = "observed"
     )
-    tryCatch(
-        RecordAIEvidence(object, evidence, source = source_id, parents = character(), scope = NULL),
-        error = function(e) object
-    )
+    sclet_ai_record_evidence_for_run(object, evidence, source = source_id,
+        parents = character(), scope = NULL)
 }

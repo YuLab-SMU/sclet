@@ -337,10 +337,8 @@ sclet_ai_record_communication_evidence <- function(object, name, method = NULL) 
         claim_level = "consistent_with",
         dependency_group = dependency_group
     )
-    tryCatch(
-        RecordAIEvidence(object, evidence, source = name, parents = character(), scope = NULL),
-        error = function(e) object
-    )
+    sclet_ai_record_evidence_for_run(object, evidence, source = name,
+        parents = character(), scope = NULL)
 }
 
 #' Summarize CCI results in bounded form without claiming a conclusion

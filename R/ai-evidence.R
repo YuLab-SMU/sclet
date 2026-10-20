@@ -90,6 +90,55 @@ sclet_ai_evidence_scope_string <- function(scope) {
 #' @param scope Optional aggregate scope, such as anonymized groups.
 #' @return The SCE with an `ai_evidence` state record.
 #' @export
+# Record an evidence node, tolerating a RE-RUN of the same analysis.
+#
+# The problem this solves, measured 2026-10-21: a node id is derived from the
+# analysis name (`ev:doublet_doublet_finder`), so running the same action twice
+# reproduces it. `RecordAIEvidence()` refuses the duplicate, and every recorder
+# wraps that call in `tryCatch(error = function(e) object)` -- so the second run
+# returned the object with the FIRST run's numbers still in the ledger and no
+# error anywhere. Measured: colData said 0 doublets, the node still said 150.
+# A stale node is worse than a missing one: it is citable, it renders, and it
+# looks like a measurement of the current object.
+#
+# Two honest outcomes are possible, and the caller must choose:
+#
+#   * the numbers are the same -> the re-run is a no-op, nothing to do;
+#   * the numbers differ       -> either refresh (`replace = TRUE`, for a
+#                                 derived summary of a run whose record is
+#                                 unchanged) or refuse loudly (`replace = FALSE`,
+#                                 so the caller knows two runs disagree).
+#
+# Never silently keep the old values.
+sclet_ai_record_evidence_for_run <- function(object, evidence, source = NULL,
+                                             parents = NULL, scope = NULL,
+                                             replace = FALSE) {
+    id <- as.character(evidence$id %||% "")
+    existing <- tryCatch(sclet_ai_evidence_get_all(object)[[id]], error = function(e) NULL)
+    if (is.null(existing)) {
+        return(RecordAIEvidence(object, evidence, source = source,
+            parents = parents, scope = scope))
+    }
+    same <- isTRUE(all.equal(existing$values %||% list(), evidence$values %||% list(),
+        tolerance = 1e-8))
+    if (same) {
+        # Nothing changed: the record already describes this run.
+        return(object)
+    }
+    if (!isTRUE(replace)) {
+        stop(paste0(
+            "evidence_id_conflict: evidence node '", id,
+            "' already exists with DIFFERENT values, and this recorder was not asked ",
+            "to replace it. The previous node describes an earlier run of the same ",
+            "analysis; keeping it would cite stale numbers under the current object. ",
+            "Re-run with replace = TRUE to refresh it, or use a different `name` so ",
+            "the two runs are separately citable."
+        ), call. = FALSE)
+    }
+    RecordAIEvidence(object, evidence, source = source, parents = parents,
+        scope = scope, replace = TRUE)
+}
+
 RecordAIEvidence <- function(object, evidence, source = NULL, parents = NULL,
                              scope = NULL, replace = FALSE) {
     if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)

@@ -2706,7 +2706,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         n_pre_demote_supported = as.integer(
                             state_summary$n_pre_demote_supported %||% NA_integer_)
                     )
-                    tryCatch(RecordAIEvidence(object, list(
+                    sclet_ai_record_evidence_for_run(object, list(
                             id = paste0("ev:malignant_", sclet_ai_evidence_id_token(name)),
                             kind = "deterministic_summary",
                             values = values,
@@ -2714,7 +2714,8 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         ),
                         source = name,
                         parents = character(),
-                        scope = NULL), error = function(e) object)
+                        scope = NULL,
+                        replace = isTRUE(params$replace_evidence))
                 },
                 input_schema = list(
                     cnv_id = "character",
@@ -2726,7 +2727,12 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     identity_markers = "character_vector",
                     identity_demote = "number",
                     assay = "character",
-                    name = "character"
+                    name = "character",
+                    # Re-running the same call on an object whose evidence node
+                    # already exists: refresh it instead of refusing. Off by
+                    # default, because two runs that disagree should be visible
+                    # rather than silently reconciled.
+                    replace_evidence = "logical"
                 ),
                 prerequisites = function(object, params, planned = NULL) {
                     cnv_id <- params$cnv_id %||% "cnv"
@@ -3484,10 +3490,8 @@ sclet_ai_record_trajectory_evidence <- function(object, name, group, start_clust
         values = values,
         claim_level = "consistent_with"
     )
-    tryCatch(
-        RecordAIEvidence(object, evidence, source = name, parents = character(), scope = NULL),
-        error = function(e) object
-    )
+    sclet_ai_record_evidence_for_run(object, evidence, source = name,
+        parents = character(), scope = NULL)
 }
 
 sclet_ai_record_velocity_evidence <- function(object, name) {
@@ -3535,10 +3539,8 @@ sclet_ai_record_velocity_evidence <- function(object, name) {
         values = values,
         claim_level = "consistent_with"
     )
-    tryCatch(
-        RecordAIEvidence(object, evidence, source = name, parents = character(), scope = NULL),
-        error = function(e) object
-    )
+    sclet_ai_record_evidence_for_run(object, evidence, source = name,
+        parents = character(), scope = NULL)
 }
 
 sclet_ai_record_rare_cell_evidence <- function(object, name, rare_threshold) {
