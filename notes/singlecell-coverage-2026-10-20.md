@@ -26,7 +26,7 @@ spatial/multimodal 六个是 typed refusal（数据不具备，并非未尝试�
 | doublet / rare | `run_doublet_detection` / `run_rare_cell_detection` | run | ❌ |
 | 轨迹 / 速度 / fate | `run_trajectory` / `run_velocity` / `run_fate_analysis` / `confirm_fate_terminal_states` / `summarize_fate_drivers` | run / gated | ❌ |
 | 细胞通讯 | `run_cci` | run（gated） | ❌ |
-| 差异丰度 | `run_milo` | **none** | ❌ |
+| 差异丰度 | `run_milo` | run | ✅ M6（Kang，25 units，3,414 邻域） |
 | 拷贝数 / 恶性 | `run_cnv_inference` / `call_malignant_cells` | run（GSE144735） | ❌ |
 | 检查类 | `check_qc` / `inspect_status` | run | ✅（M1 流水线内） |
 | 账本只读 | `inspect_ledger` | **none** | ❌ |

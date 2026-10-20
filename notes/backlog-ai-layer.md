@@ -63,6 +63,18 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
     `top_label_ranks`（构造上恒为 1:k）与两个不透明整数编码。
     报告：`notes/pbmc10k-annotation-report.md`（`RenderAIReport()` 输出）+ 复验 9/9。
 
+16. **M6 milo 闭环（差异丰度）**：Kang 上 25 个样本单元（donor × condition）、3,414 个邻域，
+    stim vs ctrl 有 1,821 个 FDR<0.05；**置换标签对照 0/3,414（中位 p 0.76）**，所以信号不是
+    标签顺序造成的。设计 `~ 0 + condition + batch`（未配对）作为限制写进报告。
+    顺带修掉两个“从没被执行过所以没人发现”的缺陷：
+    - `run_milo` 的错写形式（技能与错误信息都教 `"stim - ctrl"`）被原样送进
+      `miloR::testNhoods()`，而它按设计矩阵系数名解析 → `object 'stim' not found`。
+      现在 `RunMilo()` 在知道设计的地方把 level 对比翻译成系数名（`conditionstim - conditionctrl`），
+      记录里同时保留调用方写法与模型写法；pin：`test-ai-report-layer.R`。
+    - action handler 假设 `RunMilo()` 返回 SCE，实际返回 `list(sce=, milo=, da_results=)` →
+      每次执行都在最贵的那一步之后死于 `no metadata method for class list`。
+      覆盖率表里 `run_milo` 一直是 `none`，这正是它没被发现的原因。
+
 ## 未修
 
 ### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`

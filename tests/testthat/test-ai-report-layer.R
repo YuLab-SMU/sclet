@@ -330,3 +330,25 @@ test_that("the report title does not repeat the record id", {
     first <- strsplit(text, "\n", fixed = TRUE)[[1L]][[1L]]
     expect_equal(first, "# ai_report_titled")
 })
+
+## -- 7: a level-based contrast reaches the model as coefficient names ------
+## Measured on Kang (2026-10-20): run_milo's own error message and the skill
+## both say to write "stim - ctrl", but RunMilo handed that string straight to
+## miloR::testNhoods(), which parses it against the design matrix's coefficients
+## (`conditionctrl`, `conditionstim`, ...). The documented form failed with
+## `object 'stim' not found`.
+test_that("a level contrast is translated to the model's coefficient names", {
+    translate <- sclet:::sclet_milo_translate_contrast
+    expect_equal(translate("stim - ctrl", c("ctrl", "stim"), "condition"),
+        "conditionstim - conditionctrl")
+    ## Already in coefficient names: untouched.
+    expect_equal(translate("conditionstim - conditionctrl", c("ctrl", "stim"), "condition"),
+        "conditionstim - conditionctrl")
+    ## Not level names at all (a typo, or another vocabulary): untouched, so the
+    ## error comes from the model rather than from a silent rewrite.
+    expect_equal(translate("treated - vehicle", c("ctrl", "stim"), "condition"),
+        "treated - vehicle")
+    ## More than two terms is not a simple contrast: untouched.
+    expect_equal(translate("stim - ctrl - other", c("ctrl", "stim"), "condition"),
+        "stim - ctrl - other")
+})

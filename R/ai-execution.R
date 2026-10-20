@@ -3202,7 +3202,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     before_created <- vapply(before, function(record) {
                         as.character(record$created_at %||% "")
                     }, character(1L))
-                    result <- RunMilo(
+                    milo_out <- RunMilo(
                         object,
                         sample_col = params$sample_col,
                         condition_col = params$condition_col,
@@ -3211,6 +3211,16 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         prop = params$prop %||% 0.1,
                         name = name
                     )
+                    # RunMilo() returns list(sce=, milo=, da_results=), not an
+                    # SCE. The handler assumed an SCE, so every execution died
+                    # after the expensive part with `no metadata method for
+                    # class list` -- and no benchmark had ever run this action
+                    # (coverage: none), so nothing caught it (2026-10-20).
+                    result <- if (inherits(milo_out, "SingleCellExperiment")) {
+                        milo_out
+                    } else {
+                        milo_out$sce
+                    }
                     after <- sclet_get_state_records(result, "milo")
                     created_after <- vapply(after, function(record) {
                         as.character(record$created_at %||% "")
