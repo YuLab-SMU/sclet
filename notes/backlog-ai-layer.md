@@ -56,6 +56,13 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
     「Limitations stated in the findings」两区。手写叙述中无法从账本重建的部分：
     scVI 子集尝试（另一个对象）→ 归 B16，报告不再提；其余全部由记录渲染。
 
+15. **M5 annotation 闭环**：PBMC 10k 的 13 个群完成参考注释（MonacoImmuneData / label.main，
+    9.5 s）；参考不是引擎猜的，而是走**澄清通道**记录成 `user_decision` 后由下一轮计划读取
+    （`ResolveAIClarifications` 全链路实测）。markers + annotation 触发 2 条独立证据线，
+    上限仍 `associated`（最弱节点）。顺带修掉 annotation 证据节点里同类假字段：
+    `top_label_ranks`（构造上恒为 1:k）与两个不透明整数编码。
+    报告：`notes/pbmc10k-annotation-report.md`（`RenderAIReport()` 输出）+ 复验 9/9。
+
 ## 未修
 
 ### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`

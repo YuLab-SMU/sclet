@@ -1460,8 +1460,12 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                             if (length(top_labels) > 0L) tl[seq_len(min(15L, length(top_labels)))] <- seq_len(min(15L, length(top_labels)))
                             tf <- rep_len(NA_real_, 15L)
                             if (length(top_fractions) > 0L) tf[seq_len(min(15L, length(top_fractions)))] <- top_fractions
+                            # `tl` is 1:k by construction (the position in the
+                            # ordered list), not a rank -- the same fake field
+                            # the marker node carried until 2026-10-20. The
+                            # fraction is real; the index is not recorded.
                             aggregate_values$n_top_labels <- as.integer(sum(!is.na(tl)))
-                            aggregate_values$top_label_ranks <- as.integer(tl)
+                            # (top_label_ranks removed: see n_top_labels above)
                             aggregate_values$top_label_fractions <- as.numeric(tf)
                             if (!is.null(idents) && length(idents) == n_cells) {
                                 tb2 <- table(idents_vec, lab_vec_ch, useNA = "no")
@@ -1499,8 +1503,9 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                             aggregate_values$score_quantile_50 <- as.numeric(qs[[2L]])
                             aggregate_values$score_quantile_75 <- as.numeric(qs[[3L]])
                         }
-                        aggregate_values$annotation_method_code <- 2L
-                        aggregate_values$annotation_scope_code <- 3L
+                        # Method/scope integer codes removed 2026-10-20: opaque
+                        # integers with no consumer, the same class of dead
+                        # field the marker node carried.
                         aggregate_values$raw_values_included <- FALSE
                         evidence <- list(
                             id = sclet_ai_annotation_evidence_id(name),
