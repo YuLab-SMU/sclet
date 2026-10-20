@@ -434,6 +434,7 @@ CallPhenotypeCells <- function(object,
     # A competing programme separating those two groups says the evidence is
     # picking up that programme; it does not say so about cells that were already
     # refused, which must keep their refusal.
+    call_pre_demote <- call          # defined even when no competing signature runs
     competing_report <- NULL
     if (!is.null(competing)) {
         if (is.null(assay)) {
@@ -469,10 +470,20 @@ CallPhenotypeCells <- function(object,
                 )
             }
             demoting <- names(Filter(function(x) isTRUE(x$demote), competing_report))
+            call_pre_demote <- call
             if (length(demoting) > 0) {
                 # Only the affirmative states are demoted. `refuted` is a refusal
                 # the competing programme cannot overturn -- it was never
                 # evidence-positive, so the axis question does not apply to it.
+                #
+                # The demote is DATASET-LEVEL: one separation statistic removes
+                # every affirmative cell, so on a dataset where the competing
+                # programme separates the two groups the malignant state becomes
+                # unreachable (measured by a user on GSE150290, 2026-10-20: 29
+                # supported cells all demoted, final malignant count 0). The
+                # pre-demote call is therefore kept rather than overwritten --
+                # a reader must be able to see what the evidence said before the
+                # axis check, and the report has to show both.
                 call[call %in% c("supported", "probable")] <- "undetermined"
             }
         }
@@ -482,6 +493,8 @@ CallPhenotypeCells <- function(object,
                     ifelse(call == "probable", "associated", "hypothesis"))
 
     # ---- write back ----------------------------------------------------------
+    cdata[[paste0(prefix, "call_pre_demote")]] <- factor(call_pre_demote,
+        levels = c("supported", "probable", "undetermined", "refuted"))
     cdata[[paste0(prefix, "call")]] <- factor(call, levels = c("supported", "probable",
                                                               "undetermined", "refuted"))
     cdata[[paste0(prefix, "claim")]] <- claim
@@ -497,6 +510,9 @@ CallPhenotypeCells <- function(object,
         n_cells = nrow(cdata),
         signature = signature_used,
         signature_cut = cut_used,
+        n_signature_positive = as.integer(sum(sig_positive)),
+        n_pre_demote_supported = as.integer(sum(call_pre_demote == "supported")),
+        n_pre_demote_probable = as.integer(sum(call_pre_demote == "probable")),
         providers = provider_report,
         independent_lines = independent,
         competing = competing_report,

@@ -79,6 +79,32 @@ programme (for a gastric tumour, the intestinal-metaplasia profile). A call
 without a CNV record is refused, because signature-only is not the two-line
 answer.
 
+Reporting a four-state call means reporting what decided it, not just the
+four counts. Three things belong in the same paragraph:
+
+- **the signature cut and its source.** `signature_cut` defaults to the POOL
+  MEDIAN (`signature_cut_is_median = TRUE` in the evidence), so "signature
+  positive" then means "scores above half the cells" -- a relative statement
+  that lands near 50% by construction (22,006 of 44,011 in a user report on
+  GSE150290, 2026-10-20). A near-half malignant/signature fraction is the cut
+  talking, not the biology.
+- **the CNV threshold.** `cnv_reference_threshold` is the reference burden's
+  quantile (default P99) widened by 3 x MAD. On 44,011 cells that can mean
+  about 29 positives. `non_malignant` needs a CNV-negative line, so on a
+  CNV-poor cohort "we cannot see a CNV" becomes "evidence of not malignant":
+  in that report 90 of 201 DNA-hotspot-mutant cells came out non_malignant.
+  State that limitation; do not let CNV-negative read as proof.
+- **the pre-demote counts.** The identity demote is DATASET-LEVEL: one
+  separation statistic above the threshold moves every supported/probable
+  cell to undetermined, which can make `malignant` unreachable on that
+  dataset. Read `<name>_call_pre_demote` (or `n_pre_demote_supported`) and
+  report both states, so a reader sees what the evidence said before the axis
+  check.
+
+Also record whether the CNV run used the HMM stage (`parameter_hmm` in the
+CNV evidence): `hmm = FALSE` gives a burden from the non-HMM profile, which is
+a different measurement, not a faster version of the same one.
+
 **The CNV run is the slowest action in the registry.** Measured 2026-10-19 on
 1,400 cells with HMM on: 66 minutes, 22.6 GB of memory, 27 minutes of it HMM
 Gibbs sampling. Do not add it because it sounds thorough; add it only when the

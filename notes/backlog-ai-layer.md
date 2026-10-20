@@ -113,6 +113,20 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
     - B11 写进 `sclet-claims` 技能：结构事实属于出处/方法，不属于 findings（无引用的 finding
       必然降为 hypothesis）。
 
+21. **M10 CNV / malignant 闭环（并复现了用户反馈的两个结构效应）**：GSE144735 KUL3（1,400 细胞，
+    300 参考），inferCNV HMM on 跑 **61.8 min**；两份四态调用（纯双线 / 加免疫竞争签名）。
+    CRC 上的数字与 GSE150290 的报告**同构**：
+    - 签名阈值取了全池中位数（-0.00893），签名阳性 **700/1400 = 恰好一半**——这是定义，不是生物学；
+    - CNV 阈值 0.183（参考 P99+3×MAD），CNV+ 只有 **7/1400**；
+    - 加 identity 竞争后 `malignant` 从 **4 → 0**（降级前 supported 4 保留在
+      `<name>_call_pre_demote`），`identity_conflict = 1`。
+    顺带修了三件事：CNV 证据节点记录 `parameter_hmm`/`parameter_cutoff`/`parameter_n_genes`；
+    malignant 节点记录 `signature_cut_*`/`cnv_reference_threshold`/`n_cnv_positive`/
+    `n_pre_demote_supported`；`RecordAIEvidence(replace = TRUE)` 允许在**不重跑分析**的前提下
+    重记派生节点（inferCNV 一小时一次，旧节点无法更新是缺陷）。
+    报告 `notes/crc-malignant-report.md`，复验 10/10；对 Issue #26 的核查见
+    `notes/malignant-gse150290-analysis-2026-10-20.md`。
+
 ## 未修
 
 ### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`（2026-10-20 关闭：M3）

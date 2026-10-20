@@ -165,6 +165,45 @@ test_that("a competing hypothesis demotes a supported call", {
     expect_equal(sum(cd$phenotype_call_call == "supported"), 0L)
 })
 
+test_that("the demote keeps the pre-demote call instead of overwriting it", {
+    ## A user report on GSE150290 (2026-10-20) showed the consequence: 29
+    ## supported cells, one dataset-level demote, final malignant count 0. The
+    ## pre-demote call is what the evidence actually said, so it has to survive
+    ## the axis check for a reader to see both.
+    sce <- sclet_ph_test_sce()
+    n <- ncol(sce)
+    alt <- sprintf("BG%03d", seq_len(5L))
+    lc <- SummarizedExperiment::assay(sce, "logcounts")
+    lc[alt, 1:30] <- lc[alt, 1:30] + 3
+    SummarizedExperiment::assay(sce, "logcounts") <- lc
+
+    half_provider <- sclet_ph_stub_provider("half_yes2", "positive")
+    half_provider$decide <- function(object, ...) {
+        list(state = ifelse(seq_len(ncol(object)) <= 30, "positive", "negative"))
+    }
+    PhenotypeEvidenceProviders("register", provider = half_provider)
+    on.exit(PhenotypeEvidenceProviders("unregister", name = "half_yes2"), add = TRUE)
+
+    res <- CallPhenotypeCells(sce, signature = sclet_ph_test_sig(),
+                              evidence = "half_yes2",
+                              competing = list(alt = alt),
+                              competing_demote = 0.05,
+                              transcriptomic_cut = 0)
+    cd <- SummarizedExperiment::colData(res)
+    expect_true("phenotype_call_call_pre_demote" %in% colnames(cd))
+    ## The two columns are not the same column under two names: the demote
+    ## moved affirmative cells, and the pre-demote column still shows them.
+    expect_gt(sum(cd$phenotype_call_call_pre_demote == "supported"), 0L)
+    expect_equal(sum(cd$phenotype_call_call %in% c("supported", "probable")), 0L)
+    rec <- sclet_ph_ns("sclet_get_analysis")(res, "phenotype_call")$phenotype_call
+    expect_gt(rec$n_pre_demote_supported, 0L)
+    ## The signature cut is recorded with its source, because a median default
+    ## makes "signature positive" a statement about half the pool.
+    expect_equal(rec$signature_cut$source, "caller")
+    expect_equal(rec$signature_cut$value, 0)
+    expect_equal(rec$n_signature_positive, sum(cd$phenotype_call_signature_score >= 0))
+})
+
 test_that("a competing hypothesis with no contrast is reported, not scored", {
     sce <- sclet_ph_test_sce()
     PhenotypeEvidenceProviders("register", provider = sclet_ph_stub_provider("indep_yes", "positive"))

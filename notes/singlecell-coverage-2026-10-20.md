@@ -27,7 +27,7 @@ spatial/multimodal 六个仍是 typed refusal（数据不具备，并非未尝�
 | 轨迹 / 速度 / fate | `run_trajectory` / `run_velocity` / `run_fate_analysis` / … | run / gated | ✅ M9（轨迹：真实 sperm；速度+fate：合成 fixture） |
 | 细胞通讯 | `run_cci` | run | ✅ M8（CellChat，733 互作） |
 | 差异丰度 | `run_milo` | run | ✅ M6（Kang，25 units，3,414 邻域） |
-| 拷贝数 / 恶性 | `run_cnv_inference` / `call_malignant_cells` | run（GSE144735） | ❌ |
+| 拷贝数 / 恶性 | `run_cnv_inference` / `call_malignant_cells` | run | ✅ M10（GSE144735 KUL3，61.8 min） |
 | 检查类 | `check_qc` / `inspect_status` | run | ✅（M1 流水线内） |
 | 账本只读 | `inspect_ledger` | run | ✅ M9（动作级） |
 | 空间 / 多模态 | 6 个只读门 | gated（拒） | 不属纯单细胞范围 |
@@ -50,7 +50,8 @@ spatial/multimodal 六个仍是 typed refusal（数据不具备，并非未尝�
 |---|---|
 | 动作级 | 33/33 有执行记录（6 个是 typed refusal） |
 | 闭环级 | **10 个域**：主干、markers/条件 DE、富集、整合+路线比较、注释、差异丰度、doublet/rare、通讯、轨迹（真实数据）、速度+fate（合成 fixture） |
-| 仍缺 | ① **CNV/malignant**（唯一未闭环的域，最贵：66 min / 22.6 GB）；② 一个**带 counts 的真实 velocity 数据集**（有它才能把速度+fate 从合成升到真实） |
+| 已闭环 | **11 个域**（M10 补上 CNV/malignant：真实 CRC 队列，inferCNV 61.8 min） |
+| 仍缺 | 一个**带 counts 的真实 velocity 数据集**（有它才能把速度+fate 从合成升到真实） |
 
 ## 剩余工作量估计
 

@@ -4,7 +4,14 @@
 \alias{sclet_ai_evidence_independence}
 \title{Record and validate bounded AI evidence nodes}
 \usage{
-RecordAIEvidence(object, evidence, source = NULL, parents = NULL, scope = NULL)
+RecordAIEvidence(
+  object,
+  evidence,
+  source = NULL,
+  parents = NULL,
+  scope = NULL,
+  replace = FALSE
+)
 
 ValidateAIEvidenceRefs(
   object,
@@ -27,6 +34,11 @@ sclet_ai_evidence_independence(object, evidence_ids)
 deterministic \code{dependency_group} hash together with \code{scope}.}
 
 \item{scope}{Optional aggregate scope, such as anonymized groups.}
+
+\item{replace}{Logical. When \code{TRUE}, re-record an existing node id
+instead of refusing it, for a DERIVED node whose summary changed (the node id
+and its source record stay the same, so citations keep working). Defaults to
+\code{FALSE}, which keeps the write-once refusal.}
 
 \item{refs}{Character evidence ids to validate.}
 

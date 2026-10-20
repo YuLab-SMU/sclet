@@ -84,6 +84,50 @@ sclet_ai_record_doublet_evidence <- function(object, name = "doublet_finder") {
     )
 }
 
+# Record the bounded aggregate evidence node for a completed CNV run.
+#
+# Extracted from the action handler so the node can be RE-RECORDED from the
+# record without repeating the inferCNV run -- which matters because that run
+# costs about an hour (measured 2026-10-20: 61.8 minutes on 1,400 cells with
+# HMM on). The operating point belongs in the node: a user report on GSE150290
+# ran the same line with hmm = FALSE after the HMM stage OOMed at 32 GB, and
+# the old node could not tell that run apart from an HMM run even though the
+# burden comes from a different profile.
+sclet_ai_record_cnv_evidence <- function(object, name = "cnv", replace = FALSE) {
+    records <- sclet_get_analysis(object, "malignant_cnv")
+    record <- records[[name]]
+    if (is.null(record) || !identical(record$status, "completed")) {
+        # A recorded `unavailable` state is an honest answer, not a failure; no
+        # evidence node is written for it.
+        return(object)
+    }
+    burden <- record$burden$burden
+    values <- list(
+        n_cells = as.integer(record$n_cells_submitted),
+        n_cells_retained = as.integer(record$n_cells_retained),
+        n_cells_dropped = as.integer(length(record$dropped_cells)),
+        n_reference_cells = as.integer(record$n_reference_cells),
+        n_genes = as.integer(record$n_genes),
+        burden_q10 = as.numeric(stats::quantile(burden, 0.1, na.rm = TRUE, names = FALSE)),
+        burden_q50 = as.numeric(stats::quantile(burden, 0.5, na.rm = TRUE, names = FALSE)),
+        burden_q90 = as.numeric(stats::quantile(burden, 0.9, na.rm = TRUE, names = FALSE)),
+        # `parameter_` keeps these inside the privacy allowlist.
+        parameter_hmm = isTRUE(record$params$hmm),
+        parameter_cutoff = as.numeric(record$params$cutoff),
+        parameter_n_genes = as.integer(record$n_genes)
+    )
+    tryCatch(RecordAIEvidence(object, list(
+            id = paste0("ev:cnv_", sclet_ai_evidence_id_token(name)),
+            kind = "deterministic_summary",
+            values = values,
+            claim_level = "associated"
+        ),
+        source = name,
+        parents = character(),
+        scope = NULL,
+        replace = replace), error = function(e) object)
+}
+
 # ---------------------------------------------------------------------------
 # C2: differential-expression readiness
 # ---------------------------------------------------------------------------

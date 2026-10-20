@@ -90,7 +90,8 @@ sclet_ai_evidence_scope_string <- function(scope) {
 #' @param scope Optional aggregate scope, such as anonymized groups.
 #' @return The SCE with an `ai_evidence` state record.
 #' @export
-RecordAIEvidence <- function(object, evidence, source = NULL, parents = NULL, scope = NULL) {
+RecordAIEvidence <- function(object, evidence, source = NULL, parents = NULL,
+                             scope = NULL, replace = FALSE) {
     if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)
     if (!is.list(evidence) || length(evidence) == 0L) stop("evidence must be a non-empty list", call. = FALSE)
     id <- evidence$id %||% ""
@@ -105,7 +106,16 @@ RecordAIEvidence <- function(object, evidence, source = NULL, parents = NULL, sc
     if (length(existing_state)) existing_state <- unlist(existing_state, recursive = FALSE, use.names = FALSE)
     existing <- c(existing, existing_state)
     existing_ids <- if (length(existing)) vapply(existing, function(record) as.character(record$id %||% ""), character(1L)) else character()
-    if (id %in% existing_ids) stop("evidence id already exists", call. = FALSE)
+    if (id %in% existing_ids && !isTRUE(replace)) {
+        stop("evidence id already exists", call. = FALSE)
+    }
+    # `replace = TRUE` re-records a derived node whose SUMMARY CHANGED, without
+    # re-running the analysis that produced it. It exists because a node's
+    # fields are part of the product: the CNV node gained its operating point
+    # (hmm, cutoff) after a user report, and re-running inferCNV to pick it up
+    # costs about an hour. The node id and its source record stay the same, so
+    # anything citing it keeps working; only the values are refreshed. Callers
+    # that merely want idempotence keep the default and the refusal.
     source_record <- sclet_ai_evidence_source(object, source)
     if (!is.null(source) && is.null(source_record)) stop("source must identify a completed analysis", call. = FALSE)
     if (!sclet_ai_evidence_value_ok(evidence$values %||% list())) stop("evidence$values contains unbounded or private values", call. = FALSE)

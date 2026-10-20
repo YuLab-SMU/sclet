@@ -2566,36 +2566,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         num_threads = params$num_threads %||% 1,
                         name = name
                     )
-                    records <- sclet_get_analysis(object, "malignant_cnv")
-                    record <- records[[name]]
-                    if (is.null(record) || !identical(record$status, "completed")) {
-                        # A recorded `unavailable` state is an honest answer, not a
-                        # failure; no evidence node is written for it.
-                        return(object)
-                    }
-                    burden <- record$burden$burden
-                    values <- list(
-                        n_cells = as.integer(record$n_cells_submitted),
-                        n_cells_retained = as.integer(record$n_cells_retained),
-                        n_cells_dropped = as.integer(length(record$dropped_cells)),
-                        n_reference_cells = as.integer(record$n_reference_cells),
-                        n_genes = as.integer(record$n_genes),
-                        burden_q10 = as.numeric(stats::quantile(burden, 0.1,
-                            na.rm = TRUE, names = FALSE)),
-                        burden_q50 = as.numeric(stats::quantile(burden, 0.5,
-                            na.rm = TRUE, names = FALSE)),
-                        burden_q90 = as.numeric(stats::quantile(burden, 0.9,
-                            na.rm = TRUE, names = FALSE))
-                    )
-                    tryCatch(RecordAIEvidence(object, list(
-                            id = paste0("ev:cnv_", sclet_ai_evidence_id_token(name)),
-                            kind = "deterministic_summary",
-                            values = values,
-                            claim_level = "associated"
-                        ),
-                        source = name,
-                        parents = character(),
-                        scope = NULL), error = function(e) object)
+                    sclet_ai_record_cnv_evidence(object, name = name)
                 },
                 input_schema = list(
                     reference_ids = "character_vector",
@@ -2715,7 +2686,25 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         # CallMalignantCells() computed them, instead of
                         # re-deriving a second answer here.
                         cnv_available = as.integer(isTRUE(state_summary$cnv_available)),
-                        identity_conflict = as.integer(isTRUE(state_summary$identity_conflict))
+                        identity_conflict = as.integer(isTRUE(state_summary$identity_conflict)),
+                        # What actually decided these counts. The signature
+                        # cut defaults to the POOL MEDIAN, so "signature
+                        # positive" is a relative statement that lands near
+                        # half the cells by construction (measured: 22,006 of
+                        # 44,011 in a user report, 2026-10-20); and the CNV
+                        # threshold comes from the reference burden. Without
+                        # both numbers the four-state counts cannot be
+                        # re-derived or challenged from the ledger.
+                        signature_cut_value = as.numeric(state_summary$signature_cut %||% NA_real_),
+                        signature_cut_is_median = as.integer(isTRUE(
+                            state_summary$signature_cut_is_median)),
+                        cnv_reference_threshold = as.numeric(
+                            state_summary$cnv_reference_threshold %||% NA_real_),
+                        n_cnv_positive = as.integer(state_summary$n_cnv_positive %||% NA_integer_),
+                        n_signature_positive = as.integer(
+                            state_summary$n_signature_positive %||% NA_integer_),
+                        n_pre_demote_supported = as.integer(
+                            state_summary$n_pre_demote_supported %||% NA_integer_)
                     )
                     tryCatch(RecordAIEvidence(object, list(
                             id = paste0("ev:malignant_", sclet_ai_evidence_id_token(name)),

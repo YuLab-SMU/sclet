@@ -166,7 +166,23 @@ CallMalignantCells <- function(object,
                 n_undetermined = sclet_state_count(counts, "undetermined"),
                 n_non_malignant = sclet_state_count(counts, "non_malignant"),
                 cnv_available = !all(cnv_state == "unavailable"),
-                identity_conflict = demoted
+                identity_conflict = demoted,
+                # What decided the four-state counts, recorded so they can be
+                # re-derived or challenged from the ledger: the signature cut
+                # (a POOL MEDIAN by default, i.e. a relative statement that
+                # lands near half the cells), its source, how many cells each
+                # line called positive, the CNV threshold taken from the
+                # reference burden, and how many affirmative cells the
+                # dataset-level identity demote removed.
+                signature_cut = sig_cut,
+                signature_cut_is_median = identical(
+                    pheno_rec$signature_cut$source %||% "", "median"),
+                n_signature_positive = as.integer(sum(sig_pos)),
+                n_cnv_positive = as.integer(sum(cnv_state == "positive", na.rm = TRUE)),
+                cnv_reference_threshold = as.numeric(
+                    (pheno_rec$providers$cnv$detail %||% list())$cut %||% NA_real_),
+                n_pre_demote_supported = as.integer(
+                    pheno_rec$n_pre_demote_supported %||% NA_integer_)
             ),
             created_at = Sys.time()
         )
