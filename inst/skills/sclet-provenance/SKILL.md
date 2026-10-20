@@ -99,6 +99,36 @@ just built.
 - never average or summarize across analyses whose fixtures or parameters
   differ -- that is the comparison-measures-nothing trap.
 
+## Reading an anonymized group code back to its label
+
+Every group that reaches an evidence node is anonymized to `cluster_N`, and the
+codes are assigned by `paste0("cluster_", seq_along(unique(<column values>)))`
+over the grouping column. They are positional, not stable: `cluster_7` means
+"the seventh distinct value of that column on this object", and re-levelling
+the factor, subsetting the object, or grouping by a different column all move
+the mapping.
+
+To read a code back, take the same vector the record used and index it:
+
+```r
+levels(factor(as.character(object[[the_group_column]])))[7]   # -> "cluster_7"'s label
+```
+
+`the_group_column` is the record's `inputs$group` (for a trajectory) or the
+column named in the fate run's `cluster_key`. Measured on the pancreas object
+(2026-10-20): `inputs$group = "cluster"`, whose seventh level is
+`Ngn3 low EP`, which is the `start_group = cluster_7` the trajectory evidence
+reported.
+
+Two rules follow:
+
+- **never carry a code across objects.** `cluster_7` on a filtered object is a
+  different group than on the parent. Re-derive it from the object the record
+  was written on.
+- **a code is not a cell type.** Report the code, and add the label only when
+  you resolved it this way from the same object -- and say it was resolved,
+  because the evidence node itself carries only the code.
+
 ## What NOT to claim about provenance
 
 - Never claim a step "was executed" unless it is in the ledger with a

@@ -154,6 +154,19 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
     顺带修掉一个**把 bug 当预期固定下来的测试**：`test-ai-interpretation-gaps.R` 原来断言
     "第二次真实运行必须降级为 no-op"，现已改成断言拒绝 + replace 刷新。
 
+24. **匿名群编码没有"怎么反解"的说明（2026-10-21 自查发现）**：证据节点里的组名一律是
+    `cluster_N`，由 `paste0("cluster_", seq_along(unique(<column values>)))` 生成——**位置**映射，
+    不是稳定 id。M11 报告因此只能写"终态编码没有映射回 alpha/beta"。
+    复查后确认**编码本身没错**（pancreas 上 `cluster_7` 确实 = `Ngn3 low EP`，正是计划要的起点），
+    缺的是读法。已写进 `sclet-provenance` 技能：用记录自己的 `inputs$group`（或 fate 的
+    `cluster_key`）取 `levels(factor(as.character(object[[col]])))[N]` 反解；
+    并写明两条戒律——**编码不可跨对象沿用**（子集/重定级会改变映射）、**编码不是细胞类型**
+    （反解后要说明是反解来的，因为节点本身只带编码）。pin 在 `test-ai-evidence-rerun.R`。
+25. **`n_reductions_written = 0` 不是缺陷（复查后排除）**：M9 时曾怀疑 velocity 少了
+    embedding。复查：scvelo 只返回 `X_pca`，`VelocityPlot()` 在运行时用
+    `velociraptor::embedVelocity(emb, vel_res)` 现算，且速度状态里保留了 `results`。
+    字段取名 `n_reductions_written` 是准确的，不改。
+
 ## 未修
 
 ### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`（2026-10-20 关闭：M3）

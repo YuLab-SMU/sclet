@@ -72,3 +72,26 @@ test_that("the shared recorder refuses a different node, and no recorder silentl
             info = paste(name, "must route through the re-run-aware recorder"))
     }
 })
+
+## -- the code-to-label mapping is recoverable, and this pins how -----------
+## Every group reaching an evidence node is anonymized to cluster_N by
+## paste0("cluster_", seq_along(unique(<column values>))). Measured on the
+## pancreas object (2026-10-20): the trajectory reported start_group
+## "cluster_7" and inputs$group = "cluster", whose seventh level is
+## "Ngn3 low EP" -- the root the plan actually asked for. Nothing documented
+## that round-trip, so a reader could not resolve a code without guessing.
+test_that("an anonymized group code resolves back to its label positionally", {
+    sce <- rerun_test_object()
+    sce$cluster <- factor(rep(c("Alpha", "Beta", "Delta", "Ductal", "Epsilon",
+        "Ngn3 high EP", "Ngn3 low EP", "Pre-endocrine"), length.out = ncol(sce)))
+    labels <- levels(factor(as.character(sce$cluster)))
+    ## The derivation the evidence layer uses.
+    expect_equal(paste0("cluster_", seq_along(labels))[[7L]], "cluster_7")
+    expect_equal(labels[[7L]], "Ngn3 low EP")
+    ## Re-levelling changes the mapping, which is why a code must never be
+    ## carried across objects.
+    subsetted <- sce[, as.character(sce$cluster) != "Alpha"]
+    subsetted$cluster <- droplevels(subsetted$cluster)
+    expect_false(identical(levels(factor(as.character(subsetted$cluster)))[[7L]],
+        "Ngn3 low EP"))
+})
