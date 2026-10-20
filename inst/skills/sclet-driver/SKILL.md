@@ -7,6 +7,8 @@ description: >
   read the ledger and evidence back and report with calibrated claim
   levels. Covers the exact function signatures, the plan JSON shape, the
   confirmation-token requirement, how to recover from validation errors,
+  how to advance an analysis in rounds (the engine executes one plan and
+  never re-plans mid-run, so each round is a fresh plan the caller starts),
   and what must never be done (executing unvalidated, inventing action
   names, claiming results without ledger evidence). Use when the agent runs
   sclet from R on the user's behalf, when sclet.ai.call / aisdk is absent
@@ -141,6 +143,74 @@ Two rules when resuming:
 A resident session (`callr::r_session`, or an R process the agent keeps
 talking to) saves fixture load time and lets the agent inspect objects
 interactively, but it is an optimization, not a requirement.
+
+## Advancing in rounds: starting the next plan is yours
+
+Nothing in the engine re-plans. `ExecuteAIPlan()` walks `plan$actions` in
+order and stops at the first failure that is not `continue_on_error`; a
+failed step is retried with the SAME action and the SAME parameters, and no
+step rewrites the ones after it. A non-trivial analysis is therefore a
+SEQUENCE of rounds, and starting each round is your decision:
+
+```r
+# one round: plan against this state, validate, execute
+ledger <- GetAnalysisLedger(sce)   # the records to plan from, and the fingerprint to bind
+plan <- ...                 # written for THIS state, or AIPlanAnalysis(sce, goal = goal)
+validation <- ValidateAIPlan(plan, object = sce, registry = reg)
+if (!isTRUE(validation$valid)) stop(paste(validation$errors, collapse = "\n"))
+executed <- ExecuteAIPlan(sce, plan, registry = reg,
+    validation = validation, dry_run = FALSE,
+    confirmation = validation$confirmation_token)
+sce <- executed$object      # the object the next round plans against
+```
+
+`RunAIAnalysis(sce, goal, confirm = "yes")$object` is one such round when
+aisdk is configured: it plans, validates, previews, asks, executes and
+optionally interprets in one call -- running it again is how you continue.
+There is no loop option to look for.
+
+Start a new round when:
+
+1. **A stage finished and the next stage feeds on it.** Plan the next stage
+   from the ledger you now hold rather than committing a whole pipeline as
+   one plan; the later parameters stop being guesses that way.
+2. **A step failed for a reason that changes the route** -- a prerequisite
+   gate, a parameter the data cannot satisfy, a handler rejecting a value.
+   Retrying the same plan replays the same failure. Read the error, plan the
+   corrected route (different threshold, the missing upstream step, a
+   smaller scope), or tell the user what the object lacks.
+3. **The plan never covered the goal.** `plan$metadata$goal_coverage$missing`
+   (and `RunAIAnalysis()$report$goal_coverage`) names goal items with no
+   step behind them. `AIPlanAnalysis()` spends one round on that before
+   returning; a hand-written plan gets no such help -- check it yourself.
+4. **What came back decides whether the next step is worth doing** -- QC
+   flags, an unexpected cluster count, zero DE genes past threshold, a batch
+   effect you did not expect. That is what the round boundary is for: the
+   next parameter is a function of the result. (A plan's `success_criteria`
+   are evaluated into `success_assessment`, which is observational -- it
+   never changes `status`, so judge the round from the results and the
+   ledger, not from that list.)
+5. **The user answered a question.** A recorded decision appears in
+   `analysis_story$user_decisions`, so the next plan can act on it. Never
+   invent the answer to an open choice (which reference, which condition,
+   which contrast) just to avoid a round trip -- name the choice you need.
+
+Two properties of the round boundary are worth using rather than fighting:
+
+- **An old plan is not reusable after a round.** Validation binds a plan to
+  the ledger fingerprint it was written against, and recording a round's
+  results changes that fingerprint, so re-validating the previous plan fails
+  with `plan context fingerprint does not match the current object`. That is
+  the feature, not an obstacle: the plan you checked described a different
+  object than the one you now hold.
+- **Cross-round inputs are record ids, not `${step.output}`.** A reference
+  reaches only the steps of its own plan; carry a value from an earlier
+  round by naming the record that produced it (`detest_id = "markers"`),
+  which the ledger in front of you supplies literally.
+
+One thing not to attempt: a plan has no conditional steps. Its actions run
+unconditionally in order, so "if this succeeds, also do X" is a second
+round, not a longer plan.
 
 ## Recovering from validation errors
 

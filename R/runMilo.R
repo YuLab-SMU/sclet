@@ -32,6 +32,7 @@
 #' \item{milo}{Milo object with graph, neighborhoods, and DA results.}
 #' \item{da_results}{Data.frame of DA testing results.}
 #'
+#' @importFrom SingleCellExperiment 'reducedDim<-'
 #' @export
 RunMilo <- function(
     sce,

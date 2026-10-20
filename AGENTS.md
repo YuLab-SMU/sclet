@@ -147,6 +147,15 @@ ignored.
   the authority.** Knowledge-type failures (ordering, parameter vocabulary)
   go into a skill, not the inline prompt. Gated by
   `options(sclet.ai.use_skills, default TRUE)`.
+- **One plan is one round; starting the next round is the caller's job.**
+  `ExecuteAIPlan()` walks `plan$actions` in order with per-step retry —
+  nothing inside execution rewrites the later steps, and the repair rounds in
+  `AIPlanAnalysis()` fire *before* execution against validation errors and
+  goal coverage, never against results. A multi-stage analysis is therefore a
+  sequence of plans, each validated against the fingerprint of the object it
+  runs on; recording a round changes that fingerprint, so the previous plan
+  is refused afterwards by design. The fix for "it doesn't adapt" is a new
+  round, not conditional steps inside one plan.
 - **Test mocks must use the real schema keys** (`proposed_actions`, not
   `actions`) — a wrong-key mock feeds a normalizer that silently ignores it,
   and the test ends up asserting the bug.

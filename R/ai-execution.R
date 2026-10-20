@@ -893,12 +893,18 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
         actions <- c(actions, list(
             find_clusters = AIAction(
                 name = "find_clusters",
-                description = "Find Louvain clusters from the registered KNN graph.",
+                description = paste(
+                    "Find Louvain clusters from the registered KNN graph.",
+                    "Louvain consumes random numbers, so `seed` (default 1) decides",
+                    "the labels; it is recorded with the clustering state so the",
+                    "same resolution reproduces the same clusters."
+                ),
                 handler = function(object, params) FindClusters(
                     object,
-                    resolution = params$resolution %||% 0.5
+                    resolution = params$resolution %||% 0.5,
+                    seed = params$seed %||% 1L
                 ),
-                input_schema = list(resolution = "number"),
+                input_schema = list(resolution = "number", seed = "integer"),
                 prerequisites = function(object, params, planned = NULL) {
                     graph <- planned$active_graph %||% DefaultGraph(object) %||% "knn_graph"
                     available <- planned$graphs %||% names(sclet_get_state(object)$graphs %||% list())
@@ -1105,6 +1111,15 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     ident.2 <- if (!is.null(params$ident.2)) sclet_ai_vector_param(params$ident.2, "character") else NULL
                     group <- if (!is.null(params$group)) sclet_ai_vector_param(params$group, "character") else NULL
                     covariates <- if (!is.null(params$covariates)) sclet_ai_vector_param(params$covariates, "character") else NULL
+                    # The thresholds this run actually uses. `params` carries the
+                    # caller's values and the defaults are applied once, here, so
+                    # the evidence node below can record what ran rather than a
+                    # constant: measured 2026-10-19 on PBMC 10k, a plan asking
+                    # logfc.threshold = 0.25 produced an evidence node reading
+                    # logfc_threshold = 0.1 -- a node describing a different
+                    # analysis than the one that executed.
+                    de_min_pct <- params$min.pct %||% 0.01
+                    de_logfc_threshold <- params$logfc.threshold %||% 0.1
                     if (!is.null(group)) {
                         if (length(group) != 1L) stop("`group` must be one colData column name.")
                         ident.1 <- sclet_ai_resolve_group_value(object, group, ident.1)
@@ -1120,8 +1135,8 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         group = group,
                         covariates = covariates,
                         name = params$name %||% if (is.null(ident.1)) "findallmarkers" else "detest",
-                        min.pct = params$min.pct %||% 0.01,
-                        logfc.threshold = params$logfc.threshold %||% 0.1
+                        min.pct = de_min_pct,
+                        logfc.threshold = de_logfc_threshold
                     )
                     rec_name <- params$name %||% if (is.null(ident.1)) "findallmarkers" else "detest"
                     de_records <- sclet_get_state_records(result, "detest")
@@ -1134,8 +1149,11 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                         if (!is.na(logfc_col)) {
                             p_col <- grep("^p_val_adj$|^adj.P.Val$|padj|FDR|p_adj", colnames(artifact), value = TRUE, ignore.case = TRUE)[[1L]]
                             p_col <- if (!is.na(p_col)) p_col else grep("^p_val$|P.Value|^pvalue$", colnames(artifact), value = TRUE, ignore.case = TRUE)[[1L]]
+                            # p is the engine's own p_val_adj filter inside
+                            # FindMarkers, not a plan parameter; the logFC
+                            # threshold is the one this run was given.
                             p_thresh <- 0.05
-                            fc_thresh <- 0.1
+                            fc_thresh <- de_logfc_threshold
                             sig <- if (is.na(p_col)) {
                                 rep(TRUE, nrow(artifact))
                             } else {
@@ -1160,6 +1178,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                                 smallest_group_n = as.integer(min(as.integer(table(as.character(idents), useNA = "no")))),
                                 pvalue_threshold = p_thresh,
                                 logfc_threshold = fc_thresh,
+                                min_pct = de_min_pct,
                                 raw_values_included = FALSE
                             )
                             top <- rep(NA_integer_, 10L)
@@ -2773,6 +2792,27 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                             " was registered as evidence and no claim is supported by this step."
                         ), call. = FALSE)
                     }
+                    # A record can exist and still hold nothing. On PBMC 10k
+                    # (2026-10-19) the KEGG round wrote an enrichment record with
+                    # n_enriched = 0 and artifacts$result NULL -- clusterProfiler
+                    # had warned "No enrichment found in any gene cluster" -- and
+                    # the step still reported "completed" with no evidence node.
+                    # The guard above only asks whether a record appeared, which
+                    # an empty run satisfies. Empty is not absent: fail here, as
+                    # the cutoff path above does, and say which way out exists.
+                    n_enriched <- after$summary$n_enriched %||% NA_integer_
+                    has_result <- !is.null(after$artifacts$result)
+                    if ((!is.na(n_enriched) && n_enriched == 0L) || !has_result) {
+                        stop(paste0(
+                            "enrichment_no_result: run_enrichment recorded '", name,
+                            "' with zero enriched terms (n_enriched = ", n_enriched, ", result stored: ",
+                            has_result, "). clusterProfiler found nothing for db = ", params$db %||% "GO",
+                            " / keyType = ", params$keyType %||% "SYMBOL",
+                            "; KEGG expects ENTREZID, so symbol input commonly comes back empty. ",
+                            "Nothing was registered as evidence and no claim is supported by this step. ",
+                            "Try db = \"GO\" with keyType = \"SYMBOL\", or convert the ids first."
+                        ), call. = FALSE)
+                    }
                     sclet_ai_record_enrichment_evidence(
                         result,
                         name = name,
@@ -2790,6 +2830,32 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     name = "character"
                 ),
                 prerequisites = function(object, params, planned = NULL) {
+                    # `db` is a biological modelling choice: GO and KEGG use
+                    # different annotation universes and different statistics.
+                    # The handler still falls back to GO for a direct
+                    # RunEnrichment() call, but an AI plan must not inherit that
+                    # fallback silently -- every sibling action with such a
+                    # choice (run_cci `method`, run_milo design roles,
+                    # run_annotation `ref`) refuses to run without it, and this
+                    # one gate was missing, so "GO" could arrive without anyone
+                    # choosing it (found 2026-10-19 on PBMC 10k, where a plan
+                    # omitting `db` validated).
+                    db <- params$db
+                    if (is.null(db) || !length(db) || !nzchar(trimws(as.character(db)[[1L]]))) {
+                        return(paste0(
+                            "db_missing: run_enrichment requires an explicit `db`: \"GO\" or \"KEGG\". ",
+                            "The annotation database is the user's modelling choice and the engine ",
+                            "default (GO) is not applied to an AI plan; pass the value, or ask the ",
+                            "user which one to use."
+                        ))
+                    }
+                    if (!as.character(db)[[1L]] %in% c("GO", "KEGG")) {
+                        return(paste0(
+                            "db_invalid: `db` must be \"GO\" or \"KEGG\"; got \"",
+                            as.character(db)[[1L]], "\". The annotation database is the user's ",
+                            "modelling choice and is never selected automatically."
+                        ))
+                    }
                     detest <- tryCatch(get_detest(object, params$detest_id),
                         error = function(e) NULL)
                     # TRUE only when the record is on the object right now, so
@@ -3733,8 +3799,54 @@ sclet_ai_execution_id <- function(plan_id) {
     paste0("ai_execution_", safe_id, "_", format(Sys.time(), "%Y%m%d%H%M%S"))
 }
 
+# Bound one resolved step's parameters for the ledger.
+#
+# The execution record is stored ON the object, so a parameter's value cannot
+# be copied wholesale (a 2000-gene `features` vector is not a ledger entry),
+# yet the provenance skill promises the resolved parameters are readable so a
+# reader can re-run the same analysis. Scalars are kept verbatim; longer
+# vectors keep their type and length only -- enough to see that `dims = 1:30`
+# or `features = <2000 names>` was what ran, without copying either, and
+# without putting free-form values of unknown origin into the record.
+sclet_ai_bounded_step_params <- function(params) {
+    if (is.null(params) || !length(params)) {
+        return(list())
+    }
+    bounded <- lapply(params, function(value) {
+        if (is.null(value)) {
+            return(NULL)
+        }
+        if (is.list(value)) {
+            return(sclet_ai_bounded_step_params(value))
+        }
+        if (is.atomic(value) && length(value) == 1L) {
+            return(value)
+        }
+        if (is.atomic(value)) {
+            return(list(type = typeof(value), length = length(value)))
+        }
+        list(type = class(value)[[1L]])
+    })
+    bounded <- bounded[!vapply(bounded, is.null, logical(1L))]
+    bounded
+}
+
 sclet_ai_record_execution <- function(object, plan, results, status, dry_run) {
     execution_id <- sclet_ai_execution_id(plan$plan_id)
+    # Per-step parameters and timing, not just counts. `results` carries the
+    # duration already; the resolved parameters were computed inside the
+    # execution loop and used to be discarded, so the ledger could say a step
+    # completed but not what it was told to do (2026-10-19: neither
+    # `nfeatures` nor `logfc.threshold` was recoverable from any record).
+    steps <- lapply(results, function(r) {
+        list(
+            id = r$id,
+            action = r$action,
+            status = r$status,
+            duration_sec = r$duration_sec %||% NA_real_,
+            params = r$params %||% list()
+        )
+    })
     record <- list(
         id = execution_id,
         type = "ai_execution",
@@ -3746,7 +3858,8 @@ sclet_ai_record_execution <- function(object, plan, results, status, dry_run) {
         ),
         params = list(
             dry_run = isTRUE(dry_run),
-            requires_confirmation = isTRUE(plan$requires_confirmation)
+            requires_confirmation = isTRUE(plan$requires_confirmation),
+            steps = steps
         ),
         artifacts = list(results = results),
         summary = list(
@@ -4094,6 +4207,7 @@ ExecuteAIPlan <- function(
             )
             break
         }
+        step_params <- sclet_ai_bounded_step_params(resolved_params)
         bound_problems <- sclet_ai_action_param_problems(
             resolved_params,
             descriptor$input_schema %||% list()
@@ -4106,7 +4220,8 @@ ExecuteAIPlan <- function(
                 status = "failed",
                 error = paste("resolved parameters are invalid:", paste(bound_problems, collapse = "; ")),
                 attempts = 0L,
-                duration_sec = 0
+                duration_sec = 0,
+                params = step_params
             )
             break
         }
@@ -4129,7 +4244,8 @@ ExecuteAIPlan <- function(
                 status = "failed",
                 error = conditionMessage(value),
                 attempts = attempts,
-                duration_sec = elapsed
+                duration_sec = elapsed,
+                params = step_params
             )
             results[[length(results) + 1L]] <- failure
             outputs[[step$id]] <- list(status = "failed", error = conditionMessage(value))
@@ -4149,7 +4265,8 @@ ExecuteAIPlan <- function(
                     status = "failed",
                     error = "registered SCE action did not return a SingleCellExperiment",
                     attempts = attempts,
-                    duration_sec = elapsed
+                    duration_sec = elapsed,
+                    params = step_params
                 )
                 break
             }
@@ -4164,7 +4281,8 @@ ExecuteAIPlan <- function(
                     status = "failed",
                     error = paste(contract_problems, collapse = "; "),
                     attempts = attempts,
-                    duration_sec = elapsed
+                    duration_sec = elapsed,
+                    params = step_params
                 )
                 break
             }
@@ -4178,7 +4296,8 @@ ExecuteAIPlan <- function(
             status = "completed",
             output = output_summary,
             attempts = attempts,
-            duration_sec = elapsed
+            duration_sec = elapsed,
+            params = step_params
         )
     }
     success_assessment <- sclet_ai_assess_success_criteria(

@@ -273,9 +273,16 @@ test_that("run_enrichment rejects a missing detest and a bad database", {
     registry <- sclet_ai_test_enrichment_registry(bare)
     ## ValidateAIPlan prefixes errors with "prerequisites not met for action
     ## en1: ", so the token is matched anywhere and never with a ^ anchor.
+    ## `db` is checked first: it is the cheapest refusal and the one that must
+    ## never be defaulted, so an empty plan names the database before it names
+    ## the missing marker table (2026-10-19: the engine used to apply "GO").
     missing <- sclet_ai_test_enrichment_plan(bare, registry, list())
     expect_false(missing$valid)
-    expect_true(any(grepl("detest_state_missing", missing$errors)))
+    expect_true(any(grepl("db_missing", missing$errors)))
+
+    no_detest <- sclet_ai_test_enrichment_plan(bare, registry, list(db = "GO"))
+    expect_false(no_detest$valid)
+    expect_true(any(grepl("detest_state_missing", no_detest$errors)))
 
     sce <- sclet_ai_test_enrichment_object()
     bad_db <- sclet_ai_test_enrichment_plan(sce, sclet_ai_test_enrichment_registry(sce),
@@ -286,7 +293,7 @@ test_that("run_enrichment rejects a missing detest and a bad database", {
     expect_true(any(grepl("never selected automatically|modelling choice", bad_db$errors)))
 
     bad_id <- sclet_ai_test_enrichment_plan(sce, sclet_ai_test_enrichment_registry(sce),
-        list(detest_id = "nope"))
+        list(db = "GO", detest_id = "nope"))
     expect_false(bad_id$valid)
     expect_true(any(grepl("detest_state_missing", bad_id$errors)))
 })
@@ -382,4 +389,38 @@ test_that("enrichment is an opt-in group and defaults hide it", {
     expect_equal(descriptor$returns, "sce")
     expect_equal(descriptor$estimated_cost, "medium")
     expect_true(all(c("detest", "enrichment", "ai_evidence") %in% descriptor$allowed_state_types))
+})
+
+## -- Block 9: an empty result is not a completed step --------------------
+## Measured on PBMC 10k, 2026-10-19: the KEGG round (symbol input, which KEGG
+## cannot annotate without ENTREZID) wrote an enrichment record with
+## n_enriched = 0 and artifacts$result NULL and still reported "completed", with
+## no evidence node. The existing `wrote_record` guard only asks whether a
+## record appeared, so an empty run satisfied it. The step must fail instead: a
+## completed step with no result is what tells a planning agent the analysis ran.
+test_that("an enrichment round that finds nothing fails instead of completing", {
+    skip_if_not_installed("clusterProfiler")
+    skip_if_not_installed("org.Hs.eg.db")
+    sce <- sclet_ai_test_enrichment_object()
+    registry <- sclet_ai_test_enrichment_registry(sce)
+    ## KEGG with SYMBOL input: the real call warns "No enrichment found" and
+    ## stores NULL, which is the shape the guard has to catch.
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "empty enrichment",
+        actions = list(list(id = "en1", action = "run_enrichment",
+            params = list(detest_id = "de_ai", db = "KEGG", keyType = "SYMBOL",
+                name = "empty_kegg")))
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry, strict = FALSE)
+    expect_true(validation$valid)
+
+    ## clusterProfiler warns "No enrichment found in any gene cluster" here;
+    ## that warning is the input to this test, not a problem with it.
+    executed <- suppressWarnings(ExecuteAIPlan(sce, plan, registry,
+        validation = validation, dry_run = FALSE,
+        confirmation = validation$confirmation_token))
+    expect_equal(executed$status, "failed")
+    expect_true(grepl("enrichment_no_result", executed$results[[1L]]$error, fixed = TRUE))
+    ## Nothing was registered as evidence, so no claim can lean on this step.
+    expect_length(sclet:::sclet_ai_evidence_get_all(executed$object), 0L)
 })

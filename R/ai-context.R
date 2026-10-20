@@ -96,6 +96,16 @@ sclet_ai_build_context <- function(
         dataset = dataset,
         active_view = active_view,
         active_states = active_states,
+        # The HVG selection is a result-shaping choice (`scran` and `seurat`
+        # pick different genes) and it is stored only in the raw state, where
+        # the ledger never looked: on PBMC 10k (2026-10-19) features$hvg held
+        # n = 2000 / method = "scran" and nothing in the context said so, so a
+        # next-round planner could not see, or reproduce, the choice in force.
+        features = if (is.null(state$features)) {
+            list()
+        } else {
+            sclet_ai_safe_value(state$features, include_data = include_data)
+        },
         health = health,
         analyses = records$analyses,
         state_records = records$state_records,

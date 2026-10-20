@@ -171,7 +171,12 @@ test_that("execution resolves code to real label", {
     sce <- FindVariableFeatures(sce, nfeatures = 30L)
     sce <- RunPCA(sce, ncomponents = 10L)
     sce <- FindNeighbors(sce, dims = seq_len(5L), reduction = "PCA")
-    sce <- FindClusters(sce, resolution = 1.2)
+    # A fixed seed for the fixture, and one whose partition has no singleton
+    # cluster: Louvain is seeded now (FindClusters default seed = 1), and the
+    # default partition of THIS random fixture contains a one-cell cluster, which
+    # the marker test correctly refuses. The product default is unchanged; the
+    # fixture picks a partition the DE prerequisite accepts.
+    sce <- FindClusters(sce, resolution = 1.2, seed = 42L)
 
     registry <- AIDefaultExecutionRegistry(sce, include = "all")
 

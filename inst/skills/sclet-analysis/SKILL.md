@@ -184,6 +184,12 @@ original question.
 - `scale_data` without `features` scales all genes (slow on a whole-genome
   object); passing `${step_2.output.variable_features}` restricts it to the
   HVG set, which is the standard pipeline.
+- `find_variable_features` takes `method` -- `scran` (the engine default),
+  `scrapper` or `seurat` -- and the three select different genes from the
+  same object. Write `nfeatures` always; write `method` when the choice
+  matters to the question. Both are recorded in the object's `features$hvg`
+  and surface in `GetAnalysisLedger()$features`, so the next round can see
+  which selection is in force instead of assuming one.
 
 ## What NOT to do
 

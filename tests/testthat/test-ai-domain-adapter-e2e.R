@@ -14,7 +14,9 @@ sclet_ai_test_e2e_clustered_object <- function(n_cells = 60L) {
     sce <- FindVariableFeatures(sce, nfeatures = 30L)
     sce <- RunPCA(sce, ncomponents = 10L)
     sce <- FindNeighbors(sce, dims = seq_len(5L), reduction = "PCA")
-    sce <- FindClusters(sce, resolution = 1.2)
+    ## Seeded (Louvain now defaults to seed = 1); 42 is a partition of this
+    ## fixture with no singleton cluster, which the marker test requires.
+    sce <- FindClusters(sce, resolution = 1.2, seed = 42L)
     sce
 }
 

@@ -208,15 +208,6 @@ CommandLog <- function(object, details = FALSE) {
     out
 }
 
-#' @importFrom SingleCellExperiment 'reducedDim<-'
-set_dimred <- function(object, dims, reduction = "PCA") {
-    if (!reduction %in% SingleCellExperiment::reducedDimNames(object)) {
-        stop(paste("Reduction", reduction, "not found in object."))
-    }
-    reducedDim(object, ".dimred") <- reducedDim(object, reduction)[, dims, drop = FALSE]
-    return(object)
-}
-
 #' Run PCA
 #' 
 #' @title RunPCA
@@ -319,8 +310,15 @@ RunUMAP <- function(object, dims = NULL, reduction = NULL, layer = NULL) {
     if (is.null(dims)) {
         dims <- seq_len(ncol(SingleCellExperiment::reducedDim(object, reduction)))
     }
-    reducedDim(object, ".dimred") <- reducedDim(object, reduction)[, dims, drop = FALSE]
-    object <- scater::runUMAP(object, dimred = '.dimred')
+    # scater::runUMAP() takes a reduction NAME, so the subset has to exist on
+    # the object for the call -- but only for the call. Removing it immediately
+    # keeps the scratch name out of reducedDimNames(); leaving it behind (as
+    # this did until 2026-10-19) put an internal 11,769 x 30 duplicate of the
+    # source reduction in front of every later step that enumerates reductions.
+    SingleCellExperiment::reducedDim(object, ".dimred") <-
+        SingleCellExperiment::reducedDim(object, reduction)[, dims, drop = FALSE]
+    object <- scater::runUMAP(object, dimred = ".dimred")
+    SingleCellExperiment::reducedDim(object, ".dimred") <- NULL
     object <- sclet_restore_state(object, prev_state)
     object <- sclet_set_active_reduction(object, "UMAP")
     reduction_id <- tolower(reduction)

@@ -24,9 +24,15 @@ FindNeighbors <- function(object, dims, reduction = NULL, k = 10) {
         layer <- reduction_state$inputs$layer
         integration <- reduction_state$inputs$integration
     }
-    object <- set_dimred(object, dims, reduction = source_reduction)    
+    # Hand the dimension subset straight to makeSNNGraph. Writing it into a
+    # scratch reduction first (`set_dimred()` did: reducedDim(object, ".dimred"))
+    # left that scratch on the object permanently -- after a plain PBMC 10k
+    # pipeline on 2026-10-19, reducedDimNames() was c("PCA", ".dimred") and the
+    # stray entry was an 11,769 x 30 duplicate of PCA[, 1:30], visible to every
+    # later step that enumerates reductions. The subset is a local matrix.
+    dimred <- SingleCellExperiment::reducedDim(object, source_reduction)[, dims, drop = FALSE]
     graph <- bluster::makeSNNGraph(
-        SingleCellExperiment::reducedDim(object, ".dimred"),
+        dimred,
         k = k,
         type = "rank"
     )
@@ -72,11 +78,15 @@ FindNeighbors <- function(object, dims, reduction = NULL, k = 10) {
 #' @title FindClusters
 #' @param object a SingleCellExperiment object
 #' @param resolution resolution in clustering
+#' @param seed integer seed for the Louvain clustering. `igraph::cluster_louvain()`
+#'   consumes random numbers, so the same graph and resolution otherwise return
+#'   different labels on each call; the seed is recorded with the clustering
+#'   state so a plan's clusters can actually be reproduced.
 #' @return updated SingleCellExperiment object with clustering memberships
 #' @importFrom igraph cluster_louvain
 # @importFrom SingleCellExperiment 'colLabels<-'
 #' @export
-FindClusters <- function(object, resolution = 0.5) {
+FindClusters <- function(object, resolution = 0.5, seed = 1L) {
     graph_name <- DefaultGraph(object)
     if (is.null(graph_name)) {
         graph_name <- "knn_graph"
@@ -86,8 +96,26 @@ FindClusters <- function(object, resolution = 0.5) {
         stop("No KNN graph found. Please run FindNeighbors() first.")
     }
     graph_state <- sclet_get_state_record(object, "graph", graph_name)
+    if (is.null(seed) || !length(seed) || is.na(seed[[1L]])) {
+        seed <- 1L
+    }
+    seed <- as.integer(seed[[1L]])
+    # Seed locally and restore afterwards: a clustering call must not move the
+    # caller's random stream. Without any seed (the behaviour until
+    # 2026-10-19) two runs of the same plan returned 13 and 12 clusters on
+    # PBMC 10k, so "re-run the plan and get the same clusters" was not true.
+    had_seed <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+    previous_seed <- if (had_seed) get(".Random.seed", envir = globalenv(), inherits = FALSE) else NULL
+    on.exit({
+        if (had_seed) {
+            assign(".Random.seed", previous_seed, envir = globalenv())
+        } else if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+            rm(".Random.seed", envir = globalenv())
+        }
+    }, add = TRUE)
+    set.seed(seed)
     clusters <- igraph::cluster_louvain(g, resolution=resolution)
-    
+
     SingleCellExperiment::colLabels(object) <- factor(clusters$membership)
     object <- sclet_set_active_ident(object, "colLabels")
     object <- sclet_set_analysis_state(
@@ -105,7 +133,8 @@ FindClusters <- function(object, resolution = 0.5) {
             ident = "colLabels"
         ),
         params = list(
-            resolution = resolution
+            resolution = resolution,
+            seed = seed
         ),
         summary = list(
             n_clusters = length(unique(clusters$membership))
@@ -114,7 +143,7 @@ FindClusters <- function(object, resolution = 0.5) {
     object <- sclet_log_command(
         object,
         "FindClusters",
-        params = list(resolution = resolution)
+        params = list(resolution = resolution, seed = seed)
     )
     return(object)
 }

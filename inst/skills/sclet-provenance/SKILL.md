@@ -36,6 +36,14 @@ Recorded automatically for every executed plan, keyed by execution id:
 - the plan's validation fingerprint, so a plan cannot be silently altered
   between validation and execution.
 
+Read the per-step rows back with
+`GetAnalysisLedger(object, detail = "full")$analyses[[execution_id]]$params$steps`:
+one entry per step with `id`, `action`, `status`, `duration_sec` and
+`params`. Scalars are stored verbatim; a longer vector keeps only its type
+and length (a 2000-gene `features` vector is recorded as
+`list(type = "character", length = 2000)`), so the state records are what
+make that step reproducible.
+
 Only the plan's `rationale` can record WHY: the biological motivation for
 the chosen stages, the goal interpretation, and what the plan deliberately
 does NOT do. A plan whose rationale is empty is reproducible but not
@@ -47,8 +55,9 @@ decision.
 A plan is only reproducible if every result-affecting parameter is written
 into it, not left to engine defaults that may change between versions:
 
-- `resolution` for `find_clusters` (the single most result-shaping choice;
-  write it even when taking the default);
+- `resolution` and `seed` for `find_clusters` (the two most result-shaping
+  choices; Louvain is stochastic, so the seed is what makes the clusters
+  reproducible -- write both even when taking the defaults);
 - `ncomponents` for `run_pca` and `dims` for `find_neighbors`/`run_umap`;
 - `nfeatures` (or the selection method) for `find_variable_features`;
 - `min.pct`, `logfc.threshold`, `pval_cutoff`, `logfc_cutoff` for the

@@ -4,12 +4,18 @@
 \alias{FindClusters}
 \title{FindClusters}
 \usage{
-FindClusters(object, resolution = 0.5)
+FindClusters(object, resolution = 0.5, seed = 1L)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
 
 \item{resolution}{resolution in clustering}
+
+\item{seed}{integer seed for the Louvain clustering.
+\code{igraph::cluster_louvain()} consumes random numbers, so the same graph
+and resolution otherwise return different labels on each call; the seed is
+recorded with the clustering state so a plan's clusters can actually be
+reproduced.}
 }
 \value{
 updated SingleCellExperiment object with clustering memberships
