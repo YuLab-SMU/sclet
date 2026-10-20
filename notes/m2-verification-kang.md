@@ -1,7 +1,7 @@
 # M2 复验记录（Kang IFN-beta 报告）
 
-> 独立进程复验：`readRDS("m2-report.rds")` 后只读账本重算，不采信生成脚本的中间值。时间 2026-10-20 09:51:11。
-> 账本指纹 `sclet-ai-07216bb7`；对象 32738 × 43095。
+> 独立进程复验：`readRDS("m2-report.rds")` 后只读账本重算，不采信生成脚本的中间值。时间 2026-10-20 10:40:00。
+> 账本指纹 `sclet-ai-07216caf`；对象 32738 × 43095。
 
 | # | 断言 | 结果 | 细节 |
 |---|---|---|---|
@@ -15,5 +15,6 @@
 | V8 | 比较证据节点不含路线名（只有 route_N 编码） | PASS | codes: route_1,route_2,route_3 |
 | V9 | 报告里写的账本指纹 = 记录时存下的 context_fingerprint | PASS | report: sclet-ai-7b37cb3c recorded: sclet-ai-7b37cb3c |
 | V10 | 报告中的 trade-off 判定与比较记录一致 | PASS | tradeoff: TRUE improved: TRUE |
+| V11 | scVI 小节的数字 = scVI 运行记录里的数字 | PASS | mix: 0.989 pres: 0.06111 sec: 2877.99 |
 
-总计：10/10 通过。
+总计：11/11 通过。

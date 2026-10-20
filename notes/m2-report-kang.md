@@ -3,8 +3,8 @@
 > 数据：Kang et al. 2018 IFN-beta PBMC（GSE96583），32738 基因 × 43095 细胞；两个测序批次、8 个已配对 donor（stim 仅存在于 batch2）。
 > 批次规模：batch1 14030 细胞（全 ctrl），batch2 29065 细胞（ctrl 14932 + stim 14133）。
 > 路径：基线 pipeline → 设计确认 → fastMNN → Harmony → 路线比较 → 配对条件对比，五轮分轮计划，每轮重新校验。
-> 账本指纹（记录本报告之前）：`sclet-ai-7b37cb3c`；记录后 `sclet-ai-17c7be16`。
-> 报告记录 id：`ai_report_kang_m2`；sclet 1.0.2 @ `9400e1d`（+ M2 路线度量改动）；生成时间 2026-10-20 09:50。
+> 账本指纹（记录本报告之前）：`sclet-ai-7b37cb3c`；记录后 `sclet-ai-17c7bf0e`。
+> 报告记录 id：`ai_report_kang_m2`；sclet 1.0.2 @ `9400e1d`（+ M2 路线度量改动）；生成时间 2026-10-20 10:37。
 
 ## 路线比较（每个数字都在路线自身的嵌入上测得）
 
@@ -41,6 +41,14 @@
 两条证据线（路线比较、配对 DE）互相独立，但每个节点自身只有一条支撑，且都被标注为
 `associated`——ceiling 取最弱的一环。要到 `consistent_with`，需要一条能承载它的独立证据。
 
+## scVI：已跑通，但不在上表（细胞集不同）
+
+roadmap 的第三条路线 scVI 本次也执行了：basilisk env 首次构建 + 在 **9000 细胞子集**（每 batch×condition 抽样）上训练，batch_mixing **0.989**、biological_preservation **0.06111**、墙钟 2877.99 s（含 env 构建）。
+
+它没有并入上表：上表三条路线都在全部 43095 个细胞上测得，而 scVI 的数字来自另一个细胞集（9000 个），
+按 sclet-provenance 的规则（不同 fixture 的分析不可合并统计）只作范围说明。env 已构建完成，
+全量对象上的 scVI 现在可行（CPU 上预计数小时量级）。
+
 ## 明确没有说的话
 
 - 没有推荐某条路线「更好」：比较只报告 trade-off（一项改善、一项代价），最终取舍是用户的建模决定。
@@ -56,7 +64,7 @@
 
 ## 下一步（建议，未执行）
 
-- 若需要第三条路线：scVI 的 basilisk env 尚未构建（尝试记录见 M2 收尾说明）。
+- scVI 已在 9000 细胞子集上跑通（env 已构建）；全量对象上的第三条路线可随时补跑。
 - 若要判断路线对下游的影响：在各路线上跑聚类并比较 marker 一致性。
 
 > 警告：stim 只在 batch2 中存在，batch 与 condition 部分混杂：任何'条件效应'都受批次残留影响。
