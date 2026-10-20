@@ -177,6 +177,17 @@ FindMarkers <- function(
 #' @export
 RunDEtest <- function(object, ident.1 = NULL, ident.2 = NULL, name = "detest",
                       group = NULL, covariates = NULL, min_cells = 10L, ...) {
+    # The thresholds are the run's own. They travel in `...` to FindMarkers /
+    # FindAllMarkers, whose defaults are 0.01 / 0.1, so they were invisible to
+    # anyone reading the detest record alone: a reader re-running from
+    # `get_detest()` could not tell which cutoffs produced the table, and the
+    # numbers only existed in the AI-layer evidence node and the execution
+    # record (found 2026-10-19). Defaults are resolved here, once, and recorded.
+    dots <- list(...)
+    run_params <- list(
+        min.pct = dots$min.pct %||% 0.01,
+        logfc.threshold = dots$logfc.threshold %||% 0.1
+    )
     if (!is.null(group)) {
         return(sclet_run_condition_de(
             object,
@@ -210,6 +221,7 @@ RunDEtest <- function(object, ident.1 = NULL, ident.2 = NULL, name = "detest",
         method = method,
         inputs = state_inputs,
         artifacts = list(result = res),
+        params = run_params,
         summary = list(n_markers = nrow(res)),
         active = TRUE
     )
@@ -217,7 +229,8 @@ RunDEtest <- function(object, ident.1 = NULL, ident.2 = NULL, name = "detest",
     object <- sclet_log_command(
         object,
         "RunDEtest",
-        params = list(ident.1 = ident.1, ident.2 = ident.2, name = name),
+        params = list(ident.1 = ident.1, ident.2 = ident.2, name = name,
+            min.pct = run_params$min.pct, logfc.threshold = run_params$logfc.threshold),
         outputs = list(detest = name)
     )
     
@@ -348,6 +361,7 @@ FindMarkers_Presto <- function(object, ident.1 = NULL, ident.2 = NULL, clusters,
 # names the contrast and the state inputs record `design` and `adjustment`.
 sclet_run_condition_de <- function(object, group, ident.1, ident.2,
         covariates = NULL, name = "detest", min_cells = 10L, ...) {
+    dots <- list(...)
     if (!is.character(group) || length(group) != 1L || is.na(group) || !nzchar(group)) {
         stop("`group` must be one colData column name.")
     }
@@ -423,6 +437,14 @@ sclet_run_condition_de <- function(object, group, ident.1, ident.2,
             active_ident = ActiveIdent(object)
         ),
         artifacts = list(result = res),
+        # The condition path has the same gap the simple path had: the cutoffs
+        # live in `...`, so the record alone could not say what produced the
+        # table. Record them alongside the design.
+        params = list(
+            min.pct = dots$min.pct %||% 0.01,
+            logfc.threshold = dots$logfc.threshold %||% 0.1,
+            min_cells = as.integer(min_cells)
+        ),
         summary = list(
             n_markers = nrow(res),
             contrast = paste0(ident.1, "_vs_", ident.2),

@@ -3,8 +3,8 @@
 > 数据：Kang et al. 2018 IFN-beta PBMC（GSE96583），32738 基因 × 43095 细胞；两个测序批次、8 个已配对 donor（stim 仅存在于 batch2）。
 > 批次规模：batch1 14030 细胞（全 ctrl），batch2 29065 细胞（ctrl 14932 + stim 14133）。
 > 路径：基线 pipeline → 设计确认 → fastMNN → Harmony → 路线比较 → 配对条件对比，五轮分轮计划，每轮重新校验。
-> 账本指纹（记录本报告之前）：`sclet-ai-7b37cb3c`；记录后 `sclet-ai-17c7bf0e`。
-> 报告记录 id：`ai_report_kang_m2`；sclet 1.0.2 @ `9400e1d`（+ M2 路线度量改动）；生成时间 2026-10-20 10:37。
+> 账本指纹（记录本报告之前）：`sclet-ai-65cef876`；记录后 `sclet-ai-3c0d354d`。
+> 报告记录 id：`ai_report_kang_m2`；sclet 1.0.2 @ `9400e1d`（+ M2 路线度量改动）；生成时间 2026-10-20 13:23。
 
 ## 路线比较（每个数字都在路线自身的嵌入上测得）
 

@@ -1227,9 +1227,15 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                                 Idents(result)
                             }
                             groups <- unique(as.character(idents))
+                            # The marker table arrives ALREADY filtered by the
+                            # caller's own thresholds (FindAllMarkers drops
+                            # pval > return.thresh and |logFC| < logfc.threshold
+                            # before returning), so recounting "padj < 0.05"
+                            # restates the filter instead of measuring anything:
+                            # measured 12,559 of 12,572 on PBMC 10k. `n_rows`
+                            # already says how many rows came back.
                             aggregate_values <- list(
                                 n_rows = as.integer(nrow(artifact)),
-                                n_significant = as.integer(sum(sig)),
                                 n_upregulated = as.integer(sum(up)),
                                 n_groups = as.integer(length(groups)),
                                 smallest_group_n = as.integer(min(as.integer(table(as.character(idents), useNA = "no")))),
@@ -1238,13 +1244,13 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                                 min_pct = de_min_pct,
                                 raw_values_included = FALSE
                             )
-                            top <- rep(NA_integer_, 10L)
-                            if (length(top_genes) > 0L) top[seq_len(min(10L, length(top_genes)))] <- seq_len(min(10L, length(top_genes)))
-                            aggregate_values$n_top_up <- as.integer(sum(!is.na(top)))
-                            aggregate_values$top_up_ranks <- as.integer(top)
-                            aggregate_values$top_up_fractions <- as.numeric(rep_len(NA_real_, 10L))
-                            aggregate_values$annotation_method_code <- 1L
-                            aggregate_values$annotation_scope_code <- 2L
+                            # `n_top_up` is a real count (how many of the top
+                            # logFC genes were found), but the rank slots and the
+                            # fraction slots were never measured -- `top_up_ranks`
+                            # was 1:10 by construction and `top_up_fractions` was
+                            # 10 x NA on every run. Promising a field and leaving
+                            # it empty is worse than not promising it.
+                            aggregate_values$n_top_up <- as.integer(length(top_genes))
                             evidence <- list(
                                 id = if (is.null(ident.1)) {
                                     "ev:findallmarkers"

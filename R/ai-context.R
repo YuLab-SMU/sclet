@@ -551,11 +551,21 @@ sclet_ai_build_analysis_story <- function(object, records, status) {
     }
 
     conflicts <- list()
+    # A "conflict" means several records compete for one active slot, so the
+    # reader cannot tell which is in force. That is true of the computational
+    # state types (two detest records, two clusterings). It is NOT true of the
+    # append-only AI log types: one ai_execution record is written per round and
+    # one ai_evidence node per measurement, by design. Flagging those made the
+    # conflicts field fire on every analysis with more than one round -- a
+    # warning that always fires teaches the reader to ignore it (observed on
+    # the first multi-round run, 2026-10-19).
+    append_only_types <- c("ai_execution", "ai_evidence", "ai_design_confirmation")
     type_to_keys <- list()
     for (key in analysis_keys) {
         record <- analyses[[key]]
         type <- as.character(record$type %||% "")
         if (!nzchar(type)) next
+        if (type %in% append_only_types) next
         if (is.null(type_to_keys[[type]])) {
             type_to_keys[[type]] <- character()
         }

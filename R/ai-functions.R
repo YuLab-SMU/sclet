@@ -226,7 +226,13 @@ RecordAIResult <- function(object, result, id = NULL, active = FALSE, audit_clai
             findings = recorded_findings,
             evidence = result$evidence,
             recommendations = result$recommendations,
-            proposed_actions = result$proposed_actions
+            proposed_actions = result$proposed_actions,
+            # Warnings travelled only in the live result: a report rendered
+            # from the ledger could not show the caveats the run itself raised
+            # (found when RenderAIReport() rendered M2's report without its two
+            # warnings). They are the part of a result most likely to change
+            # how a reader weighs the findings, so they are recorded.
+            warnings = result$warnings
         ),
         summary = list(
             n_findings = length(recorded_findings),

@@ -2,8 +2,8 @@
 
 > 数据：10x PBMC 10k，33538 基因 × 11769 细胞（只有 counts）。
 > 路径：pipeline → markers → GO → KEGG，四轮分轮计划，每轮重新规划并重新校验。
-> 账本指纹（记录本报告之前）：`sclet-ai-05d9f1e7`；记录后 `sclet-ai-65904c5d`。
-> 报告记录 id：`ai_report_pbmc10k_m1`；sclet 1.0.2 @ `9400e1d`；生成时间 2026-10-20 08:34。
+> 账本指纹（记录本报告之前）：`sclet-ai-4d3dfbea`；记录后 `sclet-ai-281bee62`。
+> 报告记录 id：`ai_report_pbmc10k_m1`；sclet 1.0.2 @ `9400e1d`；生成时间 2026-10-20 13:39。
 
 ## 方法与参数（描述性，不由引擎评级）
 

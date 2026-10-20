@@ -164,10 +164,30 @@ sclet_ai_enrichment_parent_nodes <- function(object, source_id) {
     if (!length(source_id) || !nzchar(source_id)) return(character())
     nodes <- tryCatch(sclet_ai_evidence_get_all(object), error = function(e) list())
     if (!length(nodes)) return(character())
-    hits <- names(nodes)[vapply(nodes, function(node) {
-        identical(as.character(node$source %||% ""), source_id)
-    }, logical(1L))]
-    as.character(hits)
+    find_source <- function(id) {
+        names(nodes)[vapply(nodes, function(node) {
+            identical(as.character(node$source %||% ""), id)
+        }, logical(1L))]
+    }
+    hits <- find_source(source_id)
+    if (length(hits)) return(as.character(hits))
+    # A marker table registered as a DERIVED record -- the id-converted copy
+    # KEGG needs, for instance -- carries no evidence node of its own, so the
+    # lookup above returns nothing and the enrichment node ends up with no
+    # parents. That is not cosmetic: the claim ceiling counts nodes without a
+    # shared parent as INDEPENDENT lines of support, so two annotations of one
+    # marker table read as corroboration. Measured on the M1 report
+    # (2026-10-20): markers + GO + KEGG came out as two independent lines when
+    # they are one. Follow the recorded `parent_detest` one hop.
+    derived <- tryCatch(
+        sclet_get_state_record(object, "detest", source_id),
+        error = function(e) NULL
+    )
+    parent_detest <- as.character(derived$inputs$parent_detest %||% "")
+    if (!nzchar(parent_detest) || identical(parent_detest, source_id)) {
+        return(character())
+    }
+    as.character(find_source(parent_detest))
 }
 
 # Map cluster labels onto anonymized cluster_N codes. Labels come from the

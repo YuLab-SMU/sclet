@@ -159,6 +159,7 @@ Collate:
     'ai-planning.R'
     'ai-privacy.R'
     'ai-profile.R'
+    'ai-report.R'
     'ai-result.R'
     'ai-skills.R'
     'ai-spatial.R'

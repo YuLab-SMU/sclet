@@ -23,6 +23,34 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
 5. KEGG 空结果（`n_enriched = 0`、`result` 为 NULL）仍报 `completed` → 现在 `enrichment_no_result` 失败。
 6. louvain 聚类无种子、不可复现（同一计划 13 群 vs 12 群）→ 现在 `seed` 参数并记录。
 
+## 已修（2026-10-20 M3：报告层）
+
+7. **B1 冲突误报**：`analysis_story$conflicts` 从第二轮起必然报 `ai_execution`。现在追加式日志类型
+   （`ai_execution` / `ai_evidence` / `ai_design_confirmation`）不计入冲突；计算型状态（detest、
+   clustering、rare_cells…）仍然报告。pin：`test-ai-report-layer.R` 第 1 条。
+8. **B2/B3 marker 证据的假字段**：删掉 `top_up_ranks`（构造上恒为 1:10）、`top_up_fractions`
+   （恒为 10 个 NA）、两个无消费者的不透明整数编码，以及 `n_significant`（表已被调用方阈值
+   预过滤，再数一遍等于复述过滤；实测 12,559/12,572）。`n_top_up` 改成真实计数。
+   pin：`test-ai-report-layer.R` 第 2 条。
+9. **B4 detest 记录缺参数**：`RunDEtest()` 现在把 `min.pct` / `logfc.threshold`（以及条件路径的
+   `min_cells`）写进 detest 记录的 `params`，单独读 `get_detest()` 就能复跑。pin：同文件第 3 条。
+10. **B14 报告渲染层**：新增导出 `RenderAIReport()`（`R/ai-report.R`）。从账本渲染 Markdown，
+    并**自检**：引用必须可解析、每条记录等级必须等于引擎重算值，不一致就打印在「复验」区而不是
+    抹平。不调用模型、不含原始值。M2 报告现在可以由它从账本重现（`m2-verification-kang.md` V12/V13）。
+11. **B10 只读步骤的痕迹**：`check_qc` 这类只读动作仍不写分析记录（只读契约要求不 mutate），
+    但执行记录的 `params$steps` 有它的一行，`RenderAIReport()` 的「执行溯源」区会列出来。
+    所以「计划里跑过 QC」现在可查。pin：`test-ai-report-layer.R` 第 5 条。
+12. **结果自带的 warnings 曾丢失**：`RecordAIResult()` 的 artifacts 里没有 `warnings`，报告渲染
+    时看不到运行提出的告诫（M2 的 3 条 warning 只活在内存里）。现在随结果入账。
+    pin：`test-ai-report-layer.R`（warnings 出现在渲染结果里）+ M2 复验 V13。
+
+13. **派生 marker 表上的富集丢了 parent（claim 级）**：KEGG 富集跑在 bitr 转换后的派生 detest 记录上，
+    那条记录自己没有证据节点，`sclet_ai_enrichment_parent_nodes()` 只按直接 source 查 → KEGG 节点
+    没有 parents → `check_claim_ceiling()` 把「markers + GO + KEGG」算成**两条独立证据线**，
+    而它们本是同一份 marker 表的两种注释。现在会跟一层 `inputs$parent_detest`。
+    真实数据复验：M1 全量证据的 `n_independent_groups` 从 2 变回 1。
+    pin：`test-ai-report-layer.R` 第 6 组；M1 复验 V10。
+
 ## 未修
 
 ### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`
@@ -90,7 +118,9 @@ finding。若要让结构事实以 `observed` 入账，需要一条对象状态�
 绑定状态记录 id。
 - 证据：`/tmp/sclet-agentrun/100-claim-probe.R`，`observed` + 无引用 → `derived=hypothesis`，
   `rule=no_prose_reference`。
-- 回访触发：报告层正式化时。
+- M3 后：报告层不再需要它——结构事实进「执行溯源 / 方法与参数」区（描述性，不评级），
+  只有带证据的结论才进 findings。真正的 `observed` 入账仍需设计（对象状态证据节点）。
+- 回访触发：有人确实需要把"对象有 N 个细胞"作为 observed finding 入账时。
 
 ### B12 审计与写入对"未知证据 id"行为不一致 · `report`
 `sclet_ai_audit_result_claims()` 把未知 id 静默降级为 `hypothesis`（理由写
@@ -100,7 +130,8 @@ finding。若要让结构事实以 `observed` 入账，需要一条对象状态�
   `102-record-probe.R`（同形状经 `RecordAIResult` → `REFUSED: evidence ref not valid`）。
 - 回访触发：下一次有人只用审计 API 做校验时。
 
-### B13 账本默认丢 artifacts，读回自己的结果会静默为空 · `noise`
+### B13 账本默认丢 artifacts，读回自己的结果会静默为空 · `noise`（M3 后：靠约定避开）
+`RenderAIReport()` 内部固定 `include_artifacts = TRUE`；任何读回自己写的 AI 结果的代码都必须显式传。
 `GetAnalysisLedger(detail = "full")` 默认 `include_artifacts = FALSE`，所以刚记入的
 AI 报告的 `artifacts$findings` 读回来是 `NULL`，`length(...)` 为 0 且不报错（M1 生成脚本
 第一次就打印了 `recorded findings: 0`）。建议：要么文档写明，要么在 detail = "full" 下
@@ -120,7 +151,16 @@ report contract（`.dev/ai-product-roadmap.md` §3.3）里的 Analysis Report �
 因此写出过一条空数字的 finding，被复验拦下。建议：给裸节点补一个 `$summary` 别名，或在
 `sclet_ai_evidence_get_all()` 文档里写明形状。
 - 证据：`/tmp/sclet-agentrun/220-m2-report.R` 的修复注释；NEWS 当日条目末段。
+- M3 后：`RenderAIReport()` 与复验脚本统一用账本形式（`state_records$ai_evidence[[id]]$summary$values`），
+  并在 `sclet_ai_evidence_get_all()` 的注释里写明它返回的是**summary 扁平化**后的节点。
 - 回访触发：下次有人取证据节点的 values 时（大概率还会踩）。
+
+### B16 scVI 全量对象补跑（43,095 细胞） · `product`
+M2 的 scVI 只在 9,000 细胞子集上跑（2,878s 含首次 env 构建）。env 已建好，全量对象随时可跑
+（CPU 上数小时量级）。跑完把 scVI 行并入 `notes/m2-report-kang.md` 的路线表，并重跑
+`compare_integration_routes`（会得到 4 条路线的新证据节点）。
+- 证据：`/tmp/sclet-agentrun/211-m2-scvi.R`（子集脚本，改 keep 的每组上限即可全量）。
+- 回访触发：路线比较表需要第三条路线时，或有人问"scVI 全量是多少"。
 
 ## 维护约定
 
