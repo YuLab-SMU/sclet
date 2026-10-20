@@ -1026,15 +1026,29 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                     if (!is.null(params$dims)) {
                         stop("`run_integration` does not support `dims`; omit it so RunIntegration() can choose internally.", call. = FALSE)
                     }
-                    RunIntegration(
+                    route_name <- params$name %||% tolower(method)
+                    started <- Sys.time()
+                    result <- RunIntegration(
                         object,
                         method = method,
                         batch = batch,
                         features = features,
                         layer = params$layer %||% NULL,
                         reduction = params$reduction %||% NULL,
-                        name = params$name %||% tolower(method)
+                        name = route_name
                     )
+                    # Record the route's OWN metrics, on the route's own
+                    # embedding. Without this the plan-driven path produced an
+                    # integration record with no numbers at all, so a route
+                    # comparison could only be made through the separate
+                    # RunIntegrationRoutes() entry point -- and that one
+                    # measured the raw PCA for every route (see
+                    # sclet_ai_route_reduction()).
+                    elapsed <- as.numeric(difftime(Sys.time(), started, units = "secs"))
+                    result <- sclet_ai_record_route_metrics(
+                        result, route_name = route_name, batch = batch,
+                        runtime_sec = elapsed)
+                    result
                 },
                 input_schema = list(
                     batch = list(type = "character", required = TRUE),
@@ -1098,6 +1112,49 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                 allowed_state_types = c("integration", "reduction"),
                 estimated_cost = "medium",
                 idempotent = FALSE
+            ),
+            compare_integration_routes = AIAction(
+                name = "compare_integration_routes",
+                description = paste(
+                    "Compare the integration routes recorded on this object and",
+                    "register ONE bounded evidence node for the comparison.",
+                    "Reads the metrics each route recorded on its OWN embedding",
+                    "(batch mixing, biological preservation, runtime) and reports",
+                    "the trade-off: a route that removes batch structure at the cost",
+                    "of biological signal is a trade-off, not a win. Route names",
+                    "stay in the state records; the evidence carries anonymized",
+                    "route codes and numbers only."
+                ),
+                handler = function(object, params) {
+                    sclet_ai_record_integration_comparison(object,
+                        name = params$name %||% "integration_comparison")
+                },
+                input_schema = list(name = "character"),
+                prerequisites = function(object, params, planned = NULL) {
+                    records <- tryCatch(
+                        sclet_get_state_records(object, "integration"),
+                        error = function(e) list())
+                    measured <- Filter(function(rec) {
+                        length(rec$summary$metrics %||% list()) > 0L
+                    }, records)
+                    if (!length(measured)) {
+                        return(paste0(
+                            "no_integration_route_recorded: run_integration (or register the raw ",
+                            "baseline) first -- there is nothing to compare without a recorded route."
+                        ))
+                    }
+                    TRUE
+                },
+                returns = "sce",
+                requires_confirmation = TRUE,
+                output_schema = list(
+                    required_states = list(ai_evidence = "ev:integration_comparison"),
+                    active_evidence = "ev:integration_comparison"
+                ),
+                mutates_object = TRUE,
+                allowed_state_types = c("integration", "ai_evidence"),
+                estimated_cost = "low",
+                idempotent = TRUE
             )
         ))
     }
