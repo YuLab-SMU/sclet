@@ -84,6 +84,14 @@ PBMC 10k（11,769 × 33,538）外部 agent 跑分轮计划时发现，细节见 
       hypothesis 而不是结论。
     报告 `notes/pbmc10k-doublet-report.md`，复验 8/8（含"零稀有群 ⇒ 无证据节点"这条规则）。
 
+18. **M8 cci 闭环（引擎由用户选定）**：CellChat 在 12 个发送群 / 13 个接收群之间推断出 733 对
+    显著互作（113 s），引擎经澄清通道记录为 `user_decision`（第二次使用该通道）。
+    报告写明两件事：① 本机只装了 CellChat，所以这个“用户选择”也受环境限制；
+    ② **cluster 12（M7 里 98.3% 双细胞）参与了互作推断**，涉及它的互作含污染。
+    证据节点不含配体/受体/通路名称（`method_code` 是有意的匿名编码，不是死字段——已核对注释）。
+    报告 `notes/pbmc10k-cci-report.md`，复验 9/9。
+    复验脚本自己也踩过一个坑：用 `IL` 做泄漏检查会命中 `probabILity`，改成词边界后才有意义。
+
 ## 未修
 
 ### B1 `analysis_story$conflicts` 从第二轮起必然报警 · `report`
