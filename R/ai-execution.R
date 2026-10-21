@@ -1312,11 +1312,28 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
                                 length(ident.1) != 1L || length(ident.2) != 1L) {
                             return(paste0("contrast_missing: a '", group,
                                 "' contrast needs one ident.1 and one ident.2 (levels: ",
-                                paste(values, collapse = ", "), ")"))
+                                paste(values, collapse = ", "),
+                                "). fix: pass both levels explicitly; they are",
+                                " listed above and also in",
+                                " context$capabilities$contrast_levels"))
                         }
                         if (!ident.1 %in% values || !ident.2 %in% values) {
-                            return(paste0("contrast_invalid: ident.1/ident.2 must be levels of '",
-                                group, "': ", paste(values, collapse = ", ")))
+                            # The valid levels are already in the message; what
+                            # was missing is the instruction to COPY one of
+                            # them rather than to invent a neighbouring label.
+                            # Measured 2026-10-21: a round-2 plan wrote a level
+                            # the object does not have, and the error named the
+                            # right set without saying to read it.
+                            bad <- unique(c(ident.1, ident.2)[
+                                !c(ident.1, ident.2) %in% values])
+                            return(paste0(
+                                "contrast_invalid: ident.1/ident.2 must be levels of '",
+                                group, "': ", paste(values, collapse = ", "),
+                                " (you wrote: ", paste(bad, collapse = ", "),
+                                "). fix: copy two of the listed levels verbatim,",
+                                " or read them from",
+                                " context$capabilities$contrast_levels -- do not",
+                                " invent or translate a level name"))
                         }
                         if (identical(ident.1, ident.2)) {
                             return("contrast_invalid: ident.1 and ident.2 must differ")
