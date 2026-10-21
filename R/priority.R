@@ -1,3 +1,25 @@
+# How many parallel processes to ask Augur for.
+#
+# Augur's own default is 4, and it hands that straight to
+# `mclapply(mc.cores = 4)`. R CMD check sets `_R_CHECK_LIMIT_CORES_`, and
+# under it the `parallel` package refuses to spawn more than TWO processes --
+# so Augur's default made this package's test suite fail inside `R CMD check`
+# while passing under `devtools::test()`. Measured 2026-10-22.
+#
+# `parallel::detectCores()` is NOT the way to ask: it does not honour the
+# limit (it reported 112 on the machine where this was measured, either way),
+# because the refusal happens inside `mclapply`, not in the core count. The
+# limit is the environment variable `parallel` itself reads, so read it.
+sclet_augur_threads <- function(requested = NULL) {
+    if (!is.null(requested)) {
+        return(as.integer(requested))
+    }
+    if (identical(Sys.getenv("_R_CHECK_LIMIT_CORES_"), "TRUE")) {
+        return(2L)
+    }
+    max(1L, min(4L, as.integer(parallel::detectCores())))
+}
+
 #' Run perturbation priority analysis with Augur
 #'
 #' Prioritize cell types by their responsiveness to experimental perturbation
@@ -99,12 +121,33 @@ RunPerturbationPriority <- function(sce, condition_col, group_col = NULL,
     expr_matrix <- sclet_malignancy_dense(expr_matrix)
 
     cli::cli_alert_info("Running Augur perturbation priority on {.val {group_col}} by {.val {condition_col}}")
-    augur_result <- Augur::calculate_auc(
-        input = expr_matrix,
-        meta = meta,
-        cell_type_col = group_col,
-        label_col = condition_col,
-        ...
+    # Augur's `n_threads` default is 4, and it hands that straight to
+    # `mclapply(mc.cores = 4)`. R CMD check sets `_R_CHECK_LIMIT_CORES_`, and
+    # under it the `parallel` package refuses to spawn more than TWO
+    # processes -- so Augur's own default made this package's test suite
+    # fail inside `R CMD check` while passing under `devtools::test()`.
+    # Measured 2026-10-22 on the test added for the colLabels shortcut.
+    #
+    # `parallel::detectCores()` is NOT the way to ask: it does not honour the
+    # limit (it reports 112 on this machine either way), because the refusal
+    # happens inside `mclapply`, not in the core count. The limit is the
+    # environment variable `parallel` itself reads, so read it.
+    # A caller who asked for a specific `n_threads` keeps it.
+    dots <- list(...)
+    if (is.null(dots$n_threads)) {
+        dots$n_threads <- sclet_augur_threads()
+    }
+    augur_result <- do.call(
+        Augur::calculate_auc,
+        c(
+            list(
+                input = expr_matrix,
+                meta = meta,
+                cell_type_col = group_col,
+                label_col = condition_col
+            ),
+            dots
+        )
     )
 
     sce <- sclet_set_analysis(
