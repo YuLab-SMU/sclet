@@ -193,12 +193,16 @@ multimodal_actions <- c("check_multimodal_readiness",
 context <- sclet:::sclet_ai_context(demo_multimodal, target = "planning",
     detail = "summary", registry = registry)
 offered <- vapply(context$available_actions, function(a) a$name, character(1))
-intersect(offered, multimodal_actions)
+# `intersect` is ambiguous once `sclet` is attached (dplyr, GenomicRanges and
+# base all export one), so the base implementation is named explicitly --
+# `library(conflicted)` turns the silent ambiguity into a hard error rather
+# than a warning.
+base::intersect(offered, multimodal_actions)
 
 # Never invented: a registry that excludes the group cannot offer them.
 AIDefaultExecutionRegistry(demo_multimodal, include = "read") |>
     names() |>
-    intersect(multimodal_actions)
+    base::intersect(multimodal_actions)
 ```
 
 ## What Is Not Here Yet {#multimodal-not-here-yet}
