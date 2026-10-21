@@ -124,7 +124,12 @@ get_graph(rm_batch_pbmc)$inputs$integration
 get_analysis_context(rm_batch_pbmc)$active
 ```
 
-## Visualization
+## Visualization {#integration-visualization}
+
+# An explicit id: the auto-generated `visualization` collides with the
+# [Enhanced Visualization](#visualization) chapter, and pandoc then warns
+# "Duplicate identifier" and the in-book links from other chapters land on the
+# wrong page.
 
 
 ```{r batch-umap, fig.width=13.5, fig.height=12}

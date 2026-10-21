@@ -106,7 +106,10 @@ nichenet_df <- get_cci(sce, id = "nichenet_main")
 head(nichenet_df)
 ```
 
-## Visualization
+## Visualization {#communication-visualization}
+
+# An explicit id: the auto-generated `visualization` collides with the
+# [Enhanced Visualization](#visualization) chapter.
 
 Instead of relying heavily on third-party specific visualization functions, `sclet` provides native `ggplot2` and `circlize` based visualization functions that directly consume the standardized CCI data layer. This decouples your analysis from specific backend plotting idiosyncrasies.
 

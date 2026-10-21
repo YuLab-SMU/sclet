@@ -280,7 +280,10 @@ plot_cci_network(cci_viz, id = "cellchat_viz")
 plot_cci_sigmoid(cci_viz, id = "cellchat_viz", top_n = 15)
 ```
 
-### Reference Mapping
+### Reference Mapping {#visualization-reference-mapping}
+
+# An explicit id: the auto-generated `reference-mapping` collides with the
+# [Cell Identity and Reference Mapping](#reference-mapping) chapter.
 
 Label transfer from a reference is cheap enough to demonstrate: a KNN mapping of `pbmc` against a held-out subset of itself gives a mapping record with a real transferred-label column and a real score column, which is exactly what the two functions read.
 
