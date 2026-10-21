@@ -1,0 +1,79 @@
+# AI Foundations: State, Actions, and the Ledger {#ai-foundations}
+
+Every other chapter in this book describes analysis you run yourself: you call `RunDEtest()`, you look at the plot, you decide. This chapter describes a different mode. You describe a goal, and something else runs the analysis — an AI agent inside the package, or an agent you talk to from outside R, or your own script written against a contract.
+
+All three modes run on the same three components, and all three are only as trustworthy as those components. This chapter explains them, because a plan you cannot read is a plan you cannot audit.
+
+## The problem: a script is a decision you cannot re-examine
+
+The usual script is a straight line:
+
+```{r ai-foundations-naive, eval=FALSE}
+sce <- NormalizeData(sce)
+sce <- FindVariableFeatures(sce)
+sce <- FindClusters(sce)
+sce <- RunDEtest(sce)
+```
+
+That is fine while you are the one running it. But notice what it does not record: why these thresholds, whether step 3 was even correct for this object, and what any of it implies. If a reviewer asks "how do you know your clusters were not an artifact of the batch effect?", the script cannot answer, because the script never knew.
+
+`sclet`'s AI layer is built on the opposite premise. The object already carries its own history — the state contract from [state-aware analysis](#state-aware). The AI layer's job is to make that history **something that can be planned against, validated, and audited** instead of merely read.
+
+## The `AIAction` contract
+
+An *action* is the unit of AI work in `sclet`. It is not a function you call directly; it is a descriptor that declares what would happen if you did, tightly enough that the engine can refuse a plan that will not work.
+
+`AIAction()` takes:
+
+| argument | what it declares |
+|---|---|
+| `name` | the stable key a plan must match exactly |
+| `handler` | the function that runs, receiving `(object, params)` |
+| `description` | one line, shown to a planner |
+| `prerequisites` | a function returning `TRUE`, `FALSE`, or a *string explaining why not* |
+| `input_schema` | per-parameter types, or enumerations |
+| `returns` | `"sce"` (returns the object) or `"value"` |
+| `requires_confirmation` | whether a human must approve before execution |
+| `output_schema` | what a later step may reference |
+| `mutates_object`, `allowed_state_types` | what state the handler may write |
+| `estimated_cost`, `idempotent` | cost label, and whether repeating is safe |
+
+Three of those do the real work:
+
+**`prerequisites` returns a *reason*, not just a boolean.** An action whose object has no batch column is not "unavailable"; it says the parameter is missing, which the caller can act on. This is what lets a planner propose a fix instead of guessing why it failed.
+
+**`allowed_state_types` bounds what a handler may write.** An action that only reads cannot add a reduction; an integration action cannot quietly rewrite the clustering. A plan that violates this is refused by the engine, not merely deprecated in a style guide.
+
+**`estimated_cost` is honest.** The SCENIC action is the only genuinely expensive one in the registry — its own documentation names it "the slowest action in the registry". A planner that sees this can decide the goal does not justify it.
+
+## The registry only exposes what this object can actually run
+
+`AIDefaultExecutionRegistry()` returns the actions available **on the object you hand it**. Prerequisites are evaluated, not advertised: an action is listed with an explanation when the object cannot satisfy it, and absent when the caller must supply it another way. The same registry asked for `"all"` on a different object is a different catalog.
+
+```{r ai-foundations-registry, eval=eval_chunks}
+library(sclet)
+
+sce <- SingleCellExperiment::SingleCellExperiment(
+    list(counts = matrix(1, nrow = 10, ncol = 8))
+)
+
+reg <- AIDefaultExecutionRegistry(sce, include = "read")
+length(reg)
+names(reg)
+```
+
+The `include` argument selects groups. `"read"` is the deliberately small default — the inspection group, none of which modify the object. Requesting `"all"` exposes the analysis groups, each carrying the same confirmation requirements it had before you asked for it.
+
+## The ledger is the only authority
+
+`GetAnalysisLedger()` projects the object's state into a bounded, model-facing summary: the active view, recorded analyses, lineage, the actions available *right now*, the fingerprint, and — crucially — `analysis_story`, the plain-language account of what this object has been through.
+
+```{r ai-foundations-ledger, eval=eval_chunks}
+ledger <- GetAnalysisLedger(sce)
+names(ledger)
+ledger$fingerprint
+```
+
+Nothing about the AI layer is stored separately. Evidence, claims, and results are state records like any other, so they survive `saveRDS()`, are visible in `Status()`, and cannot drift out of sync with the object they describe.
+
+That property is what makes the next two chapters possible: a plan is validated against the ledger, and a result is only ever as strong as the evidence the ledger can show for it.

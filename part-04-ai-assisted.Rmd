@@ -1,0 +1,12 @@
+# (PART) AI-Assisted Analysis {-}
+
+The chapters in this part cover the AI layer: how a language model is allowed to drive an analysis, and how the package keeps that drive trustworthy. They sit after the analysis mainlines on purpose. An AI that proposes steps is only as useful as the records it proposes them against, so the material here builds on the state contract from Part I rather than replacing it.
+
+There are two ways to reach the AI layer, and this part treats them as two routes into the same engine.
+
+- **External agent driving.** A general-purpose coding agent runs in the user's own session, inspects the object through exported functions, plans a set of actions, and executes them through the package. This is the book's mainline route: it needs no in-package model, keeps the conversation in the user's own tooling, and is the route an experienced user can inspect step by step.
+- **In-package assistant.** The package itself talks to a model through `aisdk`, plans, asks for clarification, and executes. It is the lower-friction route: less setup and less control, and it needs a configured model.
+
+Both routes end in the same place, which is the principle this part keeps returning to: **the engine is the authority, not the model.** A model may propose an analysis, but it does not perform one. Plans are validated against the live object, confirmation is carried by a token minted for that exact plan, execution walks the plan one action at a time, and results are recorded so that a report can be recomputed from the ledger rather than retold from the conversation. When a plan is illegal, the engine refuses it; when a step cannot run, the failure is recorded as a failure.
+
+The chapters therefore read in one direction: the concepts first, then the driving route, then the in-package route, and finally the governance layer that keeps claims tied to the evidence actually recorded.

@@ -1,0 +1,159 @@
+# Driving sclet from an External Agent {#ai-driver}
+
+This is the mainline of the AI layer, and the one most users will actually run.
+
+The package can plan an analysis itself if you configure a model provider, and the [next chapter](#ai-in-package) covers that. But that path has a cost and a dependency: it needs `aisdk`, a key, and a networked call for every plan. This chapter needs none of them. **You are the planner.** You read the shipped skills, write the plan as an R list, and let `sclet` validate and execute it under exactly the guardrails a built-in model would face.
+
+The division of labour is worth stating precisely, because it is the whole design:
+
+| who | decides |
+|---|---|
+| you, the planner | what should be analysed, in what order, with which parameters |
+| `sclet` | whether that plan is even legal on this object, and what may be claimed afterwards |
+
+A plan that survives validation is one the engine agreed to execute. That is not the same as *good* — the skills in `inst/skills/` carry the domain knowledge that separates a legal plan from a useful one.
+
+## Read the skills first
+
+`sclet` ships four skills — plain `SKILL.md` files under `inst/skills/`, readable by any agent and by you.
+
+```{r ai-driver-skills, eval=eval_chunks}
+library(sclet)
+
+skills <- AISkills()
+skills
+
+guidelines <- ReadAISkill("sclet-analysis")
+nchar(guidelines$description)
+```
+
+The analysis skill is the one to read before every plan: it encodes stage order, which steps produce evidence other steps need, and which parameters are modelling choices an agent must never make for the user.
+
+## A complete run
+
+The object below is deliberately small so this chapter executes during the book build. Everything here runs offline; no model is contacted at any point.
+
+```{r ai-driver-setup, eval=eval_chunks}
+library(sclet)
+set.seed(42)
+sce <- scuttle::mockSCE(ncells = 200, ngenes = 80)
+sce <- SingleCellExperiment::SingleCellExperiment(
+    assays = list(counts = SummarizedExperiment::assay(sce, "counts"))
+)
+dim(sce)
+```
+
+### 1. What can run on this object?
+
+```{r ai-driver-registry, eval=eval_chunks}
+reg <- AIDefaultExecutionRegistry(sce, include = "all")
+length(reg)
+head(names(reg), 8)
+```
+
+Ask for `"all"` deliberately here — a real plan needs the analysis groups, not just the read group. The registry is object-aware: an action whose prerequisites this object cannot meet is listed together with the reason.
+
+### 2. Read the ledger, and bind the plan to it
+
+```{r ai-driver-ledger, eval=eval_chunks}
+ledger <- GetAnalysisLedger(sce)
+ledger$fingerprint
+```
+
+The fingerprint is not decoration. Validation binds the plan to the state it was written against, so an object edited in between cannot accept a plan written for the old one. That is what makes the stateless pattern in the next section safe.
+
+### 3. Write the plan
+
+```{r ai-driver-plan, eval=eval_chunks}
+plan <- new_sclet_ai_plan(
+    task = "pbmc_markers",
+    context_fingerprint = ledger$fingerprint,
+    actions = list(
+        list(id = "s1", action = "normalize_data"),
+        list(id = "s2", action = "find_variable_features",
+             params = list(nfeatures = 40L), depends_on = "s1"),
+        list(id = "s3", action = "scale_data", depends_on = "s2"),
+        list(id = "s4", action = "run_pca",
+             params = list(ncomponents = 10L), depends_on = "s3"),
+        list(id = "s5", action = "find_neighbors",
+             params = list(dims = 1:10), depends_on = "s4"),
+        list(id = "s6", action = "find_clusters",
+             params = list(resolution = 1.0), depends_on = "s5"),
+        list(id = "s7", action = "run_de_test",
+             params = list(name = "markers"), depends_on = "s6")
+    )
+)
+```
+
+Three rules the engine enforces, so plan to them:
+
+- every `action` is a verbatim registry key — a plausible-looking name is refused
+- every `params` value matches the declared type in `input_schema`
+- every `${step_id.output.field}` reference has a matching `depends_on`
+
+### 4. Validate — and read the errors
+
+```{r ai-driver-validate, eval=eval_chunks}
+validation <- ValidateAIPlan(plan, object = sce, registry = reg)
+validation$valid
+validation$requires_confirmation
+```
+
+`ValidateAIPlan()` returns the errors, and unlike an exception they are the *useful* kind: it names the received value, and for a malformed reference it names the corrected spelling. A refusal at this point is progress — it costs nothing.
+
+### 5. Dry-run, then execute
+
+`ExecuteAIPlan()` defaults to `dry_run = TRUE`, which returns what would run and changes nothing. Non-dry execution requires the confirmation token from *this* validation object:
+
+```{r ai-driver-execute, eval=eval_chunks}
+dry <- ExecuteAIPlan(sce, plan, registry = reg, validation = validation)
+dry$status
+vapply(dry$results, function(r) r$status, character(1))
+
+executed <- ExecuteAIPlan(sce, plan, registry = reg, validation = validation,
+    dry_run = FALSE, confirmation = validation$confirmation_token)
+executed$status
+vapply(executed$results, function(r) r$status, character(1))
+```
+
+Passing only `confirmation` without `validation` makes the engine re-validate and mint a token that can never match. Take both from one fresh validation.
+
+### 6. Read what the ledger now says
+
+```{r ai-driver-report, eval=eval_chunks}
+GetAnalysisLedger(executed$object)$analyses
+```
+
+The analysis records, the types the handlers were allowed to write, and the execution record itself are all on the object. This is the audit trail, and it is what the last chapter of this part is about.
+
+## Advancing in rounds
+
+`ExecuteAIPlan()` walks the plan in order with per-step retry. **Nothing in execution rewrites later steps.** A multi-stage analysis is therefore a *sequence* of plans, and starting each one is your decision.
+
+The reason is measured, not stylistic: recording a round changes the object's fingerprint, so the previous plan is refused afterwards by design.
+
+```{r ai-driver-stale, eval=eval_chunks}
+again <- ValidateAIPlan(plan, object = executed$object, registry = reg)
+again$valid
+again$errors
+```
+
+An old plan not being reusable is the feature: the plan you checked described a different object than the one you now hold.
+
+Two rules follow from the round boundary:
+
+- **A plan may only reference steps of its own plan.** `${old_step.output.detest_id}` across a round is refused. Carry a value forward by naming the record that produced it — `detest_id = "markers"` — which the ledger in front of you supplies literally.
+- **Re-validate every time.** The fingerprint binds the plan to the object state it was validated against.
+
+Start a new round when a stage finished and the next feeds on it, when a step failed for a reason that changes the route, when the plan never covered the goal (`plan$metadata$goal_coverage$missing`), or when the user answered an open choice.
+
+## Resuming across processes
+
+The ledger lives on the object, so the whole analysis survives `saveRDS()`. An agent does not need a resident R session: each interaction can be a fresh `Rscript` that reads the object, plans the next stage against the fingerprint it carries, executes, and saves it back. Because `is.character(validation$plan_id)` — the id in the validation object — must match, and the fingerprint must still be current, a stale plan is refused rather than silently run.
+
+## Things not to attempt
+
+- **An empty plan is not a plan.** Zero actions are refused (`plan_empty`) instead of reporting `status = "completed"` with no results. If the goal needs no computation, answer directly.
+- **A plan has no conditional steps.** "If this succeeds, also do X" is a second round, not a longer plan.
+- **Never claim without evidence.** The report's claims are capped by the evidence that supports them, which is the subject of [evidence governance](#ai-evidence-governance).
+- **`RunAIPlan()` is a convenience, not a different contract.** It validates internally, so use it for the common case and `ValidateAIPlan()`/`ExecuteAIPlan()` separately when you need to inspect the validation object — for instance to present a refusal to a user before fixing it.

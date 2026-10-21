@@ -1,0 +1,106 @@
+# Evidence Governance: Claims, Results, and Reports {#ai-evidence-governance}
+
+An analysis that runs is not an analysis that means anything. The first two chapters of this part get a plan executed; this one is about what may be said afterwards, and why `sclet` refuses to let you say more.
+
+**The rule this chapter exists to enforce: a report may only claim what the evidence supports.** Every other function in the AI layer is upstream of that check.
+
+## Evidence nodes
+
+An evidence node is a bounded, named record that something was measured. Two properties make it useful:
+
+**It is aggregate by construction.** Cell counts, gene counts, quantiles, booleans — never a feature name, an antibody name, a barcode, or a per-cell value. A complete matrix is rejected, not truncated. This is what makes a node safe to put in a prompt.
+
+**It is write-once.** Recording the same node id twice with *identical* values is a no-op; with *different* values it raises `evidence_id_conflict` rather than overwriting. A re-run that silently kept the first run's numbers would be a citable artifact describing an older analysis — worse than a missing node, because it renders and looks like a measurement of the current object.
+
+```{r ai-evidence-nodes, eval=eval_chunks}
+library(sclet)
+
+sce <- scuttle::mockSCE(ncells = 200, ngenes = 80)
+sce <- SingleCellExperiment::SingleCellExperiment(
+    list(counts = SummarizedExperiment::assay(sce, "counts"))
+)
+
+ev <- list(
+    id = "ev:demo_doublet_finder",
+    kind = "deterministic_summary",
+    summary = list(n_cells = 200L, n_doublets = 12L)
+)
+
+with_ev <- RecordAIEvidence(sce, ev)
+GetAnalysisLedger(with_ev)$analyses[grepl("demo", names(GetAnalysisLedger(with_ev)$analyses))]
+```
+
+`sclet_ai_record_evidence_for_run()` is the recorder used inside sclet itself: it tolerates a re-run whose values are unchanged, and refuses one whose values changed unless asked with `replace = TRUE`.
+
+## The claim ceiling
+
+Every interpretive statement has a *claim level*, derived from the evidence behind it — not from the confidence of whoever wrote it. `GetAnalysisLedger()` carries the ceiling, and `ValidateAIPlan()` reports it alongside a plan.
+
+The clearest consequence: two evidence nodes that share a dependency group are **not two lines of support**. Run a second contrast over the same graph and you have a second analysis, not independent confirmation. `sclet_ai_evidence_independence()` answers that question structurally:
+
+```{r ai-evidence-independence, eval=eval_chunks}
+a <- list(id = "ev:a", kind = "deterministic_summary",
+    summary = list(n = 10L), dependency_group = "group_1")
+b <- list(id = "ev:b", kind = "deterministic_summary",
+    summary = list(n = 10L), dependency_group = "group_1")
+
+sce_a <- RecordAIEvidence(sce, a)
+sce_ab <- RecordAIEvidence(sce_a, b)
+sclet_ai_evidence_independence(sce_ab, c("ev:a", "ev:b"))$independent
+```
+
+Common lineage is not a flaw to hide; it is a fact to report. A report that counts the same signal twice overstates its case, which is exactly the failure mode this layer exists for.
+
+## What may leave the object: the privacy line
+
+Design semantics may be exposed. Analysis results may not.
+
+The distinction is not "no colData values leave", because a contrast cannot be planned without the levels of the design column. The line is about what the analysis is *trying to discover*:
+
+- **`ActiveIdent` — the clustering — is the result.** It leaves only as `group_N` codes. Revealing cluster names pre-answers the question the analysis was asked.
+- **A design column — `condition`, `Treatment`, `donor` — is the user's own experimental setup.** Its levels must be present, or the planner has to invent them.
+
+`capabilities$contrast_levels` therefore lists design levels and **must exclude the active identity column by name**, while `capabilities$identity_levels` stays anonymised.
+
+Two traps found while implementing this: `levels` must be a character *vector* (an unnamed list of scalars is redacted as "unnamed nested values are not bounded"), and `note` is on the privacy deny list, so explanatory text belongs in `guidance`.
+
+## Recording results
+
+`RecordAIResult()` attaches an interpretive result to the object with its supporting evidence attached, so a result cannot be separated from what backs it. `ValidateAIEvidenceRefs()` checks references against the ledger and enforces the scope and cross-kind rules: a reference may not scope outside the supporting evidence's own scope, and AI-generated claims may not cite `user_decision` nodes.
+
+## `RenderAIReport`: the report checks itself
+
+A round is not finished when execution returns. It is finished when the report has been rendered and its self-check agreed with the ledger.
+
+```{r ai-evidence-report, eval=eval_chunks}
+sce2 <- scuttle::mockSCE(ncells = 200, ngenes = 80)
+sce2 <- SingleCellExperiment::SingleCellExperiment(
+    list(counts = SummarizedExperiment::assay(sce2, "counts"))
+)
+
+# RunDEtest() needs an identity to test against, so go through the same short
+# preprocessing chain the driver chapter uses. `RunDEtest()` also refuses a
+# single-group object: a marker test on one cluster is undefined, not empty.
+sce2 <- NormalizeData(sce2)
+sce2 <- FindVariableFeatures(sce2)
+sce2 <- ScaleData(sce2)
+sce2 <- RunPCA(sce2, ncomponents = 10)
+sce2 <- FindNeighbors(sce2, dims = 1:10)
+sce2 <- FindClusters(sce2, resolution = 1.0)
+sce2 <- RunDEtest(sce2, only.pos = TRUE, name = "markers")
+
+ledger <- GetAnalysisLedger(sce2)
+nrow(ledger$analyses)
+```
+
+`RenderAIReport()` re-derives every recorded claim level from the evidence and re-resolves every citation, then prints any disagreement in its own verification section. **A round that is not rendered loses that check** — and the next round then plans from a raw record, which is where overstated claims get quietly carried forward.
+
+## The failure this whole layer is against
+
+Three failure modes are invisible without it:
+
+- a silent no-op, where a recorder swallowed an error and the ledger kept the earlier run's numbers;
+- borrowed support, where two nodes from one analysis counted as independent confirmation;
+- an unrendered round, where nothing re-derived the claims that were made.
+
+Each is a way for a document to say something stronger than the object it describes. The ledger, the ceiling, and the report are three views of the same defence.

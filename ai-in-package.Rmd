@@ -1,0 +1,90 @@
+# The In-Package Assistant {#ai-in-package}
+
+The [external-agent path](#ai-driver) has the package acting as an engine and you as the planner. This chapter covers the other arrangement: the package also writes the plan, by asking a language model what to do.
+
+That convenience is real, and so is its price. `sclet` requires `aisdk`, a configured provider, and a network call for every plan. The chunks in this chapter are therefore **not executed during the book build** — a documentation build that silently called a paid API would be both slow and billable, and a failure would be indistinguishable from a real result. Everything here is written as real code: copy it into a session with a model configured and run it.
+
+## Requirements
+
+```{r ai-in-package-setup, include=FALSE}
+# NOTE: chunks in this chapter use eval=FALSE because AIPlanAnalysis / AskAI /
+# RunAIAnalysis need `aisdk` plus a configured model provider. Calling a
+# provider from a documentation build would bill the machine that runs it and
+# would make an unrelated API outage look like a package defect.
+```
+
+```{r ai-in-package-config, eval=FALSE}
+library(sclet)
+
+# A default model, configured once through aisdk:
+aisdk::get_model()
+
+# Everything else works without any further setup.
+options(sclet.ai.use_skills)
+```
+
+`options(sclet.ai.use_skills)` controls whether the shipped skills are injected into the planning prompt. It is on by default, and the [AI foundations](#ai-foundations) chapter explains why the skills — not the inline prompt — carry knowledge-type rules such as stage ordering.
+
+## `AIPlanAnalysis`: ask for a plan
+
+```{r ai-in-package-plan, eval=FALSE}
+sce  # a SingleCellExperiment that has been preprocessed and clustered
+plan <- AIPlanAnalysis(sce, goal = "find markers that distinguish the clusters")
+```
+
+The result is an ordinary plan — the same structure you wrote by hand in the previous chapter — so it is validated, previewed and executed by exactly the same functions. `AIPlanAnalysis()` also spends one repair round against validation errors and goal coverage before returning, so what you get back has already been checked once. `plan$metadata$goal_coverage$missing` names goal items with no step behind them; a hand-written plan gets no such help, so check it yourself.
+
+## `RunAIAnalysis`: plan, preview, ask, execute in one call
+
+```{r ai-in-package-run, eval=FALSE}
+result <- RunAIAnalysis(sce, goal = "find markers that distinguish the clusters",
+    confirm = "yes")
+sce <- result$object
+
+result$report$steps
+result$report$goal_coverage
+```
+
+`RunAIAnalysis()` is one round: plan, validate, preview, ask, execute, and optionally interpret. Running it again is how you continue — there is no loop option to look for, for the reason given in the previous chapter: the engine executes one plan and never re-plans mid-run.
+
+Passing `confirm = "yes"` executes without pausing, which is right for a script and wrong for exploratory use. Leave it out and read the preview first.
+
+## Free-form questions with `sclet_copilot`
+
+Not every question is a plan. `sclet_copilot()` answers a free-form question about an object by reading its recorded provenance — what analysis ran, in what order, with which parameters — instead of looking at the data alone.
+
+```{r ai-in-package-copilot, eval=FALSE}
+library(sclet)
+
+# A question about the object's own history, not its contents.
+sclet_copilot(sce, "I just finished scVI batch correction and clustering. Is there a risk of over-alignment?")
+```
+
+The value here is narrow and worth stating. The tool cannot see your cells; it can see that scVI ran with `batch = Donor`, that Louvain clustering followed it, and that these were the parameters used. That is enough to discuss the workflow, and not enough to make a claim about the biology.
+
+## Cross-chain auditing
+
+`AuditAnalysisChain()` asks a narrower question: does the expression of specific genes look distorted by an earlier step? It traces the state machine back to the raw layer and compares.
+
+```{r ai-in-package-audit, eval=FALSE}
+top_markers <- c("CD3D", "NKG7", "MS4A1", "LYZ", "GNLY")
+
+report <- AuditAnalysisChain(
+    sce,
+    features = top_markers,
+    raw_layer = "counts",
+    integrated_layer = "corrected"
+)
+cat(report)
+```
+
+**What it returns matters more than what it prints.** The results are recorded with claim levels, and the report's own verification section re-derives them; a round that is not rendered loses that check. Audit output is input to a judgement, not the judgement.
+
+Be aware of which integration method you used:
+
+- `fastMNN` produces a corrected **expression** layer, so the comparison above is the right abstraction.
+- `Harmony` and `scVI` produce a corrected **reduction** — no corrected layer exists to compare against, so this particular audit does not apply and needs adapting.
+
+## What the package will not do
+
+It will not call a provider unless you ask for one explicitly; it will not present a claim stronger than its evidence supports; and it will not treat a successful plan as a successful analysis, because "all steps completed" and "the question was answered" are different statements. The last chapter covers how that difference is enforced.

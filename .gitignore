@@ -1,5 +1,30 @@
-gh-pages
+# Non-source artifacts.
+_book/
+_bookdown_files/
+
+# Left by `purl()`/`source()` runs from a directory-wide test, and by knitr's
+# default graphics device when a chunk has no `dev` set. Neither is a source
+# file; both appear the moment someone executes a chapter outside `render_book()`.
+Rplots.pdf
+figure/
+knitrdir/
+
+# Knitr cache / figure side directories produced by local renders.
+# `docs/sclet_cache` is the redirect target of `cache.path` set in `.Rprofile`
+# (enabled by `R_BOOKDOWN_RENDER=1`, which `make gitbook` exports).
 sclet_cache
 sclet_files
+
+# `docs/` is a separate gh-pages checkout: its own git repository holding 22 MB
+# of built HTML, with `.git/HEAD -> refs/heads/gh-pages`. It stays listed here
+# so that rendering artefacts that land inside it stay invisible to git rather
+# than showing up as untracked files in the published-site checkout.
+#
+# Building into it is still wrong: local renders go to `_book/` (see
+# `output_dir` in `_bookdown.yml`), and CI renders into `../site` and pushes
+# from there. `.Rprofile` writes only to the ignored `docs/sclet_cache/`.
+# Never `git rm` this directory.
 docs
-sclet.Rmd
+
+# `gh-pages` and `sclet.Rmd` were historical leftovers with no corresponding
+# file; they are gone.

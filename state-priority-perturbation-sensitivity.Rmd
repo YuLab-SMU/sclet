@@ -1,88 +1,105 @@
 # State Priority and Perturbation Sensitivity {#state-priority}
 
-After clustering, annotation, and trajectory analysis, one question still remains: which states actually respond to the perturbation? Not every cluster changes meaningfully between conditions, and some rare populations may drive the phenotype while being numerically small. This mainline is about ranking states by their responsiveness and detecting rare populations that deserve follow-up before everything else.
+After clustering, annotation, and trajectory analysis, one question still remains: which states actually respond to the perturbation, and which states are so small that the clustering averaged them away? These are two different questions with two different methods, and this mainline exists to keep them apart.
+
+- **Perturbation priority** asks *which cell types change most between conditions*. It is a sensitivity ranking, not an abundance test. `sclet` answers it with `RunPerturbationPriority()`, a wrapper around Augur.
+- **Rare cell detection** asks *which small populations did the clustering miss or bury*. It is a density analysis on the embedding, not a model of condition. `sclet` answers it with `RunRareCellDetection()`.
+
+Both write into the same state layer as every other mainline, so both can be inspected, replayed, and cited. `RunStatePriorityWorkflow()` is the shell that runs them as one record when you want the pair.
 
 ```{r state-priority-setup, include=FALSE}
-# NOTE: Augur chunks are conditional on the Augur package.
-# Rare cell detection ('density' method) runs in CI using BiocNeighbors.
+# NOTE: Split by what can actually run in the book build.
+# - Augur is NOT on CRAN/Bioconductor: RunPerturbationPriority() stops with an
+#   install-from-GitHub message unless the Augur package is present, so every
+#   Augur chunk is conditional on requireNamespace("Augur") and stays unrun in
+#   the default build.
+# - RunRareCellDetection(method = "density") needs only BiocNeighbors plus a
+#   reduction, and runs in CI on the PBMC object.
+# - Chunks after the Augur runs that merely read a result back also remain
+#   conditional: they would fail on an object where Augur never ran.
 ```
 
-`sclet` now provides the three entry points that were promised in the mainline roadmap: `RunPerturbationPriority()`, `RunRareCellDetection()`, and `RunStatePriorityWorkflow()`.
+## Perturbation Priority
 
-The core engine for perturbation priority is the Augur framework. Augur trains a machine-learning model for each cell type to predict experimental condition (e.g., treatment vs control) from molecular measurements. The cross-validated AUC of each cell-type-specific classifier becomes the priority score: a higher AUC means cells of that type are more distinguishable between conditions, and therefore more responsive.
+Augur trains a classifier per cell type to predict the experimental condition from expression, then scores each cell type by its cross-validated AUC. A cell type whose identity is barely affected by the treatment is hard to classify and scores near 0.5; a cell type that reorganizes strongly scores near 1. The ranking is therefore a ranking of *transcriptional responsiveness*, which is not the same thing as effect size, and not the same thing as abundance.
 
-## Perturbation Priority Workflow
+### What the object has to satisfy
 
-### One-Step Dispatch
+`RunPerturbationPriority()` validates before it computes, and each check corresponds to a real class of mistake:
 
-The simplest entry point is `RunStatePriorityWorkflow()`. It delegates to Augur behind the scenes and records the workflow as a structured analysis mainline record.
+- `condition_col` must name a `colData` column with **at least two distinct levels**. A single-level column means there is nothing to classify.
+- `group_col` must name a `colData` column. `NULL` falls back to `ActiveIdent(sce)`, and the special value `"colLabels"` is resolved from `SingleCellExperiment::colLabels()` so a clustering written into `colLabels` can be used without copying it into a new column first.
+- The expression source is resolved with `sclet_resolve_expression_source(..., prefer_nonscaled = TRUE, fallback_layers = c("logcounts"))`: a scaled layer is explicitly avoided, because a classifier fitted on z-scores is a classifier fitted on a different quantity per gene.
 
-```{r state-priority-workflow, eval=FALSE}
+```{r augur-requirements, eval=FALSE}
+# Why not executed: the first line stops with an install message when Augur is
+# absent, and Augur is not available from CRAN or Bioconductor -- it is
+# installed from GitHub (remotes::install_github("neurorestore/Augur")).
 library(sclet)
-sce <- pbmc
 
-# The object must have condition labels and cluster labels in colData.
-sce$condition <- ifelse(seq_len(ncol(sce)) %% 2 == 0, "treated", "control")
+# Two conditions, and a cluster column.
+pbmc$condition <- ifelse(seq_len(ncol(pbmc)) %% 2 == 0, "treated", "control")
+unique(pbmc$condition)
 
-sce <- RunStatePriorityWorkflow(
-    sce,
-    condition_col = "condition",
-    group_col = "colLabels",
-    run_perturbation_priority = TRUE
-)
+# The two columns the run will read.
+c(condition = "condition", group = "colLabels")
 ```
 
-### Direct Augur Call
-
-If you prefer to work directly with the Augur backend without the workflow shell, use `RunPerturbationPriority()`.
-
-The real Augur run is not executed during book rendering because it requires the `Augur` package and involves a non-trivial cross-validation loop. The code below shows the intended usage pattern.
+### The direct call
 
 ```{r augur-direct, eval=FALSE}
-library(sclet)
-sce <- pbmc
-sce$condition <- ifelse(seq_len(ncol(sce)) %% 2 == 0, "treated", "control")
-
-sce <- RunPerturbationPriority(
-    sce,
+# Why not executed: requires the Augur package (GitHub-only) and runs one
+# cross-validated classifier per cell type.
+pbmc <- RunPerturbationPriority(
+    pbmc,
     condition_col = "condition",
     group_col = "colLabels",
-    name = "my_augur_run"
+    name = "augur_main"
 )
-
-# Inspect the AUC ranking
-priority <- get_perturbation_priority(sce)
-print(priority$AUC)
 ```
 
-### Inspecting Results
+The result is stored twice, deliberately, because the two copies serve different readers:
 
-After the analysis, `sclet` stores the Augur output through two accessor layers. `get_perturbation_priority()` returns the complete priority record; `has_perturbation_priority()` checks whether the result is available.
+- the **analysis layer** under the key `"augur"`, read by `get_perturbation_priority()`. This is the user-facing copy and includes the raw Augur result list.
+- the **typed state layer** as a record of type `"priority"` with `method = "Augur"`, which carries the inputs (`condition_col`, `group_col`, `assay`, `layer`), the AUC table, and the extra arguments passed through `...`.
 
-```{r augur-accessors, eval = eval_chunks && requireNamespace("Augur", quietly = TRUE)}
-# Check whether priority results exist
-has_perturbation_priority(sce)
+Everything passed in `...` is forwarded to `Augur::calculate_auc()`, so tuning the classifier happens through the usual Augur arguments rather than through new `sclet` parameters.
 
-# Retrieve the AUC table
-auc_table <- get_perturbation_priority(sce, element = "AUC")
-head(auc_table)
+### Reading the result back
+
+```{r augur-accessors, eval=FALSE}
+# Why not executed: reads a record that only exists after the Augur run above.
+has_perturbation_priority(pbmc)
+
+# The whole record, or one element of it.
+get_perturbation_priority(pbmc, element = "AUC")
+
+# The ranking as a bar chart (top 20 by AUC).
+plot_perturbation_ranking(pbmc)
 ```
+
+`has_perturbation_priority()` is worth calling first in any script that reads the record: it returns `FALSE` rather than erroring on an object where Augur never ran, which keeps a downstream report from failing on a partially analysed object.
 
 ## Rare Cell Detection
 
-`RunRareCellDetection(method = "density")` identifies rare and major cell populations using a mutual-connectivity metric computed directly on the kNN graph. No external packages beyond `BiocNeighbors` (already a sclet dependency) are needed. The algorithm works in three steps on any reduction (typically PCA):
+`RunRareCellDetection(method = "density")` labels small populations directly on the kNN graph of a reduction. It needs no Python, no annotation reference, and no condition labels — only `BiocNeighbors` (already a `sclet` dependency) and a `PCA`. The algorithm:
 
-1. **Build kNN graph** and compute each cell's mutual connectivity (Q = fraction of neighbors that mutually connect back).
-2. **Identify high-Q seeds** — cells above `q_threshold` are local density maxima.
-3. **Label propagation** — unlabeled cells adopt the label of their most frequent labeled neighbor over 5 iterations. Clusters ≤ `rare_threshold` cells are flagged as rare.
+1. **Build the kNN graph** on the chosen dimensions and compute each cell's mutual connectivity `Q`: the fraction of its k neighbours that list it as a neighbour too. `Q` is high where the graph is locally dense.
+2. **Seed on local maxima** — a cell becomes a seed when its `Q` exceeds the median `Q` of its own neighbours *and* clears `q_threshold`. Adjacent seeds are merged through their mutual kNN links before anything propagates, because two adjacent dense cells belong to one density peak.
+3. **Propagate labels** outward for five iterations, then **dissolve** any group smaller than `min_cluster_size` into its densest neighbouring group.
+4. **Flag** every group with at most `rare_threshold` cells as rare.
 
-```{r rare-cell-density, eval = eval_chunks && requireNamespace("BiocNeighbors", quietly = TRUE)}
+Both the seeding rule and the dissolution step are the results of a measured failure, and the chapter should say so plainly. The first version of this seeding rule treated *every* cell above `q_threshold` as its own seed, and on PBMC 3k that produced 2419 "populations" for 2700 cells, 75% of them one cell. A one-cell population is where a cell happened to sit, not a population. The current rule — local maximum, merge adjacent seeds, dissolve what remains below `min_cluster_size` — is what makes the label column interpretable.
+
+The first run is on the shared `pbmc` object, because that is the object every
+chapter uses:
+
+```{r rare-cell-density, eval = eval_chunks}
 library(sclet)
-sce <- pbmc
 
-# Ensure PCA is in the object (already there from core workflow)
-sce <- RunRareCellDetection(
-    sce,
+# PCA already exists on pbmc from the core workflow.
+rare_demo <- RunRareCellDetection(
+    pbmc,
     method = "density",
     reduction = "PCA",
     dims = 1:10,
@@ -92,27 +109,219 @@ sce <- RunRareCellDetection(
     name = "density_demo"
 )
 
-table(sce$rare_cluster)
+rare_info <- get_rare_cells(rare_demo)
+c(n_clusters = rare_info$n_clusters,
+  n_rare_clusters = rare_info$n_rare_clusters)
+```
 
-# Inspect rare clusters
-rare_info <- get_rare_cells(sce)
-rare_info$rare_clusters
-rare_info$n_clusters
+That run is a **negative result**, and it is a useful one: the PBMC 3k embedding
+is a small number of broad blobs, so the density rule consolidates everything
+and `n_rare_clusters` comes back `0`. Nothing is wrong with the function — it is
+reporting that the embedding has no small isolated peak. On a real dataset this
+is the answer that tells you not to spend time on a follow-up.
+
+To see the positive case, and to test the AI layer's evidence grading, the
+chapter builds a small object with a population the clustering *does* separate.
+The fixture is 409 cells, three hundred genes, and a nine-cell block with twenty
+of its own up-regulated genes — small enough to render fast, structured enough
+that "rare population" means something:
+
+```{r rare-cell-fixture, eval = eval_chunks}
+set.seed(7)
+n_genes <- 300
+n_main <- 400
+n_rare <- 9
+rare_columns <- n_main + seq_len(n_rare)
+
+fixture_counts <- matrix(
+    rpois(n_genes * (n_main + n_rare), lambda = 3),
+    nrow = n_genes,
+    dimnames = list(paste0("gene_", seq_len(n_genes)),
+        paste0("cell_", seq_len(n_main + n_rare))))
+# The rare block is marked by genes the rest of the object does not express.
+fixture_counts[seq_len(20), rare_columns] <- fixture_counts[seq_len(20), rare_columns] + 120
+
+fixture <- SingleCellExperiment(list(counts = fixture_counts))
+fixture <- NormalizeData(fixture)
+fixture <- FindVariableFeatures(fixture, nfeatures = 150)
+fixture <- RunPCA(fixture, ncomponents = 10)
+fixture <- FindNeighbors(fixture, dims = 1:10)
+fixture <- FindClusters(fixture, resolution = 0.5)
+
+# The clustering already separates the small block.
+table(SingleCellExperiment::colLabels(fixture))
+```
+
+```{r rare-cell-positive, eval = eval_chunks}
+# k = 10 rather than the default 20: with k = 20 the 9-cell block's neighbours
+# reach into the main blob and the group is dissolved. This is a property of
+# small populations in general, not of the fixture -- k has to be small enough
+# that a rare cell's neighbourhood stays inside the rare population.
+fixture <- RunRareCellDetection(
+    fixture,
+    method = "density",
+    reduction = "PCA",
+    dims = 1:10,
+    k = 10,
+    rare_threshold = 10,
+    min_cluster_size = 2L,
+    name = "rareq"
+)
+
+fixture_counts_by_group <- table(fixture$rare_cluster)
+fixture_counts_by_group
+
+fixture_info <- get_rare_cells(fixture)
+c(n_clusters = fixture_info$n_clusters,
+  n_rare_clusters = fixture_info$n_rare_clusters)
+```
+
+The label column and the recorded counts agree: two groups, one of them the
+nine-cell population, which `rare_threshold = 10` flags as rare.
+
+## The Workflow Shell
+
+`RunStatePriorityWorkflow()` runs either or both analyses and records them as one mainline record pointing at the component ids:
+
+```{r state-priority-workflow, eval=FALSE}
+# Why not executed: run_perturbation_priority = TRUE routes through Augur,
+# which is not installed in the book build.
+pbmc <- RunStatePriorityWorkflow(
+    pbmc,
+    condition_col = "condition",
+    group_col = "colLabels",
+    run_perturbation_priority = TRUE,
+    run_rare_cell_detection = TRUE,
+    name = "state_priority_main"
+)
+```
+
+The shell refuses an empty request (`needs at least one prioritization task enabled`) rather than writing a workflow record that describes nothing. Note one asymmetry that is easy to trip over: the shell passes its own `name`-derived ids to the components (`<name>_priority`, `<name>_rare`) **and** forwards `...` to those components. The rare-cell component is called with its defaults only, so `reduction`, `dims` and `k` for rare detection are not configurable through this shell — call `RunRareCellDetection()` directly when you need to change them.
+
+## The AI Layer: `run_rare_cell_detection`
+
+The AI action layer exposes `run_rare_cell_detection`, which wraps `RunRareCellDetection()` and then writes one evidence node per small population. The action's prerequisite is narrow and worth knowing: it needs the named reduction to exist (either on the object or as a planned reduction earlier in the same plan) and `BiocNeighbors` to be installed. It does **not** require condition labels — rare cell detection is not a condition analysis.
+
+### The ordering rule that costs a run to learn
+
+This is the single most important practical fact about the action, and it is in `AGENTS.md` because it was measured on real billed runs:
+
+> **`run_de_test` must come before `run_rare_cell_detection` in the plan.**
+
+The reason is in how evidence is graded. Each rare population's evidence node is graded by `n_independent_signals` — the number of *independent signal classes informative for that population at the moment the action runs*. Four classes are considered: QC metrics, doublet calls, an attributable marker test, and sample replication. **Cluster size alone is never a signal.**
+
+If the marker test has not run yet, the marker class is unavailable, and on an
+object with no QC columns, no `scDblFinder` calls and no sample column either,
+**zero** signal classes are available. The action then records nothing at all
+and stamps a `no_evidence_recorded` note on the returned object. A plan can still
+complete every step, the object still gains a `rare_cluster` column, and the
+ledger holds no evidence — the "message and artifact disagree" shape of failure
+that a plan validator cannot see, because ordering markers *after* rare detection
+is not invalid, only useless.
+
+The two runs below are the same fixture, same parameters, same population. The
+only difference is whether the marker test ran first:
+
+```{r rare-cell-order-demo, eval = eval_chunks}
+registry <- AIDefaultExecutionRegistry(fixture, include = "all")
+
+# --- Ordering A: rare detection on an object with no marker test. ---
+rare_first <- registry$run_rare_cell_detection$handler(fixture,
+    list(reduction = "PCA", dims = 1:10, k = 10, rare_threshold = 10,
+        min_cluster_size = 2L, name = "rareq_A"))
+
+# --- Ordering B: marker test first, then rare detection. ---
+de_first <- RunDEtest(fixture, name = "findallmarkers")
+de_first <- registry$run_rare_cell_detection$handler(de_first,
+    list(reduction = "PCA", dims = 1:10, k = 10, rare_threshold = 10,
+        min_cluster_size = 2L, name = "rareq_B"))
+```
+
+```{r rare-cell-order-result, eval = eval_chunks}
+# Evidence nodes recorded under each ordering.
+c(rare_first = length(sclet:::sclet_ai_evidence_get_all(rare_first)),
+  de_first  = length(sclet:::sclet_ai_evidence_get_all(de_first)))
+```
+
+Ordering A records nothing for the nine-cell group. Ordering B records one node,
+and its fields explain why the grade is what it is:
+
+```{r rare-cell-evidence-node, eval = eval_chunks}
+node <- sclet:::sclet_ai_evidence_get_all(de_first)[[1]]
+
+unlist(node$values)[c("population_label", "population_size",
+    "n_independent_signals", "marker_available",
+    "sample_replication_available", "low_confidence")]
+node$claim_level
+```
+
+One signal class is available — the marker test — so the claim is levelled
+`"associated"` and the node is marked `low_confidence = TRUE`. Adding sample
+replication or doublet calls would raise it to `"consistent_with"`. The same
+grading is available directly, without going through the action, which is the
+call to make when you want to know *before* relying on a rare population how
+much support it would have:
+
+```{r rare-cell-signals, eval = eval_chunks}
+# Marker test first: an all-cluster marker run records markers per cluster, so
+# each population can then be credited individually.
+signals <- summarize_small_cluster_evidence(de_first, cluster = "rare_cluster",
+    size_threshold = 10)
+unlist(signals$independent_signals$marker)[c("available",
+    "n_significant_up_genes")]
+
+# The count the evidence grade is built from.
+signals$n_independent_signals_available
+```
+
+### Why the whole thing is not executed through a plan
+
+Everything above calls the registered handler directly. The full path —
+`AIPlanAnalysis()` proposing a plan, `ValidateAIPlan()` approving it,
+`ExecuteAIPlan()` running it — is a billed model call and does not run during
+book rendering. The handler is the layer that writes the evidence, so calling it
+directly tests the same ordering rule without a model in the middle.
+
+```{r rare-cell-ai-plan, eval=FALSE}
+# Why not executed: AIPlanAnalysis() calls a language model; there is no offline
+# provider in the book build.
+plan <- AIPlanAnalysis(fixture,
+    goal = "find rare populations and support them with marker evidence")
+validation <- ValidateAIPlan(fixture, plan)
+
+out <- ExecuteAIPlan(fixture, plan, registry,
+    validation = validation,
+    confirmation = validation$confirmation)
+
+# One evidence node per graded population.
+sclet:::sclet_ai_evidence_get_all(out)
 ```
 
 ## What Fits Nearby
 
-This is not a standalone mainline; it sits naturally between the three most closely related chapters.
-
-- **Before this chapter**: cluster or annotate cells through the core workflow and reference mapping mainlines so that `group_col` points to a meaningful cell-type variable.
-- **Alongside this chapter**: the Milo appendix chapter remains the standard route for neighbourhood-level abundance shifts, which can be thought of as a statistical companion to the ML-based priority ranking.
-- **After this chapter**: spatial context and communication analysis can be used to validate whether the top-ranked states are also the ones that are spatially reorganized or highly communicative in the relevant condition.
+- **Before this chapter**: the core workflow for clustering, and reference mapping if you want `group_col` to hold cell types rather than cluster codes. Augur's ranking is only as interpretable as its groups.
+- **Alongside this chapter**: the Milo chapter answers the *abundance* question — did this neighbourhood change its cell count between conditions — where Augur answers the *transcriptional* question. A cell type can be highly responsive and unchanged in abundance, and the reverse, so the two tables are read together, not instead of each other.
+- **After this chapter**: communication and spatial analysis can test whether the top-ranked states are also the ones whose signalling or location changed.
 
 ## Current Recommendation
 
-For now the most practical route through this mainline is:
+The recommendation has boundaries, because both methods are easy to over-read:
 
-1. Build a stable clustering and annotation baseline with the core workflow.
-2. Use `RunMilo()` when the immediate question is abundance shift across conditions.
-3. Use `RunPerturbationPriority()` (or `RunStatePriorityWorkflow()`) when the question is which cell types are most molecularly responsive, regardless of abundance.
-4. Keep `RunRareCellDetection()` on the roadmap; when a backend is integrated, the object contract is already ready.
+**Use `RunPerturbationPriority()` when** the question is "which of my annotated cell types respond transcriptionally to the perturbation", you have at least two conditions with reasonable cell numbers per (cell type × condition) cell, and you are willing to install Augur from GitHub. Treat the AUC as an ordinal ranking with a null of 0.5, not as an effect size, and check that the top-ranked type is not simply the one with the most cells.
+
+**Do not use it when** you have one sample per condition. Augur's cross-validation operates within the pooled cells and does not model donor-level correlation, so a per-donor batch effect can be read as responsiveness. Milo's mixed model (the Milo chapter) is the right tool for a sample-level design.
+
+**Use `RunRareCellDetection(method = "density")` when** you suspect a small population was averaged into a larger cluster, and you want a cheap, deterministic, annotation-free labelling of candidate small populations on the embedding. It is suitable as a screening step: it tells you where to look.
+
+**Do not use it as evidence that a population is real.** The label column is a density artefact detector, not a biological claim. A small population needs independent support — markers, doublet scores, QC behaviour, and replication across samples — which is exactly what the AI layer's evidence grading encodes, and exactly why `run_de_test` has to run first. On the PBMC demo object the run consolidates everything and reports `n_rare_clusters = 0`: that is the method working.
+
+**When you want both**, call `RunStatePriorityWorkflow()` with both flags for the convenience of one record, but call `RunRareCellDetection()` directly if you need to change `reduction`, `dims`, `k`, or `min_cluster_size` — the shell does not forward those.
+
+## What Is Not Here Yet {#state-priority-not-here-yet}
+
+- **No sample-level recombination for Augur.** `RunPerturbationPriority()` passes the pooled expression matrix to `Augur::calculate_auc()`. There is no per-donor cross-validation and no random effect, so a design with one sample per condition is not supported — use Milo.
+- **No scCODA, no composition model of any kind.** `sclet` has no Bayesian compositional analysis for condition effects on cluster proportions. Milo covers neighbourhood abundance; scCODA-style compositional modelling of the cluster table does not exist here.
+- **No CellOracle-level in-silico perturbation here.** There is `RunInSilicoPerturbation()` in the spatial mainline, which is a different thing: a GRN-based simulation. It is not connected to the priority ranking, and nothing lets you take "cell type 3 is the most responsive" and simulate a knockout in it in one call.
+- **No second prioritization backend.** `RunStatePriorityWorkflow()` dispatches only Augur. The documentation of the shell says other prioritization modules "will be added as backends mature"; none is wired today, so a state-priority record's only possible component is `perturbation_priority` and/or `rare_cells`.
+- **No rare-cell-evidence action other than the density method.** `RunRareCellDetection()` accepts `method = c("density")` only. There is no UMAP-density variant, no label-propagation-from-markers variant, and no supervised rare-cell classifier.
+- **The rare-cell evidence is not a p-value.** Nothing here computes significance for a rare population. The evidence nodes record how many independent signal classes support the population and at what claim level, which is a calibration of confidence, not a test.

@@ -1,8 +1,10 @@
-# Enhanced Visualization
+# Enhanced Visualization {#visualization}
 
 Once a dataset has been processed, plotting becomes the main way we inspect whether the workflow is behaving as expected. We need to check clusters, marker expression, sample composition, and structured summaries across groups, often with many small figure adjustments along the way.
 
 `sclet` provides an enhanced visualization ecosystem tightly integrated with the `ggsc` package. It offers high-level plotting functions that operate directly on `SingleCellExperiment` objects while still returning standard `ggplot2` objects, so you keep both convenience and full downstream customizability.
+
+The chapter has two halves, and they are tested differently. The **general-purpose plots** (dimensional reduction, heatmaps, composition) run on the shared `pbmc` object during book rendering. The **module-specific plots** consume typed state records from analysis modules, so they are demonstrated on cached objects from earlier chapters or, where no suitable cache exists, shown as callable examples that state exactly which prerequisite is missing. Every non-executed chunk below says why in a comment on the chunk itself.
 
 ## Loading data
 
@@ -72,7 +74,13 @@ if (!"batch" %in% colnames(colData(pbmc))) {
     pbmc$batch <- sample(c("Sample1", "Sample2"), ncol(pbmc), replace = TRUE)
 }
 
-CellStatPlot(pbmc, stat.by = "ident", group.by = "batch", position = "fill") +
+# `CellStatPlot()` has no `stat.by` parameter: `group.by` is the x aesthetic and
+# `split.by` is what fills/blocks it. Passing a non-existent argument used to be
+# forwarded to `geom_bar()` through `...` and surfaced as the warning
+# "Ignoring unknown parameters: `stat.by`" -- silent in a rendered book, but it
+# meant the plot was drawing something other than the documented composition
+# (measured 2026-10-21).
+CellStatPlot(pbmc, group.by = "ident", split.by = "batch", position = "fill") +
     ylab("Proportion") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
@@ -83,76 +91,227 @@ These visualization functions are designed to minimize boilerplate code while re
 
 Beyond the general-purpose plotting functions, `sclet` provides specialized visualization functions for each analysis module. These consume the typed state records directly, so you never need to manually extract matrices or metadata columns.
 
-**Note:** The examples below show the intended API surface. They use `eval=FALSE` because the PBMC demo object used in this chapter has not been processed through trajectory, velocity, spatial, or CCI analysis pipelines. The functions themselves are fully implemented and ready to use once the corresponding module has been run.
+Each module plot needs two things: the function, and an object carrying the matching record. The functions are all implemented and all return `ggplot` objects; what varies is whether the book has an object to hand. The sections below are split accordingly, and each chunk's comment names the prerequisite.
 
 ### Trajectory and Fate
 
-```{r viz-fate, eval=FALSE}    # requires RunVelocity() / RunCellRank() output
-# Trajectory overview panel
-plot_trajectory_overview(sce, panels = c("velocity", "terminal_states", "fate_probability"))
+The trajectory and fate plots read the records written by `RunTrajectoryWorkflow()`, `RunVelocity()` and `RunCellFate()`. The book has cached objects for both halves, so the figures below are produced from real recorded results rather than described:
 
-# Fate probability on embedding
-plot_fate_probability(sce, fate = 1, reduction = "UMAP")
+- the trajectory panels use the cached pancreas object through `RunTrajectoryWorkflow()`, the same object the [cell fate chapter](#cell-fate) uses;
+- the velocity and fate panels use `data/hermann-sperm-dynamics.rds`, which already carries a recorded `cellrank` analysis.
 
-# Terminal state assignments
-plot_fate_terminal_states(sce, reduction = "UMAP")
+```{r viz-trajectory, fig.width=11, fig.height=8, eval = file.exists("data/pancreas_sub_sce.rds")}
+library(aplot)
 
-# Lineage driver trends
-plot_fate_driver_trends(sce, lineage = "Lineage1", top_n = 4)
+# The workflow record must exist before any panel can be drawn.
+panc_viz <- readRDS("data/pancreas_sub_sce.rds")
+panc_viz <- RunTrajectoryWorkflow(
+    panc_viz,
+    group = "SubCellType",
+    reduction = "UMAP",
+    run_diffusion_map = TRUE,
+    run_slingshot = TRUE,
+    run_velocity = "never",
+    run_fate = "never",
+    name = "pancreas_viz"
+)
 
-# Velocity latent time
-plot_velocity_latent_time(sce, reduction = "UMAP")
+# One call assembles the panels that have records behind them.
+plot_trajectory_overview(
+    panc_viz,
+    id = "pancreas_viz",
+    panels = c("lineage")
+)
+```
+
+```{r viz-fate, fig.width=12, fig.height=5, eval = file.exists("data/hermann-sperm-dynamics.rds")}
+fate_demo <- readRDS("data/hermann-sperm-dynamics.rds")
+
+# Fate probability on the embedding, for one lineage.
+plot_fate_probability(fate_demo, fate = 1, reduction = "UMAP", id = "cellrank")
+
+# Terminal state assignments.
+plot_fate_terminal_states(fate_demo, reduction = "UMAP", id = "cellrank")
+```
+
+```{r viz-fate-drivers, fig.width=11, fig.height=7, eval = file.exists("data/hermann-sperm-dynamics.rds")}
+# Lineage driver trends: which genes trend along pseudotime / fate probability.
+cellrank_record <- get_cellrank(fate_demo, id = "cellrank")
+lineage <- cellrank_record$artifacts$fate_probability_names[[1]]
+
+plot_fate_driver_trends(fate_demo, lineage = lineage, top_n = 4, id = "cellrank")
+```
+
+```{r viz-velocity-latent, fig.width=8, fig.height=6, eval = file.exists("data/hermann-sperm-dynamics.rds")}
+# Velocity latent time on the same embedding.
+plot_velocity_latent_time(fate_demo, reduction = "UMAP")
 ```
 
 ### Program and Regulon Activity
 
-Gene set scores and regulons share a unified visualization layer. The `source` parameter lets you switch between "geneset_scoring" and "scenic" without changing the plot call.
+Gene set scores and regulons share a unified visualization layer. The `source` parameter lets you switch between `"geneset_scoring"` and `"scenic"` without changing the plot call.
 
-```{r viz-program, eval=FALSE}
-# Single program on embedding
-plot_program_activity(sce, program = "T_cell", source = "geneset_scoring")
+The plots need recorded program scores. None of the book's cached objects carries a `geneset_scoring` record, so the chunk below scores the shared `pbmc` object first: `RunGeneSetScoring()` is pure R with a `UCell` backend, so this is a real run and the three figures are produced from real scores.
 
-# Multi-program heatmap across groups
-plot_program_heatmap(sce, programs = c("T_cell", "B_cell", "Myeloid"))
+```{r viz-program-setup}
+# Score a few small signatures so the program plots have a record to read.
+program_signatures <- list(
+    T_cell = c("CD3D", "CD3E", "CD8A", "CD4"),
+    B_cell = c("CD79A", "MS4A1"),
+    Myeloid = c("LYZ", "CD14", "FCGR3A")
+)
 
-# Program dotplot (size = percent expressed, color = mean activity)
-plot_program_dotplot(sce, programs = c("T_cell", "B_cell", "Myeloid"), group.by = "colLabels")
+pbmc_program <- RunGeneSetScoring(pbmc, gene_sets = program_signatures,
+    method = "UCell", name = "ucell_viz")
+```
 
-# SCENIC regulon on embedding
-plot_scenic_activity(sce, regulon = "STAT1(+)")
+```{r viz-program, fig.width=7, fig.height=6}
+# Single program on the embedding.
+plot_program_activity(pbmc_program, program = "T_cell",
+    source = "geneset_scoring", id = "ucell_viz")
+```
+
+```{r viz-program-summary, fig.width=10, fig.height=4}
+# Multi-program heatmap across groups.
+plot_program_heatmap(pbmc_program,
+    programs = names(program_signatures),
+    source = "geneset_scoring", group.by = "colLabels", id = "ucell_viz")
+
+# Program dotplot: size = percent expressing, color = mean activity.
+plot_program_dotplot(pbmc_program,
+    programs = names(program_signatures),
+    source = "geneset_scoring", group.by = "colLabels", id = "ucell_viz")
+```
+
+SCENIC regulon activity is a different `source` on the same functions. It is not executed here because the SCENIC record is not available in the book build — see the regulon section of the [program chapter](#program-regulon):
+
+```{r viz-scenic, eval=FALSE}
+# Why not executed: plot_scenic_activity() reads a SCENIC altExp written by
+# RunSCENIC(), which needs the pySCENIC basilisk environment plus a cisTarget
+# ranking database. The book build has the small reference files but not that
+# database, so no SCENIC record exists on any cached object.
+plot_scenic_activity(pbmc_program, regulon = "STAT1(+)", source = "scenic")
 ```
 
 ### Perturbation Priority
 
 ```{r viz-perturbation, eval=FALSE}
-# Ranked bar chart of perturbation AUC per cell type
-plot_perturbation_ranking(sce)
+# Why not executed: plot_perturbation_ranking() reads the Augur record written
+# by RunPerturbationPriority(). Augur is not on CRAN or Bioconductor (it is
+# installed from GitHub), so no perturbation priority record exists in the
+# book build. The ranking itself is documented in
+# "State Priority and Perturbation Sensitivity".
+plot_perturbation_ranking(pbmc, n = 15)
 ```
 
 ### Spatial Analysis
 
-```{r viz-spatial, eval=FALSE}
-# Deconvolution composition bar chart
-plot_spatial_deconvolution(sce)
+The spatial deconvolution plots read the cell-type proportion columns recorded by `RunSpatialDeconvolution()`. The cached Visium DLPFC object in the book carries the tissue and the colocalization/niche records, but it was built to demonstrate SVP, not deconvolution, so it has no `c2l_*` columns. Cell2location itself needs a paired reference and a Python environment, which the book build does not provision.
 
-# Cell type × spot proportion heatmap
-plot_spatial_composition(sce, n = 10)
+The chunk below therefore attaches a *deconvolution-shaped* record to the cached object and draws both figures from it. Read carefully what that demonstrates: it exercises the plotting contract — record in, ranked bars and heatmap out — and it does **not** demonstrate deconvolution. The proportions are drawn at random, and the cell-type labels are labels, not estimates.
+
+```{r viz-spatial, fig.width=10, fig.height=4, eval = file.exists("data/visium-dlpfc-sub.rds")}
+spe <- readRDS("data/visium-dlpfc-sub.rds")
+
+# A deconvolution-shaped record, so the plotting contract can be exercised.
+# The proportions below are random: this is a plotting demo, not an estimate.
+set.seed(1)
+spatial_demo_cells <- c("L2.IT", "L4.IT", "L5.IT", "L6.IT")
+for (cell_type in spatial_demo_cells) {
+    spe[[paste0("c2l_", cell_type)]] <- runif(ncol(spe), 0, 0.5)
+}
+spe <- sclet:::sclet_set_analysis(spe, "spatial_deconv", list(
+    id = "viz_demo",
+    method = "cell2location",
+    artifacts = list(columns = paste0("c2l_", spatial_demo_cells)),
+    timestamp = Sys.time()
+))
+
+# Mean estimated proportion per cell type, ranked.
+plot_spatial_deconvolution(spe, n = 10)
+```
+
+```{r viz-spatial-composition, fig.width=8, fig.height=5, eval = file.exists("data/visium-dlpfc-sub.rds")}
+# Cell type x spot proportion heatmap.
+plot_spatial_composition(spe, n = 4)
+```
+
+```{r viz-spatial-real, eval=FALSE}
+# Why not executed: cell2location needs a paired spatial object and scRNA-seq
+# reference with a shared gene space, plus a basilisk Python environment. The
+# comment above is not a substitute for this route, which produces real
+# proportions.
+sce_spatial <- RunSpatialDeconvolution(
+    sce_spatial, sce_ref,
+    ref_group_key = "cell_type",
+    name = "my_deconv"
+)
+plot_spatial_deconvolution(sce_spatial)
 ```
 
 ### Cell-Cell Communication
 
-```{r viz-cci, eval=FALSE}
-plot_cci_bubble(sce, type = "interaction")
-plot_cci_sigmoid(sce)
-plot_cci_network(sce)
+The communication plots read the standardized interaction table recorded by `RunCCI()`. The cached pancreas object plus a CellChat run is enough, so the three figures below are produced from real inferred interactions — the same run the [communication chapter](#communication) uses.
+
+```{r viz-cci-setup, eval = file.exists("data/pancreas_sub_sce.rds") && requireNamespace("CellChat", quietly = TRUE)}
+# Real interactions for the plotting layer to read.
+cci_viz <- readRDS("data/pancreas_sub_sce.rds")
+cci_viz <- RunCCI(cci_viz, method = "CellChat", group = "CellType",
+    layer = "logcounts", name = "cellchat_viz", species = "mouse",
+    keep_object = TRUE)
+
+nrow(get_cci(cci_viz, id = "cellchat_viz"))
+```
+
+```{r viz-cci, fig.width=7, fig.height=6, eval = exists("cci_viz")}
+# Bubble plot: one dot per interaction, size and colour by probability.
+plot_cci_bubble(cci_viz, id = "cellchat_viz")
+```
+
+```{r viz-cci-network, fig.width=7, fig.height=6, eval = exists("cci_viz") && requireNamespace("ggraph", quietly = TRUE)}
+# Network view of the strongest signalling.
+plot_cci_network(cci_viz, id = "cellchat_viz")
+```
+
+```{r viz-cci-sigmoid, eval=FALSE}
+# Why not executed: plot_cci_sigmoid() requires the ggbump package, which is
+# not a sclet dependency and is not installed in the book build. The function
+# errors with "Package 'ggbump' is needed" rather than degrading.
+plot_cci_sigmoid(cci_viz, id = "cellchat_viz", top_n = 15)
 ```
 
 ### Reference Mapping
 
-```{r viz-mapping, eval=FALSE}
-# Label transfer summary heatmap
-plot_reference_label_transfer_heatmap(sce, group.by = "colLabels")
+Label transfer from a reference is cheap enough to demonstrate: a KNN mapping of `pbmc` against a held-out subset of itself gives a mapping record with a real transferred-label column and a real score column, which is exactly what the two functions read.
 
-# Per-label confidence distribution
-plot_reference_label_confidence(sce)
+The KNN path is deliberate. `SingleR`/`celldex` mapping is already demonstrated in the [reference mapping chapter](#reference-mapping), but it downloads a reference atlas and is conditional on those packages; for a visualization example the requirement is a record, not a specific backend.
+
+```{r viz-mapping-setup}
+set.seed(11)
+ref_index <- sample(seq_len(ncol(pbmc)), 500)
+ref_sce <- pbmc[, ref_index]
+query_sce <- pbmc[, -ref_index]
+
+ref_sce$label <- as.character(SingleCellExperiment::colLabels(ref_sce))
+query_sce <- RunReferenceMapping(
+    object = query_sce,
+    ref = ref_sce,
+    labels = "label",
+    method = "KNN",
+    layer = "logcounts",
+    k = 5,
+    name = "knn_viz"
+)
+
+# Both columns the two plots resolve from the mapping record.
+get_mapping(query_sce, id = "knn_viz")$artifacts[c("labels_col", "score_col")]
+```
+
+```{r viz-mapping, fig.width=9, fig.height=5}
+# Label transfer summary heatmap: query groups x transferred labels.
+plot_reference_label_transfer_heatmap(query_sce, group.by = "colLabels",
+    id = "knn_viz")
+
+# Per-label confidence distribution.
+plot_reference_label_confidence(query_sce, id = "knn_viz")
 ```

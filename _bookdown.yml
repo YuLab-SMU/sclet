@@ -1,6 +1,6 @@
 book_filename: "sclet"
 chapter_name: ""
-output_dir: docs
+output_dir: _book
 delete_merged_file: true
 rmd_files: ["index.Rmd",
   "part-01-foundations.Rmd",
@@ -25,5 +25,9 @@ rmd_files: ["index.Rmd",
   "phenotype-association.Rmd",
   "interactive.Rmd",
   "svp.Rmd",
-  "copilot.Rmd",
+  "part-04-ai-assisted.Rmd",
+  "ai-foundations.Rmd",
+  "ai-driver.Rmd",
+  "ai-in-package.Rmd",
+  "ai-evidence-governance.Rmd",
   "B-references.Rmd"]

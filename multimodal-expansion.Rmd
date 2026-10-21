@@ -1,64 +1,248 @@
 # Multimodal Expansion {#multimodal-expansion}
 
-This chapter is the reserved mainline for ADT, ATAC, and multiome workflows. The object contract is now in place so that modality-specific analysis backends can be plugged in later without breaking the navigation model.
+Most `sclet` chapters assume one assay on one object. Real CITE-seq and multiome datasets carry a second modality — antibody counts (ADT) or chromatin accessibility (ATAC) — that has the same cells as the RNA assay but a different feature space. This chapter covers what `sclet` actually does with that second modality today.
+
+The answer is short and specific. `sclet` implements the **object contract** for multimodal data: it detects a modality, registers it as a typed state record, and exposes both the object layer and the AI layer to code that can reason about a modality existing. It does **not** implement modality analysis: there is no ADT clustering, no ATAC peak calling, no cross-modality integration, and no multiome preprocessing. The next section shows the contract, and [What Is Not Here Yet](#multimodal-not-here-yet) lists exactly what is missing and why it is not there.
 
 ```{r multimodal-setup, include=FALSE}
-# NOTE: Chunks use eval=FALSE because the PBMC demo lacks ADT/ATAC altExps.
-# has_multimodal_adt/atac can run in CI (returns FALSE on the demo object).
-# RunMultimodalWorkflow returns early with a message when no altExps are found.
+library(SingleCellExperiment)
+# NOTE: This chapter is split by what each dependency layer can support today.
+# - The contract layer (has_/register_/RunMultimodalWorkflow) and the three
+#   read-only AI actions genuinely run, but the PBMC demo object carries no
+#   altExps, so the executed chunks below build a small anonymised demo object
+#   and assert the negative cases on `pbmc` itself.
+# - Chunks that would need a real CITE-seq / multiome dataset use eval=FALSE.
+# - Nothing in this chapter runs integration, peak calling, or ADT clustering:
+#   see "What Is Not Here Yet" for the list of missing backends.
+# A stand-in modality: the right shape, no signal. It exists so the contract
+# layer can be exercised; it is never analysed and its numbers mean nothing.
+multimodal_alt <- function(cells, n_features = 5L, prefix = "feature_") {
+    SummarizedExperiment::SummarizedExperiment(
+        assays = list(counts = matrix(0, nrow = n_features, ncol = length(cells),
+            dimnames = list(paste0(prefix, seq_len(n_features)), cells))))
+}
 ```
 
-## What Is Already Available
+## The Two States: Attached and Registered
 
-`sclet` now provides lightweight modality helpers and a workflow shell:
+The chapter only makes sense if one distinction is kept sharp, because the AI layer and the diagnostic layer both depend on it:
 
-- `has_multimodal_adt(sce)` and `has_multimodal_atac(sce)` check whether `altExp(sce, "ADT")` or `altExp(sce, "ATAC")` is present.
-- `register_multimodal_adt(sce)` and `register_multimodal_atac(sce)` record the modality metadata in the typed state layer, including feature and cell dimensions.
-- `RunMultimodalWorkflow()` auto-detects available altExps and registers them as a coherent multimodal analysis mainline record.
+- **Attached**: an altExp named `"ADT"` or `"ATAC"` exists on the object. The data is present. `has_multimodal_adt()` / `has_multimodal_atac()` answer this.
+- **Registered**: a `multimodal` analysis-state record exists for that modality, so the mainline can talk about it without reaching into object internals. `register_multimodal_adt()` / `register_multimodal_atac()` write that record.
 
-The intent is not to promise a large backend surface too early, but to make the book structure honest and to establish the contract that future modality analysis will extend.
+Registration **records dimensions and nothing else**. It performs no integration, no batch correction, no normalization and no modality-specific analysis. Every function in this chapter is written to respect that: the records below store `n_features` and `n_cells` of the stored altExp, which describes how large the modality is, not how informative it is.
 
-## Detecting and Registering Modalities
+## Detecting and Registering
 
-The helpers are designed to be used before and after loading multimodal data into the object.
+The two helpers are thin, and that is the point: they are the only place where `sclet` decides whether a modality "exists".
 
-```{r multimodal-register, eval=FALSE}
+```{r multimetric-detect, eval = eval_chunks}
 library(sclet)
 
-# After loading data, check which modalities are present
-has_multimodal_adt(sce)   # TRUE if altExp(sce, "ADT") exists
-has_multimodal_atac(sce)  # TRUE if altExp(sce, "ATAC") exists
+# The PBMC demo object carries a single RNA assay, so both helpers are FALSE.
+c(adt = has_multimodal_adt(pbmc), atac = has_multimodal_atac(pbmc))
+```
 
-# Register modalities in the state layer
-if (has_multimodal_adt(sce)) {
-    sce <- register_multimodal_adt(sce, name = "my_ADT")
-}
+Attaching a modality is an ordinary `SingleCellExperiment` operation. `sclet` deliberately does not wrap it, because the data is not `sclet`'s to read:
 
-if (has_multimodal_atac(sce)) {
-    sce <- register_multimodal_atac(sce, name = "my_ATAC")
-}
+```{r multimodal-attach, eval = eval_chunks}
+# `pbmc` has no colnames, so index by position rather than by name: a character
+# subset against a NULL vector silently selects zero cells.
+cell_index <- seq_len(40)
+demo_multimodal <- pbmc[, cell_index]
+
+# Give the subset real cell names and build the altExp from THOSE, so the two
+# layers agree on which cell is which. An altExp whose colnames differ from its
+# parent's is not a modality of that object: `altExp<-` warns today
+# ("'colnames(value)' are not the same as 'colnames(x)'") and the message says
+# it will become an error in the next Bioconductor release (measured
+# 2026-10-21).
+cell_ids <- paste0("cell_", cell_index)
+colnames(demo_multimodal) <- cell_ids
+altExp(demo_multimodal, "ADT") <- multimodal_alt(cell_ids, prefix = "ADT_feature_")
+
+has_multimodal_adt(demo_multimodal)
+SingleCellExperiment::altExpNames(demo_multimodal)
+```
+
+Registration is the only step that touches the state layer. It fails loudly on an object that does not carry the modality, which is the behaviour you want: silent registration of an absent modality would make the rest of the chapter lie.
+
+```{r multimodal-register, eval = eval_chunks}
+# Registering an absent modality is an error, not a no-op.
+tryCatch(register_multimodal_adt(pbmc), error = function(e) conditionMessage(e))
+
+demo_multimodal <- register_multimodal_adt(demo_multimodal, name = "demo_ADT")
+```
+
+The registered record is readable through the analysis ledger, so it participates in provenance exactly like an Augur or Milo run. The ledger is the bounded view the AI layer reads, which is why it is also the right place to look as a user:
+
+```{r multimodal-register-state, eval = eval_chunks}
+# The analysis ledger groups records by state type; "multimodal" is now a key.
+ledger <- GetAnalysisLedger(demo_multimodal, detail = "summary")
+names(ledger$state_records)
+
+# The state record says which modality was registered and by which method.
+record <- ledger$state_records$multimodal[[1]]
+record[c("id", "method")]
+```
+
+The stored dimensions live on the analysis layer written by the same call, not
+on the state record:
+
+```{r multimodal-register-dims, eval = eval_chunks}
+# `unlist` because the ledger view returns the analysis as a nested list.
+unlist(ledger$analyses$multimodal_adt[c("id", "n_features", "n_cells")])
+```
+
+```{r multimodal-ledger-query, eval = eval_chunks, echo = FALSE}
+# The record count, as a scalar so the output stays readable in the book.
+length(ledger$state_records$multimodal)
 ```
 
 ## One-Step Registration
 
-For convenience, `RunMultimodalWorkflow()` detects and registers all available modalities in one call. When no altExps are found, it returns the object unchanged with a message.
+`RunMultimodalWorkflow()` is a workflow shell over the two registration calls. It detects every modality it knows about, registers each one, and then writes a single `multimodal_workflow` record that points at the component records. It is useful mainly as the one place that answers "what modalities does this object have, as far as `sclet` is concerned".
 
-```{r multimodal-workflow, eval=FALSE}
-sce <- RunMultimodalWorkflow(sce, name = "my_multimodal")
+```{r multimodal-workflow, eval = eval_chunks}
+multi <- pbmc[, cell_index]
+colnames(multi) <- cell_ids
+altExp(multi, "ADT") <- multimodal_alt(cell_ids, prefix = "ADT_feature_")
+altExp(multi, "ATAC") <- multimodal_alt(cell_ids, n_features = 8L, prefix = "peak_")
+
+multi <- RunMultimodalWorkflow(multi, name = "demo_multi")
+
+# Two modality records plus the workflow record that points at them.
+names(GetAnalysisLedger(multi, detail = "summary")$state_records$multimodal)
 ```
 
-## Planned Interface Direction
+The important negative case is the demo object: with no altExps, `RunMultimodalWorkflow()` returns the object unchanged and says so. It does not invent a record, and it does not fail — a workflow shell that hard-errors on an RNA-only object would be hostile to the common case.
 
-The current design notes point to three priorities for future work:
+```{r multimodal-workflow-empty, eval = eval_chunks}
+unchanged <- RunMultimodalWorkflow(pbmc)
+identical(unchanged, pbmc)
+```
 
-- **altExp semantics**: `altExp("ADT")` and `altExp("ATAC")` are the canonical modality accessors, and the registration helpers are the bridge between the Bioconductor object model and `sclet`'s state contract.
-- **State meaning**: each modality gets its own `multimodal_*` record in the analysis layer and its own entry under the `multimodal` state type, so downstream code can inspect the modality landscape without guessing.
-- **Analysis backends**: once the object contract is stable, the next step is to wire modality-specific analysis functions (e.g., ADT-based clustering, ATAC peak calling) into the same `Run*` / `get_*` / `has_*` pattern used throughout `sclet`.
+## The AI Layer
 
-## Current Guidance
+The AI layer exposes three read-only actions for multimodal data. All three are in the `multimodal` action group (`AIDefaultExecutionRegistry(sce, include = "multimodal")`), all three are read-only (`mutates_object = FALSE`), and none of them writes an evidence node: they report state, they do not measure anything.
 
-Until dedicated multimodal analysis backends are implemented:
+| Action | Reads | Returns |
+|---|---|---|
+| `check_multimodal_readiness` | altExps + multimodal state records | `status`, per-modality `adt_available` / `atac_available` / `*_registered`, `workflow_record_available`, `questions` |
+| `summarize_multimodal_evidence` | the registered records | `n_modalities`, `modality_kinds`, per-kind `n_features` / `n_cells`, fixed `caveats` |
+| `compare_multimodal_evidence` | two or more registered records | anonymised `group_N` codes plus per-code counts, or `status = "not_available"` |
 
-- Use `sclet`'s single-cell mainlines as the stable baseline for RNA analysis.
-- Attach ADT or ATAC data through `altExp(sce, "ADT") <- adt_sce` and register it with `register_multimodal_adt(sce)`.
-- Keep modality-specific analysis explicit in your own scripts for now; the object contract ensures that when backends arrive, the transition will be a matter of calling a `Run*` function on an already-registered modality.
+All three have a prerequisite of the same shape: **no multimodal state record means the action refuses**. Attaching an altExp without registering it is not enough for the AI layer, which is why the previous section exists.
+
+```{r multimodal-ai-prereq, eval = eval_chunks}
+registry <- AIDefaultExecutionRegistry(pbmc, include = "multimodal")
+names(registry)
+
+# One line of refusal, naming the missing state rather than failing.
+registry$check_multimodal_readiness$prerequisites(pbmc, list())
+```
+
+Readiness distinguishes the three interesting situations, and reports them in the `questions` field instead of acting on them:
+
+```{r multimodal-ai-readiness, eval = eval_chunks}
+# 1. Attached, not registered.
+attached_only <- pbmc[, cell_index]
+colnames(attached_only) <- cell_ids
+altExp(attached_only, "ADT") <- multimodal_alt(cell_ids, prefix = "ADT_feature_")
+ready <- check_multimodal_readiness(attached_only)
+ready$status
+ready$checks[c("adt_available", "adt_registered", "workflow_record_available")]
+
+# 2. Nothing multimodal at all.
+check_multimodal_readiness(pbmc)$status
+```
+
+The bounded summaries are length-limited on purpose. They return counts, booleans and the platform labels `"ADT"` / `"ATAC"` — never a feature name, an antibody name, a barcode or a per-cell value — so they can be put into a prompt without leaking the dataset.
+
+```{r multimodal-ai-summarize, eval = eval_chunks}
+summary_of_demo <- summarize_multimodal_evidence(demo_multimodal)
+summary_of_demo[c("status", "n_modalities", "modality_kinds", "raw_values_included")]
+summary_of_demo$modalities$ADT
+
+# The caveats travel with the summary so no reader quotes the counts as quality.
+length(summary_of_demo$caveats)
+```
+
+`compare_multimodal_evidence()` requires **two** registered modalities. This is the case that most often surprises people, and it is not a bug:
+
+```{r multimodal-ai-compare, eval = eval_chunks}
+# One registered modality: refusal with a reason, not a comparison of one thing.
+compare_multimodal_evidence(demo_multimodal)[c("status", "reason", "n_modalities")]
+
+# Two registered modalities: comparison by anonymised code only.
+comparison <- compare_multimodal_evidence(multi)
+comparison[c("status", "n_modalities", "modality_codes")]
+comparison$modalities
+```
+
+Two properties of these results are deliberate and worth stating plainly. First, the comparison is over **stored dimensions of different assay platforms**: a modality with more features is not more informative, and nothing here ranks or prefers one. Second, the modality labels come back as `group_1` / `group_2` so that a summary can describe a two-modality object without naming the platform in a result that might be re-sent elsewhere.
+
+Registration is also what carries the modality into the planning context. Without a record the AI layer has no multimodal state to read, and the action catalog it sees for this object is a plain RNA catalog:
+
+```{r multimodal-ai-context, eval = eval_chunks}
+multimodal_actions <- c("check_multimodal_readiness",
+    "summarize_multimodal_evidence", "compare_multimodal_evidence")
+
+# Registered: the three multimodal actions are visible to a planner.
+# available_actions is a list of descriptors, so the names are pulled out.
+context <- sclet:::sclet_ai_context(demo_multimodal, target = "planning",
+    detail = "summary", registry = registry)
+offered <- vapply(context$available_actions, function(a) a$name, character(1))
+intersect(offered, multimodal_actions)
+
+# Never invented: a registry that excludes the group cannot offer them.
+AIDefaultExecutionRegistry(demo_multimodal, include = "read") |>
+    names() |>
+    intersect(multimodal_actions)
+```
+
+## What Is Not Here Yet {#multimodal-not-here-yet}
+
+Everything below the object contract is absent, and it is absent because no backend has been wired in. This is the full list of what a reader would reasonably expect from a chapter titled "multimodal expansion" and will not find in `sclet` today:
+
+- **No cross-modality integration.** There is no WNN, MOFA, scMoMaT, totalVI or MultiVI. `register_multimodal_*()` records that an ADT or ATAC altExp exists; it does not produce a joint embedding, a corrected assay, or a combined neighbour graph. Any `RunIntegration()` call operates on the RNA assay alone.
+- **No ADT analysis.** There is no CLR normalization, no ADT-specific marker test, no ADT-based clustering, and no ADT QC beyond whatever QC you computed yourself. The ADT altExp is carried, not analysed.
+- **No ATAC analysis.** There is no peak calling (`Signac`-style `CallPeaks`), no `ArchR`/`SnapATAC`-style tile matrix construction, no TF footprinting, and no accessibility-based annotation. The ATAC altExp is carried, not analysed.
+- **No multiome preprocessing.** There is no cell-level linking step for 10x Multiome output; that happens upstream in `Cell Ranger ARC`, and `sclet` assumes you arrive with an object whose RNA and ATAC agree on cells.
+- **No modality-specific workflow.** `RunMultimodalWorkflow()` registers modalities and stops. It does not dispatch to any analysis, which is why the record's `method` is `"multimodal_mainline"` and its `summary` contains only `has_ADT` / `has_ATAC`.
+- **No evidence from the AI layer.** The three multimodal actions are all read-only and all write nothing. There is no `multimodal` evidence node kind, so no AI answer can cite a multimodal result — because there is no multimodal result to cite.
+
+The reason for the gap is not effort, it is the contract. Every other `sclet` mainline is built on the same three-layer pattern: a `Run*()` that computes, a typed state record that stores what was computed, and a `plot_*` / `get_*` pair that reads it back. A modality backend has to be honest about *which cells are comparable across modalities* before it can write a record at all, and that question — matching, filtering, and what to do about cells present in one modality but not the other — is unsolved in the object contract. Registering the modality now, without computing on it, is what keeps the door open: when a backend arrives, `altExp("ADT")` and its `multimodal_adt` record are already the agreed entry point.
+
+## What to Do Today
+
+Until a backend exists, the honest route through multimodal data is:
+
+1. **Attach the modality upstream** with `altExp(sce, "ADT") <- adt_sce` and make sure the cells line up. `sclet` will not do this for you, and it will not silently subset.
+2. **Register it** with `register_multimodal_adt()` (or `RunMultimodalWorkflow()` for both modalities) so the object's state layer records that the modality exists and how large it is.
+3. **Analyse the modality in your own code** — the barcode-level ADT or ATAC work is a script, not a `Run*()` call.
+4. **Keep the RNA analysis on the mainlines.** Clustering, annotation, trajectory and differential analysis all read the RNA assay; a multimodal object is still a valid input to every chapter before this one.
+5. **Use `check_multimodal_readiness()` as the answer to "what does `sclet` think this object has?"** — it distinguishes attached from registered and never implies an analysis has been run.
+
+```{r multimodal-honest-route, eval = eval_chunks}
+# The end state of the recommended route, on the demo object: attached and
+# registered, with nothing computed.
+registered <- summarize_multimodal_evidence(demo_multimodal)
+c(modalities = registered$n_modalities,
+  kinds = paste(registered$modality_kinds, collapse = ","),
+  raw_values = registered$raw_values_included)
+```
+
+```{r multimodal-real-data, eval=FALSE}
+# A real CITE-seq object: the ADT counts come from your own Cell Ranger run.
+# Why not executed here: the book has no CITE-seq dataset, and attaching a
+# fabricated ADT matrix would document a result that cannot be reproduced.
+adt_sce <- Read10X("path/to/adt/filtered_feature_bc_matrix/")
+common <- intersect(colnames(sce), colnames(adt_sce))
+sce <- sce[, common]
+altExp(sce, "ADT") <- adt_sce[, common]
+
+sce <- register_multimodal_adt(sce, name = "cite_ADT")
+check_multimodal_readiness(sce)
+summarize_multimodal_evidence(sce)
+```
