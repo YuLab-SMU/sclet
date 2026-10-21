@@ -28,6 +28,7 @@ sclet_ai_normalize_findings <- function(findings) {
 
 #' Construct a structured sclet AI result
 #'
+#' @param task Task identifier.
 #' @param answer Optional natural-language answer.
 #' @param findings List of structured findings.
 #' @param evidence Evidence references or summaries.

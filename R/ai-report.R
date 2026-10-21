@@ -177,11 +177,6 @@ sclet_ai_report_checks <- function(object, ledger, record) {
 #' @param path Optional file path. When supplied the report is written there;
 #'   the Markdown text is returned either way.
 #' @return The report as a single string of Markdown.
-#' @examples
-#' \dontrun{
-#' rendered <- RenderAIReport(sce)
-#' RenderAIReport(sce, id = "ai_report_pbmc10k_m1", path = "report.md")
-#' }
 #' @export
 RenderAIReport <- function(object, id = NULL, path = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {

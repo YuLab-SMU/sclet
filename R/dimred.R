@@ -291,10 +291,15 @@ RunPCA <- function(object, subset_row = NULL, exprs_values = NULL, layer = NULL,
 #' @param layer source layer annotation used for provenance. If NULL, sclet
 #' tries to infer it from the source reduction state, then falls back to
 #' `DefaultLayer(object)`.
-#' @return updated SingleCellExperiment object with UMAP dimension reduction 
+#' @param seed integer seed for the UMAP embedding, or `NULL` to leave the
+#' embedding unseeded. `scater::runUMAP()` initialises uwot from random
+#' numbers and does not read R's `.Random.seed`, so without a seed the same
+#' input returns a different embedding on each call; the seed is recorded with
+#' the reduction state so the embedding can actually be reproduced.
+#' @return updated SingleCellExperiment object with UMAP dimension reduction
 #' @export
 #' @importFrom scater runUMAP
-RunUMAP <- function(object, dims = NULL, reduction = NULL, layer = NULL) {
+RunUMAP <- function(object, dims = NULL, reduction = NULL, layer = NULL, seed = 1L) {
     prev_state <- sclet_get_state(object)
     available_reductions <- SingleCellExperiment::reducedDimNames(object)
     if (is.null(reduction)) {
@@ -317,7 +322,25 @@ RunUMAP <- function(object, dims = NULL, reduction = NULL, layer = NULL) {
     # source reduction in front of every later step that enumerates reductions.
     SingleCellExperiment::reducedDim(object, ".dimred") <-
         SingleCellExperiment::reducedDim(object, reduction)[, dims, drop = FALSE]
-    object <- scater::runUMAP(object, dimred = ".dimred")
+    # The embedding is seeded so that "re-run the plan and get the same UMAP"
+    # is true. TWO different seeds are needed, and missing either one leaves
+    # the embedding irreproducible:
+    #   * uwot::umap() takes its OWN `seed` argument and does NOT read R's
+    #     .Random.seed -- measured: two scater::runUMAP() calls on the same
+    #     object returned different embeddings, and set.seed() around the
+    #     call changed nothing. The seed has to be passed through.
+    #   * the R-level seed wrapper covers anything else that draws random
+    #     numbers, and it restores the caller's RNG stream afterwards so a
+    #     caller's own simulation is not silently moved by calling this.
+    # `seed = NULL` means "do not seed": the uwot seed is then left out
+    # entirely, because as.integer(NULL) is integer(0) and uwot rejects it.
+    umap_args <- list()
+    if (!is.null(seed)) {
+        umap_args$seed <- as.integer(seed)
+    }
+    object <- sclet_with_seed(seed, {
+        do.call(scater::runUMAP, c(list(object, dimred = ".dimred"), umap_args))
+    })
     SingleCellExperiment::reducedDim(object, ".dimred") <- NULL
     object <- sclet_restore_state(object, prev_state)
     object <- sclet_set_active_reduction(object, "UMAP")
@@ -350,6 +373,9 @@ RunUMAP <- function(object, dims = NULL, reduction = NULL, layer = NULL) {
         artifacts = list(
             reduction = "UMAP"
         ),
+        params = list(
+            seed = seed
+        ),
         summary = list(
             n_components = ncol(SingleCellExperiment::reducedDim(object, "UMAP"))
         )
@@ -357,7 +383,7 @@ RunUMAP <- function(object, dims = NULL, reduction = NULL, layer = NULL) {
     object <- sclet_log_command(
         object,
         "RunUMAP",
-        params = list(dims = dims, reduction = reduction, layer = layer)
+        params = list(dims = dims, reduction = reduction, layer = layer, seed = seed)
     )
     object
 }

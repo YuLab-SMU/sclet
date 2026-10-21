@@ -1,4 +1,5 @@
 #' Build a stable AI-facing analysis ledger
+#' Build a stable AI-facing analysis ledger
 #'
 #' `GetAnalysisLedger()` returns a bounded, versioned view of the current
 #' `SingleCellExperiment` analysis state. It includes deterministic dataset
@@ -18,6 +19,8 @@
 #'   `include_artifacts = TRUE`, or its findings come back empty rather than
 #'   absent (a silent-empty trap measured 2026-10-20).
 #' @param include_data Logical. Include bounded metadata previews and assay
+#'   dimensions. Complete expression matrices are never included. Defaults to
+#'   `FALSE`.
 #'   dimensions. Complete expression matrices are never included. Defaults to
 #'   `FALSE`.
 #' @return A versioned, bounded AI context list.

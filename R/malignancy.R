@@ -59,6 +59,7 @@
 #'   so that scoring reproduces the reference's control-binned offsets.
 #' @param n_bins `AddModuleScore` expression bins, stored with the signature.
 #'
+#'
 #' @return A list with `tumor_genes`, `normal_genes` (character vectors of the
 #'   same length as `n_top` unless the data are thin), `deg` (the full limma
 #'   table, ordered by adjusted p-value) and `info` (counts, cutoffs, design,

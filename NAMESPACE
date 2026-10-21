@@ -415,7 +415,6 @@ importFrom(utils,
 )
 importFrom(yulab.utils,
   get_fun_from_pkg,
-  install_zip_gh,
   is.installed,
   o,
   show_in_excel

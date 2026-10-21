@@ -78,22 +78,18 @@ AIAuditAnalysisChain <- function(
     )
 }
 
-# Keep the original character-returning facade while routing calls through the
-# structured adapter. This definition is collated after the legacy copilot.R.
-sclet_copilot <- function(sce, question, model = NULL) {
-    result <- sclet_ai_call(
-        task = "copilot",
-        context = GetAnalysisLedger(sce, detail = "full"),
-        tools = sclet_ai_tool_registry(sce),
-        model = model,
-        system_prompt = paste(
-            "Answer the user's question using only the ledger and read-only",
-            "tools. Explain evidence and limitations explicitly.",
-            sep = "\n"
-        )
-    )
-    result$answer %||% ""
-}
+# The character-returning facade `sclet_copilot()` used to live here as a
+# second definition of the same exported name. It was DEAD: DESCRIPTION's
+# Collate lists this file at 164 and `copilot.R` at 199, and R keeps the LAST
+# definition, so the five-argument version in `copilot.R` is the one in the
+# namespace -- the one `man/sclet_copilot.Rd` documents. The comment here
+# claimed the opposite ("This definition is collated after the legacy
+# copilot.R"), which was wrong.
+#
+# It was not just noise: whichever way Collate was sorted decided which
+# signature users got, silently. A second definition of an exported name that
+# only the collation order keeps apart is a trap, so the duplicate is gone and
+# `sclet_copilot()` lives in `R/copilot.R` only.
 
 # The evidence ids a set of findings cites, read by EXACT name.
 #

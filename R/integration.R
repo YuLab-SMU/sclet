@@ -10,10 +10,15 @@
 #' @param layer Layer to use for expression-based integration (e.g. fastMNN). If NULL, uses DefaultLayer.
 #' @param reduction Reduction to use for reduction-based integration (e.g. Harmony). If NULL, uses DefaultReduction.
 #' @param name Integration record id. Defaults to the method name.
+#' @param seed integer seed for the stochastic backends. `harmony::RunHarmony()`
+#' and scVI's training both initialise from random numbers, so the same input
+#' otherwise returns a different embedding on each call; the seed is recorded
+#' with the integration state so the route can actually be reproduced.
+#' fastMNN is deterministic and ignores it.
 #' @param ... Additional arguments passed to the underlying integration functions.
 #' @return A SingleCellExperiment object with integration results recorded.
 #' @export
-RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), batch = NULL, features = NULL, layer = NULL, reduction = NULL, name = NULL, ...) {
+RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), batch = NULL, features = NULL, layer = NULL, reduction = NULL, name = NULL, seed = 1L, ...) {
     method <- match.arg(method)
     
     if (is.null(batch)) {
@@ -71,12 +76,14 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             SingleCellExperiment::reducedDim(object, "PCA") <- SingleCellExperiment::reducedDim(object, reduction)
         }
 
-        object <- harmony::RunHarmony(
-            object, 
-            group.by.vars = batch, 
-            reduction.save = "HARMONY", 
-            ...
-        )
+        object <- sclet_with_seed(seed, {
+            harmony::RunHarmony(
+                object,
+                group.by.vars = batch,
+                reduction.save = "HARMONY",
+                ...
+            )
+        })
 
         if (!identical(reduction, "PCA")) {
             if (had_pca) {
@@ -100,6 +107,9 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             ),
             artifacts = list(
                 reduction = "HARMONY"
+            ),
+            params = list(
+                seed = seed
             ),
             summary = list(
                 batch_var = batch,
@@ -131,7 +141,7 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
         object <- sclet_log_command(
             object,
             "RunIntegration",
-            params = list(method = method, batch = batch, reduction = reduction),
+            params = list(method = method, batch = batch, reduction = reduction, seed = seed),
             outputs = list(integration = name, reduction = "HARMONY")
         )
     } else if (method == "scVI") {
@@ -177,7 +187,7 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
 
         latent <- sclet_basilisk_run(
             sclet_scvi_env,
-            function(h5ad_path, batches, ...) {
+            function(h5ad_path, batches, seed = NULL, ...) {
             scvi <- reticulate::import("scvi")
             ad <- reticulate::import("anndata")
 
@@ -185,13 +195,21 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             adata$obs[["batch"]] <- batches
 
             scvi$model$SCVI$setup_anndata(adata, batch_key = "batch")
-            model <- scvi$model$SCVI(adata)
+            # scvi-tools' SCVI takes a seed; without one the training is
+            # random, so the same input returns a different latent space on
+            # each call and the route cannot be reproduced.
+            model <- if (is.null(seed)) {
+                scvi$model$SCVI(adata)
+            } else {
+                scvi$model$SCVI(adata, seed = as.integer(seed))
+            }
             model$train()
-            
+
             return(model$get_latent_representation())
         },
             h5ad_path = tmp_h5ad,
-            batches = batch_vec
+            batches = batch_vec,
+            seed = seed
         )
         
         rownames(latent) <- colnames(object)
@@ -211,6 +229,9 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
             ),
             artifacts = list(
                 reduction = "scVI"
+            ),
+            params = list(
+                seed = seed
             ),
             summary = list(
                 batch_var = batch,
@@ -240,7 +261,7 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
         object <- sclet_log_command(
             object,
             "RunIntegration",
-            params = list(method = method, batch = batch),
+            params = list(method = method, batch = batch, seed = seed),
             outputs = list(integration = name, reduction = "scVI")
         )
     }

@@ -19,7 +19,3 @@ the full integration state record, a selected element, or \code{NULL}
 \description{
 Access integration state records
 }
-\examples{
-# get_integration(sce)
-# get_integration(sce, id = "merged_inputs")
-}

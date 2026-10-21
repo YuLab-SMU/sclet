@@ -186,7 +186,10 @@ check_cnv_readiness <- function(object,
 #'   `start`, `end`. Required when `rowData` carries no positions.
 #' @param species `"human"` or `"mouse"`; names the TxDb fallback.
 #' @param assay Assay to use. Defaults to `"counts"` because inferCNV models
-#'   raw counts.
+#'    raw counts. A non-count assay (non-integer, or with negative values) is
+#'    refused rather than truncated, and the refusal happens BEFORE the
+#'    readiness gate so that a malformed matrix is never masked by an
+#'    unrelated prerequisite message.
 #' @param hmm Logical. Run inferCNV's HMM post-processing so that per-cell CNV
 #'   state probabilities are reported. Defaults to `TRUE`.
 #' @param cutoff,window_length,cluster_by_groups,analysis_mode,k_obs_groups
@@ -196,6 +199,7 @@ check_cnv_readiness <- function(object,
 #'   directory is used and removed unless `keep_files = TRUE`.
 #' @param keep_files Logical. Keep the inferCNV output directory.
 #' @param name Analysis record id. Defaults to `"cnv"`.
+#'
 #'
 #' @return `object` with `colData` columns `<name>_burden`, `<name>_n_cnv_regions`
 #'   and `<name>_is_reference`, plus a state record of type `annotation` under

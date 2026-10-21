@@ -400,6 +400,16 @@ sclet_ai_generate_object <- function(...) {
 #' @param schema Optional local validator or aisdk structured-output schema.
 #' @param model Optional aisdk model identifier or model object.
 #' @param system_prompt Optional additional system instructions.
+#' @param structured_output Logical. Ask the provider for a structured
+#'   response instead of free text.
+#' @param fallback_on_structure_error Logical. Fall back to a text answer
+#'   when the provider's structured output does not validate.
+#' @param privacy Privacy level for the outbound payload: `"standard"`,
+#'   `"strict"` or `"off"`.
+#' @param privacy_consent Logical. Record that the user consented to the
+#'   privacy level used for this call.
+#' @param enforce_privacy Logical. Refuse a call whose payload the privacy
+#'   layer cannot bound.
 #' @param ... Additional adapter options, including `max_steps`.
 #' @return A `sclet_ai_result` object.
 sclet_ai_call <- function(

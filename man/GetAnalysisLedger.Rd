@@ -2,7 +2,8 @@
 % Please edit documentation in R/ai-context.R
 \name{GetAnalysisLedger}
 \alias{GetAnalysisLedger}
-\title{Build a stable AI-facing analysis ledger}
+\title{Build a stable AI-facing analysis ledger
+Build a stable AI-facing analysis ledger}
 \usage{
 GetAnalysisLedger(
   object,
@@ -22,9 +23,14 @@ GetAnalysisLedger(
 \code{"perturbation"}, or \code{"report"}.}
 
 \item{include_artifacts}{Logical. Include bounded artifact references in
-analysis records. Defaults to \code{FALSE}.}
+analysis records. Defaults to \code{FALSE}, which also hides the \code{findings} a
+recorded AI result keeps under \code{artifacts} -- read a result back with
+\code{include_artifacts = TRUE}, or its findings come back empty rather than
+absent (a silent-empty trap measured 2026-10-20).}
 
 \item{include_data}{Logical. Include bounded metadata previews and assay
+dimensions. Complete expression matrices are never included. Defaults to
+\code{FALSE}.
 dimensions. Complete expression matrices are never included. Defaults to
 \code{FALSE}.}
 }

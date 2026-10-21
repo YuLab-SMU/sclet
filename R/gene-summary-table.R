@@ -17,19 +17,6 @@
 #' @importFrom tinytable save_tt
 #' @importFrom yulab.utils show_in_excel
 #' @importFrom yulab.utils o
-#' @examples 
-#' \dontrun{
-#' n <- 3
-#' topn <- pbmc.markers |>
-#'     group_by(cluster) |>
-#'     dplyr::filter(avg_log2FC > 1) |>
-#'     slice_head(n = n) |>
-#'     ungroup()
-#' 
-#' gene_summary_table(topn, gene_col = 'gene', keyType='SYMBOL')
-#' 
-#' gene_summary_table(topn, gene_col = 'gene', cluster_col = 'cluster', keyType='SYMBOL')
-#' }
 #' @export
 gene_summary_table <- function(gene, gene_col = "gene", orgDb = "org.Hs.eg.db", keyType = "SYMBOL", cluster_col, output = "html", browse = TRUE) {
     

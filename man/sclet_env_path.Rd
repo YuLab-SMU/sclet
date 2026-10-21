@@ -27,8 +27,3 @@ packages, the pip requirements and \code{paths}. An unchanged specification
 therefore survives every package upgrade, and only a real change to the
 Python stack produces a new directory.
 }
-\examples{
-\dontrun{
-sclet_env_path("sclet_scvi_env")
-}
-}

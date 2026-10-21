@@ -12,6 +12,7 @@ RunIntegration(
   layer = NULL,
   reduction = NULL,
   name = NULL,
+  seed = 1L,
   ...
 )
 }
@@ -29,6 +30,12 @@ RunIntegration(
 \item{reduction}{Reduction to use for reduction-based integration (e.g. Harmony). If NULL, uses DefaultReduction.}
 
 \item{name}{Integration record id. Defaults to the method name.}
+
+\item{seed}{integer seed for the stochastic backends. \code{harmony::RunHarmony()}
+and scVI's training both initialise from random numbers, so the same input
+otherwise returns a different embedding on each call; the seed is recorded
+with the integration state so the route can actually be reproduced.
+fastMNN is deterministic and ignores it.}
 
 \item{...}{Additional arguments passed to the underlying integration functions.}
 }

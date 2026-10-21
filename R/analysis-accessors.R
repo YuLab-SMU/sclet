@@ -465,9 +465,6 @@ has_batch <- function(object) {
 #' @param id optional integration record id. If NULL, use the active integration record.
 #' @return the full integration state record, a selected element, or `NULL`
 #' @export
-#' @examples
-#' # get_integration(sce)
-#' # get_integration(sce, id = "merged_inputs")
 get_integration <- function(object, element = NULL, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "integration")

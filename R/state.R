@@ -848,3 +848,45 @@ sclet_set_analysis_state <- function(
         )
     )
 }
+
+# Run `expr` with a fixed RNG seed, and put the caller's RNG state back
+# afterwards.
+#
+# WHY THIS EXISTS: the same plan run twice must produce the same result. On
+# 2026-10-19 that was not true for clustering: two runs of the same plan
+# returned 13 and 12 clusters on PBMC 10k, because Louvain's tie-breaking
+# depends on the RNG. A package that records "what was done" but not "under
+# which random state" cannot claim reproducibility, and this package's whole
+# premise is that the analysis state is the record of the analysis.
+#
+# WHY IT RESTORES THE SEED: `set.seed()` alone silently moves the user's RNG
+# stream. A user who calls RunUMAP() between two of their own simulations
+# would silently get different numbers, and would have no way to know. Saving
+# and restoring `.Random.seed` keeps the package's reproducibility guarantee
+# without imposing it on the caller's session.
+#
+# The seed used is returned, so the caller can record it in the analysis
+# state -- a seed that is not written down is not reproducible.
+sclet_with_seed <- function(seed, expr) {
+    if (is.null(seed)) {
+        return(force(expr))
+    }
+    if (!is.numeric(seed) || length(seed) != 1L || is.na(seed) || !is.finite(seed)) {
+        stop("`seed` must be a single finite number or NULL.", call. = FALSE)
+    }
+    had_seed <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+    previous_seed <- if (had_seed) {
+        get(".Random.seed", envir = globalenv(), inherits = FALSE)
+    } else {
+        NULL
+    }
+    on.exit({
+        if (had_seed) {
+            assign(".Random.seed", previous_seed, envir = globalenv())
+        } else if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+            rm(".Random.seed", envir = globalenv())
+        }
+    }, add = TRUE)
+    set.seed(as.integer(seed))
+    force(expr)
+}

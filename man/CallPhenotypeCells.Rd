@@ -33,16 +33,15 @@ silently dropped.}
 \item{transcriptomic_cut}{Optional numeric cutoff on the signature score.
 \code{NULL} uses the median. The choice is recorded in the result either way.}
 
-\item{competing}{Optional named list of competing signatures (\code{list(
-hypothesis_name = genes, ...)}). For each, the call reports how well the
-signature separates the evidence-positive cells from the rest, which is the
-question "is this the axis we think it is?". The groups are defined by the
-EVIDENCE (at least one line positive vs none), never by the resulting call:
-comparing against the call would make the test circular, since the signature
-selects the cells it is then asked to explain.}
+\item{competing}{Optional named list of competing signatures (\code{list( hypothesis_name = genes, ...)}). For each, the call reports how well the
+signature separates the evidence-positive cells from the rest, which is
+the question "is this the axis we think it is?". The groups are defined
+by the EVIDENCE (at least one line positive vs none), never by the
+resulting call: comparing against the call would make the test circular,
+since the signature selects the cells it is then asked to explain.}
 
-\item{competing_demote}{Numeric. Separation on the competing signature above
-which affirmative calls (\code{supported}, \code{probable}) are demoted to
+\item{competing_demote}{Numeric. Separation on the competing signature
+above which affirmative calls (\code{supported}, \code{probable}) are demoted to
 \code{undetermined}. A \code{refuted} call is never demoted: it was never
 evidence-positive, so the axis question does not apply to it.}
 
@@ -76,8 +75,10 @@ usable, or a competing signature explains the split.}
 }
 
 The asymmetry between a missing line and a negative one is deliberate. A low
-signature score means \emph{this line did not fire}, not \emph{the phenotype is
-absent}; only a provider that positively reports \code{negative} counts as a no.
+signature score means \emph{this line did not fire}, not \emph{the phenotype is absent};
+only a provider that positively reports \code{negative} counts as a no. That is why
+a signature-negative cell with one positive provider is \code{probable} rather than
+\code{undetermined}, and why \code{refuted} requires an explicit negative.
 
 \verb{_claim} reuses the package's claim ladder (\code{observed}, \code{measured},
 \code{associated}, \code{consistent_with}) rather than inventing a second vocabulary for

@@ -34,9 +34,3 @@ checked says so.
 No model is called and no raw values are included: evidence nodes carry
 bounded aggregates, and the renderer prints what the ledger holds.
 }
-\examples{
-\dontrun{
-rendered <- RenderAIReport(sce)
-RenderAIReport(sce, id = "ai_report_pbmc10k_m1", path = "report.md")
-}
-}

@@ -56,19 +56,19 @@ what the reference analysis was paired on.}
 
 \item{min_samples}{Integer. Fewest samples per side required to run.}
 
-\item{n_ctrl}{\code{AddModuleScore} control pool size, stored with the signature
-so that scoring reproduces the reference's control-binned offsets.}
-
-\item{n_bins}{\code{AddModuleScore} expression bins, stored with the signature.}
-
-\item{sample_col}{Name of the \code{sample_info} column holding the sample ids
-that appear in \code{colnames(expr)}. Defaults to \code{"sample"}.}
+\item{sample_col}{Name of the \code{sample_info} column holding the sample ids that
+appear in \code{colnames(expr)}. Defaults to \code{"sample"}.}
 
 \item{case_values}{Character vector naming the tumour levels of \code{condition}.
 Defaults to \code{"Tumor"}/\code{"Tumour"}/\code{"Cancer"}.}
 
 \item{control_values}{Character vector naming the normal levels of
 \code{condition}. Defaults to \code{"Normal"}/\code{"Control"}/\code{"Adjacent"}.}
+
+\item{n_ctrl}{\code{AddModuleScore} control pool size, stored with the signature
+so that scoring reproduces the reference's control-binned offsets.}
+
+\item{n_bins}{\code{AddModuleScore} expression bins, stored with the signature.}
 }
 \value{
 A list with \code{tumor_genes}, \code{normal_genes} (character vectors of the

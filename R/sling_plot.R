@@ -17,8 +17,6 @@
 #' 
 #' @return A ggplot object displaying the UMAP plot with overlaid trajectories.
 #' 
-#' @examples
-#' \dontrun{
 #‘ pancreas <- readRDS("./pancreas_sub_sce.rds")
 #’ pancreas <- RunSlingshot(sce = pancreas, group = "celltype", reduction = "UMAP")
 #' p <- lineage_plot(sce = pancreas, group = "celltype", reduction = "UMAP")

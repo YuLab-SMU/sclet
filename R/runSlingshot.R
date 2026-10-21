@@ -16,7 +16,6 @@
 #' @importFrom graphics plot lines
 #' @return A SingleCellExperiment object with added pseudotime information in colData.
 #' @export
-
 RunSlingshot <- function(
     sce,
     group,

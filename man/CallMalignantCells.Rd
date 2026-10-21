@@ -21,32 +21,33 @@ CallMalignantCells(
 \arguments{
 \item{object}{A \code{SingleCellExperiment} object.}
 
-\item{cnv_id}{Analysis record id of a completed \code{\link[=RunCNVInference]{RunCNVInference()}} run
-(default \code{"cnv"}). When the run reported \code{status = "unavailable"}, the call
-degrades to expression-only and every cell that cannot be decided becomes
-\code{"undetermined"} rather than being called malignant on one line of evidence.}
+\item{cnv_id}{Analysis record id of a completed \verb{[RunCNVInference()]} run
+(default \code{"cnv"}). When the run reported \code{status = "unavailable"}, the
+call degrades to expression-only and every cell that cannot be decided
+becomes \code{"undetermined"} rather than being called malignant on one line
+of evidence.}
 
 \item{signature}{A \code{c(malignant = ...)} list or the output of
 \code{\link[=FindMalignantSeedGenes]{FindMalignantSeedGenes()}} whose \code{tumor_genes} is used.}
 
-\item{signature_score}{Optional \code{colData} column already holding a malignant
+\item{signature_score}{Optional \code{colData} column holding a malignant
 signature score. When supplied, \code{signature} is not scored again.}
 
 \item{transcriptomic_cut}{Optional numeric. Cells scoring at or above it are
 "signature positive". \code{NULL} uses the score's median.}
 
-\item{cnv_cut}{Optional numeric cutoff on CNV burden. \code{NULL} puts the cutoff
-at the reference cells' upper quantile plus three robust standard
+\item{cnv_cut}{Optional numeric cutoff on CNV burden. \code{NULL} puts the
+cutoff at the reference cells' upper quantile plus three robust standard
 deviations, computed from \code{reference_quantile}.}
 
 \item{reference_quantile}{Numeric in (0, 1). Reference cells' quantile used as
 the CNV baseline. Defaults to 0.99.}
 
 \item{identity_genes}{Optional character vector naming a competing identity
-programme (for a gastric tumour, the intestinal-metaplasia profile). When
-supplied, the malignant side's mean identity score is compared to the
-non-malignant side's and the call is demoted if the programme tracks the
-malignant side.}
+programme (for a gastric tumour, the intestinal-metaplasia profile).
+When supplied, the malignant side's mean identity score is compared to
+the non-malignant side's and the call is demoted if the programme tracks
+the malignant side.}
 
 \item{identity_demote}{Numeric. Mean difference on \code{identity_genes} above
 which a cell found malignant is demoted to \code{"undetermined"}.}
@@ -57,39 +58,32 @@ which a cell found malignant is demoted to \code{"undetermined"}.}
 }
 \value{
 \code{object} with \code{colData} columns \verb{<name>_state}, \verb{<name>_evidence},
-\verb{<name>_signature_score} and \verb{<name>_identity_score}, and a state record of
-type \code{annotation} under \code{name}. \verb{<name>_state} is a factor with levels
-\code{malignant}, \code{likely_malignant}, \code{undetermined} and \code{non_malignant}.
-}
-\description{
-Combines a copy-number measurement (see \code{\link[=RunCNVInference]{RunCNVInference()}}) with a
-transcriptional signature score and reports, for every cell, a four-state
-malignancy call with its supporting evidence.
-}
-\section{The four states}{
+\verb{<name>_signature_score}, \verb{<name>_identity_score} (when \code{identity_genes} is
+supplied), \verb{<name>_cnv_state}, plus the generic columns written by
+\code{\link[=CallPhenotypeCells]{CallPhenotypeCells()}}. The state vocabulary is the four malignant states,
+mapped from the generic call:
 
 \describe{
-\item{\code{malignant}}{CNV-positive and signature-positive. Two independent
-lines agree.}
-\item{\code{likely_malignant}}{Exactly one line is positive, usually because the
-other could not be measured. Reported separately so that a one-line call is
-never read as a two-line one.}
-\item{\code{undetermined}}{Evidence conflicts (CNV-positive but
-signature-negative, or the reverse), the CNV layer did not run, or a
+\item{\code{malignant}}{\code{supported}: CNV and signature both positive.}
+\item{\code{likely_malignant}}{\code{probable}: exactly one line positive.}
+\item{\code{undetermined}}{\code{undetermined}: conflict, CNV unavailable, or a
 competing identity programme explains the split.}
-\item{\code{non_malignant}}{CNV-negative and signature-negative.}
+\item{\code{non_malignant}}{\code{refuted} or both lines negative.}
 }
 }
-
+\description{
+The malignant-cell special case of \code{\link[=CallPhenotypeCells]{CallPhenotypeCells()}}: a two-line call
+where the copy-number line (see \code{\link[=RunCNVInference]{RunCNVInference()}}) is treated as independent
+of the transcriptional signature, because genomic instability is not a
+transcriptional identity programme.
+}
 \section{What this does not establish}{
 
 No per-cell ground truth exists for malignant identity, so this is a
 classification from two observations, not a verification. \code{cnv_cut} and
-\code{transcriptomic_cut} are analysis parameters, not discovered thresholds, and
-moving them moves the answer. Report the state distribution and the
-disagreement cells alongside any conclusion.
+\code{transcriptomic_cut} are analysis parameters, not discovered thresholds.
 }
 
 \seealso{
-\code{\link[=RunCNVInference]{RunCNVInference()}}, \code{\link[=check_cnv_readiness]{check_cnv_readiness()}}, \code{\link[=FindMalignantSeedGenes]{FindMalignantSeedGenes()}}
+\code{\link[=CallPhenotypeCells]{CallPhenotypeCells()}}, \code{\link[=RunCNVInference]{RunCNVInference()}}, \code{\link[=check_cnv_readiness]{check_cnv_readiness()}}
 }
