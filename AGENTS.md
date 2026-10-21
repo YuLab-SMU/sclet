@@ -13,6 +13,40 @@ another.
 `bookdown/` is git-ignored at the top level. Package work happens on `devel`;
 book edits in `bookdown/`; never run bookdown builds from the wrong directory.
 
+### Building the book
+
+Render on this machine, not in CI: ~25 min here versus a queue on a 4-core
+runner, and the local box has the Python environments and the packages that
+the compromises were invented to avoid. From `bookdown/`:
+
+```bash
+SCLET_BOOKDOWN_EVAL=true R_BOOKDOWN_RENDER=1 \
+  Rscript -e 'library(bookdown); render_book("index.Rmd", "gitbook", output_dir = "_book_full")'
+```
+
+- `SCLET_BOOKDOWN_EVAL` — execute the ordinary chunks (default true).
+- `SCLET_BOOKDOWN_EVAL_AI` — also execute the AI chapters, which call a
+  language model through `aisdk`. Off unless set; that is deliberate, so a
+  machine with no provider skips them instead of failing, and CI does not spend
+  credits producing prose that changes with the model's mood. Requires
+  `aisdk::get_model()` to resolve.
+- `R_BOOKDOWN_RENDER` — makes `bookdown/.Rprofile` redirect the per-chunk knitr
+  cache into the ignored `docs/sclet_cache/` instead of the book root (it had
+  accumulated ~1 GB there). The Makefile targets export it.
+
+`_book_full/` is ignored. Never render into `docs/` — that is the gh-pages
+checkout, and writing there dirties the published-site working tree.
+
+**A slow chunk is not a hung chunk.** `run-SC` (RunSuperCell on pbmc4k) sits
+without log output for ~20 min at ~500% CPU. Check
+`ps -eo pcpu,comm | grep " R"` before killing anything.
+
+**Heading ids must not collide.** pandoc reports only ONE duplicate per run, so
+these recur silently: a `## Visualization` section and a `# ... {#visualization}`
+chapter generate the same id. Every section heading whose auto-slug equals a
+chapter anchor needs an explicit `{#chapter-section}`. Scan for them before
+blaming the build.
+
 ## R package development
 
 `make check` (full), `make check2` (tarball), `make clean` (`*.Rcheck/`).
