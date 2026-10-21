@@ -284,29 +284,53 @@ ordering rule without a model in the middle.
 plan <- AIPlanAnalysis(fixture,
     goal = "find rare populations and support them with marker evidence")
 
-# The token lives on the validation object, and validation takes the plan
-# first. Both are easy to get wrong and neither fails loudly until execution.
+# What the planner proposed, in order. This is the part that varies.
+vapply(plan$actions, function(step) step$action, character(1))
+
+# Three arguments are easy to get wrong here and none of them fails loudly:
+# validation takes the plan FIRST, the token lives on the validation object,
+# and `dry_run` defaults to TRUE -- omit it and the "execution" is a preview
+# that reports `status = "dry_run"` with no evidence, which reads exactly like
+# a plan that ran and found nothing.
 validation <- ValidateAIPlan(plan, object = fixture, registry = registry)
 
-out <- ExecuteAIPlan(fixture, plan, registry,
-    validation = validation,
-    confirmation = validation$confirmation_token)
-
-# One evidence node per graded population. Count them rather than printing the
-# list: zero is a meaningful answer here, and it is the one the ordering rule
-# above predicts when the plan runs the detection before the marker test.
-evidence <- sclet:::sclet_ai_evidence_get_all(out$object)
-c(status = out$status,
-  steps = length(out$results),
-  evidence_nodes = length(evidence))
+if (isTRUE(validation$valid)) {
+    out <- ExecuteAIPlan(fixture, plan, registry,
+        validation = validation,
+        dry_run = FALSE,
+        confirmation = validation$confirmation_token)
+    evidence <- sclet:::sclet_ai_evidence_get_all(out$object)
+    c(status = out$status,
+      steps = length(out$results),
+      evidence_nodes = length(evidence))
+} else {
+    # Refused before anything ran. This is the common outcome on this object,
+    # and the reason is the ordering rule above.
+    validation$errors
+}
 ```
 
-A plan can come back `completed` with `evidence_nodes = 0`, and that is not a
-contradiction — every step ran, and none of them left anything the report may
-cite. Whether the model got the order right is decided by the planner, not by
-the engine: the engine will execute a legal-but-useless plan just as happily as
-a legal-and-useful one. That gap is the reason the [next chapter](#ai-evidence-governance)
-exists.
+Three outcomes are all reachable here, and telling them apart is the skill this
+section is teaching:
+
+- **refused** (`validation$valid` is `FALSE`, nothing runs): the plan is illegal
+  for this object. The most likely reason on `fixture` is ordering — it has
+  already been through `RunRareCellDetection()`, which leaves a **single**
+  identity group (the rare labels live in their own column, not in `colLabels`),
+  so a marker test placed after the detection has no second group to test
+  against and fails its prerequisite.
+- **`completed`** — every step ran. The evidence count says whether any of them
+  left something citable; `0` is a real answer, not an error.
+- **`failed`** — the plan was legal and a step still failed at run time. The
+  steps before it may have recorded evidence, so `evidence_nodes` can be
+  non-zero on a failed execution. Nothing is rolled back.
+
+Which one you get changes between runs, because the planner is a language model
+and not a fixed recipe. So the chunk above reports the outcome it got instead of
+asserting the outcome it should have got — and that is the honest shape of
+AI-assisted analysis. The engine's guarantee is narrow and worth stating
+precisely: **the model proposes an order, the engine decides whether that order
+is legal, and neither of them promises that a legal order was a useful one.**
 
 ## What Fits Nearby
 
