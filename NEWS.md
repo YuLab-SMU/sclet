@@ -169,6 +169,39 @@ real execution is what found the defects listed below.
   scope guard now also exempts `output_schema` paths, so schema metadata is not
   mistaken for group-label data.
 
+## New and documented API
+
+Features that landed between 1.0.2 and this release, each with the commit that
+introduced it (this section is what issue #29 asked the changelog to carry).
+
+- **Multi-route integration** — `RunIntegrationRoutes()` is the documented entry
+  point: it registers the raw baseline, runs the requested strategies through
+  `RunIntegration()`, and records a uniform metric contract per route (batch
+  mixing, biological preservation, cluster stability, runtime), storing a
+  missing metric as `status = "not_available"` with a reason instead of
+  fabricating it. `CompareAIAnalyses()` orders routes by the requested
+  criterion, detects batch-versus-biological trade-offs, and never
+  auto-selects a best route. (`92e9351`)
+- **Read-only diagnostics**, one per analysis stage, each reporting whether its
+  prerequisites are present and naming what is missing: `check_enrichment_readiness()`
+  (`0638704`), `check_communication_readiness()` (`7eb59ee`),
+  `check_fate_readiness()` (`ff2073e`), `check_fate_drivers_readiness()`
+  (`d972242`), plus `check_spatial_readiness()` and
+  `check_multimodal_readiness()` (`b5398c6`).
+- **Read-only comparison layers**: `check_claim_ceiling()` answers "how high may
+  a claim citing these evidence ids go" without recording anything
+  (`118b699`); `compare_trajectory_roots()` compares completed trajectory runs
+  (`dc576af`); `summarize_spatial_evidence()`, `compare_spatial_analyses()`,
+  `summarize_multimodal_evidence()` and `compare_multimodal_evidence()` cover
+  the spatial and multimodal catalogs (`b5398c6`).
+- **Interpretation auditing** reaches the read-only facades: `AIInvestigate()`,
+  `AIExplainAnalysis()` and `AIRecommendNextStep()` audit claims the same way
+  the write gate does, so advice cannot assert more than the ledger supports.
+- **Advanced chains are plannable end to end**: `ValidateAIPlan()` checks each
+  step against the outputs earlier steps declare, not only against the object as
+  it exists before execution.
+
+
 ## Correctness outside the AI layer
 
 - `RunSCENIC()` called `prune2df()` with the raw database paths and the
@@ -204,8 +237,6 @@ real execution is what found the defects listed below.
 +  + Added mock coverage for native tool conversion, structured summaries, causal-claim validation, fallback behavior, and ledger recording.
 +
  # sclet 1.0.1
-
-# sclet 1.0.1
 
 + **`source = "auto"` now works across program/regulon accessors** (reported in [#28](https://github.com/YuLab-SMU/sclet/issues/28)): `sclet_resolve_program_activity()` never handled `source = "auto"`, so the documented `plot_program_dotplot(..., source = "auto")` call failed with a misleading `No program activity data could be resolved.` message (the underlying `Unsupported program activity source 'auto'` was swallowed by a `tryCatch`). `source = "auto"` now tries `geneset_scoring` then `scenic` and returns the first source that supplies the requested program, so `get_program()`, `plot_program_dotplot()`, `plot_program_heatmap()`, and `has_program()` all honor it. `plot_program_dotplot()` also collects per-program resolution failures and reports them instead of hiding the real cause when nothing resolves.
 
