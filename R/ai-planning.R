@@ -123,6 +123,15 @@ sclet_ai_plan_id <- function(task = "analysis_plan") {
 # `digest` is suggested rather than imported, so retain a deterministic base-R
 # fallback for installations without it. Sorting named lists makes harmless
 # element-order differences irrelevant while preserving action/list order.
+#
+# `$validation` is EXCLUDED. It is the output of ValidateAIPlan(), and that
+# function stores the fingerprint on the validation itself -- so hashing it made
+# every fingerprint depend on whether the caller had already attached the
+# validation to the plan object. Measured 2026-10-21: the same plan hashed two
+# different values before and after `plan$validation <- v`, and ExecuteAIPlan()
+# then refused with sclet_ai_stale_plan on a plan that had just validated. A
+# self-reference in a content hash is a defect in the hash, not a caller error;
+# the plan's identity is its task, actions, params and metadata.
 sclet_ai_plan_fingerprint <- function(plan) {
     canonical <- function(value) {
         if (is.list(value)) {
@@ -137,7 +146,9 @@ sclet_ai_plan_fingerprint <- function(plan) {
         if (is.atomic(value)) return(unname(value))
         value
     }
-    serialized <- serialize(canonical(plan), NULL, version = 2L)
+    plan_for_hash <- plan
+    plan_for_hash$validation <- NULL
+    serialized <- serialize(canonical(plan_for_hash), NULL, version = 2L)
     if (requireNamespace("digest", quietly = TRUE)) {
         return(paste0("sclet-ai-plan-", digest::digest(serialized, algo = "sha256", serialize = FALSE)))
     }

@@ -99,11 +99,58 @@ sclet_ai_report_checks <- function(object, ledger, record) {
             mismatch <- c(mismatch, paste0(recorded, " vs ", derived))
         }
     }
+    # B20: what the planner was told about and what it did. The newest execution
+    # record carries the unexplored snapshot taken at plan time (before this
+    # round's evidence existed); the executed action names come from the same
+    # record's steps. A suggestion that is neither executed nor mentioned in a
+    # finding is reported verbatim -- "the run was told about X and stayed
+    # silent" is a fact the ledger holds, and a report that cannot verify itself
+    # must be able to print this one too.
+    unexplored <- list(
+        suggested = character(),
+        executed = character(),
+        unmentioned = character()
+    )
+    executions <- Filter(function(record) {
+        identical(as.character(record$type %||% ""), "ai_execution")
+    }, ledger$analyses %||% list())
+    if (length(executions)) {
+        latest <- executions[[length(executions)]]
+        snapshot <- (latest$params %||% list())$unexplored_suggestions %||% list()
+        if (length(snapshot)) {
+            unexplored$suggested <- vapply(snapshot, function(x) {
+                if (is.list(x)) as.character(x$action %||% "") else as.character(x)
+            }, character(1))
+            unexplored$suggested <- unexplored$suggested[nzchar(unexplored$suggested)]
+            executed <- vapply((latest$params %||% list())$steps %||% list(),
+                function(x) as.character(x$action %||% ""), character(1))
+            unexplored$executed <- executed
+            rationale <- paste(unlist(lapply(
+                latest$artifacts$results %||% list(),
+                function(r) as.character(r$rationale %||% "")
+            )), collapse = " ")
+            # Findings are the report's own voice; the rationale travels with the
+            # execution record only when artifacts keep it, so also scan findings
+            # text. Name-stem matching cannot be gamed: declining run_decontx
+            # without writing "decont" is not possible.
+            spoken <- paste(rationale, paste(vapply(findings, function(f) {
+                paste(as.character(f$statement %||% ""), collapse = " ")
+            }, character(1)), collapse = " "), collapse = " ")
+            spoken_l <- tolower(spoken)
+            unexplored$unmentioned <- unexplored$suggested[
+                !unexplored$suggested %in% unexplored$executed &
+                !vapply(unexplored$suggested, function(a) {
+                    grepl(sub("^run_", "", a), spoken_l, fixed = TRUE)
+                }, logical(1))
+            ]
+        }
+    }
     list(
         refs = refs,
         unresolved = unresolved,
         level_mismatch = mismatch,
         n_findings = length(findings),
+        unexplored = unexplored,
         ok = !length(unresolved) && !length(mismatch)
     )
 }
@@ -253,6 +300,18 @@ RenderAIReport <- function(object, id = NULL, path = NULL) {
             "every recorded level matches the engine"
         }),
         sprintf("- Result: %s", if (checks$ok) "all checks passed" else "**problems found, see above**"),
+        if (length(checks$unexplored$suggested)) c(
+            sprintf("- Data suggestions: %d suggested, %d executed, %d not mentioned",
+                length(checks$unexplored$suggested),
+                length(intersect(checks$unexplored$suggested, checks$unexplored$executed)),
+                length(checks$unexplored$unmentioned)),
+            if (length(checks$unexplored$unmentioned)) paste0(
+                "  - suggested but neither executed nor mentioned: ",
+                paste0("`", checks$unexplored$unmentioned, "`", collapse = ", "),
+                " -- these were offered to the planner by `data_support$unexplored`",
+                " and left silently unanswered; read the analysis with that in mind."
+            ) else NULL
+        ) else NULL,
         "",
         "> Rendered and re-checked from the ledger by `RenderAIReport()`; numbers and citations come from the records, not from a model."
     )

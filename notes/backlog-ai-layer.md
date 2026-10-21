@@ -400,6 +400,22 @@ M13-c 的 t6：规划了 `run_decontx`，但 rationale 里没有任何关于 amb
 - 遗留：t1/t2 仍沉默。下一步要么在报告层把 `unmentioned_suggestions` 打印出来
   （让读者看见这次忽略），要么在 `RenderAIReport()` 的自检区加一条。
   在此之前 B20 状态改为「已修（判定层），提示层遗留」。
+
+### B20 报告层补完（2026-10-21 深夜，同日）
+提示层要求 + 判定层计数之后，读者仍然看不见沉默——所以最后一步：
+`RenderAIReport()` 的 Verification 区新增「Data suggestions」行，**从账本渲染**：
+`n suggested / n executed / n not mentioned`，未提及的逐个点名，并写明
+"read the analysis with that in mind"。快照随执行记录持久化
+（`ai_execution.params$unexplored_suggestions`），否则执行完成后
+「规划前它是不是 unexplored」不可回答。
+- 顺带修掉一个**指纹自引用缺陷**：`sclet_ai_plan_fingerprint()` 把 `$validation`
+  哈希进去，而 validation 又携带指纹——同一 plan 在挂上 validation 前后哈希出
+  两个值，`ExecuteAIPlan()` 用 `sclet_ai_stale_plan` 拒绝一个刚刚通过校验的计划
+  （端到端脚本实测）。修法：哈希时剔除 `$validation`，plan 的身份是它的
+  task/actions/params/metadata。
+- pin：`test-ai-round-progression.R`（79，新增报告区 2 组 + 指纹稳定性 1 组）。
+- B20 状态：**已修（提示层 + 判定层 + 报告层）**。遗留只有一点：
+  报告打印沉默，但不阻断——是否升级为阻断属产品判断，未定。
 ### M13-c 的样本量不足以定论（不是缺陷，是事实）
 0/6 vs 2/6，Fisher p = 0.455。方向一致但**无法与偶然区分**。
 要下结论需要更多次或更强的设计。**不要把这组数字引用成「提升了 33%」。**

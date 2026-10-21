@@ -31,6 +31,24 @@ AIAuditAnalysisChain <- function(
                 integration$artifacts$layer
         }
     }
+    # `integrated_layer` may name a LOGICAL layer ("corrected") rather than an
+    # assay. That is the vocabulary the rest of the package speaks -- fastMNN
+    # registers a layer called "corrected" whose backing assay is
+    # "reconstructed" -- so requiring an assay name here made the documented
+    # call fail with "An integrated assay is required" on an object that had
+    # just been integrated successfully (measured 2026-10-21, running the book).
+    # Resolve through the same helper every other analysis uses.
+    if (!is.null(integrated_layer) &&
+        !integrated_layer %in% SummarizedExperiment::assayNames(sce)) {
+        integrated_layer <- tryCatch(
+            sclet_resolve_expression_source(
+                sce,
+                layer = integrated_layer,
+                context = "analysis-chain audit"
+            )$assay,
+            error = function(e) integrated_layer
+        )
+    }
     assays <- SummarizedExperiment::assayNames(sce)
     if (!raw_layer %in% assays) {
         stop(sprintf("Raw layer '%s' not found.", raw_layer))

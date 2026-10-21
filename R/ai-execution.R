@@ -1176,7 +1176,15 @@ sclet_ai_record_execution <- function(object, plan, results, status, dry_run) {
         params = list(
             dry_run = isTRUE(dry_run),
             requires_confirmation = isTRUE(plan$requires_confirmation),
-            steps = steps
+            steps = steps,
+            # B20: the unexplored suggestions the planner SAW, snapshotted at
+            # plan time. The report has to be able to say "this run was told
+            # about X and did not do it" -- without the snapshot that sentence
+            # is unwritable, because after execution the ledger already contains
+            # this round's evidence and "was it unexplored before" is no longer
+            # answerable. Empty when the context carried no data_support block.
+            unexplored_suggestions = (plan$metadata %||% list())$
+                unexplored_suggestions %||% list()
         ),
         artifacts = list(results = results),
         summary = list(

@@ -371,3 +371,94 @@ test_that("the determinism pin covers the unexplored counters", {
     b <- sclet:::sclet_ai_round_progression(prev, m13b_report(), curr)
     expect_identical(a, b)
 })
+
+# ---- B20 closing half: the report must print silent ignoring ---------------
+#
+# The prompt requirement and the D3 judge make the failure detectable at plan
+# time; the report is where a READER meets it. The snapshot travels on the
+# execution record so the report can state, from the ledger alone: "this run was
+# offered X and left it unanswered".
+
+test_that("RenderAIReport prints an unmentioned suggestion from the ledger", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1L, nrow = 6L, ncol = 4L))
+    )
+    plan <- new_sclet_ai_plan(
+        task = "b20_report",
+        actions = list(list(id = "s1", action = "normalize_data", params = list())),
+        rationale = "normalise only"
+    )
+    plan$metadata$unexplored_suggestions <- list(list(
+        action = "run_decontx",
+        what = "the ambient-pressure screen is high"
+    ))
+    plan$actions <- sclet:::sclet_ai_normalize_plan_actions(plan$actions)
+    validation <- ValidateAIPlan(plan, object = sce,
+        registry = AIDefaultExecutionRegistry(sce, include = "all"), strict = TRUE)
+    expect_true(isTRUE(validation$valid))
+    exec <- ExecuteAIPlan(sce, plan,
+        AIDefaultExecutionRegistry(sce, include = "all"),
+        validation = validation, dry_run = FALSE,
+        confirmation = validation$confirmation_token)
+    expect_identical(exec$status, "completed")
+
+    # RenderAIReport() renders a recorded RESULT; the plan narrative is the
+    # record it needs here.
+    sce_done <- RecordAIResult(exec$object, new_sclet_ai_result(
+        answer = "normalised and tested markers",
+        findings = list(list(
+            statement = "clusters were tested for markers",
+            claim_level = "hypothesis"
+        )),
+        task = "interpret"
+    ), id = paste0("ai_plan_", plan$plan_id))
+    report <- RenderAIReport(sce_done)
+    expect_true(grepl("Data suggestions: 1 suggested, 0 executed, 1 not mentioned",
+        report, fixed = TRUE))
+    expect_true(grepl("`run_decontx`", report, fixed = TRUE))
+    # the sentence that tells a reader what to do with the gap
+    expect_true(grepl("left silently unanswered", report, fixed = TRUE))
+})
+
+test_that("a plan with no snapshot renders no suggestions block", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1L, nrow = 6L, ncol = 4L))
+    )
+    plan <- new_sclet_ai_plan(
+        task = "b20_report_none",
+        actions = list(list(id = "s1", action = "normalize_data", params = list())),
+        rationale = "normalise only"
+    )
+    plan$actions <- sclet:::sclet_ai_normalize_plan_actions(plan$actions)
+    validation <- ValidateAIPlan(plan, object = sce,
+        registry = AIDefaultExecutionRegistry(sce, include = "all"), strict = TRUE)
+    exec <- ExecuteAIPlan(sce, plan,
+        AIDefaultExecutionRegistry(sce, include = "all"),
+        validation = validation, dry_run = FALSE,
+        confirmation = validation$confirmation_token)
+    sce_done <- RecordAIResult(exec$object, new_sclet_ai_result(
+        answer = "normalised only",
+        findings = list(list(statement = "object normalised",
+            claim_level = "hypothesis")),
+        task = "interpret"
+    ), id = paste0("ai_plan_", plan$plan_id))
+    report <- RenderAIReport(sce_done)
+    expect_false(grepl("Data suggestions:", report, fixed = TRUE))
+})
+
+test_that("the plan fingerprint is stable across attaching a validation", {
+    # The fingerprint hashed $validation, and validation carries the fingerprint
+    # -- a self-reference. The same plan hashed two different values before and
+    # after `plan$validation <- v`, and ExecuteAIPlan() then refused with
+    # sclet_ai_stale_plan on a plan that had JUST validated.
+    plan <- new_sclet_ai_plan(
+        task = "fp_selfref",
+        actions = list(list(id = "s1", action = "normalize_data", params = list())),
+        rationale = "r"
+    )
+    fp_before <- sclet:::sclet_ai_plan_fingerprint(plan)
+    plan$validation <- list(valid = TRUE, plan_fingerprint = fp_before,
+        plan_id = plan$plan_id)
+    fp_after <- sclet:::sclet_ai_plan_fingerprint(plan)
+    expect_identical(fp_before, fp_after)
+})
