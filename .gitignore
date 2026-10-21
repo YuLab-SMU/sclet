@@ -28,3 +28,7 @@ docs
 
 # `gh-pages` and `sclet.Rmd` were historical leftovers with no corresponding
 # file; they are gone.
+
+# A full local render (render_book with an explicit output_dir), kept out of
+# git the same way `_book/` is.
+_book_full/
