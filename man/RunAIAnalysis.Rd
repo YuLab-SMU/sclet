@@ -15,6 +15,8 @@ RunAIAnalysis(
   fallback_on_structure_error = TRUE,
   record = TRUE,
   interpret = FALSE,
+  render_report = TRUE,
+  verify_before_continue = TRUE,
   ...
 )
 }
@@ -44,13 +46,24 @@ structured output fails.}
 
 \item{interpret}{Logical. When \code{TRUE} and the execution completes, create an
 evidence-linked report by calling \code{AIExplainAnalysis()} on the updated
-object. Only a valid \code{sclet_ai_result} is stored in
-\code{report$interpretation}; when \code{record = TRUE}, it is also recorded in
-the ledger. Errors and invalid result types are captured in
-\code{report$interpretation_error}, and the completed execution is retained.
-\code{report$success_assessment} mirrors the execution's assessed criteria.
-Defaults to \code{FALSE} so no additional LLM call is made unless explicitly
-requested.}
+object. The result is stored in \code{report$interpretation} only when it is a
+valid \code{sclet_ai_result}; if \code{record = TRUE}, it is also recorded in the
+ledger. Defaults to \code{FALSE} so no additional LLM call is made unless
+explicitly requested. Interpretation errors or an invalid result are
+captured in \code{report$interpretation_error}, and the completed execution is
+retained.}
+
+\item{render_report}{Logical. When \code{TRUE} (the default) the round's report is
+rendered from the ledger with \code{\link[=RenderAIReport]{RenderAIReport()}} at the end of execution,
+and its self-check is reported in \code{report$rendered} /
+\code{report$verification_status}. The report is returned, not written to a
+file: the ledger is the source of truth and a report can be re-rendered at
+any time. Set to \code{FALSE} only for callers that will render explicitly.}
+
+\item{verify_before_continue}{Logical. When \code{TRUE} (the default), a round
+whose report fails its own self-check gets \code{report$continue_blocked} set
+with the reason, so a caller cannot mistake "the analysis ran" for "the
+numbers can be carried into the next round".}
 
 \item{...}{Additional arguments passed to \code{AIPlanAnalysis()}.}
 }

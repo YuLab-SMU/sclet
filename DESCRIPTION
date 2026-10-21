@@ -153,6 +153,7 @@ Collate:
     'ai-communication.R'
     'ai-comparison.R'
     'ai-context.R'
+    'ai-data-support.R'
     'ai-design-confirmation.R'
     'ai-diagnostics.R'
     'ai-enrichment.R'

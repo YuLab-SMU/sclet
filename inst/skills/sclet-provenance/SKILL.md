@@ -7,7 +7,9 @@ description: >
   ledger records automatically and what it cannot, why re-running a plan is
   the only honest reproduction check, and how to report an analysis chain so
   downstream readers can trace every number to the step and parameters that
-  produced it. Use when writing a plan's rationale or success_criteria,
+  produced it, and how to read `analysis_story$data_support` (what the data
+  can and cannot answer, and which analyses are unexplored) before planning.
+  Use when writing a plan's rationale or success_criteria,
   interpreting the execution ledger, comparing two AIAnalyses, or reporting
   results back to the user.
 ---
@@ -128,6 +130,28 @@ Two rules follow:
 - **a code is not a cell type.** Report the code, and add the label only when
   you resolved it this way from the same object -- and say it was resolved,
   because the evidence node itself carries only the code.
+
+## Reading `analysis_story$data_support` before planning
+
+`GetAnalysisLedger(object)$analysis_story` records what this object has *done*.
+`analysis_story$data_support` records what this object can and cannot answer --
+computed deterministically from the object, never from a model. Read it before
+writing a plan; it is the difference between planning for this object and
+planning for the last object you saw.
+
+| Field | What it tells you | How to use it |
+|---|---|---|
+| `shapes` | Boolean facts about the data itself: counts present, spliced/unspliced present, several samples, replicates per condition, spatial coordinates, multimodal assays, candidate design columns | Do not infer these from the action list or from memory -- read them here. `has_counts = FALSE` means the velocity chain is gated, not "try it and see" |
+| `supports` | Which question classes the data supports, each with a `reason` naming the gate and an `unblocked_by` | A `supported = FALSE` entry with its reason is the sentence to put in your rationale. Reuse the gate's own vocabulary so the record and the refusal agree |
+| `blocked` | Actions currently gated on this object, with the gate name | These are not failures; they are the plan telling you what needs the user's input or different data |
+| `unconfirmed_semantics` | Design choices still unrecorded (annotation reference, batch/condition roles, trajectory root) | These belong in a structured question to the user or in `confirm_design` -- never defaulted |
+| `unexplored` | Analyses this object can support that the ledger has no result for: `what` + the `action` that would produce it | **This is the main input to "what should the next round do".** It is the list of data value not yet collected. An `evidence_gaps` entry says an analysis lacks evidence; an `unexplored` entry says the data was never analysed at all |
+
+Two cautions. First, `unexplored` is a suggestion computed from the data, not a
+mandate: an analysis can be unexplored and still not worth doing for the user's
+question, and you say so rather than doing it to empty the list. Second, when a
+field here disagrees with what you believe about the object, the field wins --
+it is derived from the object, your belief is derived from an earlier message.
 
 ## What NOT to claim about provenance
 

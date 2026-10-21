@@ -325,6 +325,16 @@ AskAI <- function(object, question, model = NULL, structured_output = TRUE, ...)
 #'   explicitly requested. Interpretation errors or an invalid result are
 #'   captured in `report$interpretation_error`, and the completed execution is
 #'   retained.
+#' @param render_report Logical. When `TRUE` (the default) the round's report is
+#'   rendered from the ledger with [RenderAIReport()] at the end of execution,
+#'   and its self-check is reported in `report$rendered` /
+#'   `report$verification_status`. The report is returned, not written to a
+#'   file: the ledger is the source of truth and a report can be re-rendered at
+#'   any time. Set to `FALSE` only for callers that will render explicitly.
+#' @param verify_before_continue Logical. When `TRUE` (the default), a round
+#'   whose report fails its own self-check gets `report$continue_blocked` set
+#'   with the reason, so a caller cannot mistake "the analysis ran" for "the
+#'   numbers can be carried into the next round".
 #' @param ... Additional arguments passed to `AIPlanAnalysis()`.
 #' @return An object of class `sclet_ai_analysis` containing the original or
 #'   updated object, plan, validation, dry-run preview, execution, and report.
@@ -340,6 +350,8 @@ RunAIAnalysis <- function(
     fallback_on_structure_error = TRUE,
     record = TRUE,
     interpret = FALSE,
+    render_report = TRUE,
+    verify_before_continue = TRUE,
     ...
 ) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -512,6 +524,41 @@ RunAIAnalysis <- function(
         goal_contrast = goal_contrast,
         plan_record_error = plan_record_error
     )
+    # M12-e: render the report at the end of every round, and carry its
+    # self-check into the returned object.
+    #
+    # Why this is a default and not an option left to the caller: the report's
+    # self-check (every cited evidence id resolves, every recorded claim level
+    # is re-derived) is the check that makes a failure visible. A run that does
+    # not render loses that check, and the next round then has to read the raw
+    # ledger -- which grows every round, and a planner reading a growing ledger
+    # is exactly the shape where evidence coverage falls off. Measured
+    # 2026-10-19: coverage plateaued at 0.571 across repeat rounds and a second
+    # revision round did not move it.
+    #
+    # A failure here must never discard an execution that already ran: the
+    # analysis is the work, the report is a view of it. So the error is
+    # reported in `report$rendered`, not raised.
+    rendered <- sclet_ai_render_round_report(
+        updated,
+        id = if (isTRUE(record)) paste0("ai_plan_", plan$plan_id) else NULL,
+        enabled = render_report
+    )
+    report$rendered <- rendered
+    # A round whose report cannot be verified is not a round that "completed".
+    # The execution status stays as recorded -- it is a fact about the run --
+    # but the round carries an explicit flag so the caller cannot mistake the
+    # two, which is the whole point of the reliability definition: a failure
+    # must be visible, and "ran fine" is not "the numbers can be trusted".
+    report$verification_passed <- isTRUE(rendered$status %in% c("passed", "not_recorded", "disabled"))
+    report$verification_status <- rendered$status
+    if (isTRUE(verify_before_continue) && !isTRUE(report$verification_passed)) {
+        report$continue_blocked <- paste0(
+            "the report for this round did not pass its own self-check (",
+            rendered$status, "); do not treat this round as finished -- ",
+            rendered$message %||% "see report$rendered"
+        )
+    }
     if (isTRUE(interpret) && execution$status %in% c("completed", "completed_with_errors")) {
         interpretation_state <- new.env(parent = emptyenv())
         interpretation_state$error <- NULL
@@ -585,12 +632,108 @@ RunAIAnalysis <- function(
     )
 }
 
+#' Render this round's report and report its self-check (M12-e)
+#'
+#' A thin, non-throwing wrapper around [RenderAIReport()] for use at the end of
+#' an execution round. It exists because the report's self-check is the check
+#' that makes a failure visible, and an execution that already ran must never
+#' be discarded because its view could not be built.
+#'
+#' Three outcomes, each named rather than collapsed into one:
+#'
+#' - `"passed"` -- a report was rendered and its self-check agreed with the
+#'   ledger: every cited evidence id resolved and every recorded claim level
+#'   re-derived to the same value;
+#' - `"failed"` -- a report was rendered and the self-check disagreed. The
+#'   disagreement is carried in `message`, and the report is still returned so
+#'   a reader can see what it says;
+#' - `"not_rendered"` -- the report could not be built at all (usually: nothing
+#'   was recorded, so there is no record to render). `message` says why.
+#'
+#' A caller must not read `"failed"` as "the analysis failed": the execution
+#' status is a separate fact. It means the numbers in that report cannot be
+#' carried forward without inspection.
+#'
+#' @param object A `SingleCellExperiment` after execution.
+#' @param id Record id to render. `NULL` renders the most recent AI result.
+#' @param enabled When `FALSE`, nothing is rendered and the status is
+#'   `"disabled"`; returned so the caller's report shape stays stable.
+#' @return A list with `status`, `message`, `self_check` and `markdown`.
+#' @keywords internal
+sclet_ai_render_round_report <- function(object, id = NULL, enabled = TRUE) {
+    if (!isTRUE(enabled)) {
+        return(list(status = "disabled", message = NULL, self_check = NULL, markdown = NULL))
+    }
+    # RenderAIReport() returns the Markdown text on success and raises on
+    # failure, so a returned string IS the report. (An earlier version of this
+    # wrapper treated any string as the error message, so every successful
+    # render was reported as `not_rendered` -- the pin caught it.)
+    markdown <- tryCatch(
+        RenderAIReport(object, id = id),
+        error = function(e) e
+    )
+    if (inherits(markdown, "error") || !is.character(markdown) || !length(markdown)) {
+        return(list(
+            status = "not_rendered",
+            message = if (inherits(markdown, "error")) {
+                conditionMessage(markdown)
+            } else {
+                "RenderAIReport() returned no report text"
+            },
+            self_check = NULL,
+            markdown = NULL
+        ))
+    }
+    markdown <- paste(markdown, collapse = "\n")
+    # RenderAIReport() returns the text; the self-check is recomputed here from
+    # the same functions it uses, so the two cannot drift apart silently.
+    self_check <- tryCatch({
+        ledger <- GetAnalysisLedger(object, detail = "full", include_artifacts = TRUE)
+        record <- sclet_ai_report_record(ledger, id = id)
+        if (is.null(record)) NULL else sclet_ai_report_checks(object, ledger, record)
+    }, error = function(e) NULL)
+
+    if (is.null(self_check)) {
+        return(list(
+            status = "not_rendered",
+            message = "the report was rendered but its self-check could not be recomputed",
+            self_check = NULL,
+            markdown = markdown
+        ))
+    }
+    passed <- isTRUE(self_check$ok)
+    list(
+        status = if (passed) "passed" else "failed",
+        message = if (passed) NULL else paste0(
+            "report self-check failed: ",
+            paste(c(
+                if (length(self_check$unresolved)) paste0(
+                    "unresolved evidence refs: ",
+                    paste(self_check$unresolved, collapse = ", ")
+                ) else NULL,
+                if (length(self_check$level_mismatch)) paste0(
+                    "claim level mismatches: ",
+                    paste(self_check$level_mismatch, collapse = "; ")
+                ) else NULL
+            ), collapse = "; ")
+        ),
+        self_check = self_check,
+        markdown = markdown
+    )
+}
+
 #' @export
 print.sclet_ai_analysis <- function(x, ...) {
     cat("sclet beginner AI analysis [", x$status, "]\n", sep = "")
     if (!is.null(x$report$goal)) cat("Goal: ", x$report$goal, "\n", sep = "")
     if (!is.null(x$report$actions)) {
         cat("Actions: ", paste(x$report$actions, collapse = " -> "), "\n", sep = "")
+    }
+    if (!is.null(x$report$verification_status)) {
+        cat("Report self-check: ", x$report$verification_status, "\n", sep = "")
+    }
+    if (!is.null(x$report$continue_blocked)) {
+        cat("Next round blocked: ", x$report$continue_blocked, "\n", sep = "")
     }
     invisible(x)
 }

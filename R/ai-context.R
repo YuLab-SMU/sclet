@@ -599,7 +599,7 @@ sclet_ai_build_analysis_story <- function(object, records, status) {
     }
 
     list(
-        schema_version = "1.0",
+        schema_version = "1.1",
         timeline = timeline,
         n_steps = length(timeline),
         unordered_steps = unordered_keys,
@@ -607,6 +607,12 @@ sclet_ai_build_analysis_story <- function(object, records, status) {
         design_confirmations = design_confirmations,
         evidence_gaps = evidence_gaps,
         conflicts = conflicts,
+        # M12-b: what the data can and cannot answer, and which analyses the
+        # ledger has never run. Deterministic, no model call, no raw values.
+        # `evidence_gaps` says "an analysis lacks evidence"; `data_support`
+        # says what is available at all -- a planner needs both to choose a
+        # next round instead of repeating the last one.
+        data_support = sclet_ai_build_data_support(object, records),
         raw_values_included = FALSE
     )
 }
@@ -836,8 +842,79 @@ sclet_ai_capabilities <- function(status, records, object = NULL) {
     )
     if (!is.null(object)) {
         result$identity_levels <- sclet_ai_build_identity_levels(object)
+        # Contrast levels for colData columns, separate from identity levels.
+        #
+        # Measured 2026-10-21 (M12-a batch, commit 5947e4b, the only failure in
+        # 12 same-tree trials): a round-2 plan wrote `ident.1/ident.2` as levels
+        # of `condition` that the object does not have, and died with
+        # `contrast_invalid: ident.1/ident.2 must be levels of 'condition':
+        # ctrl, stim`. The planning prompt told the model to take group-valued
+        # parameters from `identity_levels$codes`, but that block describes the
+        # ACTIVE IDENT (the clustering), not a design column -- and
+        # `run_de_test(group = "condition")` contrasts levels of a colData
+        # column, which had no representation in the context at all. So the
+        # instruction pointed at the one place the answer could not be.
+        result$contrast_levels <- sclet_ai_build_contrast_levels(object)
     }
     result
+}
+
+# Levels of the colData columns that a `group` contrast can name, for the
+# planner to read rather than guess.
+#
+# Bounded on purpose: only low-cardinality columns are reported (a donor column
+# with 16 levels is a design role, not a usable contrast on its own), and the
+# count is reported even when the levels themselves are withheld, so "I did not
+# show you these" and "there are none" stay distinguishable.
+sclet_ai_build_contrast_levels <- function(object, max_levels = 12L) {
+    coldata <- tryCatch(SummarizedExperiment::colData(object), error = function(e) NULL)
+    if (is.null(coldata)) {
+        return(list(columns = list(), note = "colData unavailable", raw_values_included = FALSE))
+    }
+    # The active identity column is the CLUSTERING, and its values are the
+    # answer the analysis is supposed to discover -- `identity_levels` already
+    # exposes them as anonymised codes precisely so they are not handed over as
+    # text. Re-listing the same column here under its real labels would undo
+    # that: measured 2026-10-21, a mock object with clusters named `treat1` /
+    # `treat2` had those labels appear in `contrast_levels` after the block was
+    # added. A clustering is not a design role, so it is excluded by name.
+    ident_column <- tryCatch(ActiveIdent(object), error = function(e) NULL)
+    if (is.null(ident_column) || !nzchar(ident_column)) ident_column <- NULL
+    entries <- list()
+    for (column in colnames(coldata)) {
+        if (!is.null(ident_column) && identical(column, ident_column)) next
+        values <- tryCatch(as.character(coldata[[column]]), error = function(e) NULL)
+        if (is.null(values)) next
+        values <- values[!is.na(values)]
+        levels <- sort(unique(values))
+        n_levels <- length(levels)
+        if (n_levels < 2L) next
+        usable <- n_levels <= max_levels
+        entries[[length(entries) + 1L]] <- list(
+            column = column,
+            n_levels = as.integer(n_levels),
+            # A character VECTOR, not as.list(): the privacy layer redacts an
+            # unnamed list of scalars as "unnamed nested values are not
+            # bounded", which silently removed every level and left the block
+            # useless. A vector is bounded by n_levels and passes as-is.
+            levels = if (usable) levels else character(),
+            levels_available = usable
+        )
+    }
+    # The field is `guidance`, not `note`: `note` is on the privacy layer's deny
+    # list (`|note|comment`), so text explaining the block was redacted as a
+    # sensitive field while the block stayed.
+    list(
+        columns = entries,
+        max_levels = as.integer(max_levels),
+        guidance = paste(
+            "Use these for `group` contrasts (run_de_test with group = <column>",
+            "and ident.1 / ident.2 as two of that column's levels).",
+            "`identity_levels` is the clustering identity and is NOT what a",
+            "condition contrast takes."
+        ),
+        raw_values_included = FALSE
+    )
 }
 
 sclet_ai_build_identity_levels <- function(object) {

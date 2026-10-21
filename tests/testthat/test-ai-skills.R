@@ -95,3 +95,89 @@ test_that("the planning prompt carries the injected skill block", {
         .package = "sclet"
     )
 })
+
+# ---- M12-d: the four plan-quality dimensions and data_support must be
+# ---- injected, not merely written into a file nobody reads.
+#
+# `options(sclet.ai.use_skills)` is a switch, and a skill edit that never
+# reaches the prompt is invisible in every other test: the files parse, the
+# selection matches, the prompt is built -- and the section the model needed
+# is on disk only. These assertions pin the CONTENT reaching the model, which
+# is what M12-d claims to deliver.
+
+test_that("sclet-analysis carries the four plan-quality dimensions", {
+    body <- ReadAISkill("sclet-analysis")$body
+    expect_true(grepl("four testable dimensions", body, fixed = TRUE))
+    for (dimension in c(
+        "**Goal coverage.**",
+        "**Data fitness.**",
+        "**Round progression.**",
+        "**Evidence increment.**"
+    )) {
+        expect_true(grepl(dimension, body, fixed = TRUE),
+            info = paste("missing dimension:", dimension))
+    }
+    # the data-shape table is the actionable half of data fitness
+    expect_true(grepl("Data shape decides the exploration order", body,
+        fixed = TRUE))
+    expect_true(grepl("`counts` plus `spliced`/`unspliced`", body,
+        fixed = TRUE))
+})
+
+test_that("sclet-provenance carries how to read data_support", {
+    body <- ReadAISkill("sclet-provenance")$body
+    expect_true(grepl("analysis_story$data_support", body, fixed = TRUE))
+    for (field in c("`shapes`", "`supports`", "`blocked`",
+        "`unconfirmed_semantics`", "`unexplored`")) {
+        expect_true(grepl(field, body, fixed = TRUE),
+            info = paste("missing data_support field:", field))
+    }
+    # the one sentence that makes `unexplored` usable rather than a to-do list
+    expect_true(grepl("data value not yet collected", body, fixed = TRUE))
+})
+
+test_that("sclet-driver states the repairs for the measured failure shapes", {
+    body <- ReadAISkill("sclet-driver")$body
+    # shape 1: an empty plan (1 of 9 Kang trials)
+    expect_true(grepl("plan_empty", body, fixed = TRUE))
+    expect_true(grepl("never the way to record", body, fixed = TRUE))
+    # shape 2: a placeholder action used to drop a step (1 of 9)
+    expect_true(grepl("action is not registered", body, fixed = TRUE))
+    expect_true(grepl("\"not_run\"", body, fixed = TRUE))
+    # shape 3: a dependency left pointing at a removed step (2 of 9)
+    expect_true(grepl("depends on unknown step(s): step_N", body,
+        fixed = TRUE))
+    expect_true(grepl("exactly two honest repairs", body, fixed = TRUE))
+})
+
+test_that("data_support guidance is selected for planning goals, not only reporting ones", {
+    # the regression this prevents: the provenance skill was selected by
+    # report/comparison words, so a plain planning goal never received the
+    # section that tells the model what the data can support next
+    topics <- sclet_ai_goal_skill_topics("what else can this data support")
+    expect_true("provenance" %in% topics)
+    topics <- sclet_ai_goal_skill_topics("plan the next round")
+    expect_true("provenance" %in% topics)
+    # and the always-on analysis skill keeps the four dimensions available
+    expect_true("analysis guidelines" %in%
+        sclet_ai_goal_skill_topics("cluster the cells"))
+})
+
+test_that("sclet-driver states that a round ends with a rendered report", {
+    body <- ReadAISkill("sclet-driver")$body
+    expect_true(grepl("End every round by rendering the report", body, fixed = TRUE))
+    expect_true(grepl("A round that is not", body, fixed = TRUE))
+    expect_true(grepl("RenderAIReport", body, fixed = TRUE))
+    # the next round's inputs must be named, not left to be guessed
+    expect_true(grepl("data_support$unexplored", body, fixed = TRUE))
+    expect_true(grepl("continue_blocked", body, fixed = TRUE))
+})
+
+test_that("sclet-analysis states where contrast levels come from", {
+    body <- ReadAISkill("sclet-analysis")$body
+    expect_true(grepl("contrast_levels", body, fixed = TRUE))
+    expect_true(grepl("with `group = <column>`", body, fixed = TRUE))
+    expect_true(grepl("identity_levels$codes", body, fixed = TRUE))
+    # the recognisable symptom of inventing a level
+    expect_true(grepl("you invented it", body, fixed = TRUE))
+})

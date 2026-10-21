@@ -35,7 +35,14 @@ test_that("no active identity returns empty result without error", {
 test_that("context exposes codes and counts but no real labels", {
     sce <- scuttle::mockSCE()
     set.seed(42)
-    sce$cluster <- sample(c("treat1", "treat2"), ncol(sce), replace = TRUE)
+    # The cluster labels use names that appear NOWHERE else on the object.
+    # They used to be "treat1"/"treat2", which also happen to be the levels of
+    # mockSCE()'s Treatment column -- so once `capabilities$contrast_levels`
+    # legitimately exposed design levels (M12-a, 2026-10-21), the assertion
+    # "the string treat1 appears nowhere" started failing on the DESIGN value,
+    # not on a leaked cluster label. This test is about the clustering, so its
+    # fixtures must not collide with a design column.
+    sce$cluster <- sample(c("cladeA", "cladeB"), ncol(sce), replace = TRUE)
     ActiveIdent(sce) <- "cluster"
 
     ctx <- sclet_ai_context(sce, target = "planning", detail = "full")
@@ -49,14 +56,39 @@ test_that("context exposes codes and counts but no real labels", {
     expect_true(all(n_cells_values > 0L))
 
     serialized <- paste(utils::capture.output(str(ctx)), collapse = " ")
-    expect_false(grepl("treat1", serialized, fixed = TRUE))
-    expect_false(grepl("treat2", serialized, fixed = TRUE))
+    expect_false(grepl("cladeA", serialized, fixed = TRUE))
+    expect_false(grepl("cladeB", serialized, fixed = TRUE))
+})
+
+test_that("contrast_levels never re-exposes the clustering column under real labels", {
+    # The identity column holds the labels the analysis is meant to discover;
+    # identity_levels anonymises them, so contrast_levels must not undo that by
+    # listing the same column with its real values.
+    sce <- scuttle::mockSCE()
+    set.seed(42)
+    sce$cluster <- sample(c("cladeA", "cladeB"), ncol(sce), replace = TRUE)
+    ActiveIdent(sce) <- "cluster"
+
+    ctx <- sclet_ai_context(sce, target = "planning", detail = "full")
+    columns <- vapply(ctx$capabilities$contrast_levels$columns,
+        function(x) x$column, character(1))
+    expect_false("cluster" %in% columns)
+
+    serialized <- paste(utils::capture.output(str(ctx$capabilities$contrast_levels)),
+        collapse = " ")
+    expect_false(grepl("cladeA", serialized, fixed = TRUE))
+
+    # a genuine design column still comes through: that is the whole point
+    expect_true("Treatment" %in% columns)
 })
 
 test_that("sanitized context preserves identity_levels and remains label-free", {
     sce <- scuttle::mockSCE()
     set.seed(42)
-    sce$cluster <- sample(c("treat1", "treat2"), ncol(sce), replace = TRUE)
+    # Same fixture rule as above: cluster labels must not collide with a
+    # design column's levels, or the "label-free" assertion fails on a design
+    # value that is supposed to be present.
+    sce$cluster <- sample(c("cladeA", "cladeB"), ncol(sce), replace = TRUE)
     ActiveIdent(sce) <- "cluster"
 
     ctx <- sclet_ai_context(sce, target = "planning", detail = "full")
@@ -68,8 +100,8 @@ test_that("sanitized context preserves identity_levels and remains label-free", 
     expect_equal(length(sanitized_levels$codes), length(ctx$capabilities$identity_levels$codes))
 
     serialized <- paste(utils::capture.output(str(sanitized$payload)), collapse = " ")
-    expect_false(grepl("treat1", serialized, fixed = TRUE))
-    expect_false(grepl("treat2", serialized, fixed = TRUE))
+    expect_false(grepl("cladeA", serialized, fixed = TRUE))
+    expect_false(grepl("cladeB", serialized, fixed = TRUE))
 
     redacted <- sanitized$policy$redacted_fields
     identity_redacted <- redacted[grepl("identity_levels", redacted)]

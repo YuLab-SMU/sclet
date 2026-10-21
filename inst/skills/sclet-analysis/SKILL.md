@@ -8,9 +8,13 @@ description: >
   parameters are modelling choices the AI must never pick for the user
   (integration method, enrichment database, CCI engine, design roles), and
   what a conservative plan does when the object lacks annotation, batches or
-  replicated samples. Use when proposing an AIPlanAnalysis plan, choosing
+  replicated samples, and the four dimensions that separate a good plan from
+  one that merely validates (goal coverage, data fitness, round progression,
+  evidence increment) plus which data shape should decide the exploration
+  order. Use when proposing an AIPlanAnalysis plan, choosing
   between registered actions, ordering plan steps, filling action
-  parameters, or deciding whether to ask the user instead of guessing.
+  parameters, deciding whether a plan is good enough to hand back, or
+  deciding whether to ask the user instead of guessing.
 ---
 
 # Single-cell analysis guidelines for sclet plans
@@ -123,6 +127,25 @@ the donor/batch structure is NOT adjusted -- do not present it as paired.
 Never pass condition levels to ident.1/ident.2 without `group`: those are
 identity levels, so the test would compare clusters.
 
+**Where the two level sets come from is not the same place, and confusing them
+is a measured failure** (2026-10-21, the only failure in 12 same-tree trials):
+a plan wrote `ident.1/ident.2` as levels of `condition` that the object does
+not have, and died with `contrast_invalid: ident.1/ident.2 must be levels of
+'condition': ctrl, stim` -- the error listed the right levels, but the prompt
+had told the model to take group values from `identity_levels$codes`, which is
+the clustering. Read them from the right block:
+
+- **with `group = <column>`**: the levels are that colData column's values.
+  Read them from `context$capabilities$contrast_levels$columns`, take the entry
+  whose `column` equals your group, and copy two of its `levels` verbatim. If
+  the entry is missing, or `levels_available` is `FALSE`, the choice is the
+  user's -- say so, never translate a label into a plausible neighbour.
+- **without `group`** (cluster markers, `start_cluster`): the values are
+  clustering codes, from `context$capabilities$identity_levels$codes`.
+
+One symptom worth recognising: if the error's `(you wrote: X)` names a value
+you did not see anywhere in the context, you invented it. Copy, do not infer.
+
 | The user asks about... | The right action | Not the answer |
 |---|---|---|
 | populations signalling to each other | `run_cci` (engine REQUIRED, see below) | `run_de_test` |
@@ -219,6 +242,66 @@ original question.
   matters to the question. Both are recorded in the object's `features$hvg`
   and surface in `GetAnalysisLedger()$features`, so the next round can see
   which selection is in force instead of assuming one.
+
+## What counts as a good plan (four testable dimensions)
+
+A plan that validates has only cleared the structural gate. These four
+dimensions are what separates a plan that answers the question from one that
+merely runs. Each is checkable against the ledger, so treat them as a
+checklist before you hand the plan back, not as style advice.
+
+1. **Goal coverage.** Every kind of work the goal names has an action, OR is
+   explicitly declared out of scope with a reason in `success_criteria` /
+   rationale. Silence about a named part of the goal is the failure mode: a
+   goal that says "cluster and find markers" is not met by clustering alone,
+   and not met by clustering plus an unstated decision to skip markers. What
+   is refused by the data can be declared -- what is simply forgotten cannot.
+
+2. **Data fitness.** The method and scale match the shape of THIS object, not
+   the shape of the last object you saw. Check before planning:
+   `context$dataset` (n_cells, assays, columns) and
+   `context$analysis_story$data_support` (see the `sclet-provenance` skill).
+   Two objects of different size get different answers; a 43k-cell object and
+   a 3.7k-cell object are not the same planning problem simply because the
+   action names are the same. When the data cannot support a step, the
+   correct plan says so with the gate's own vocabulary (`counts_assay_missing`,
+   `no_spatial_record`, ...) rather than substituting a nearby analysis.
+
+3. **Round progression.** When a previous round's report exists, this plan
+   must respond to it: the warnings and limitations it stated are either
+   addressed or explicitly carried forward with a reason; recorded
+   `evidence_gaps` get an action or a stated decision. Re-running an analysis
+   that already ran, with unchanged parameters, is `no_progress` -- it costs
+   a round and produces nothing. A recorded user decision (annotation
+   reference, integration method, CCI engine) is settled: use it instead of
+   asking again or choosing otherwise.
+
+4. **Evidence increment.** Say what NEW evidence this round will add -- a new
+   `ev:` node, or a new independent evidence line. A purely confirmatory
+   round is legitimate, but then say that it is confirmatory. Do not let a
+   round that adds no evidence describe itself as progress; that is the same
+   defect as reporting a zero result as a positive one.
+
+### Data shape decides the exploration order
+
+The standard stage order above is for a counts-only object with no prior
+state. Real objects differ, and the shape decides what comes first. Read the
+shape first, then choose the route:
+
+| Data shape (detectable from the object) | Plan first | Only then |
+|---|---|---|
+| Multiple samples x conditions, QC/doublet not yet recorded | QC and doublet detection, then confirm the design (`confirm_design`) | integration, then condition contrasts -- an unconfirmed design makes every integration step refusable and every condition claim unsafe |
+| `counts` plus `spliced`/`unspliced` | velocity, then trajectory, then fate | fate needs recorded velocity; without all three assays the velocity chain is gated, and a counts-only object must not get one |
+| Tumour epithelium with a reference population | CNV inference, then the four-state malignant call | subtype or identity claims about the epithelium wait until the CNV thresholds and their source are recorded |
+| A cluster whose dominant label confidence is low (< ~0.5) | mark it mixed, do NOT give it a type | a type may only be assigned once independent evidence (markers, or a doublet explanation ruled out) exists |
+| Many samples per condition | differential abundance (`run_milo`) is available | with one sample per condition the replication signal is absent; say so instead of planning the test |
+| One sample, no condition column | the descriptive spine (QC -> clustering -> markers -> enrichment) | condition-level and abundance claims are not supportable; do not phrase them |
+| No `spatialCoords`, no multimodal records | nothing spatial; the read-only gates will refuse | a spatial or multimodal question needs that data, not a proxy analysis |
+
+Two rules that override the table: an evidence producer goes before its
+consumer (see "The standard stage order"), and a modelling choice the user
+owns never gets defaulted by you just because the data shape makes it
+convenient.
 
 ## What NOT to do
 

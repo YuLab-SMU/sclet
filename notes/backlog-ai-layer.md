@@ -296,8 +296,55 @@ M2 的 scVI 只在 9,000 细胞子集上跑（2,878s 含首次 env 构建）。e
   再 `sclet_ai_record_route_metrics()`；env 已按 1.0.2 建好（M9 顺带重建了 cellrank env）。
 - 回访触发：需要一个覆盖全部 43,095 细胞的第三条路线时。
 
+### B17 对比 level 没有在上下文里表示 · `claim`（2026-10-21 关闭：`contrast_levels`）
+M12-a 的 12 次同树采样里唯一的失败，也是 `plan_knowledge` 桶第一条真实记录：
+
+```
+contrast_invalid: ident.1/ident.2 must be levels of 'condition': ctrl, stim
+```
+
+根因不是校验：规划提示词把 group 型参数一律指向 `capabilities$identity_levels$codes`
+（**聚类身份**），而 `run_de_test(group = "condition")` 要的是 colData 列的 levels，
+这个集合在上下文里**没有表示**。指令因此指向了唯一读不到答案的地方。
+- 修：`capabilities$contrast_levels`（新，≤12 level 给具体值，超过只报数量并置
+  `levels_available=FALSE`，让「隐藏了」与「没有」可区分）；两处提示词改成分情况；
+  `contrast_invalid` 报错加 `(you wrote: X)` 与 `fix:`；`sclet-analysis` 技能写清来源，
+  并给出症状「报错里的 X 你在上下文没见过 = 你编的」。
+- pin：`test-ai-plan-error-guidance.R`（41）、`test-ai-skills.R`（68）。
+- 证据：`notes/m12-reliability-record.md` 第 14 条失败；`results/m12a-batch-5947e4b.jsonl`。
+- 回访触发：下一次出现「报错说对了、但模型手里没有那个信息」的形状时——同类问题不止这一处。
+
 ## 维护约定
 
 - 新增条目只写三件事：现象 + 证据位置 + 回访触发条件。
 - 修掉的条目移到「已修」并写明 pin 测试文件与断言，不删原文。
 - 一次里程碑收尾时过一遍台账，只做与下个里程碑相关的条目。
+
+## M12 → M13 移交（2026-10-21）
+
+M12 的验收物有两处没做完，**性质不同，处置也不同**。都写在这里，不等同遗忘。
+
+### B18 D3（阶段递进）没有机读实现 · `product`
+M12-b 的四维判据里，D1/D2/D4 都有能从账本读出的实现，**只有 D3 没有**。它的定义是
+「本轮计划是否回应了上轮的 warnings/limitations 并据此改变」，而这需要**两轮计划
+同时在场**才能计算；`analysis_story$data_support` 处理的是单轮上下文。
+- 现状：`sclet-analysis` 技能写成了模型可读的判据，`report$continue_blocked` 提供了
+  「上轮没过自检就别开下一轮」的门槛，但**「这轮因为上轮说了什么而改变了什么」不是可算的数**。
+- 证据：`notes/m12-plan-quality-report.md` §6.1；`.dev/spec-m12-*` §13.2 偏差一。
+- 回访触发：M13 开题时决定——或者实现「两轮 diff」判据，或者明确 D3 只作为技能层要求，
+  不进统计。**不许既不实现也不声明。**
+
+### B19 M12-b 的「人工标高计划 vs agent 计划」双栏没做 · `product`
+§4.4 原定的第二份验收物：同一数据、同一目标，人工写的参照计划与 agent 计划并列，
+按四维逐条判定并说明 agent 哪里多做了什么/漏了什么/选错了什么。它需要**一次在线调用**，
+被归到 M12-a，而 M12-a 只完成了成功率、区间与失败形状分类。
+- 现状：没有参照计划，所以**「计划变好了」这个主张目前只有间接证据**
+  （`data_support` 让 D2/D4 从不可算变成可算；六个对象上逐条核对无一条建议已做过的事）。
+- 证据：`notes/m12-plan-quality-report.md` §7。
+- 回访触发：M13 规划时决定是补做，还是接受「六题 + 题库」作为计划质量的验收口径。
+
+### 一条非缺陷的澄清
+`data_support$supports` 从不「批准」任何动作。它报告，`ValidateAIPlan()` 与 action
+prerequisites 仍是权威。`supported = TRUE` 不意味着动作能跑——曾担心这会造成第二套 gate，
+复查后确认：每个 `reason` 都复用既有 gate 名，并有 pin 断言与 action prerequisites 一致。
+**这条要留给后人，不要再审一遍。**

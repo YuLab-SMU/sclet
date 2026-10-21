@@ -636,11 +636,19 @@ ValidateAIPlan <- function(
     # zero-action plan after the first attempt put an engine placeholder in
     # run_cci's method, and it validated with validation_error_counts "1,0".
     if (!length(actions)) {
+        # Measured failure shape (2026-10-19 Kang reliability repeats): the model
+        # returned a zero-action plan for a 43k-cell goal and the error said
+        # only "re-propose the plan". It has no actions to repair and no
+        # statement of what a non-empty plan must contain, so the same shape
+        # recurred. The fix states the floor a plan has to clear.
         errors <- c(errors, paste0(
             "plan_empty: the plan has no actions. A plan with zero steps ",
-            "performs no analysis and cannot be executed; re-propose the ",
-            "plan, or if the goal genuinely needs no computation, answer ",
-            "directly instead of planning."
+            "performs no analysis and cannot be executed. ",
+            "fix: a goal that names N kinds of work needs at least one action ",
+            "per step of that work; list those actions, or state in ",
+            "`success_criteria` (or the rationale) which part of the goal is ",
+            "deliberately not done and why. Returning zero steps is not a way ",
+            "to record 'nothing to do'"
         ))
     }
     if (is.null(plan$plan_id) || !is.character(plan$plan_id) ||
@@ -719,9 +727,21 @@ ValidateAIPlan <- function(
             }
             missing_dependencies <- setdiff(step$depends_on, ids)
             if (length(missing_dependencies)) {
+                # Measured failure shape (2026-10-19, 2 of 9 Kang trials): the
+                # redundant-DE dedupe removed a step that a later `depends_on`
+                # still named, and the error said only which id was unknown.
+                # The engine could not know whether the model meant "remove that
+                # dependency too" or "put the step back", so it named neither.
+                # State both repairs; the choice stays the model's, but it must
+                # be a choice rather than a guess.
                 errors <- c(errors, paste0(
                     "action ", step$id, " depends on unknown step(s): ",
-                    paste(missing_dependencies, collapse = ", ")
+                    paste(missing_dependencies, collapse = ", "),
+                    ". fix: either remove those ids from this step's ",
+                    "`depends_on` (and from any ${<id>.output.<field>} ",
+                    "reference or success criterion that names them), or add ",
+                    "the step back to `actions`. Do not leave a dependency on ",
+                    "a step that is not in the plan"
                 ))
             }
             forward_dependencies <- intersect(step$depends_on, ids[seq.int(i, length(ids))])
@@ -748,7 +768,10 @@ ValidateAIPlan <- function(
                     errors <- c(errors, paste0(
                         "action ", step$id, " references unknown step(s): ",
                         paste(unknown_reference_steps, collapse = ", "),
-                        "; a reference may only name a step of this plan"
+                        "; a reference may only name a step of this plan. ",
+                        "fix: point the reference at a step that exists in ",
+                        "`actions`, or drop the reference and pass a literal ",
+                        "value"
                     ))
                 }
                 undeclared <- setdiff(reference_steps, step$depends_on)
@@ -1585,11 +1608,24 @@ sclet_ai_plan_once <- function(
         "\"<integer>\", NOT \"e.g. 50\"), a single JSON string for character, and",
         "a JSON boolean for logical. Never pass a type label, a placeholder, or",
         "an example where the value belongs.",
-        "For group-valued parameters (ident.1, ident.2, start_cluster), use",
-        "only the `code` values from `context$capabilities$identity_levels$codes`.",
-        "When `all_levels_available` is FALSE or no code fits, omit the",
-        "parameter if the action supports omission (e.g. run_de_test without",
-        "ident.1 runs the all-cluster marker path) rather than guessing.",
+        "Which level set a group-valued parameter takes depends on whether the",
+        "step names a `group` colData column, and getting this wrong is a",
+        "measured failure (2026-10-21, the only failure in 12 same-tree",
+        "trials): a contrast written as levels of a scheme the object does not",
+        "have, refused with contrast_invalid.",
+        "(a) WITHOUT a `group` parameter (cluster markers, start_cluster), the",
+        "values are clustering codes: use only the `code` values from",
+        "`context$capabilities$identity_levels$codes`. When",
+        "`all_levels_available` is FALSE or no code fits, omit the parameter if",
+        "the action supports omission (run_de_test without ident.1 runs the",
+        "all-cluster marker path) rather than guessing.",
+        "(b) WITH `group = <column>`, ident.1 and ident.2 are two LEVELS OF THAT",
+        "colData COLUMN, not clustering codes. Read them from",
+        "`context$capabilities$contrast_levels$columns`, find the entry whose",
+        "`column` equals your group, and copy two of its `levels` verbatim. If",
+        "the entry is absent, or `levels_available` is FALSE, do not guess a",
+        "level name: state the missing choice in your rationale (it belongs to",
+        "the user) or omit the contrast.",
         "Cite evidence only by the ids that appear in the evidence ledger",
         "(they start with \"ev:\"). Never cite an AI result id",
         "(\"sclet-ai-...\") as evidence: it is a record of a model answer, not",

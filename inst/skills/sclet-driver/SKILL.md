@@ -212,6 +212,43 @@ One thing not to attempt: a plan has no conditional steps. Its actions run
 unconditionally in order, so "if this succeeds, also do X" is a second
 round, not a longer plan.
 
+### End every round by rendering the report (and read its self-check)
+
+A round is not finished when execution returns. It is finished when the
+report has been rendered and its self-check has agreed with the ledger:
+
+```r
+executed <- ExecuteAIPlan(sce, plan, registry = reg, validation = validation,
+    dry_run = FALSE, confirmation = validation$confirmation_token)
+sce <- executed$object
+report <- RenderAIReport(sce, id = <the record this round produced>)
+```
+
+`RenderAIReport()` is not decoration. It re-derives every recorded claim
+level from the evidence and re-resolves every citation, and it prints any
+disagreement in its own verification section. **A round that is not
+rendered loses that check** -- and the next round then plans from a raw
+ledger, which grows with every round; a planner reading an ever-longer
+ledger is exactly the shape in which citation coverage falls off.
+
+The next round is planned from **this report plus
+`analysis_story$data_support`**, not from a fresh reading of everything:
+
+- the report says what this round established, at which claim level, with
+  which limitations;
+- `data_support$unexplored` says which available analyses the ledger still
+  has no result for;
+- `data_support$blocked` says what the data cannot answer and which gate
+  blocks it.
+
+When the report's self-check FAILS (unresolved citations, or a claim level
+that does not re-derive), do not carry that round's findings into the next
+plan as settled facts. Report the discrepancy, or fix the record with
+`RecordAIEvidence(replace = TRUE)` if the numbers are known to be right.
+`RunAIAnalysis()` now does this for you: it renders by default
+(`render_report = TRUE`) and sets `report$verification_status` plus
+`report$continue_blocked` when the check fails.
+
 ### Reading evidence back: two shapes
 
 Evidence nodes are reachable in two forms, and they are not interchangeable:
@@ -246,6 +283,29 @@ Validation errors are the repair loop, one round, done by you:
 4. `unknown parameter(s)` -- check the action's `input_schema`; do not
    pass parameters an action does not declare (e.g. `run_integration`
    takes no `dims`).
+5. `plan_empty: ...` -- you returned zero actions. A zero-step plan is
+   never the way to record "nothing to do". When the goal names N kinds of
+   work, write at least one action per kind; when part of the goal is
+   genuinely out of scope for the data, keep the steps you CAN plan and say
+   in `success_criteria` (or the rationale) which part you are not doing and
+   why. Measured 2026-10-19: an empty plan for a 43k-cell goal was refused,
+   and re-proposing without that instruction produced the same shape again.
+6. `action is not registered: <name>` -- `action` must be a verbatim
+   registry key. Writing `"not_run"`, `"none"` or `"skip"` to drop a step is
+   the wrong repair: remove the step from `actions`, and remove its id from
+   any other step's `depends_on` and from every `${<id>.output.<field>}`
+   reference and success criterion that named it.
+7. `depends on unknown step(s): step_N` -- a step is depended on that is not
+   in the plan. There are exactly two honest repairs: delete that id from
+   `depends_on` (plus any reference or criterion that names it), or put the
+   removed step back into `actions`. That error appears when a step was
+   dropped without cleaning its dependents -- measured 2 of 9 trials on the
+   2026-10-19 Kang repeats. Do not leave a dependency pointing at a step
+   that does not exist.
+
+Every message that ends in a `fix:` clause is telling you what to change;
+apply exactly that change and re-validate, rather than rewriting the plan
+from scratch.
 
 ## Reporting: claims are graded by the evidence, not by confidence
 

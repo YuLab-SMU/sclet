@@ -159,7 +159,14 @@ sclet_ai_goal_skill_topics <- function(goal) {
     topics <- c(topics, "analysis guidelines")
     # provenance skill: relevant when the plan reports, compares or
     # reproduces, and for criteria-bearing plans.
-    if (grepl("report|reproduc|provenance|compar|criterion|success|version|seed",
+    #
+    # `plan`, `next round`, `unexplored` and `data support` were added for M12:
+    # the provenance skill now also carries how to read
+    # `analysis_story$data_support`, which is the input to choosing what the
+    # NEXT round should do. A goal that never says "report" still needs it --
+    # "what else can this data support" is a planning question, not a
+    # reporting one.
+    if (grepl("report|reproduc|provenance|compar|criterion|success|version|seed|plan|next round|unexplored|data support",
         goal)) {
         topics <- c(topics, "provenance")
     }
