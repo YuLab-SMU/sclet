@@ -195,12 +195,14 @@ plot_scenic_activity(pbmc_program, regulon = "STAT1(+)", source = "scenic")
 
 ### Perturbation Priority
 
-```{r viz-perturbation, eval=FALSE}
-# Why not executed: plot_perturbation_ranking() reads the Augur record written
-# by RunPerturbationPriority(). Augur is not on CRAN or Bioconductor (it is
-# installed from GitHub), so no perturbation priority record exists in the
-# book build. The ranking itself is documented in
-# "State Priority and Perturbation Sensitivity".
+```{r viz-perturbation, eval = has_perturbation_priority(pbmc)}
+# `plot_perturbation_ranking()` reads the Augur record written by
+# `RunPerturbationPriority()`. On the shared `pbmc` object that record arrives
+# from the [State Priority](#state-priority) chapter, which runs earlier in the
+# book; the guard makes the dependency explicit instead of relying on chapter
+# order, and skips the chunk rather than erroring when the record is absent
+# (for example when Augur is not installed and that chapter's own chunks are
+# conditional too).
 plot_perturbation_ranking(pbmc, n = 15)
 ```
 
@@ -273,10 +275,7 @@ plot_cci_bubble(cci_viz, id = "cellchat_viz")
 plot_cci_network(cci_viz, id = "cellchat_viz")
 ```
 
-```{r viz-cci-sigmoid, eval=FALSE}
-# Why not executed: plot_cci_sigmoid() requires the ggbump package, which is
-# not a sclet dependency and is not installed in the book build. The function
-# errors with "Package 'ggbump' is needed" rather than degrading.
+```{r viz-cci-sigmoid, eval = exists("cci_viz") && requireNamespace("ggbump", quietly = TRUE)}
 plot_cci_sigmoid(cci_viz, id = "cellchat_viz", top_n = 15)
 ```
 

@@ -9,14 +9,15 @@ Both write into the same state layer as every other mainline, so both can be ins
 
 ```{r state-priority-setup, include=FALSE}
 # NOTE: Split by what can actually run in the book build.
-# - Augur is NOT on CRAN/Bioconductor: RunPerturbationPriority() stops with an
-#   install-from-GitHub message unless the Augur package is present, so every
-#   Augur chunk is conditional on requireNamespace("Augur") and stays unrun in
-#   the default build.
+# - Augur is NOT on CRAN/Bioconductor (installed from GitHub:
+#   remotes::install_github("neurorestore/Augur")), so every Augur chunk is
+#   conditional on requireNamespace("Augur"). It IS installed on the machine
+#   that renders this book locally, where these chunks run; the default
+#   GitHub Actions build does not have it and skips them.
 # - RunRareCellDetection(method = "density") needs only BiocNeighbors plus a
-#   reduction, and runs in CI on the PBMC object.
-# - Chunks after the Augur runs that merely read a result back also remain
-#   conditional: they would fail on an object where Augur never ran.
+#   reduction, and runs in every build on the PBMC object.
+# - `RunAIPlanAnalysis()` chunks stay unevaluated everywhere: they call a
+#   language model, which a documentation build must not do.
 ```
 
 ## Perturbation Priority
@@ -31,10 +32,7 @@ Augur trains a classifier per cell type to predict the experimental condition fr
 - `group_col` must name a `colData` column. `NULL` falls back to `ActiveIdent(sce)`, and the special value `"colLabels"` is resolved from `SingleCellExperiment::colLabels()` so a clustering written into `colLabels` can be used without copying it into a new column first.
 - The expression source is resolved with `sclet_resolve_expression_source(..., prefer_nonscaled = TRUE, fallback_layers = c("logcounts"))`: a scaled layer is explicitly avoided, because a classifier fitted on z-scores is a classifier fitted on a different quantity per gene.
 
-```{r augur-requirements, eval=FALSE}
-# Why not executed: the first line stops with an install message when Augur is
-# absent, and Augur is not available from CRAN or Bioconductor -- it is
-# installed from GitHub (remotes::install_github("neurorestore/Augur")).
+```{r augur-requirements, eval = eval_chunks && requireNamespace("Augur", quietly = TRUE)}
 library(sclet)
 
 # Two conditions, and a cluster column.
@@ -45,11 +43,11 @@ unique(pbmc$condition)
 c(condition = "condition", group = "colLabels")
 ```
 
+The `condition` column here is **synthetic** — it alternates by cell index and carries no biology. That is deliberate: the point of this section is the mechanics of the ranking, and a real design needs real replicates (see [Current Recommendation](#current-recommendation) for what a real design has to look like). Any AUC this produces is a property of the random split, not a discovery.
+
 ### The direct call
 
-```{r augur-direct, eval=FALSE}
-# Why not executed: requires the Augur package (GitHub-only) and runs one
-# cross-validated classifier per cell type.
+```{r augur-direct, eval = eval_chunks && requireNamespace("Augur", quietly = TRUE)}
 pbmc <- RunPerturbationPriority(
     pbmc,
     condition_col = "condition",
@@ -67,18 +65,19 @@ Everything passed in `...` is forwarded to `Augur::calculate_auc()`, so tuning t
 
 ### Reading the result back
 
-```{r augur-accessors, eval=FALSE}
-# Why not executed: reads a record that only exists after the Augur run above.
+```{r augur-accessors, eval = eval_chunks && requireNamespace("Augur", quietly = TRUE)}
 has_perturbation_priority(pbmc)
 
 # The whole record, or one element of it.
-get_perturbation_priority(pbmc, element = "AUC")
+head(get_perturbation_priority(pbmc, element = "AUC"))
 
 # The ranking as a bar chart (top 20 by AUC).
 plot_perturbation_ranking(pbmc)
 ```
 
 `has_perturbation_priority()` is worth calling first in any script that reads the record: it returns `FALSE` rather than erroring on an object where Augur never ran, which keeps a downstream report from failing on a partially analysed object.
+
+Note that `get_perturbation_priority()` reads the **analysis** record (`"augur"`), not the typed state record. `get_perturbation()` is the CellOracle accessor and reads a different state type, so on an object where only Augur has run it returns `NULL` — the two names are easy to confuse and they do not overlap.
 
 ## Rare Cell Detection
 
@@ -183,9 +182,7 @@ nine-cell population, which `rare_threshold = 10` flags as rare.
 
 `RunStatePriorityWorkflow()` runs either or both analyses and records them as one mainline record pointing at the component ids:
 
-```{r state-priority-workflow, eval=FALSE}
-# Why not executed: run_perturbation_priority = TRUE routes through Augur,
-# which is not installed in the book build.
+```{r state-priority-workflow, eval = eval_chunks && requireNamespace("Augur", quietly = TRUE)}
 pbmc <- RunStatePriorityWorkflow(
     pbmc,
     condition_col = "condition",
