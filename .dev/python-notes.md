@@ -73,3 +73,35 @@ uv pip install <pkg>          # no activation
 Hardlink warnings under `/tmp` are harmless. `uv` needs no proxy override; if a
 download times out, apply the machine's global proxy rule
 (`127.0.0.1:7897`) rather than concluding the package is unavailable.
+
+## Version bumps do not require a rebuild
+
+The env path is keyed by package version, and basilisk treats a missing
+directory as "not built yet" — so bumping DESCRIPTION *looks* like it demands
+a fresh ~10-minute build. It does not, when the bump carries no dependency
+change.
+
+What was done for 1.0.2 -> 1.1.0 (2026-10-21):
+
+```bash
+cd ~/.cache/R/basilisk/1.24.0/sclet
+ln -s 1.0.2 1.1.0          # one symlink, no copy
+```
+
+Verified end to end: `obtainEnvironmentPath()` resolves through it,
+`dir.exists()` is TRUE, a basilisk worker launches, and cellrank 2.0.7 /
+scvelo 0.3.4 import inside it (`sys.prefix` reports the 1.0.2 realpath, which is
+correct — the symlink is a name, not a copy).
+
+Two things that did NOT work and should not be repeated:
+
+- **`cp -a` is the wrong tool here.** It copied 7 GB, and because it does not
+  preserve hardlinks across the tree the copy was a full second copy, not a
+  deduplicated one. Deleted immediately.
+- **Editing the copied env's baked-in paths is a trap.** `pyvenv.cfg` and
+  `bin/activate` carry absolute paths, and so does the shebang of every console
+  script in `bin/` — patching them is a long list of edits with no benefit over
+  a symlink. Do not go down that route.
+
+Only rebuild when the pins actually change (`R/basilisk.R`), not when only the
+package version does.
