@@ -1,3 +1,30 @@
+# Translate a level-based contrast into the coefficient names limma needs.
+#
+# The action's own error message and the skill tell the caller to write
+# "stim - ctrl" (condition levels). That string is then handed to
+# miloR::testNhoods(), which parses it against the design matrix's coefficient
+# names -- and with the design RunMilo builds (`~ 0 + condition + covariates`)
+# those coefficients are `conditionctrl`, `conditionstim`, ... so the documented
+# form failed at execution with `object 'stim' not found` (measured on Kang,
+# 2026-10-20). The vocabulary the caller sees is condition levels, so the
+# translation lives here, once, next to the design that decides it. A contrast
+# already written in coefficient names is left untouched.
+sclet_milo_translate_contrast <- function(contrast, condition_levels, condition_col) {
+    if (!is.character(contrast) || length(contrast) != 1L || is.na(contrast)) {
+        return(contrast)
+    }
+    parts <- trimws(strsplit(contrast, "\\s*-\\s*")[[1L]])
+    if (length(parts) != 2L) {
+        return(contrast)
+    }
+    levels <- as.character(condition_levels)
+    if (!all(parts %in% levels)) {
+        # Not level names -- assume the caller already wrote coefficients.
+        return(contrast)
+    }
+    paste0(condition_col, parts[[1L]], " - ", condition_col, parts[[2L]])
+}
+
 #' Run Milo Differential Abundance Analysis
 #'
 #' @param sce A SingleCellExperiment object containing single-cell data. Must have PCA in \code{reducedDims}.
@@ -33,33 +60,6 @@
 #' \item{da_results}{Data.frame of DA testing results.}
 #'
 #' @importFrom SingleCellExperiment 'reducedDim<-'
-# Translate a level-based contrast into the coefficient names limma needs.
-#
-# The action's own error message and the skill tell the caller to write
-# "stim - ctrl" (condition levels). That string is then handed to
-# miloR::testNhoods(), which parses it against the design matrix's coefficient
-# names -- and with the design RunMilo builds (`~ 0 + condition + covariates`)
-# those coefficients are `conditionctrl`, `conditionstim`, ... so the documented
-# form failed at execution with `object 'stim' not found` (measured on Kang,
-# 2026-10-20). The vocabulary the caller sees is condition levels, so the
-# translation lives here, once, next to the design that decides it. A contrast
-# already written in coefficient names is left untouched.
-sclet_milo_translate_contrast <- function(contrast, condition_levels, condition_col) {
-    if (!is.character(contrast) || length(contrast) != 1L || is.na(contrast)) {
-        return(contrast)
-    }
-    parts <- trimws(strsplit(contrast, "\\s*-\\s*")[[1L]])
-    if (length(parts) != 2L) {
-        return(contrast)
-    }
-    levels <- as.character(condition_levels)
-    if (!all(parts %in% levels)) {
-        # Not level names -- assume the caller already wrote coefficients.
-        return(contrast)
-    }
-    paste0(condition_col, parts[[1L]], " - ", condition_col, parts[[2L]])
-}
-
 #' @export
 RunMilo <- function(
     sce,

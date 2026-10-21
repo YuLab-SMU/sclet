@@ -29,20 +29,12 @@ reference cells.}
 }
 \value{
 A list with \code{ready} (logical), \code{status}, \code{issues} (character),
-\code{n_reference_cells}, \code{n_genes_with_position}, \code{n_chromosomes},
-\code{notes} (non-blocking, e.g. merged duplicate gene rows), and
-\code{gene_order_source}. This function REPORTS rather than throws: a
-malformed gene order arrives as an entry in \code{issues}.
+\code{n_reference_cells}, \code{n_genes_with_position}, and \code{gene_order_source}.
 }
 \description{
 Reports whether a copy-number measurement can run on this object: inferCNV
-and its JAGS dependency present, gene positions resolvable across more than
-one chromosome, and reference cells available. Read-only; runs nothing.
-
-Two checks exist because inferCNV needs a genome-wide ordering: the gene
-count must reach 100, and the order must span at least two chromosomes,
-because inferCNV slides a window along each chromosome and a pile of genes on
-one chromosome cannot carry a copy-number profile.
+and its JAGS dependency present, gene positions resolvable, and reference
+cells available. Read-only; runs nothing.
 }
 \seealso{
 \code{\link[=RunCNVInference]{RunCNVInference()}}

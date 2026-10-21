@@ -1,4 +1,5 @@
 #' @importFrom basilisk BasiliskEnvironment
+#' @importFrom digest digest
 # SCENIC (pySCENIC) environment.
 #
 # pySCENIC 0.12.1 has known incompatibilities with newer transitive
@@ -126,7 +127,7 @@ sclet_cellphonedb_env <- basilisk::BasiliskEnvironment(
 
 # Resolve a basilisk environment object by its short name. This is what the
 # public troubleshooting guidance uses, e.g.
-#   basilisk::obtainEnvironmentPath(sclet:::.env("sclet_cellrank_env"))
+#   sclet::sclet_env_path("sclet_cellrank_env")
 # It returns the package-namespace BasiliskEnvironment object for `name`.
 .env <- function(name) {
     envs <- list(
@@ -148,6 +149,189 @@ sclet_cellphonedb_env <- basilisk::BasiliskEnvironment(
         )
     }
     envs[[name]]
+}
+
+# Python environments that are NOT keyed on the package version.
+#
+# `basilisk::obtainEnvironmentPath()` builds its path as
+# `<external>/<basilisk-version>/<pkgname>/<packageVersion(pkgname)>/<envname>`.
+# Bumping `DESCRIPTION`'s Version therefore moves the whole tree, with two
+# consequences -- the second one is the damaging one:
+#
+#   1. The old environment is no longer looked up, so the next call lands on a
+#      directory that does not exist and `setupBasiliskEnv()` reinstalls the
+#      entire stack: a multi-GB download triggered by editing a version string
+#      that says nothing about the Python stack.
+#   2. `dir.expiry::clearDirectories()` (reached via `unlockExternalDir()`)
+#      deletes an old version directory once it has gone
+#      `BIOC_DIR_EXPIRY_LIMIT` days (default 30) without being touched. So
+#      releasing a new sclet eventually *deletes* the previous release's
+#      environments; a user who upgrades twice a year pays for it twice.
+#
+# What an environment actually depends on is its SPEC -- the pinned `packages`
+# and `pip` requirements, plus `paths` for `extra_packages`. Not the version of
+# the R package that happens to declare it. So sclet names each directory after
+# the environment and a hash of that spec: an unchanged spec survives every
+# package upgrade, and only a genuine change to the Python stack moves the path.
+#
+# `paths` is part of the fingerprint on purpose: it carries `extra_packages`
+# such as the `pyarrow`/`rmarkdown` bindings, and a change there does mean the
+# environment has to be rebuilt.
+sclet_env_spec_fingerprint <- function(env) {
+    key <- c(env@envname, env@packages, env@paths)
+    paste0(env@envname, "-", substr(
+        digest::digest(paste(key, collapse = "\u0001"), algo = "md5"),
+        1L, 12L
+    ))
+}
+
+# Root holding sclet's own environments. `SCLET_ENV_ROOT` wins outright; otherwise
+# `BASILISK_EXTERNAL_DIR` is honoured the same way basilisk honours it, so a user
+# who already redirects basilisk's cache redirects this too.
+sclet_env_root <- function() {
+    root <- Sys.getenv("SCLET_ENV_ROOT", unset = NA_character_)
+    if (!is.na(root) && nzchar(root)) {
+        return(path.expand(root))
+    }
+    inst_path <- Sys.getenv("BASILISK_EXTERNAL_DIR", unset = NA_character_)
+    if (!is.na(inst_path) && nzchar(inst_path)) {
+        return(file.path(path.expand(inst_path), "sclet-envs"))
+    }
+    file.path(tools::R_user_dir("sclet", "cache"), "envs")
+}
+
+# `BASILISK_USE_SYSTEM_DIR=1` puts environments inside the library holding
+# sclet. Keep that spelling working, and keep it version-free there too: one
+# directory per environment for the whole library, not one per installed
+# version.
+sclet_env_use_system_dir <- function() {
+    identical(Sys.getenv("BASILISK_USE_SYSTEM_DIR", NA), "1")
+}
+
+#' Path to one of sclet's Python environments
+#'
+#' `basilisk` names its environment directories after the version of the R
+#' package that declares them (`.../sclet/<packageVersion>/<envname>`), so
+#' upgrading the package used to make every environment disappear and be
+#' reinstalled -- and, after `BIOC_DIR_EXPIRY_LIMIT` days, deleted.
+#'
+#' sclet keys the path on the environment **specification** instead: the
+#' directory name is `<envname>-<hash>`, where the hash covers the pinned
+#' packages, the pip requirements and `paths`. An unchanged specification
+#' therefore survives every package upgrade, and only a real change to the
+#' Python stack produces a new directory.
+#'
+#' @param envname The short environment name, e.g. `"sclet_scvi_env"`.
+#' @param create Logical. Build the environment if the directory is missing.
+#' @return The environment's directory path, invisibly.
+#' @export
+#' @examples
+#' \dontrun{
+#' sclet_env_path("sclet_scvi_env")
+#' }
+sclet_env_path <- function(envname, create = FALSE) {
+    env <- .env(envname)
+    name <- sclet_env_spec_fingerprint(env)
+    base <- if (sclet_env_use_system_dir()) {
+        file.path(tools::R_user_dir("sclet", "data"), "envs")
+    } else {
+        sclet_env_root()
+    }
+    path <- file.path(base, name)
+    if (isTRUE(create) && !dir.exists(path)) {
+        dir.create(base, recursive = TRUE, showWarnings = FALSE)
+        basilisk::setupBasiliskEnv(
+            path,
+            packages = env@packages,
+            paths = env@paths
+        )
+    }
+    invisible(path)
+}
+
+# Interpreter inside an environment, across conda and venv layouts.
+sclet_env_python <- function(envpath) {
+    cands <- c(
+        file.path(envpath, "bin", "python3"),
+        file.path(envpath, "bin", "python")
+    )
+    found <- cands[file.exists(cands)]
+    if (length(found)) {
+        found[[1L]]
+    } else {
+        envpath
+    }
+}
+
+#' Path to the python interpreter of one of sclet's environments
+#'
+#' The convenience counterpart to [sclet_env_path()] for callers that want to
+#' run a script directly rather than through `basilisk`, e.g. a `system2()`
+#' call or a `reticulate` session.
+#'
+#' Calling that interpreter from inside a long-running R process needs
+#' `env = sclet_env_vars(...)`; see [sclet_env_run()], which does it for you.
+#'
+#' @param envname The short environment name, e.g. `"sclet_scvi_env"`.
+#' @param create Logical. Build the environment if it is missing.
+#' @return The path to the interpreter, invisibly.
+#' @export
+#' @examples
+#' \dontrun{
+#' sclet_env_python_path("sclet_scvi_env")
+#' }
+sclet_env_python_path <- function(envname, create = FALSE) {
+    invisible(sclet_env_python(sclet_env_path(envname, create = create)))
+}
+
+#' Run a script in one of sclet's python environments
+#'
+#' A `reticulate`/`basilisk`-free way to execute Python in an environment sclet
+#' manages: it locates the interpreter and runs `script` with a sanitised
+#' environment.
+#'
+#' The sanitation matters. A process started from R inherits R's
+#' `LD_LIBRARY_PATH` (`/usr/lib/R/lib` first), and a python interpreter under a
+#' virtualenv then resolves the *system* `libpython` instead of its own. The
+#' symptom is an import failure well away from the cause -- on this machine,
+#' `import torch` died with `_ctypes ... undefined symbol:
+#' _PyErr_SetLocaleString`, because `_ctypes` had been built against the pyenv
+#' interpreter while `libpython3.12` came from the system. Clearing
+#' `LD_LIBRARY_PATH` for the child fixes it.
+#'
+#' @param envname The short environment name, e.g. `"sclet_scvi_env"`.
+#' @param script Path to the Python script to run.
+#' @param args Character vector of arguments passed to the script.
+#' @param ... Further arguments passed to [system2()], e.g. `stdout`/`stderr`.
+#' @return The exit status of the child process, invisibly.
+#' @export
+#' @examples
+#' \dontrun{
+#' sclet_env_run("sclet_scvi_env", "train.py", c("--epochs", "10"))
+#' }
+sclet_env_run <- function(envname, script, args = character(), ...) {
+    python <- sclet_env_python_path(envname, create = TRUE)
+    result <- system2(
+        python,
+        c(shQuote(normalizePath(script)), args),
+        env = c("LD_LIBRARY_PATH=", "PYTHONHOME=", "PYTHONPATH="),
+        ...
+    )
+    # With `stdout = TRUE` system2() returns the captured output (a character
+    # vector) and puts the exit status in an attribute; without it, it returns
+    # the status as an integer. Both shapes are accepted here.
+    status <- attr(result, "status")
+    if (is.null(status)) {
+        status <- if (is.numeric(result) && length(result) == 1L) result else 0L
+    }
+    if (!identical(as.integer(status), 0L)) {
+        stop(
+            "Python script failed in environment '", envname,
+            "' (exit status ", status, "): ", script,
+            call. = FALSE
+        )
+    }
+    invisible(result)
 }
 
 # Locate the directory holding the shared C/C++ libraries bundled inside a
@@ -172,7 +356,7 @@ sclet_env_libdir <- function(envpath) {
 # is a no-op and the host runtime is used. The preceding variable is restored by
 # the caller after the basilisk process has finished.
 sclet_prepend_env_lib <- function(env) {
-    envpath <- basilisk::obtainEnvironmentPath(env)
+    envpath <- sclet_env_path(env@envname)
     libdir <- sclet_env_libdir(envpath)
     if (is.null(libdir)) {
         return(invisible(NULL))

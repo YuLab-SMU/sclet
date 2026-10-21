@@ -43,6 +43,7 @@ Imports:
     bluster,
     cli,
     DelayedMatrixStats,
+    digest,
     dplyr,
     fanyi,
     ggplot2,
@@ -80,7 +81,6 @@ Suggests:
     ComplexHeatmap,
     DESeq2,
     DelayedArray,
-    digest,
     DropletUtils,
     enrichplot,
     ggraph,
@@ -169,6 +169,17 @@ Collate:
     'ai-planning.R'
     'ai-privacy.R'
     'ai-profile.R'
+    'ai-registry-annotation.R'
+    'ai-registry-cluster-design.R'
+    'ai-registry-dimred-graph.R'
+    'ai-registry-enrichment-communication-milo.R'
+    'ai-registry-integration.R'
+    'ai-registry-malignant.R'
+    'ai-registry-preprocess.R'
+    'ai-registry-rare-cell.R'
+    'ai-registry-read.R'
+    'ai-registry-spatial-multimodal.R'
+    'ai-registry-trajectory-velocity-fate.R'
     'ai-report.R'
     'ai-result.R'
     'ai-skills.R'
@@ -197,14 +208,14 @@ Collate:
     'interop.R'
     'io.R'
     'layers.R'
-    'malignancy.R'
     'malignancy-cnv.R'
     'malignancy-combine.R'
-    'phenotype-evidence.R'
+    'malignancy.R'
     'markers.R'
     'matrix-utils.R'
     'multimodal.R'
     'pathways.R'
+    'phenotype-evidence.R'
     'phenotype.R'
     'pipeline_summary.R'
     'plot-cci.R'

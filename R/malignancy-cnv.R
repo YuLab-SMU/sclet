@@ -26,27 +26,6 @@
 #     present, from a caller-supplied file otherwise, and only then from an
 #     optional TxDb. Which source was used is recorded.
 
-#' Readiness check for CNV-based malignant-cell inference
-#'
-#' Reports whether a copy-number measurement can run on this object: inferCNV
-#' and its JAGS dependency present, gene positions resolvable, and reference
-#' cells available. Read-only; runs nothing.
-#'
-#' @param object A `SingleCellExperiment` object.
-#' @param reference_cells Character vector of cell names to use as the normal
-#'   reference. Required unless `reference_col` names a `colData` column whose
-#'   values mark reference cells.
-#' @param reference_col Optional `colData` column; its non-`FALSE` values select
-#'   reference cells.
-#' @param gene_order Optional data frame or path with `gene`, `chr`, `start`,
-#'   `end`.
-#' @param species `"human"` or `"mouse"`, used only to name the TxDb fallback.
-#'
-#' @return A list with `ready` (logical), `status`, `issues` (character),
-#'   `n_reference_cells`, `n_genes_with_position`, and `gene_order_source`.
-#'
-#' @seealso [RunCNVInference()]
-#' @export
 # A reference from another lineage can look like copy-number change.
 #
 # Measured on GSE144735 (2026-10-19): an immune/stromal reference gave CNV
@@ -85,6 +64,27 @@ sclet_cnv_lineage_note <- function(object, ref) {
     NULL
 }
 
+#' Readiness check for CNV-based malignant-cell inference
+#'
+#' Reports whether a copy-number measurement can run on this object: inferCNV
+#' and its JAGS dependency present, gene positions resolvable, and reference
+#' cells available. Read-only; runs nothing.
+#'
+#' @param object A `SingleCellExperiment` object.
+#' @param reference_cells Character vector of cell names to use as the normal
+#'   reference. Required unless `reference_col` names a `colData` column whose
+#'   values mark reference cells.
+#' @param reference_col Optional `colData` column; its non-`FALSE` values select
+#'   reference cells.
+#' @param gene_order Optional data frame or path with `gene`, `chr`, `start`,
+#'   `end`.
+#' @param species `"human"` or `"mouse"`, used only to name the TxDb fallback.
+#'
+#' @return A list with `ready` (logical), `status`, `issues` (character),
+#'   `n_reference_cells`, `n_genes_with_position`, and `gene_order_source`.
+#'
+#' @seealso [RunCNVInference()]
+#' @export
 check_cnv_readiness <- function(object,
                                 reference_cells = NULL,
                                 reference_col = NULL,

@@ -81,15 +81,6 @@ sclet_ai_evidence_scope_string <- function(scope) {
     paste(sort(unique(as.character(unlist(scope, use.names = FALSE)))), collapse = "|")
 }
 
-#' Record a bounded deterministic evidence node in the analysis ledger
-#'
-#' @param object A `SingleCellExperiment` object.
-#' @param evidence A structured evidence node with a unique `id` and `kind`.
-#' @param source Optional completed analysis id supporting the evidence.
-#' @param parents Optional evidence ids or dependency ids.
-#' @param scope Optional aggregate scope, such as anonymized groups.
-#' @return The SCE with an `ai_evidence` state record.
-#' @export
 # Record an evidence node, tolerating a RE-RUN of the same analysis.
 #
 # The problem this solves, measured 2026-10-21: a node id is derived from the
@@ -139,6 +130,28 @@ sclet_ai_record_evidence_for_run <- function(object, evidence, source = NULL,
         scope = scope, replace = TRUE)
 }
 
+#' Record a bounded deterministic evidence node in the analysis ledger
+#'
+#' These functions provide a bounded evidence contract for advanced AI
+#' analysis. Evidence values must be aggregate: private identifiers and complete
+#' matrices are rejected. Each evidence node carries a deterministic
+#' `dependency_group` derived from its `parents` and `scope`, so downstream
+#' comparisons can detect shared lineage.
+#'
+#' @param object A `SingleCellExperiment` object.
+#' @param evidence A structured evidence node with a unique `id` and supported
+#'   `kind`.
+#' @param source Optional completed analysis id supporting the evidence.
+#' @param parents Optional evidence ids or dependency ids used to derive the
+#'   deterministic `dependency_group` hash together with `scope`.
+#' @param scope Optional aggregate scope, such as anonymized groups.
+#' @param replace Logical. When `TRUE`, re-record an existing node id instead of
+#'   refusing it, for a DERIVED node whose summary changed (the node id and its
+#'   source record stay the same, so citations keep working). Defaults to
+#'   `FALSE`, which keeps the write-once refusal.
+#' @return The SCE with an `ai_evidence` state record, plus a deterministic
+#'   `dependency_group` derived from `parents` + `scope`.
+#' @export
 RecordAIEvidence <- function(object, evidence, source = NULL, parents = NULL,
                              scope = NULL, replace = FALSE) {
     if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)
