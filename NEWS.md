@@ -1,5 +1,148 @@
 # sclet 1.1.0
 
+## M12: making "reliable" measurable
+
+M1–M11 proved the single-cell spine runs end to end on real data. M12 addresses the
+next question: **is it reliable, and how would a reader know?** The answer was not a
+number — it was the absence of one. Nine repeats produced "5 of 9" with no
+denominator, no interval, and no way to tell *what* failed. Nothing could be
+repaired on that evidence, and "reliable" was a feeling.
+
+This milestone does not add analysis capability. It gives reliability a
+denominator, gives "a good plan" four measurable dimensions, and closes the loop
+between a run and the report the next round plans from. Plan and forensics:
+`.dev/spec-m12-plan-quality-and-reliability.md` (§13 records what was actually
+built and where it deviates from that plan).
+
+### Reliability now has a denominator
+
+- **Twelve same-tree trials** of the Kang goal on one commit (`5947e4b`),
+  classified by a closed-set `failure_class` enum into eight shapes across five
+  layers (`plan_empty`, `plan_shape`, `plan_knowledge`, `plan_refused`,
+  `execute_failed`, `report_unverifiable`, `record_error`, `not_measured`).
+  **11 of 12 completed (91.7%, Wilson 95% CI [64.6%, 98.5%]).** The historical
+  42-trial aggregate across 19 commits stands at 66.7% [51.6%, 79.0%]. The two
+  intervals overlap: the improvement is directional, **not a demonstrated
+  difference**, and the cross-commit aggregate must not be quoted as the current
+  tree's rate because it contains defects already fixed.
+- The classifier (`sclet-benchmark-ai/R/actions/classify-reliability.R`) is
+  mechanical — same record, same bucket, no hand grading — and self-checks that
+  every code it recognises exists in the engine's own error messages
+  (`classify-reliability-selfcheck.R`). The count that matters is the shape
+  table, not the rate: fix one shape, re-run, and watch it leave the table.
+- `validation_errors` holds a single error string per record, not a structured
+  array, so the shapes are classified by rule rather than by parsing a code —
+  the self-check is what makes that trustworthy, and it now covers the 12 codes
+  the engine actually emits.
+
+### What the data can support is no longer the planner's guess
+
+- **`analysis_story$data_support`** (new, schema 1.1) records what this object
+  can and cannot answer: `shapes` (counts present *and integral*,
+  spliced/unspliced, replicates per condition, spatial, multimodal, candidate
+  design columns), `supports`/`blocked` (per question class, with the **existing
+  gate name** as the reason), `unconfirmed_semantics`, and `unexplored` — the
+  analyses this object can support that the ledger has **never run**.
+  `evidence_gaps` says an analysis lacks evidence; `unexplored` says the data was
+  never analysed at all. That distinction is the input for choosing the next
+  round.
+- Every `reason` reuses a gate name the registry already uses, pinned by a test
+  that calls the live prerequisites, so the block cannot drift into a private
+  vocabulary that disagrees with the real gates.
+- Verified on the six M1–M11 objects (`.dev/m12-question-bank.R`, 6/6): no object
+  is told to redo finished work, and each empty suggestion list is *justified*
+  rather than silently produced. The pancreas object, which has no `clustering`
+  record because it went from the embedding straight to a trajectory, was
+  wrongly reported `cluster_identity_missing` and had its whole suggestion list
+  suppressed; grouping evidence is now read from any analysis that presupposes
+  one, not from a record literally typed `clustering`.
+
+### A round ends with a rendered report, not with execution returning
+
+- **`RunAIAnalysis(render_report = TRUE, verify_before_continue = TRUE)`** (new
+  arguments, both default) renders the round's report from the ledger and carries
+  its self-check into `report$rendered` / `report$verification_status`. When the
+  self-check fails, `report$continue_blocked` states it, so a caller cannot
+  mistake "the analysis ran" for "the numbers can be carried forward".
+  Rendering was previously an optional finishing move, which in practice meant
+  it did not happen — and without it the self-check that makes a failure visible
+  never ran, while the next round was left reading a ledger that grows with every
+  round.
+- Reliability is defined operationally in this milestone: **not "never wrong" but
+  "always visible when wrong"** — the ledger catches it, the report says it, and
+  an independent process recomputes it. Three failure classes now exist that
+  used to be silent by construction.
+
+### Validation errors say what to change
+
+- `plan_empty`, `depends on unknown step(s)`, `references unknown step(s)`,
+  `contrast_invalid` and `contrast_missing` now carry a `fix:` clause naming the
+  repair. The 4 failures in 9 earlier trials were all correctly refused shapes
+  that the messages did not tell the model how to clear.
+- **`capabilities$contrast_levels`** (new): the levels of the colData columns a
+  `group` contrast can name. The one failure in the 12 same-tree trials was
+  `contrast_invalid: ident.1/ident.2 must be levels of 'condition': ctrl, stim` —
+  not a validator defect. The prompt sent group-valued parameters to
+  `identity_levels$codes`, which describes the **clustering**, while a condition
+  contrast needs the levels of a **design column**, a set with no representation
+  in the context at all. Both prompts now state which is which, and
+  `contrast_invalid` names the invalid value you wrote alongside the valid ones.
+
+### The design/result boundary, made explicit
+
+- **Design semantics may be exposed; analysis results may not.** The privacy
+  layer is not "no colData values leave": a `group` contrast cannot be planned
+  without its column's levels, and withholding them is exactly what forced the
+  model to invent one. `ActiveIdent` (the clustering) is the result the analysis
+  exists to discover and stays anonymised as `group_N`; a design column
+  (`condition`, `Treatment`, `donor`) is the user's own experiment and its levels
+  must be present. `contrast_levels` therefore **excludes the active identity
+  column by name** — a mock object whose clusters were named `treat1`/`treat2`
+  had those labels re-emitted through `contrast_levels` until it did.
+- Two traps found implementing it, both pinned: `levels` must be a character
+  *vector* (an unnamed list of scalars is redacted as "unnamed nested values are
+  not bounded"), and `note` is on the privacy deny list, so explanatory text
+  belongs in `guidance`.
+
+### Skills
+
+- `sclet-analysis` gained the four plan-quality dimensions (goal coverage, data
+  fitness, round progression, evidence increment) and a **data-shape → exploration
+  order** table: which shape plans which route first, and what has to be recorded
+  before the next stage is claimable. `sclet-provenance` documents reading
+  `data_support`, with `unexplored` as the main input to "what should the next
+  round do". `sclet-driver` gained the three measured failure shapes as
+  right/wrong pairs, and the rule that a round ends with a rendered, self-checked
+  report.
+- Selection widened: a planning goal with no reporting vocabulary
+  ("what else can this data support") now receives the provenance skill, which
+  carries `data_support`. Every one of these sections is pinned by an assertion
+  that it reaches the prompt, because `options(sclet.ai.use_skills)` is a switch
+  and an edit that never reaches the model is invisible in every other test.
+
+### Tests
+
+- New files: `test-ai-data-support.R` (63 assertions; the determinism pin caught
+  a `return()` inside `tryCatch` that collapsed an entire `shapes` block to a
+  bare `TRUE`), `test-ai-round-report.R` (14), `test-ai-plan-error-guidance.R`
+  (41). `test-ai-skills.R` grew to 68 and `test-ai-ident-groups.R` to 48. Full
+  suite: **5951 passing, 0 failures**; `make check` 0 errors / 0 warnings /
+  0 notes.
+
+### Known gaps, stated rather than smoothed
+
+- **Round progression (dimension 3 of 4) has no computed metric.** It needs two
+  plans in view at once and this milestone plans from a single round's context;
+  it exists in `sclet-analysis` as guidance a model can read, not as a number.
+  Carried to M13.
+- **`report_unverifiable` is currently empty** — M12-e came after every record in
+  the bench set. Zero occurrences is not "self-checks never fail"; it is
+  "the checks had not started running".
+- Suggestion coverage in `unexplored` is deliberately conservative (9 classes).
+  An omitted suggestion is silence, not an error, but silence is also not
+  completeness.
+
+
 Eleven closed loops (M1–M11) drove every single-cell action against real data.
 Each loop produced a rendered report re-derived from the ledger alone, and the
 defects below are what that surfaced — nearly all of them invisible to the
@@ -432,3 +575,136 @@ introduced it (this section is what issue #29 asked the changelog to carry).
     - `SummarizedExperiment::colData()`
     - `SummarizedExperiment::rowData()`
     - `SummarizedExperiment::assay()`
+
+## M13: what a dirty dataset asks of the planner
+
+M12 gave "reliable" a denominator and gave "a good plan" four dimensions. All of
+that was measured on data this package had already analysed. M13 asks the next
+question — **given a dataset nobody has seen, does the planner make a judgement it
+could not make before?** — and pays a debt M12 left: it never proved the model
+*uses* `analysis_story$data_support`, only that the field was correct.
+
+Spec and forensics: `.dev/spec-m13-dirty-data-judgement.md` (§10–12 record what was
+actually built and where it deviates). Reports: `notes/m13-ambient-report.md`,
+`notes/m13-data-support-adoption.md`.
+
+### Round progression now has a number (closing M12's B18)
+
+- **`sclet_ai_round_progression()`** judges two rounds against each other and
+  returns `advanced` / `confirmatory` / `no_progress` / **`regressed`**, plus
+  `first_round` when there is no previous round. Four judges, all relations between
+  the previous plan, the previous report's own fields, and the current plan:
+  warnings answered (by an action that remedies them, or explicitly carried with a
+  reason), unchanged steps repeated, evidence gaps closed, recorded user decisions
+  actually used.
+- **`regressed` is the class that had to exist.** A dimension that can only report
+  "good" or "average" cannot report "worse", and re-deriving an answer the previous
+  round already discarded is the most expensive move a plan can make. On the real
+  M7 object the judge returns `regressed`, and correctly: that report said cluster
+  12's label came from a doublet-dominated population, and a plan that re-annotates
+  without decontaminating is re-deriving a discarded answer. Two independent paths
+  — the engine's calculation and M7's own human-written warning — agree on the
+  shape.
+- `report$round_progression` carries it into `RunAIAnalysis()`'s result.
+- A previous round is **two records, not one**: the plan comes from the newest
+  `ai_execution` record's `params$steps`, the report from the newest `ai_report`
+  record whose warnings live in `artifacts` (not `summary`). Looking for either
+  half in the other place returns `not_comparable` on every real object, which
+  reads exactly like "D3 was never computed here".
+
+### Ambient RNA: the correct answer was not a plannable action
+
+- **`run_decontx` is a new action (33 → 34).** `RunDecontX()` has been exported
+  while having no AIAction, which meant the one correct response to ambient
+  contamination — clean before interpreting — was not a step a planner could
+  choose. M13 measured that gap and closes it. This is the first new action since
+  M11, taken deliberately and recorded as an exception.
+- It wraps `celda::decontX`, writes `decontXcounts` and `decontX_contamination`,
+  and **removes no cell and switches no active assay** — downstream steps must name
+  the cleaned matrix explicitly. A non-integer or negative `counts` assay is
+  refused (`counts_assay_not_count`) rather than silently estimated from.
+- The evidence node records a distribution (q25/median/q75/q95/max), never
+  per-cell values, and states `contamination_call_is_model_estimate = TRUE`.
+- **decontX is deterministic** on a fixed input (two runs, identical vectors, max
+  abs diff 0), so an identical re-run is an idempotent no-op — the recorder's
+  no-op path is the correct outcome here, not a missed conflict. A *changed* input
+  under the same node name is a conflict, and that branch is pinned separately.
+  Worth recording because the temptation runs the other way: a stochastic-looking
+  estimator is assumed to vary, and a test asserting "a re-run conflicts" would be
+  pinned to a false premise.
+
+### The data now says how dirty it is
+
+- **`sclet_ai_ambient_pressure()`**: two screens reported **separately and not
+  multiplied** — a low-UMI tail share and the detection uniformity of the top 200
+  genes — each with its own threshold, plus a coarse `label`. Multiplying two soft
+  signals produces a figure with two decimal places and no meaning, and hides
+  which half moved. The function states its own limits in its return value: a high
+  detection rate is also what housekeeping genes look like, so `high` means
+  "cleaning is worth considering", not "contamination was measured".
+- On the GSE158055 sample the screen reads **high** (low-UMI tail 0.0335,
+  uniformity 0.9139, both thresholds crossed), and `data_support` reports
+  `ambient_cleaning: TRUE` with **`run_decontx` as its single `unexplored`
+  suggestion**, carrying the screen's own numbers as the reason.
+- The fixture is one sample of GSE158055 (27,943 × 8,129), not the 1,462,702-cell
+  cohort: the full matrix makes decontX unrunnable here, and pooling samples would
+  confound ambient signal with between-sample differences so the screen would
+  measure the wrong thing. Extraction scans 12% of the file by exploiting the fact
+  that barcodes are grouped by sample and the mtx is column-sorted, and it
+  **fails loudly** if a sample's columns are ever not contiguous rather than
+  returning a partial matrix.
+
+### Does the planner use `data_support`? Directionally yes, not demonstrably
+
+Two arms, same fixture, same goal (deliberately **not** mentioning contamination,
+or the test would measure compliance with the goal text instead of use of the
+context): 6 planning trials each.
+
+| arm | planned `run_decontx` | rate | Wilson 95% |
+|---|---|---|---|
+| control (no `data_support`) | 0 / 6 | 0% | [0%, 39%] |
+| treatment (with) | 2 / 6 | 33.3% | [9.7%, 70%] |
+
+- **The zero baseline is the more persuasive half**: `run_decontx` is a registered
+  action, so the planner could have reached for it unprompted, and never did in six
+  tries. It is not the model's default habit.
+- **Fisher exact p = 0.455.** The intervals overlap heavily. The honest sentence
+  is "directionally consistent, not distinguishable from chance at 12 trials" —
+  **not** "`data_support` improved planning by 33 points".
+- Injection was verified 12/12 against the arm, because otherwise `adoption = 0`
+  could just be a switch that never fired.
+- **The finding that matters more than the rate:** of the four trials that did not
+  adopt, **none mentioned ambient anywhere in its rationale**. They are not
+  "considered and deliberately declined" (which the spec treats as legitimate —
+  `unexplored` is a claim about the data, the goal is the user's intent). The
+  suggestion was in the context and did not reach the reasoning. That is a
+  visibility problem of the same kind as M12's skill-topic gap, and it is recorded
+  as B20 rather than papered over. One adopting trial also changed `run_decontx`
+  without saying why (B21).
+
+### Packaging defects found while closing out
+
+- **The committed `DESCRIPTION` could not build**: `Collate` listed 84 of 95 R
+  files, missing all eleven `ai-registry-*.R`. `make check` had been passing only
+  because `devtools::check()` regenerates documentation first and that run added
+  them. `make check` is now **`devtools::check(document = FALSE)`** — documentation
+  regeneration is `make rd`, which `make all` already runs.
+- Two exported objects (`ValidateAIEvidenceRefs`, `sclet_ai_evidence_independence`)
+  had roxygen blocks but no committed Rd; their documentation is now tracked.
+- A stray 21 KB file named `--args` had been left at the package root and is gone.
+
+### Tests
+
+New: `test-ai-decontx.R` (42), `test-ai-round-progression.R` (58).
+AI suite **6074 passing, 0 failures**. `make check`: **0 errors, 0 warnings, 1
+note** — the note is the intentional `unlockBinding()` in `R/zzz.R` that patches a
+basilisk internal, unchanged by this milestone.
+
+### Known gaps
+
+- **`unexplored` still does not reliably reach the reasoning** (B20). Until that is
+  fixed, `data_support`'s product value is smaller than its correctness suggests.
+- **12 trials cannot separate direction from chance.** More trials or a stronger
+  design would be needed to claim an effect.
+- Ambient pressure was screened on **one sample**, so mixed-sample ambient is
+  untested.

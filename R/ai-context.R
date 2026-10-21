@@ -612,7 +612,18 @@ sclet_ai_build_analysis_story <- function(object, records, status) {
         # `evidence_gaps` says "an analysis lacks evidence"; `data_support`
         # says what is available at all -- a planner needs both to choose a
         # next round instead of repeating the last one.
-        data_support = sclet_ai_build_data_support(object, records),
+        #
+        # `sclet.ai.omit_data_support` exists for ONE purpose: the M13-c control
+        # arm, which has to measure what the planner does WITHOUT this block so
+        # that "is it used" has something to compare against. It is not a
+        # configuration knob for production -- a context without this block is a
+        # worse context, and the option is named so that fact is visible at any
+        # call site that sets it.
+        data_support = if (isTRUE(getOption("sclet.ai.omit_data_support", FALSE))) {
+            NULL
+        } else {
+            sclet_ai_build_data_support(object, records)
+        },
         raw_values_included = FALSE
     )
 }

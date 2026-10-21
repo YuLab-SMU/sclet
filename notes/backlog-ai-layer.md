@@ -348,3 +348,29 @@ M12-b 的四维判据里，D1/D2/D4 都有能从账本读出的实现，**只有
 prerequisites 仍是权威。`supported = TRUE` 不意味着动作能跑——曾担心这会造成第二套 gate，
 复查后确认：每个 `reason` 都复用既有 gate 名，并有 pin 断言与 action prerequisites 一致。
 **这条要留给后人，不要再审一遍。**
+
+## M13 产出与移交（2026-10-21）
+
+### B20 `unexplored` 的建议大多没有进入推理 · `claim`（未修，需改提示词）
+M13-c 实测：实验组 6 次里 2 次规划了 `run_decontx`（对照组 0/6），
+但**未采纳的 4 次，rationale 里一次都没提到 ambient**。
+所以它们不是 spec §5.2 里「读到了但有理由地拒绝」（那不算缺陷），
+而是**建议在上下文里、却没进入推理**。
+- 这与 M12 修的 topic 选择问题同类：信息有了，但没被捡起来。
+- 可能方向：把高优先级建议提到提示词显眼处；或要求 rationale 逐条回应 `unexplored`
+  （更强，但要防模型为洗白而编理由）。
+- 证据：`notes/m13-data-support-adoption.md` §4；
+  `sclet-benchmark-ai/results/m13c_data_support_adoption.jsonl`。
+- 回访触发：下一轮动提示词时，先解决这条，否则 `data_support` 的收益到不了产品。
+
+### B21 采纳了动作却没有理由 · `report`（未修）
+M13-c 的 t6：规划了 `run_decontx`，但 rationale 里没有任何关于 ambient 的说明。
+动作对了，理由缺失。按可靠性定义（失败必须显性）的反向要求——
+**做对了也要能说出来为什么**，否则读者无法判断这是判断还是巧合。
+- 建议：`run_decontx` 这类「改变后续解读前提」的动作，要求 rationale 有交代。
+- 证据：同上 §4 的表格。
+
+### M13-c 的样本量不足以定论（不是缺陷，是事实）
+0/6 vs 2/6，Fisher p = 0.455。方向一致但**无法与偶然区分**。
+要下结论需要更多次或更强的设计。**不要把这组数字引用成「提升了 33%」。**
+- 证据：`notes/m13-data-support-adoption.md` §3。

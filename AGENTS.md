@@ -57,6 +57,17 @@ JAGS). Do not add `SLOW_TESTS` gates — filter by area if you need it faster.
   DESCRIPTION (missing Collate = install failure).
 - **`devtools::load_all()` and `library(sclet)` are two different trees** —
   verify against `library()` only after `R CMD INSTALL .`.
+- **`Collate` must list every file in `R/`.** The committed `DESCRIPTION` listed
+  84 of 95 and omitted all eleven `ai-registry-*.R`; the package could not build
+  (`R CMD check` dies at install with "files ... missing from 'Collate'"), and it
+  had gone unnoticed because `devtools::check()` regenerates docs first and that
+  pass re-added them. **`make check` is now `devtools::check(document = FALSE)`**,
+  so the tree stays clean; document with `make rd`, which `make all` already runs
+  before `check`.
+- **An exported object with roxygen but no committed Rd breaks the build.**
+  `ValidateAIEvidenceRefs` and `sclet_ai_evidence_independence` were in that
+  state. Public Rd is tracked; only internal `man/sclet_ai_*.Rd` is deliberately
+  untracked, and that rule does not cover exported functions.
 
 ### Basilisk / Python
 
@@ -117,6 +128,26 @@ Every rule below was found by a real failure and will bite again if ignored.
 
 ### AI-layer architecture
 
+- **Design semantics may be exposed; analysis results may not.** The privacy
+  layer's job is not "no colData values leave" — a `group` contrast cannot be
+  planned without the levels of the design column, and withholding them is what
+  made one of twelve same-tree trials die with `contrast_invalid` (2026-10-21).
+  The line is: **`ActiveIdent` (the clustering) is the result the analysis is
+  meant to discover** — it goes out only as `group_N` codes; **a design column
+  (`condition`, `Treatment`, `donor`) is the user's own experimental setup** —
+  its levels must be present, or the planner has to invent them. Concretely,
+  `capabilities$contrast_levels` lists design levels and **must exclude the
+  active identity column by name**, and `capabilities$identity_levels` stays
+  anonymised. Two traps found while implementing it: `levels` must be a
+  character *vector* (an unnamed list of scalars is redacted as "unnamed nested
+  values are not bounded"), and `note` is on the privacy deny list, so
+  explanatory text belongs in `guidance`.
+- **Test fixtures for label-leak tests must not collide with design columns.**
+  `test-ai-ident-groups.R` used `treat1`/`treat2` as cluster names, which are
+  also `mockSCE()`'s `Treatment` levels — so once design levels were legitimately
+  exposed, the "the string appears nowhere" assertion failed on the *design*
+  value, not on a leak.
+
 - **The export surface is the external-agent contract** — when adding an
   AI-layer function, ask whether the sclet-driver path (external agent, no
   aisdk) needs it; if yes, export with a documented example.
@@ -134,3 +165,29 @@ Every rule below was found by a real failure and will bite again if ignored.
 - **Test mocks must use the real schema keys** (`proposed_actions`, not
   `actions`) — a wrong-key mock feeds a normalizer that silently ignores it and
   the test ends up asserting the bug.
+- **A previous round is TWO records, never one.** The plan comes from the newest
+  `ai_execution` record's `params$steps`; the report from the newest `ai_report`
+  record, whose `warnings` live in `artifacts$warnings` (a list of character
+  vectors) and whose cited decisions are `summary$cited_user_decisions`. Reading
+  either half from the other place yields `not_comparable` on every real object —
+  which is indistinguishable from "the judge was never run".
+- **`RunDecontX()` writes its record under the fixed id `"decontX"`**, and
+  `RecordAIEvidence(source = )` requires a record id that exists. An evidence
+  node's name and the record id it derives from are two different things: the
+  node can vary by `name`, the source cannot.
+- **celda's decontX is deterministic** on a fixed input (identical contamination
+  vectors, max abs diff 0), so an identical re-run is an idempotent no-op and that
+  is correct — do not pin "a re-run conflicts" for it. A *changed* input under the
+  same node name is the case that must conflict.
+- **Evidence values admit no free-text strings** — the privacy layer rejects them
+  as unbounded. A structural fact such as a written assay name belongs in the
+  record's methods section, not in a finding.
+
+- **A pin test that reads files by relative path is testing the directory, not
+  the code.** `list.files("../../R")` passes under `devtools::test()` and fails
+  under `R CMD check`, where `R/` does not exist beside the tests (13 assertions
+  failed this way, 2026-10-21). Assert against the live function instead — a
+  prerequisites call that returns the gate name is both location-independent and
+  a stronger check than scanning source text. And `devtools::test()` passing is
+  not `make check` passing: any change that adds an export or a parameter needs
+  the outer loop once, because codoc and Rd checks only run there.

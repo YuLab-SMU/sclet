@@ -31,7 +31,11 @@ install:
 check: 
 	#cd ..;\
 	#Rscript -e 'rcmdcheck::rcmdcheck("$(PKGNAME)_$(PKGVERS).tar.gz")'
-	Rscript -e 'devtools::check()'
+	# document = FALSE on purpose: devtools::check() regenerates every Rd file
+	# by default, which silently rewrites man/ on every check and leaves the
+	# tree dirty (it also reorders NAMESPACE and can drop exports). Documentation
+	# regeneration is `make rd`, and `make all` already runs rd before check.
+	Rscript -e 'devtools::check(document = FALSE)'
 
 check2: build
 	cd ..;\

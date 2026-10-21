@@ -517,3 +517,172 @@ M12 必须留下的、M13 直接可用的东西：
 **这条接口约束是本节最重要的一句话**：M12 的枚举和判据必须**留得下、用得上**，
 否则 M13 又得重新造一套尺子，两轮的数字不能比。所以 M12-b 的实现在写的时候，
 就要把"D1–D4 在任意数据集上都可计算"当成硬要求，而不是只在 Kang 上可算。
+
+---
+
+## 13. 实施记录（2026-10-21）
+
+> 本节记录**实际做了什么、和本文档哪里不一致**。不一致必须写出来，不回头改上面的
+> 正文——正文是当时的计划，这里是结果。
+
+### 13.1 完成情况
+
+| 子件 | 状态 | 交付物 |
+|---|---|---|
+| M12-c 回报信息质量 | ✅ | `R/ai-planning.R` 三处报错加 `fix:` 指引；`tests/testthat/test-ai-plan-error-guidance.R`（19 断言） |
+| M12-d skills 落地 | ✅ | `sclet-analysis`（四维判据 + 数据形状→探索顺序表）、`sclet-provenance`（`data_support` 读法）、`sclet-driver`（三种失败形状的正误对照 + 每轮渲染）；`test-ai-skills.R` 扩到 64 断言 |
+| M12-b 四维判据 + `data_support` | ✅（D3 例外，见 §13.2） | `R/ai-data-support.R`（新文件）、`analysis_story$data_support`（schema 1.1）、`test-ai-data-support.R`（63 断言）、`.dev/m12-question-bank.R`、`notes/m12-plan-quality-report.md` |
+| M12-e 报告接进流程 | ✅ | `RunAIAnalysis(render_report=, verify_before_continue=)`、`sclet_ai_render_round_report()`、`test-ai-round-report.R`（14 断言） |
+| M12-a 建立分母 | ✅ | `sclet-benchmark-ai/R/actions/classify-reliability.R`（封闭枚举 + Wilson 区间）、`classify-reliability-selfcheck.R`、`notes/m12-reliability-record.md` |
+
+### 13.2 与本文档的偏差（必须知道的三处）
+
+**偏差一：D3（阶段递进）没有机读实现。**
+
+§4.2 把 D3 定义为「本轮计划是否回应了上轮 warnings 并据此改变」。实现时确认这需要
+**两轮计划同时在场**才能计算，而 M12-b 处理的是单轮上下文。本轮把 D3 写进了
+`sclet-analysis` 技能（模型可读），**没有变成可算的数**。这与 §4.2 的「四维都要有机读数」
+不符，记录在此。
+
+**偏差二：`failure_class` 的判据是规则匹配，不是 code 解析。**
+
+§3.2 希望「每个失败附可机读的 code」。实际查证：`validation_errors` 记录的是**单条
+错误字符串**（一条记录只存一条），并不是结构化数组。所以分类器采用**规则匹配 + 与源码
+对照的自检**（`classify-reliability-selfcheck.R` 断言 11 个真实 code 全部能命中且不发明新名）。
+这个替代方案的可信度来自那个自检，而不是来自「我读了错误文本」。
+
+**偏差三：M12-e 的 `report_unverifiable` 桶目前是空的。**
+
+分类器预留了这个 class，但**现有记录里没有一条落进去**——原因是历史记录都是 M12-e 之前
+产生的，那时没有「渲染 + 自检」这一步。这个桶要等 M12-e 之后的记录才有内容。
+**不要把它读成「自检从未失败」，要读成「自检还没开始跑」。**
+
+### 13.3 过程中发现并修掉的三个真缺陷
+
+1. **`return()` 在 tryCatch 里从外层函数返回**（`ai-data-support.R`）：有重复样本的对象
+   让整个 `shapes` 块变成裸 `TRUE`。**被「确定性」pin 抓到**——这正是那条 pin 存在的理由。
+2. **把记录类型名当成分析存在**：M11 的 pancreas 对象没有 `clustering` 记录（从嵌入直接
+   到轨迹），代码却据此报 `cluster_identity_missing`，并让所有依赖分组的建议全部失效。
+   修法：`grouping_evidence` 承认「任何以分组为前提的分析都是分组的证据」。
+   **被回归题库 Q6 抓到。**
+3. **题库第一版判据太弱**：只断言「不重跑已有分析」，一个永远返回空清单的实现也能 PASS。
+   已改成同时断言「清单非空且指向真实缺口」。**这是「空结果被当成正确结果」那类缺陷的
+   又一个实例。**
+
+### 13.4 测试
+
+- AI 套件：**FAIL 0 / PASS 5922**（M12 前为 5817，新增 105 个断言）；
+- `test-ai-data-support.R` 63、`test-ai-error-guidance.R` 19、`test-ai-round-report.R` 14、
+  `test-ai-skills.R` 64；
+- 回归题库 6/6 PASS（`.dev/m12-question-bank.R`，需真实对象，不进 `make check`）。
+
+### 13.5 M12-a 的实测结果（2026-10-21）
+
+**同树采样：12 次、commit `5947e4b`、全部 `all` 子集、模型 `deepseek:deepseek-chat`。**
+
+| 批次 | trial | 完成 | 成功率 | 95% 区间 | 失败形状 |
+|---|---|---|---|---|---|
+| **`5947e4b`（本轮）** | 12 | 11 | **91.7%** | [64.6%, 98.5%] | `plan_knowledge` 1 |
+| 历史全部（跨 19 个 commit） | 42 | 28 | 66.7% | [51.6%, 79.0%] | refused 6、shape 3、empty 2、execute 2、knowledge 1 |
+
+耗时：单次 270–567 s，12 次共 4,334 s（约 72 分钟）。
+
+**怎么读这两个数字（这句话必须和数字一起说）：**
+
+- 两个区间**[64.6%, 98.5%] 与 [51.6%, 79.0%] 重叠**，所以「新树比历史好」是
+  **方向性证据，不是已证实的差异**。要确认差异需要更多次采样或同 fixture 对照。
+- **跨 commit 的 66.7% 不能当作当前树的成功率**——那 42 次里含着已修的缺陷
+  （去重误删依赖、空计划等）。当前树的数字只有标单一 commit 的那一行算。
+- 本轮唯一的失败是 `plan_knowledge`：一次 round-2 计划写了
+  `contrast_invalid: ident.1/ident.2 must be levels of 'condition'`——**这是新信息**，
+  也是分类器 `plan_knowledge` 桶的第一条真实记录。修复方向明确：让模型读
+  `capabilities$identity_levels$codes`（skill 里已有这条，但显然没生效在这条路径上）。
+
+**与上一轮「5/9」的关系**：5/9 = 55.6%，落在本轮的区间下沿之外、历史区间之内。
+它不是错的，它是**另一个树、更少次**的抽样。本轮的 12 次替换它作为当前树的陈述。
+
+### 13.6 M12-a 指出的第一个修复：对比 level 的来源（2026-10-21）
+
+本轮 12 次采样唯一的失败，也是 `plan_knowledge` 桶的第一条真实记录：
+
+```
+contrast_invalid: ident.1/ident.2 must be levels of 'condition': ctrl, stim
+```
+
+**根因不是校验逻辑，而是上下文缺了一块。** 规划提示词把 group 型参数
+（`ident.1`、`ident.2`、`start_cluster`）一律指向
+`capabilities$identity_levels$codes`——**那是聚类身份**。而
+`run_de_test(group = "condition", ident.1 = ..., ident.2 = ...)` 要的是
+**colData 列 `condition` 的 levels**，这个集合在上下文里**根本没有表示**。
+所以那条指令把模型指向了唯一读不到答案的地方。
+
+**修法（四处，都不放松任何 gate）：**
+
+1. `capabilities$contrast_levels`（新字段）：列出可作对比的 colData 列及其 levels。
+   低基数限制（≤12 个 level 才给具体值），超过时只报数量并置
+   `levels_available = FALSE`——**「我隐藏了」和「没有」必须能区分**。
+2. 规划提示词（`ai-planning.R`）与工具循环提示词（`ai-tools.R`）都改成**分两种情况**：
+   带 `group` 读 `contrast_levels`，不带 `group` 读 `identity_levels`。
+3. `contrast_invalid` 报错补上 `(you wrote: X)` 与 `fix:` 指引——**说出你写错的那个值**，
+   模型才知道自己发明了一个 level。
+4. `sclet-analysis` 技能写清两个 level 集的来源，并给一条可识别的症状：
+   「如果报错里 `(you wrote: X)` 的 X 你在上下文里从未见过，那就是你编的。抄，不要推断。」
+
+pin：`test-ai-plan-error-guidance.R`（41 断言，新增 4 组）、`test-ai-skills.R`（68 断言）。
+
+**注意这条修复的性质**：它不是「让模型更聪明」，是**把原本不存在的上下文补上**。
+这正是 §1.4 说的那种收益——天花板以下的、完全在我们控制里的部分。
+
+### 13.7 `contrast_levels` 与隐私边界的碰撞（必须记住的一条分界）
+
+加 `contrast_levels` 时撞上了既有隐私层，暴露出一条**此前没写明、但一直成立的分界**：
+
+| 列的类型 | 例子 | 能不能给模型真实取值 |
+|---|---|---|
+| **ActiveIdent（聚类身份）** | `cluster` 的 level | **不能**。它是分析要发现的结果，`identity_levels` 已把它匿名化成 `group_N` |
+| **设计列（实验条件）** | `Treatment`、`condition` | **能，而且必须给**。用户自己设定的，不给就构不出对比——这正是本轮失败的根因 |
+
+**踩到的三个具体坑（都修了，都有 pin）：**
+
+1. **`as.list(levels)` 被隐私层整个删掉**：规则是「无名字的标量列表不受限」，
+   所以 `levels` 必须是**字符向量**，不能是 `as.list()`。
+2. **字段名 `note` 在隐私层的拒绝名单里**（`|note|comment`）：说明文字被当成敏感字段
+   删掉，块还在、解释没了。改名 `guidance`。
+3. **`contrast_levels` 一度把聚类列的真实标签漏了出去**：mock 对象里聚类名恰好是
+   `treat1/treat2`，于是 `contrast_levels` 列出 `cluster` 列时把匿名化结果又还原了。
+   修法：**按名字排除 ActiveIdent 列**。
+
+**测试 fixture 也要跟着改**：`test-ai-ident-groups.R` 原来用 `treat1/treat2` 当聚类名，
+这两个词碰巧也是 `mockSCE()` 的 `Treatment` 列 level。一旦设计列被合法暴露，
+「序列化结果里不含 treat1」这条断言就会在**设计值**上失败，而不是在泄露上失败。
+改成 `cladeA/cladeB` 后，断言才精确表达「聚类标签不泄露」。
+
+**这条分界值得写进 AGENTS.md**：暴露设计语义与泄露分析结果，是两件必须分开的事。
+
+### 13.8 收尾：`make check` 抖出的两个只在打包环境出现的问题
+
+第一次 `make check` **13 个测试失败**，第二次 2 个 warning，第三次 0/0/0。这两类问题在
+`devtools::test()` 下**完全看不见**，所以单独立一节。
+
+**问题一：pin 测试用相对路径读源码，打包后读不到。**
+
+`test-ai-data-support.R` 里那条「gate 名必须是引擎已有的名字」的 pin，用了
+`list.files("../../R")` 去扫源码。这在源码树里成立，在 `R CMD check` 的临时目录里
+`R/` 根本不存在，于是 5 个 gate 全部「找不到」，13 个断言失败。
+
+更本质的问题是：**一个只在某个目录下才通过的测试，测的是「从哪里跑」，不是「代码做了什么」。**
+修法是改成调用**真实的 prerequisites**：在 counts-only 对象上调 `run_velocity$prerequisites()`
+拿到引擎自己报的 gate 名，再断言它属于 `data_support` 的声明词表；对比用例同理。
+这样 pin 与目录结构无关，而且比扫文本更强——它验的是运行时行为。
+
+**问题二：新增参数没重新生成 Rd。**
+
+`RunAIAnalysis(render_report=, verify_before_continue=)` 只改了 roxygen 注释，`man/RunAIAnalysis.Rd`
+没跟上，codoc 报参数不匹配。按 AGENTS.md 的既定流程处理：备份 → `devtools::document()` →
+**恢复 NAMESPACE 与 DESCRIPTION** → **删掉 33 个未跟踪的内部 Rd** → 只保留 `RunAIAnalysis.Rd`。
+另外 `SingleCellExperiment::spatialCoords` 不是导出对象，改用包内已有的
+`sclet_ai_spatial_coordinates()`（它本来就处理了可选依赖与 fallback）。
+
+**教训（值得写进 AGENTS.md 的那句）**：`devtools::test()` 通过不等于能打包。
+凡是在测试里读文件、用相对路径、或新增导出/参数的改动，`make check` 必须跑一次——
+本次这两处都不会在窄循环里暴露。

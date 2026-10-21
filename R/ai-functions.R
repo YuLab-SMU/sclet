@@ -559,6 +559,13 @@ RunAIAnalysis <- function(
             rendered$message %||% "see report$rendered"
         )
     }
+    # M13-b: dimension 3 of plan quality, computed against the round before this
+    # one when there is one. A first round has no previous round, and that is
+    # stated as "no previous round" rather than "unavailable" -- the two read
+    # identically to a caller otherwise, and one of them is a fact about the
+    # workflow while the other sounds like a defect.
+    progression <- sclet_ai_previous_round_progression(object, plan, report)
+    report$round_progression <- progression
     if (isTRUE(interpret) && execution$status %in% c("completed", "completed_with_errors")) {
         interpretation_state <- new.env(parent = emptyenv())
         interpretation_state$error <- NULL

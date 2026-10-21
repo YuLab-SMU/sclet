@@ -87,6 +87,83 @@ sclet_ai_record_doublet_evidence <- function(object, name = "doublet_finder",
         parents = character(), scope = NULL, replace = replace)
 }
 
+# Facts for the ambient-RNA (decontX) evidence node.
+#
+# Same shape as sclet_ai_doublet_facts(): read the per-cell contamination scores
+# that RunDecontX() wrote, reduce them to bounded aggregates, and return NULL when
+# the run did not happen. The per-cell values never leave this function -- only
+# quantiles and counts do, which is what the privacy allowlist admits.
+sclet_ai_decontx_facts <- function(object) {
+    columns <- colnames(SummarizedExperiment::colData(object))
+    if (!"decontX_contamination" %in% columns) return(NULL)
+    contamination <- suppressWarnings(as.numeric(
+        SummarizedExperiment::colData(object)[["decontX_contamination"]]
+    ))
+    contamination <- contamination[is.finite(contamination)]
+    if (!length(contamination)) return(NULL)
+    quantiles <- round(unname(stats::quantile(
+        contamination, c(0.25, 0.5, 0.75, 0.95), na.rm = TRUE
+    )), 6L)
+    list(
+        n_cells = as.integer(length(contamination)),
+        contamination_mean = round(mean(contamination), 6L),
+        contamination_q25 = as.numeric(quantiles[[1L]]),
+        contamination_median = as.numeric(quantiles[[2L]]),
+        contamination_q75 = as.numeric(quantiles[[3L]]),
+        contamination_q95 = as.numeric(quantiles[[4L]]),
+        contamination_max = round(max(contamination), 6L)
+    )
+}
+
+#' Record a bounded evidence node for an ambient-RNA (decontX) run
+#'
+#' Higher contamination scores mean more of a cell's counts were attributed to
+#' the ambient RNA pool rather than to the cell itself. The node records the
+#' distribution, not per-cell values, and says explicitly that no cell was
+#' removed: RunDecontX() writes a cleaned assay and leaves the original counts
+#' and the cell set untouched.
+#'
+#' The claim level is `associated`: an estimated contamination fraction is a
+#' model estimate about where counts came from, not a measurement of the cell.
+#'
+#' @param object A `SingleCellExperiment` after [RunDecontX()].
+#' @param name Analysis name recorded on the object.
+#' @param replace Refresh an existing node instead of refusing a changed one.
+#' @return The object with the evidence node recorded.
+#' @keywords internal
+sclet_ai_record_decontx_evidence <- function(object, name = "decontX",
+                                             replace = FALSE) {
+    facts <- sclet_ai_decontx_facts(object)
+    if (is.null(facts)) return(object)
+    evidence <- list(
+        id = paste0("ev:decontx_", sclet_ai_evidence_id_token(name)),
+        kind = "deterministic_summary",
+        values = c(facts, list(
+            # decontX is an EM estimate of the ambient profile, so the number is
+            # a model statement about count provenance, not a measured property
+            contamination_call_is_model_estimate = TRUE,
+            no_cell_removed_or_filtered = TRUE,
+            # The cleaned matrix is a NEW assay and the original is intact.
+            #
+            # The assay NAME ("decontXcounts") deliberately does NOT live here:
+            # the privacy layer rejects free-text strings in evidence values as
+            # unbounded, and that rule is right -- a structural fact about the
+            # object belongs in the record's methods section, not in a finding
+            # (see the sclet-claims skill: structural facts are provenance). The
+            # name is already in the preprocess record's `artifacts$assay`.
+            original_assay_preserved = TRUE,
+            raw_values_included = FALSE
+        )),
+        claim_level = "associated"
+    )
+    # `source` must name the preprocess record RunDecontX() wrote, whose id is
+    # fixed at "decontX"; the node id uses `name` so two decontX runs can be
+    # cited separately. Conflating the two produced
+    # "source must identify a completed analysis" on every call.
+    sclet_ai_record_evidence_for_run(object, evidence, source = "decontX",
+        parents = character(), scope = NULL, replace = replace)
+}
+
 # Record the bounded aggregate evidence node for a completed CNV run.
 #
 # Extracted from the action handler so the node can be RE-RECORDED from the

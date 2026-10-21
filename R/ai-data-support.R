@@ -179,6 +179,10 @@ sclet_ai_data_support_shapes <- function(object, columns, assay_names) {
     list(
         n_cells = as.integer(n_cells),
         n_genes = as.integer(nrow(object)),
+        # M13-a: whether this object carries ambient-RNA pressure. Deterministic,
+        # bounded, and explicitly a screen rather than a measurement -- see
+        # sclet_ai_ambient_pressure().
+        ambient = sclet_ai_ambient_pressure(object),
         assays = assay_names,
         has_counts = has_assay("counts"),
         counts_are_integer = counts_integer,
@@ -296,6 +300,24 @@ sclet_ai_data_support_supports <- function(object, shapes, records = list()) {
         supports[[length(supports) + 1L]] <- entry(
             "multimodal", FALSE, "no_multimodal_record",
             "a multimodal question needs a second modality in altExp"
+        )
+    }
+
+    # Ambient-RNA cleaning (M13-a). Available when there are counts to estimate
+    # the profile from and the celda backend is installed. When the screen says
+    # the data carries ambient pressure, this is the route that acts on it.
+    has_integer_counts <- isTRUE(shapes$counts_are_integer)
+    if (has_integer_counts && base::requireNamespace("celda", quietly = TRUE)) {
+        supports[[length(supports) + 1L]] <- entry("ambient_cleaning", TRUE)
+    } else if (!has_integer_counts) {
+        supports[[length(supports) + 1L]] <- entry(
+            "ambient_cleaning", FALSE, "counts_assay_missing",
+            "decontX estimates the ambient profile from raw integer counts; provide a counts assay"
+        )
+    } else {
+        supports[[length(supports) + 1L]] <- entry(
+            "ambient_cleaning", FALSE, "optional_package_missing",
+            "install celda to run decontX"
         )
     }
 
@@ -437,6 +459,36 @@ sclet_ai_data_support_unexplored <- function(object, shapes, supports, analyses,
         )
     }
 
+    # Ambient first, because it changes how every downstream number should be
+    # read: suggesting markers on contaminated data invites interpreting ambient
+    # signal as biology.
+    # RunDecontX() writes a `preprocess` record carrying id "decontX". Checking
+    # the TYPE alone would be wrong: every normalisation is a preprocess record
+    # too, so "preprocess exists" says nothing about whether cleaning happened.
+    has_decontx <- FALSE
+    if (is.list(analyses)) {
+        for (record in analyses) {
+            if (!is.list(record)) next
+            if (!identical(as.character(record$type %||% ""), "preprocess")) next
+            record_id <- tolower(as.character(record$id %||% ""))
+            if (grepl("decontx", record_id, fixed = TRUE)) has_decontx <- TRUE
+        }
+    }
+    ambient <- shapes$ambient %||% list()
+    if (isTRUE(ambient$available) && identical(ambient$label, "high") &&
+        supported("ambient_cleaning") && !has_decontx) {
+        add(
+            paste0(
+                "the ambient-pressure screen is high (low-UMI tail share ",
+                ambient$low_umi_tail_share, ", top-gene detection uniformity ",
+                ambient$top_gene_detection_uniformity,
+                "), and no ambient-RNA cleaning has been run"
+            ),
+            "run_decontx",
+            "a high screen means contamination is worth removing before the composition and the marker tables are interpreted"
+        )
+    }
+
     if (has_analysis_type("detest") && !has_analysis_type("enrichment")) {
         add(
             "a marker table exists but no enrichment was run on it",
@@ -527,6 +579,541 @@ sclet_ai_build_data_support <- function(object, records) {
         blocked = blocked,
         unconfirmed_semantics = unconfirmed,
         unexplored = sclet_ai_data_support_unexplored(object, shapes, supports, analyses, records),
+        raw_values_included = FALSE
+    )
+}
+
+# ---- M13-b: does this round respond to the previous one? --------------------
+#
+# D3 of the four plan-quality dimensions, made computable. `data_support` (§ above)
+# answers "what can this data do"; this answers "did the planner ACT on what the
+# last round said".
+#
+# The input is two rounds of the same object: the previous plan and report, and the
+# current plan. Nothing here reads the model's reasoning -- that would be
+# unfalsifiable. Every judge below is a relation between the two plans and the
+# report's own fields.
+#
+# Four judges, and the one that has to exist: `regressed`. A dimension that can only
+# report "good" or "average" cannot report "worse", and "this round undid what the
+# last round established" is the single most expensive progress a plan can make.
+
+# The actions that remove a warning, by the kind of warning they answer. Only
+# pairs where the fix is an actual action are listed -- a warning with no
+# answering action stays "carried", which is a reportable state, not a gap.
+sclet_ai_round_progression_remedies <- function() {
+    # EVERY action named here must be a registry key, and a pin enforces it.
+    #
+    # History worth keeping: this table first named `run_decontx` and
+    # `run_imputation` from memory. Neither existed -- RunDecontX() was exported
+    # but had no AIAction, and there is no imputation action at all. A remedy
+    # naming a non-existent action never matches, so an ambient warning read as
+    # "ignored" forever, and the judge was silently wrong with no symptom. A
+    # real-data probe returned `regressed` and the reason had to be traced by
+    # hand. M13-a then created the `run_decontx` action, so `ambient` has a
+    # remedy for the first time. There is still no imputation action, and this
+    # table does not pretend otherwise.
+    list(
+        doublet = c("run_doublet_detection"),
+        ambient = c("run_decontx"),
+        contamination = c("run_decontx"),
+        batch = c("run_integration", "confirm_design"),
+        design = c("confirm_design"),
+        reference = c("run_annotation"),
+        annotation = c("run_annotation"),
+        coverage = c("run_enrichment", "run_de_test"),
+        marker = c("run_de_test"),
+        enrichment = c("run_enrichment")
+    )
+}
+
+# The subject of a warning, as a token that can be matched against a remedy.
+# A warning is a sentence; this reduces it to what it is ABOUT, which is the only
+# part an action can respond to. Free text the whole way through would make the
+# judge a keyword lottery.
+sclet_ai_round_progression_warning_topic <- function(warning) {
+    w <- tolower(warning)
+    if (!nzchar(trimws(w))) return(NULL)
+    for (topic in c("doublet", "ambient", "contaminat", "batch", "design",
+        "reference", "annotation", "coverage", "marker", "enrichment")) {
+        if (grepl(topic, w, fixed = TRUE)) return(topic)
+    }
+    NULL
+}
+
+sclet_ai_round_progression <- function(
+    previous_plan,
+    previous_report,
+    current_plan,
+    current_report = NULL
+) {
+    # ---- normalise the two plans into comparable shape -------------------
+    actions_of <- function(plan) {
+        if (is.null(plan$actions) || !length(plan$actions)) {
+            return(character())
+        }
+        vapply(plan$actions, function(x) as.character(x$action %||% ""), character(1))
+    }
+    params_of <- function(plan) {
+        out <- list()
+        for (step in (plan$actions %||% list())) {
+            key <- paste0(as.character(step$action %||% ""), "#", as.character(step$id %||% ""))
+            out[[key]] <- step$params %||% list()
+        }
+        out
+    }
+    prev_actions <- actions_of(previous_plan)
+    curr_actions <- actions_of(current_plan)
+    prev_params <- params_of(previous_plan)
+    curr_params <- params_of(current_plan)
+
+    # ---- D3.2 no-progress: same action, same params, repeated ------------
+    # A step is "repeated" only when the action AND its parameters are unchanged.
+    # The same action with new parameters is a new analysis, not a replay.
+    prev_by_action <- split(names(prev_params), vapply(names(prev_params),
+        function(k) sub("#.*$", "", k), character(1)))
+    repeated <- character()
+    for (action in intersect(names(prev_by_action), unique(curr_actions))) {
+        old_keys <- prev_by_action[[action]]
+        new_keys <- curr_actions %in% action
+        new_names <- names(curr_params)[new_keys]
+        for (nk in new_names) {
+            # find a previous step of the same action with equal params
+            for (ok in old_keys) {
+                if (identical(prev_params[[ok]], curr_params[[nk]])) {
+                    repeated <- c(repeated, nk)
+                    break
+                }
+            }
+        }
+    }
+    progress_ratio <- if (length(curr_actions)) {
+        1 - length(repeated) / length(curr_actions)
+    } else {
+        NA_real_
+    }
+
+    # ---- D3.1 answered warnings -----------------------------------------
+    # Each warning reduces to a topic; a topic is answered if this round runs an
+    # action that remediates it, or if the rationale states it is carried forward
+    # deliberately. "Deliberately carried" is an answer, not silence: a warning the
+    # user has accepted and recorded is not a defect.
+    warnings <- character()
+    raw <- previous_report$warnings %||% list()
+    if (is.list(raw)) {
+        warnings <- vapply(raw, function(x) as.character(x)[1L], character(1))
+    } else if (is.character(raw)) {
+        warnings <- as.character(raw)
+    }
+    warnings <- warnings[nzchar(warnings)]
+    rationale <- if (is.null(current_plan$rationale)) {
+        ""
+    } else {
+        paste(as.character(current_plan$rationale), collapse = " ")
+    }
+    rationale_l <- tolower(rationale)
+
+    remedies <- sclet_ai_round_progression_remedies()
+    n_answered <- 0L
+    n_carried <- 0L
+    n_ignored <- 0L
+    unanswered <- character()
+    for (warning in warnings) {
+        topic <- sclet_ai_round_progression_warning_topic(warning)
+        answered <- FALSE
+        carried <- FALSE
+        if (!is.null(topic)) {
+            candidates <- remedies[[topic]] %||% character()
+            if (any(candidates %in% curr_actions)) answered <- TRUE
+        }
+        # A carried warning must be NAMED, not merely unmentioned. "We cannot fix
+        # X because Y" counts; saying nothing about X does not.
+        # `nzchar(NULL)` is a runtime error, and a warning with no recognisable
+        # topic is exactly the kind of input that produces one -- so test the
+        # shape before the call, not inside it.
+        if (!answered && length(topic) == 1L && !is.na(topic) && nzchar(topic) &&
+            grepl(topic, rationale_l, fixed = TRUE)) {
+            carried <- TRUE
+        }
+        if (answered) {
+            n_answered <- n_answered + 1L
+        } else if (carried) {
+            n_carried <- n_carried + 1L
+        } else {
+            n_ignored <- n_ignored + 1L
+            unanswered <- c(unanswered, warning)
+        }
+    }
+
+    # ---- D3.3 evidence gaps closed --------------------------------------
+    gaps <- previous_report$evidence_gaps %||% list()
+    n_gaps <- length(gaps)
+    n_gaps_closed <- 0L
+    if (n_gaps) {
+        for (gap in gaps) {
+            if (!is.list(gap)) next
+            analysis_type <- as.character(gap$analysis_type %||% "")
+            reason <- as.character(gap$reason %||% gap$gap %||% "")
+            closed <- FALSE
+            # A gap names an analysis type (rare_cells) and often the signal that
+            # is missing (doublet_evidence_available): either this round produces
+            # it, or the analysis itself now runs.
+            if (nzchar(analysis_type) && any(grepl(analysis_type, curr_actions))) {
+                closed <- TRUE
+            }
+            if (!closed && nzchar(reason)) {
+                token <- sub("_.*$", "", reason)
+                if (nzchar(token) && any(grepl(token, curr_actions))) closed <- TRUE
+            }
+            if (closed) n_gaps_closed <- n_gaps_closed + 1L
+        }
+    }
+
+    # ---- D3.4 recorded user decisions actually used ----------------------
+    decisions <- previous_report$user_decisions %||% list()
+    n_decisions <- length(decisions)
+    n_decisions_used <- 0L
+    unused_decisions <- character()
+    for (decision in decisions) {
+        if (!is.list(decision)) next
+        summary <- as.character(decision$summary %||% "")
+        if (!nzchar(summary)) next
+        # A decision is used if this round names its subject. The clarification
+        # channel records the answer as a short phrase ("use MonacoImmuneData as
+        # the annotation reference"), and matching its FIRST token matches the
+        # verb, not the subject -- so "use" never appears in the next plan and
+        # every recorded decision reads as unused. A stop-word list is applied
+        # and the longest remaining word is the subject: "monacoimmunedata".
+        # The split class must keep case while matching case-insensitively, or
+        # `MonacoImmuneData` is cut at every capital and the "subject word" comes
+        # out as "onaco" / "mmune" / "ata". Split on characters that are not
+        # letters or digits in ANY case.
+        words <- strsplit(summary, "[^A-Za-z0-9._]+")[[1L]]
+        words <- words[nzchar(words)]
+        words <- tolower(words)
+        words <- setdiff(words, c(
+            "use", "using", "as", "the", "a", "an", "to", "for", "of", "with",
+            "chosen", "choice", "user", "decision", "recorded", "selected",
+            "is", "be", "by", "in", "on", "and", "or", "not"
+        ))
+        token <- if (length(words)) {
+            words[which.max(nchar(words))]
+        } else {
+            ""
+        }
+        used <- nzchar(token) && nchar(token) >= 6L && (
+            grepl(token, rationale_l, fixed = TRUE) ||
+            any(grepl(token, curr_actions, ignore.case = TRUE))
+        )
+        if (used) {
+            n_decisions_used <- n_decisions_used + 1L
+        } else {
+            unused_decisions <- c(unused_decisions, summary)
+        }
+    }
+
+    # ---- regressed: this round undoes an established answer --------------
+    # The case with no positive counterpart elsewhere in this block. A round that
+    # re-analyses a population whose contamination the previous round already
+    # established is worse than a round that does nothing, because it spends
+    # effort re-deriving a discarded answer.
+    established_contamination <- FALSE
+    # vapply needs a length-1 result; the topic helper returns NULL for a warning
+    # with no recognisable subject, which is length 0 and aborts the whole call.
+    # Wrapping makes "no topic" an empty string instead of a crash.
+    prev_topics <- vapply(warnings, function(w) {
+        t <- sclet_ai_round_progression_warning_topic(w)
+        if (length(t) == 1L && !is.na(t)) t else ""
+    }, character(1))
+    prev_topics <- prev_topics[nzchar(prev_topics)]
+    for (topic in unique(prev_topics)) {
+        # the previous round warned about X, and this round runs an action whose
+        # output is exactly the thing being warned about
+        reanalysing <- c(
+            identical(topic, "doublet") && any(c(
+                "run_annotation", "run_de_test", "run_cci"
+            ) %in% curr_actions) && !any(c(
+                "run_doublet_detection", "run_decontx"
+            ) %in% curr_actions)
+        )
+        if (any(reanalysing)) established_contamination <- TRUE
+    }
+
+    # ---- the class -------------------------------------------------------
+    progression_class <- "advanced"
+    if (established_contamination) {
+        progression_class <- "regressed"
+    } else if (!is.na(progress_ratio) && progress_ratio == 0 &&
+        !n_answered && !n_gaps_closed && !n_decisions_used) {
+        progression_class <- "no_progress"
+    } else if (!n_answered && !n_gaps_closed && !n_decisions_used) {
+        progression_class <- "confirmatory"
+    }
+
+    list(
+        schema_version = "1.0",
+        # the four judges, flat so a record can cite them directly
+        n_warnings = length(warnings),
+        n_warnings_answered = n_answered,
+        n_warnings_carried = n_carried,
+        n_warnings_ignored = n_ignored,
+        unanswered_warnings = unanswered,
+        n_actions = length(curr_actions),
+        n_repeated_steps = length(repeated),
+        repeated_steps = repeated,
+        progress_ratio = progress_ratio,
+        n_evidence_gaps = n_gaps,
+        n_evidence_gaps_closed = n_gaps_closed,
+        n_user_decisions = n_decisions,
+        n_user_decisions_used = n_decisions_used,
+        unused_user_decisions = unused_decisions,
+        regressed = isTRUE(established_contamination),
+        progression_class = progression_class,
+        raw_values_included = FALSE
+    )
+}
+
+# ---- M13-b: find the previous round's plan and report on this object -------
+#
+# `sclet_ai_round_progression()` judges a pair of rounds; this finds the pair.
+#
+# The previous round is identified from the ledger, not from a parameter, because a
+# caller that has to remember to pass it will eventually not -- and then D3 silently
+# becomes "always a first round", which is indistinguishable from a workflow that
+# never advances. Locating it from the ledger makes the failure visible as
+# `no previous round` instead.
+sclet_ai_previous_round_progression <- function(object, current_plan, current_report) {
+    no_previous <- list(
+        schema_version = "1.0",
+        reason = "no previous round: this is the first round on this object",
+        progression_class = "first_round",
+        raw_values_included = FALSE
+    )
+    # NOTE: no `return()` anywhere inside the tryCatch expression. A `return()`
+    # there returns from THIS function (sclet_ai_previous_round_progression),
+    # not from the tryCatch -- measured 2026-10-21, when an object with no
+    # recorded report made this helper hand back a bare NULL and every D3 field
+    # vanished. Every early exit assigns to a variable and breaks out with
+    # `break`/a value instead. This is the third instance of the same shape in
+    # this package; the pin below exists because the shape keeps coming back.
+    previous <- NULL
+    # The previous round is assembled from TWO records, because no single record
+    # holds both halves:
+    #
+    #   - the plan (what was run) comes from the newest `ai_execution` record's
+    #     `params$steps`, which lists every action with its resolved params;
+    #   - the report (what the run then said) comes from the newest `ai_report`
+    #     record, whose `artifacts$warnings` is the warnings list and whose
+    #     `summary$cited_user_decisions` is what the report itself cited.
+    #
+    # Verified against the real M1-M11 objects: reports do NOT carry a plan, and
+    # `warnings` sit in artifacts, not summary. Looking for either in the other
+    # place produced `not_comparable` on every real object -- a silent failure
+    # that reads like "D3 was never computed here", which is indistinguishable
+    # from a workflow that never advances.
+    found <- tryCatch({
+        ledger <- GetAnalysisLedger(object, detail = "full", include_artifacts = TRUE)
+        keys <- names(ledger$analyses %||% list())
+        is_execution <- vapply(keys, function(k) {
+            identical(as.character(ledger$analyses[[k]]$type %||% ""), "ai_execution")
+        }, logical(1L))
+        is_report <- vapply(keys, function(k) {
+            grepl("^ai_report", k) || identical(
+                as.character(ledger$analyses[[k]]$type %||% ""), "ai_ai_report"
+            )
+        }, logical(1L))
+        exec_keys <- keys[is_execution]
+        report_keys <- keys[is_report]
+        if (!length(exec_keys) || !length(report_keys)) {
+            character(0)
+        } else {
+            execution <- ledger$analyses[[exec_keys[[length(exec_keys)]]]]
+            report <- ledger$analyses[[report_keys[[length(report_keys)]]]]
+            list(execution = execution, report = report)
+        }
+    }, error = function(e) character(0))
+    if (!identical(found, character(0)) && !is.null(found)) {
+        previous <- found
+    }
+    if (is.null(previous)) return(no_previous)
+
+    # Field locations on a recorded AI report, verified against the real M1-M11
+    # objects rather than assumed: `warnings` live in ARTIFACTS (as a list of
+    # character vectors), and the user decisions the report cited are
+    # `summary$cited_user_decisions`. Reading them off `summary$warnings` --
+    # where they are not -- made every round look silencingly empty.
+    execution <- previous$execution %||% list()
+    report <- previous$report %||% list()
+    summary <- report$summary %||% list()
+    artifacts <- report$artifacts %||% list()
+
+    # Rebuild the previous round's plan from its execution record's steps, so the
+    # judges compare two plans rather than a plan against nothing.
+    steps <- (execution$params %||% list())$steps %||% list()
+    prev_plan <- if (length(steps)) {
+        new_sclet_ai_plan(
+            task = paste0("m13b_prev_", sub("^ai_execution_plan_", "",
+                as.character(execution$id %||% "unknown"))),
+            actions = lapply(steps, function(step) {
+                list(
+                    id = as.character(step$id %||% ""),
+                    action = as.character(step$action %||% ""),
+                    params = step$params %||% list()
+                )
+            }),
+            context_fingerprint = as.character(
+                (execution$inputs %||% list())$context_fingerprint %||% NA_character_
+            )
+        )
+    } else {
+        NULL
+    }
+    prev_report <- list(
+        warnings = artifacts$warnings %||% summary$warnings %||% list(),
+        evidence_gaps = summary$evidence_gaps %||% list(),
+        user_decisions = summary$cited_user_decisions %||% list()
+    )
+    if (is.null(prev_plan)) {
+        # a report with no plan behind it cannot be compared: say so rather than
+        # comparing against an empty plan, which would make every round look like
+        # progress
+        return(list(
+            schema_version = "1.0",
+            reason = "the previous round recorded a report but no plan to compare against",
+            progression_class = "not_comparable",
+            raw_values_included = FALSE
+        ))
+    }
+
+    sclet_ai_round_progression(
+        prev_plan,
+        prev_report,
+        current_plan,
+        current_report
+    )
+}
+
+# ---- M13-a: ambient pressure, computed from the object ---------------------
+#
+# A deterministic scalar saying whether this object carries ambient-RNA pressure,
+# so that "the data is dirty in this specific way" is a fact in the context rather
+# than something a planner has to infer from a contamination-looking cluster.
+#
+# TWO heuristics, reported SEPARATELY, and deliberately not multiplied into one
+# number. Multiplying two soft signals produces a figure with two decimal places
+# and no meaning; a reader cannot tell which half moved. Each is 0..1 and each
+# says what it measures.
+#
+# The thresholds below are CALIBRATED ON THE FIXTURES THIS PACKAGE RUNS, not
+# derived from the literature. They are reported alongside the numbers so a reader
+# can disagree with the cut without having to reverse-engineer it.
+#
+# What this is NOT: a measurement of contamination. decontX estimates that with an
+# EM model over a chosen ambient profile. This is a cheap screen that says "worth
+# looking at", and the action's evidence node is what carries the estimate.
+sclet_ai_ambient_pressure <- function(object) {
+    threshold_umi_q10 <- 0.05
+    threshold_detection <- 0.90
+
+    counts <- tryCatch(SummarizedExperiment::assay(object, "counts"),
+        error = function(e) NULL)
+    if (is.null(counts)) {
+        return(list(
+            available = FALSE,
+            reason = "counts_assay_missing",
+            note = "ambient pressure is screened from raw counts",
+            raw_values_included = FALSE
+        ))
+    }
+
+    # Per-cell total counts, as a plain vector. Sparse summary() is used for the
+    # column sums rather than converting the matrix.
+    totals <- tryCatch({
+        if (inherits(counts, "dgCMatrix") || inherits(counts, "dgTMatrix")) {
+            Matrix::colSums(counts)
+        } else {
+            colSums(as.matrix(counts))
+        }
+    }, error = function(e) NULL)
+    if (is.null(totals) || !length(totals)) {
+        return(list(available = FALSE, reason = "counts_unreadable",
+            raw_values_included = FALSE))
+    }
+
+    # D1: how much of the library sits in the low-UMI tail. Ambient RNA is
+    # proportionally louder in cells with few real transcripts, so a heavy lower
+    # tail is where contamination shows first.
+    q10 <- stats::quantile(totals, 0.10, na.rm = TRUE, names = FALSE)
+    low_tail_share <- if (sum(totals) > 0) {
+        sum(totals[totals <= q10]) / sum(totals)
+    } else {
+        NA_real_
+    }
+
+    # D2: among the most abundant genes, how uniformly are they detected? A gene
+    # that appears in almost every cell regardless of cell type is the signature
+    # of a shared ambient pool (or a housekeeping gene -- this screen cannot tell
+    # those apart, and says so).
+    gene_totals <- tryCatch({
+        if (inherits(counts, "dgCMatrix") || inherits(counts, "dgTMatrix")) {
+            Matrix::rowSums(counts)
+        } else {
+            rowSums(as.matrix(counts))
+        }
+    }, error = function(e) NULL)
+    detection_uniformity <- NA_real_
+    if (!is.null(gene_totals) && length(gene_totals)) {
+        top <- order(gene_totals, decreasing = TRUE)
+        top <- utils::head(top, 200L)
+        if (length(top)) {
+            sub <- counts[top, , drop = FALSE]
+            detected <- tryCatch({
+                if (inherits(sub, "dgCMatrix") || inherits(sub, "dgTMatrix")) {
+                    Matrix::rowSums(sub > 0) / ncol(sub)
+                } else {
+                    rowMeans(as.matrix(sub) > 0)
+                }
+            }, error = function(e) NULL)
+            if (!is.null(detected) && length(detected)) {
+                detection_uniformity <- mean(detected, na.rm = TRUE)
+            }
+        }
+    }
+
+    # A coarse label from explicit cuts. `high` requires BOTH screens to fire:
+    # a heavy low-UMI tail alone is normal for many tissues, and a high detection
+    # rate alone is what housekeeping genes look like.
+    low_tail_fires <- !is.na(low_tail_share) && low_tail_share <= threshold_umi_q10
+    uniform_fires <- !is.na(detection_uniformity) &&
+        detection_uniformity >= threshold_detection
+    label <- if (isTRUE(low_tail_fires) && isTRUE(uniform_fires)) {
+        "high"
+    } else if (isTRUE(uniform_fires) || isTRUE(low_tail_fires)) {
+        "moderate"
+    } else {
+        "low"
+    }
+
+    list(
+        available = TRUE,
+        # the two screens, each with its own name and its own meaning
+        low_umi_tail_share = if (is.na(low_tail_share)) NA_real_ else round(low_tail_share, 4L),
+        top_gene_detection_uniformity = if (is.na(detection_uniformity)) {
+            NA_real_
+        } else {
+            round(detection_uniformity, 4L)
+        },
+        # and the cuts that turn them into a label
+        threshold_umi_q10 = threshold_umi_q10,
+        threshold_detection = threshold_detection,
+        label = label,
+        caveat = paste(
+            "This is a screen, not a measurement: a high detection rate is also",
+            "what housekeeping genes look like, and a heavy low-UMI tail is",
+            "normal for many tissues. 'high' means both screens fired and",
+            "cleaning is worth considering -- the contamination estimate itself",
+            "comes from the run_decontx evidence node, not from here."
+        ),
         raw_values_included = FALSE
     )
 }
