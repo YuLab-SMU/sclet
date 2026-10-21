@@ -60,39 +60,12 @@ JAGS). Do not add `SLOW_TESTS` gates — filter by area if you need it faster.
 
 ### Basilisk / Python
 
-- **`packages` are pip-installed; `channels` is a no-op** (basilisk ≥ 1.24).
-  Non-PyPI or conda-only packages go in `pip = c(...)`. Assert pins by
-  introspecting `env@packages`.
-- **Errors surface wrapped**: read the inner `error:` of
-  `checkForRemoteErrors`; full traceback via `reticulate::py_last_error()`.
-- **`full.activation = TRUE`** for conda envs (libstdc++ ordering → GLIBCXX
-  errors otherwise); callbacks must be package-scope (serialized to the worker;
-  closures capturing S4 objects break); `basiliskRun` may be called repeatedly
-  on one proc.
-- **`convert = FALSE`** when threading Python objects through multi-step
-  libraries; `py_to_r()` only the final result.
-- **Shims in the shared wrapper** (guarded by `hasattr`): pandas `get_values` →
-  `to_numpy`; `np.object` → `object`. Wrap import/env failures as typed errors
-  (`sclet_glibcxx_not_found`, `sclet_env_setup_failed`) with repair text.
-- **pySCENIC**: `prune2df(rnkdbs, modules, motif_annotations, ...)` with
-  `client_or_address = "custom_multiprocessing"`, and pin the exact set:
-  `setuptools==80.9.0`, `arboreto==0.1.6`, `dask==2024.2.1`,
-  `distributed==2024.2.1`, `dask-expr==0.5.3`, `pyarrow==20.0.0`.
-
-### Python environments on this machine
-
-Find an existing env before concluding a dependency is missing. `uv` creates
-throwaway venvs (`uv venv --python 3.12` then `uv pip install`; use
-`./.venv/bin/python`, no activation). Hardlink warnings under `/tmp` are
-harmless.
-
-sclet's basilisk envs live under
-`~/.cache/R/basilisk/<ver>/<pkg>/<pkg-ver>/<envname>/` (declared in
-`R/basilisk.R`; seven envs, pins there). Built lazily — a missing directory
-means "not built yet". The path is keyed by package version, so a DESCRIPTION
-bump forces a rebuild (long first run, not a network failure).
-`obtainEnvironmentPath()` CREATES the env — prefer reading the path directly.
-Velocity tests execute in `velociraptor/1.22.0/env/`, not sclet's own.
+Read [`.dev/python-notes.md`](.dev/python-notes.md) before touching
+`R/basilisk.R`, a Python-backed action, or a Python env. Short version: pins are
+paid for by failures (don't tidy a version number), `full.activation = TRUE` on
+conda envs, callbacks must be package-scope, `convert = FALSE` when threading
+Python objects, and the env path is keyed by the package version so a
+DESCRIPTION bump forces a ~10 min rebuild.
 
 ## AI-layer rules
 
