@@ -1,4 +1,4 @@
-#' Split one `$\{...\}` token into its path segments
+#' Split one `${...}` token into its path segments
 #'
 #' @param value A parameter value, possibly nested.
 #' @return A list with one character vector of segments per reference found.
@@ -6,7 +6,7 @@
 #'   matters: a flat vector only aligns to references if every reference
 #'   happens to have the same number of segments, and callers that walked it
 #'   with a fixed stride then read a field name as a step id (reporting
-#'   "references unknown step(s): y" for `$\{step_4.output.y\}`) or read an
+#'   "references unknown step(s): y" for `${step_4.output.y}`) or read an
 #'   empty first segment and reported "references unknown step(s): " with no
 #'   name at all.
 sclet_ai_collect_plan_references <- function(value) {
@@ -20,7 +20,7 @@ sclet_ai_collect_plan_references <- function(value) {
     list()
 }
 
-#' Is a reference path well formed, i.e. `$\{step_id.output.field\}`?
+#' Is a reference path well formed, i.e. `${step_id.output.field}`?
 #'
 #' The one definition of the grammar, shared by the malformed-reference
 #' detector and by the validator's dependency analysis so the two cannot
@@ -36,14 +36,14 @@ sclet_ai_reference_is_well_formed <- function(path) {
 
 #' Find value references that are syntactically malformed
 #'
-#' The plan value-reference syntax is `$\{step_id.output.field\}`. Only
+#' The plan value-reference syntax is `${step_id.output.field}`. Only
 #' [sclet_ai_collect_plan_references()] is permissive: it splits any
-#' `$\{a.b.c\}` token, so a malformed reference still parses into segments.
+#' `${a.b.c}` token, so a malformed reference still parses into segments.
 #' [sclet_ai_project_plan_value()] cannot resolve one and returns it
 #' unchanged, and [sclet_ai_resolve_plan_value()] refuses it outright at
 #' execution time. Detecting the malformed form during validation turns a
 #' silent pass-through -- which surfaces later as an unrelated "reduction is
-#' not available: $\{step_4.reduction\}" from some action's prerequisite --
+#' not available: `${step_4.reduction}`" from some action's prerequisite --
 #' into an error that names the actual mistake.
 #'
 #' @param value A parameter value, possibly nested.
@@ -67,8 +67,8 @@ sclet_ai_malformed_plan_references <- function(value) {
 #'
 #' Pairing a complaint with the corrected string is what makes the error
 #' usable as feedback: the model can copy the suggestion instead of
-#' re-deriving the grammar. `$\{step_4.reduction\}` becomes
-#' `$\{step_4.output.reduction\}`.
+#' re-deriving the grammar. `${step_4.reduction}` becomes
+#' `${step_4.output.reduction}`.
 #'
 #' @param value A malformed reference string.
 #' @return A suggested corrected reference, or `NA_character_` if the token
@@ -93,7 +93,7 @@ sclet_ai_suggest_reference_fix <- function(value) {
 
 #' Resolve a plan output reference against the outputs produced so far
 #'
-#' Turns a `$\{step_id.output.field\}` reference into the value the referenced
+#' Turns a `${step_id.output.field}` reference into the value the referenced
 #' step produced. A reference that cannot be resolved is an error: a plan that
 #' points at an output nobody produced would otherwise run against `NULL`.
 #'
@@ -169,7 +169,7 @@ sclet_ai_plan_fingerprint <- function(plan) {
 
 #' Project a plan output reference onto the outputs a plan PROMISES
 #'
-#' Resolves a `$\{step_id.output.field\}` reference against the outputs the plan
+#' Resolves a `${step_id.output.field}` reference against the outputs the plan
 #' declares it will produce, rather than against the outputs that exist yet.
 #' Used when validating a plan, where the referenced step has not run.
 #'

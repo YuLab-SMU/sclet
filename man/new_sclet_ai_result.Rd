@@ -19,6 +19,8 @@ new_sclet_ai_result(
 )
 }
 \arguments{
+\item{task}{Task identifier.}
+
 \item{answer}{Optional natural-language answer.}
 
 \item{findings}{List of structured findings.}
