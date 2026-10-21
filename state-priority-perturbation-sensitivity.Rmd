@@ -275,24 +275,38 @@ signals$n_independent_signals_available
 
 Everything above calls the registered handler directly. The full path —
 `AIPlanAnalysis()` proposing a plan, `ValidateAIPlan()` approving it,
-`ExecuteAIPlan()` running it — is a billed model call and does not run during
-book rendering. The handler is the layer that writes the evidence, so calling it
-directly tests the same ordering rule without a model in the middle.
+`ExecuteAIPlan()` running it — is a billed model call, so it runs only on a
+machine with a provider configured (`SCLET_BOOKDOWN_EVAL_AI=1`). The handler is
+the layer that writes the evidence, so calling it directly tests the same
+ordering rule without a model in the middle.
 
-```{r rare-cell-ai-plan, eval=FALSE}
-# Why not executed: AIPlanAnalysis() calls a language model; there is no offline
-# provider in the book build.
+```{r rare-cell-ai-plan, eval=eval_ai}
 plan <- AIPlanAnalysis(fixture,
     goal = "find rare populations and support them with marker evidence")
-validation <- ValidateAIPlan(fixture, plan)
+
+# The token lives on the validation object, and validation takes the plan
+# first. Both are easy to get wrong and neither fails loudly until execution.
+validation <- ValidateAIPlan(plan, object = fixture, registry = registry)
 
 out <- ExecuteAIPlan(fixture, plan, registry,
     validation = validation,
-    confirmation = validation$confirmation)
+    confirmation = validation$confirmation_token)
 
-# One evidence node per graded population.
-sclet:::sclet_ai_evidence_get_all(out)
+# One evidence node per graded population. Count them rather than printing the
+# list: zero is a meaningful answer here, and it is the one the ordering rule
+# above predicts when the plan runs the detection before the marker test.
+evidence <- sclet:::sclet_ai_evidence_get_all(out$object)
+c(status = out$status,
+  steps = length(out$results),
+  evidence_nodes = length(evidence))
 ```
+
+A plan can come back `completed` with `evidence_nodes = 0`, and that is not a
+contradiction — every step ran, and none of them left anything the report may
+cite. Whether the model got the order right is decided by the planner, not by
+the engine: the engine will execute a legal-but-useless plan just as happily as
+a legal-and-useful one. That gap is the reason the [next chapter](#ai-evidence-governance)
+exists.
 
 ## What Fits Nearby
 

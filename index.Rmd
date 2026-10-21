@@ -30,6 +30,16 @@ geometry: "left=35mm,right=35mm,top=25mm,bottom=25mm"
 library(knitr)
 eval_chunks <- tolower(Sys.getenv("SCLET_BOOKDOWN_EVAL", "true")) %in% c("true", "1", "yes")
 
+# The AI chapters call a language model. That is a deliberate, billed, and
+# non-deterministic action, so it is off unless explicitly requested: a build
+# machine with no provider configured must not fail, and a CI job must not
+# spend credits rendering prose that only changes when the model's mood does.
+# Set SCLET_BOOKDOWN_EVAL_AI=1 on a machine with a provider configured
+# (`aisdk::get_model()` resolves) to execute those chunks too.
+eval_ai <- eval_chunks &&
+    tolower(Sys.getenv("SCLET_BOOKDOWN_EVAL_AI", "false")) %in% c("true", "1", "yes") &&
+    requireNamespace("aisdk", quietly = TRUE)
+
 if (eval_chunks) {
   library(conflicted)
   library(sclet)

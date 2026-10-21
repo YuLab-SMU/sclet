@@ -15,6 +15,8 @@ sce <- FindClusters(sce)
 sce <- RunDEtest(sce)
 ```
 
+Shown, not executed: this is the shape of the problem, not a runnable example. `sce` is a placeholder, and the same four calls appear as real, executing code in the [core workflow](#core-workflow).
+
 That is fine while you are the one running it. But notice what it does not record: why these thresholds, whether step 3 was even correct for this object, and what any of it implies. If a reviewer asks "how do you know your clusters were not an artifact of the batch effect?", the script cannot answer, because the script never knew.
 
 `sclet`'s AI layer is built on the opposite premise. The object already carries its own history — the state contract from [state-aware analysis](#state-aware). The AI layer's job is to make that history **something that can be planned against, validated, and audited** instead of merely read.
