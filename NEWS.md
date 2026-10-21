@@ -708,3 +708,29 @@ basilisk internal, unchanged by this milestone.
   design would be needed to claim an effect.
 - Ambient pressure was screened on **one sample**, so mixed-sample ambient is
   untested.
+
+### B20: a suggestion that never reached the reasoning
+
+`data_support$unexplored` was delivered in the context while **not one line of
+the planning prompt mentioned that the block exists** — data without a covering
+instruction. Measured: of six trials on the ambient fixture, four ignored the
+suggestion and not one mentioned ambient anywhere in its rationale.
+
+Two layers, both pinned:
+
+- **A response requirement** in both prompts (`sclet_ai_unexplored_prompt_line()`):
+  each entry must be PLANNED as a step or DECLINED in the rationale **naming the
+  action**, and a suggestion appearing in neither is treated as an oversight.
+  Declining stays legitimate — `unexplored` is a claim about the data, the goal is
+  the user's — but the choice must be stated, not silent.
+- **A judge makes it checkable**: the plan snapshots the suggestions the context
+  carried, and round progression now counts `n_unexplored_planned / declined /
+  unmentioned` with `unmentioned_suggestions` named. Declining is matched by the
+  action's own name as a substring of the rationale, which cannot be gamed —
+  you cannot decline `run_decontx` without writing "decont" somewhere.
+
+Post-fix measurement (6 trials): adoption 2/6 → 3/6 (not significant, sample
+unchanged), every adopting trial now explains itself (was 1 of 2), and silent
+ignoring fell from 4 to 2. The instruction moved **quality**, not quantity —
+consistent with the design that says adoption should track the user's goal, not
+the suggestion list.

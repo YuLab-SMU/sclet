@@ -351,7 +351,7 @@ prerequisites 仍是权威。`supported = TRUE` 不意味着动作能跑——�
 
 ## M13 产出与移交（2026-10-21）
 
-### B20 `unexplored` 的建议大多没有进入推理 · `claim`（未修，需改提示词）
+### B20 `unexplored` 的建议大多没有进入推理 · `claim`（2026-10-21 修复，见文末）
 M13-c 实测：实验组 6 次里 2 次规划了 `run_decontx`（对照组 0/6），
 但**未采纳的 4 次，rationale 里一次都没提到 ambient**。
 所以它们不是 spec §5.2 里「读到了但有理由地拒绝」（那不算缺陷），
@@ -370,6 +370,36 @@ M13-c 的 t6：规划了 `run_decontx`，但 rationale 里没有任何关于 amb
 - 建议：`run_decontx` 这类「改变后续解读前提」的动作，要求 rationale 有交代。
 - 证据：同上 §4 的表格。
 
+
+### B20 修复（2026-10-21 晚，同日）
+根因（读完整条 prompt 确认）：**规划提示词没有一行提到 `data_support` 或 `unexplored`**。
+数据进了 context，指令从未跟上——所以建议像谣言而不是清单。
+
+修法两层：
+1. **响应要求**（`sclet_ai_unexplored_prompt_line()`，两条 prompt 都注入）：每条建议
+   必须被规划、或在 rationale 里**点名**拒绝。不用「可以考虑」这种弱形式——
+   那正是会被静默忽略的建议。拒绝是合法的（unexplored 是数据推断，goal 是用户意图），
+   但必须说出口。
+2. **可判定**（D3 新判据）：plan 快照携带当时的 `unexplored_suggestions`，
+   `round_progression` 新增 `n_unexplored_planned / declined / unmentioned` +
+   `unmentioned_suggestions`。点名判定用「rationale 含动作名去 `run_` 前缀的子串」——
+   这一段不可洗白：拒绝 `run_decontx` 而不写 "decont" 是不可能的。
+
+在线验证（修复前后各 6 次，同 fixture 同 goal）：
+- adoption 2/6 → **3/6**；
+- **采纳的 3 次全部解释了理由**（修复前 2 次采纳里 1 次不说理由 = B21 的一半）；
+- **沉默忽略从 4 次降到 2 次**（t1/t2/t4 → t1/t2/t4 中 t4 变为提及……实测 t1/t2/t4 中
+  t4 仍沉默）。
+
+诚实说明：**adoption 没有显著变化**（p 仍不显著，样本太小），
+但「未提及」从 4/6 降到 2/6，且采纳质量（说明理由）从 1/2 升到 3/3。
+指令起作用的部分是**质量**而非**数量**——这与「建议是否该被采纳取决于 goal」的
+设计一致：不该强求采纳率 100%。
+
+- pin：`test-ai-skills.R`（76，新增 prompt 两条）、`test-ai-round-progression.R`（72，新增判据 5 组）。
+- 遗留：t1/t2 仍沉默。下一步要么在报告层把 `unmentioned_suggestions` 打印出来
+  （让读者看见这次忽略），要么在 `RenderAIReport()` 的自检区加一条。
+  在此之前 B20 状态改为「已修（判定层），提示层遗留」。
 ### M13-c 的样本量不足以定论（不是缺陷，是事实）
 0/6 vs 2/6，Fisher p = 0.455。方向一致但**无法与偶然区分**。
 要下结论需要更多次或更强的设计。**不要把这组数字引用成「提升了 33%」。**

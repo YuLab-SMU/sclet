@@ -181,3 +181,55 @@ test_that("sclet-analysis states where contrast levels come from", {
     # the recognisable symptom of inventing a level
     expect_true(grepl("you invented it", body, fixed = TRUE))
 })
+
+# ---- B20: the unexplored-response requirement must be in the prompt ---------
+#
+# Root cause of B20: `analysis_story$data_support$unexplored` was delivered in
+# the context while not one line of the planning prompt mentioned that the block
+# exists. Data without a covering instruction. Measured: 4 of 6 trials on the
+# ambient fixture ignored the suggestion and never mentioned it. The fix is a
+# RESPONSE requirement -- each entry planned or declined by name -- and these
+# pins hold that wording in both prompts, because a prompt edit that never
+# reaches the model is invisible to every other test.
+
+test_that("the planning prompt requires each unexplored entry to be planned or declined", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(1L, nrow = 5L, ncol = 4L))
+    )
+    captured <- new.env(parent = emptyenv())
+    fake_call <- function(task, context, ..., system_prompt = NULL) {
+        captured$system_prompt <- system_prompt
+        response <- list(
+            answer = "mock",
+            proposed_actions = list(list(id = "step1", action = "inspect_status")),
+            success_criteria = list(),
+            stop_conditions = list()
+        )
+        sclet:::sclet_ai_normalize_response(response, task = task,
+            context = context, metadata = list(mock = TRUE))
+    }
+    testthat::with_mocked_bindings(
+        {
+            invisible(AIPlanAnalysis(sce, goal = "cluster the cells", model = "mock"))
+            prompt <- captured$system_prompt %||% ""
+            expect_true(grepl("unexplored", prompt, fixed = TRUE))
+            # the response requirement, not a "you may find this useful"
+            expect_true(grepl("EACH entry must be either PLANNED", prompt,
+                fixed = TRUE))
+            expect_true(grepl("explicitly DECLINED", prompt, fixed = TRUE))
+            # the other two blocks are named so the model knows where to look
+            expect_true(grepl("`blocked`", prompt, fixed = TRUE))
+            expect_true(grepl("`shapes`", prompt, fixed = TRUE))
+        },
+        sclet_ai_call = fake_call,
+        .package = "sclet"
+    )
+})
+
+test_that("the tool-loop prompt carries the same requirement", {
+    line <- sclet:::sclet_ai_unexplored_prompt_line()
+    expect_true(grepl("EACH entry must be either PLANNED", line, fixed = TRUE))
+    expect_true(grepl("treated as an oversight", line, fixed = TRUE))
+    # declining is legitimate: the requirement must not read as "always plan it"
+    expect_true(grepl("Declining is legitimate", line, fixed = TRUE))
+})

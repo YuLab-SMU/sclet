@@ -839,6 +839,53 @@ sclet_ai_round_progression <- function(
         if (any(reanalysing)) established_contamination <- TRUE
     }
 
+    # ---- B20: an unexplored suggestion that is neither planned nor named ---
+    #
+    # The prompt now REQUIRES each `unexplored` entry to be planned or declined
+    # by name (sclet_ai_unexplored_prompt_line()), and this judge makes that
+    # requirement checkable. Without it the requirement is advice a model can
+    # violate silently -- which is exactly the measured failure: 4 of 6 trials
+    # ignored the suggestion and none mentioned it. "Oversight" is the honest
+    # name for it; the caller decides what to do with the flag.
+    #
+    # Naming = the rationale contains the suggested action's own name, or a
+    # distinctive token from the entry's `what`. Substring matching on the
+    # action name is the part that cannot be gamed: the model cannot decline
+    # `run_decontx` without writing "run_decontx" or "decont" somewhere.
+    unexplored <- (current_plan$metadata %||% list())$unexplored_suggestions %||%
+        list()
+    if (!length(unexplored)) {
+        # fall back to the plan-level field AIPlanAnalysis() can attach when it
+        # knows the context
+        unexplored <- (current_plan$unexplored_suggestions %||% list())
+    }
+    n_unexplored <- length(unexplored)
+    n_unexplored_planned <- 0L
+    n_unexplored_declined <- 0L
+    n_unexplored_unmentioned <- 0L
+    unmentioned_suggestions <- character()
+    if (n_unexplored) {
+        for (entry in unexplored) {
+            action <- as.character(
+                if (is.list(entry)) entry$action %||% entry else entry
+            )
+            if (!length(action) || !nzchar(action)) next
+            if (any(curr_actions %in% action)) {
+                n_unexplored_planned <- n_unexplored_planned + 1L
+                next
+            }
+            declined <- nzchar(rationale_l) && grepl(
+                sub("^run_", "", action), rationale_l, fixed = TRUE
+            )
+            if (declined) {
+                n_unexplored_declined <- n_unexplored_declined + 1L
+            } else {
+                n_unexplored_unmentioned <- n_unexplored_unmentioned + 1L
+                unmentioned_suggestions <- c(unmentioned_suggestions, action)
+            }
+        }
+    }
+
     # ---- the class -------------------------------------------------------
     progression_class <- "advanced"
     if (established_contamination) {
@@ -867,6 +914,12 @@ sclet_ai_round_progression <- function(
         n_user_decisions = n_decisions,
         n_user_decisions_used = n_decisions_used,
         unused_user_decisions = unused_decisions,
+        # B20: the unexplored-response ledger
+        n_unexplored = n_unexplored,
+        n_unexplored_planned = n_unexplored_planned,
+        n_unexplored_declined = n_unexplored_declined,
+        n_unexplored_unmentioned = n_unexplored_unmentioned,
+        unmentioned_suggestions = unmentioned_suggestions,
         regressed = isTRUE(established_contamination),
         progression_class = progression_class,
         raw_values_included = FALSE

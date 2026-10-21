@@ -295,3 +295,79 @@ test_that("an ambient warning is answerable now that the action exists", {
     expect_identical(d$n_warnings_answered, 1L)
     expect_identical(d$progression_class, "advanced")
 })
+
+# ---- B20 judge: an unmentioned suggestion is countable ----------------------
+#
+# The prompt now REQUIRES each unexplored entry to be planned or declined by
+# name. Without this judge that requirement is advice a model can violate
+# silently -- which is the measured failure: 4 of 6 trials ignored the
+# suggestion and none mentioned it. "Oversight" is the honest name.
+
+m13b_with_unexplored <- function(actions, rationale, suggestions) {
+    p <- m13b_plan(actions, rationale = rationale)
+    p$metadata$unexplored_suggestions <- suggestions
+    p
+}
+
+test_that("a suggestion that is planned is counted as planned", {
+    prev <- m13b_plan(list(list(id = "p1", action = "run_de_test", params = list())))
+    curr <- m13b_with_unexplored(
+        list(list(id = "c1", action = "run_decontx", params = list())),
+        "clean the ambient pool, then test markers",
+        list(list(action = "run_decontx", what = "ambient pressure is high"))
+    )
+    d <- sclet:::sclet_ai_round_progression(prev, m13b_report(), curr)
+    expect_identical(d$n_unexplored, 1L)
+    expect_identical(d$n_unexplored_planned, 1L)
+    expect_identical(d$n_unexplored_unmentioned, 0L)
+})
+
+test_that("a suggestion declined BY NAME is counted as declined", {
+    prev <- m13b_plan(list(list(id = "p1", action = "run_de_test", params = list())))
+    curr <- m13b_with_unexplored(
+        list(list(id = "c1", action = "run_de_test", params = list())),
+        "markers only; run_decontx is not needed because the goal is cluster comparison",
+        list(list(action = "run_decontx", what = "ambient pressure is high"))
+    )
+    d <- sclet:::sclet_ai_round_progression(prev, m13b_report(), curr)
+    expect_identical(d$n_unexplored_planned, 0L)
+    expect_identical(d$n_unexplored_declined, 1L)
+    expect_identical(d$n_unexplored_unmentioned, 0L)
+})
+
+test_that("a suggestion neither planned nor named is flagged as unmentioned", {
+    # the B20 failure, verbatim: the suggestion was in the context, the plan
+    # did not include it, and the rationale never mentioned it
+    prev <- m13b_plan(list(list(id = "p1", action = "run_de_test", params = list())))
+    curr <- m13b_with_unexplored(
+        list(list(id = "c1", action = "run_de_test", params = list())),
+        "markers for each cluster, with enrichment",
+        list(list(action = "run_decontx", what = "ambient pressure is high"))
+    )
+    d <- sclet:::sclet_ai_round_progression(prev, m13b_report(), curr)
+    expect_identical(d$n_unexplored_unmentioned, 1L)
+    expect_identical(d$unmentioned_suggestions, "run_decontx")
+})
+
+test_that("no suggestions means no unexplored counters fire", {
+    prev <- m13b_plan(list(list(id = "p1", action = "run_de_test", params = list())))
+    curr <- m13b_plan(list(list(id = "c1", action = "run_de_test", params = list())))
+    d <- sclet:::sclet_ai_round_progression(prev, m13b_report(), curr)
+    expect_identical(d$n_unexplored, 0L)
+    expect_identical(d$n_unexplored_planned, 0L)
+    expect_identical(d$n_unexplored_declined, 0L)
+    expect_identical(d$n_unexplored_unmentioned, 0L)
+    expect_length(d$unmentioned_suggestions, 0L)
+})
+
+test_that("the determinism pin covers the unexplored counters", {
+    prev <- m13b_plan(list(list(id = "p1", action = "run_de_test", params = list())))
+    curr <- m13b_with_unexplored(
+        list(list(id = "c1", action = "run_de_test", params = list())),
+        "markers only",
+        list(list(action = "run_decontx", what = "ambient pressure"))
+    )
+    a <- sclet:::sclet_ai_round_progression(prev, m13b_report(), curr)
+    b <- sclet:::sclet_ai_round_progression(prev, m13b_report(), curr)
+    expect_identical(a, b)
+})

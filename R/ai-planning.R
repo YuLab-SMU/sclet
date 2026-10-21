@@ -1298,6 +1298,41 @@ sclet_ai_user_decision_prompt_line <- function() {
     )
 }
 
+# B20 (2026-10-21): `analysis_story$data_support$unexplored` reached the
+# context but never the reasoning. Measured on the GSE158055 ambient fixture:
+# six planning trials with the block injected, and of the four that did NOT
+# plan `run_decontx`, not one mentioned ambient anywhere in its rationale --
+# the suggestion was in the context and simply did not enter the thought
+# process. Root cause, checked by reading this prompt end to end: NOT ONE LINE
+# of it tells the model that `data_support` exists or that `unexplored` is
+# something to respond to. The block was data delivered without a covering
+# instruction, which is why it behaved like a rumour rather than a checklist.
+#
+# The instruction has to be a RESPONSE requirement, not a "you may find this
+# useful". The spec explicitly warns against the weaker form (M13 / B20):
+# "consider the suggestions" is advice a model can ignore silently, and silence
+# is exactly the failure we measured. Each suggestion must be either planned or
+# declined with a reason -- and a reason must NAME the suggestion, so an
+# unmentioned suggestion is detectable rather than merely suspicious.
+#
+# Kept as a helper (like sclet_ai_user_decision_prompt_line()) so a test can
+# pin the exact wording without scraping a 200-line paste().
+sclet_ai_unexplored_prompt_line <- function() {
+    paste(
+        "`context$analysis_story$data_support$unexplored` lists analyses this",
+        "object can support that the ledger has no result for -- data value not",
+        "yet collected. It is part of your brief, not background reading:",
+        "EACH entry must be either PLANNED as a step, or explicitly DECLINED in",
+        "your rationale with the entry's action named and the reason it does not",
+        "serve the goal. A suggestion that appears in neither the plan nor the",
+        "rationale is treated as an oversight. Declining is legitimate -- the",
+        "goal is the user's, and an unexplored analysis is not automatically",
+        "wanted -- but the choice has to be stated, not silent. `data_support`",
+        "also reports `blocked` (what this object cannot answer, with the gate",
+        "name) and `shapes` (what the data is); read them before proposing."
+    )
+}
+
 # Does the goal ask for a contrast between experimental groups, and can the
 # plan express it?
 #
@@ -1603,6 +1638,7 @@ sclet_ai_plan_once <- function(
         "input_schema. Do not invent action names. If no listed action fits",
         "a needed step, say so in your rationale instead of inventing one.",
         sclet_ai_user_decision_prompt_line(),
+        sclet_ai_unexplored_prompt_line(),
         "Pass each parameter a real value of the declared type: a bare JSON",
         "number for integer/numeric (ncomponents = 50, NOT \"50\", NOT",
         "\"<integer>\", NOT \"e.g. 50\"), a single JSON string for character, and",
@@ -1700,6 +1736,22 @@ sclet_ai_plan_once <- function(
         system_prompt = system_prompt,
         ...
     )
+    # Snapshot the unexplored suggestions the context carried, so the round-
+    # progression judge can later check each one was planned or declined by
+    # name (B20). Reading them off the context here rather than off the ledger
+    # in the judge matters: the judge runs AFTER execution, and by then the
+    # ledger already contains this round's evidence -- so "was it unexplored
+    # BEFORE this plan" is only answerable from what the planner saw.
+    unexplored_snapshot <- tryCatch({
+        story <- context$analysis_story %||% list()
+        ds <- story$data_support %||% list()
+        entries <- ds$unexplored %||% list()
+        lapply(entries, function(x) list(
+            action = as.character(x$action %||% ""),
+            what = as.character(x$what %||% "")
+        ))
+    }, error = function(e) list())
+
     plan <- new_sclet_ai_plan(
         task = result$task,
         actions = result$proposed_actions,
@@ -1712,7 +1764,8 @@ sclet_ai_plan_once <- function(
         metadata = list(
             provider = result$metadata$provider %||% NULL,
             structured_output = result$metadata$structured_output %||% NULL,
-            goal = goal %||% NULL
+            goal = goal %||% NULL,
+            unexplored_suggestions = unexplored_snapshot
         )
     )
     plan$validation <- ValidateAIPlan(

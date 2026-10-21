@@ -50,6 +50,13 @@ RunPerturbationPriority <- function(sce, condition_col, group_col = NULL,
         labels <- SingleCellExperiment::colLabels(sce)
         sce$sclet_priority_group_temp <- as.character(labels)
         group_col <- "sclet_priority_group_temp"
+        # `cd` was read from `sce` above, so it does not yet see the column
+        # this branch just wrote. Re-read it, or the check below refuses the
+        # very column the special value exists to create: `group_col =
+        # "colLabels"` died with "A valid `group_col` must be provided" on
+        # every object, and no test covered the branch, which is why it
+        # survived. Measured 2026-10-21.
+        cd <- SummarizedExperiment::colData(sce)
     }
     if (is.null(group_col) || !nzchar(group_col) ||
         !group_col %in% colnames(cd)) {
@@ -71,7 +78,20 @@ RunPerturbationPriority <- function(sce, condition_col, group_col = NULL,
     expr_matrix <- SummarizedExperiment::assay(sce, src$assay)
     meta <- as.data.frame(cd)
 
-    cli::cli_alert_info("Running Augur perturbation priority on {.val {group_col}} by {.val {condition_col}}")
+    # Augur::calculate_auc() accepts a Seurat object, a monocle object, a sparse
+    # matrix, a numeric matrix or a numeric data frame -- and nothing else. A
+    # `SingleCellExperiment` assay is frequently a `DelayedMatrix` (that is what
+    # TENxPBMCData and HDF5Array-backed objects hand back), which is none of
+    # those, so the call dies with "input must be Seurat, monocle, sparse
+    # matrix, numeric matrix, or numeric data frame" before it ever looks at the
+    # data. Materialise it as a dense matrix here, once, at the boundary.
+    #
+    # The cost is bounded by what the caller already has in memory: the assay is
+    # fully realised either way for a non-delayed backend, and for a delayed one
+    # this is the first time it is touched. `sclet` does not keep the dense copy.
+    expr_matrix <- sclet_malignancy_dense(expr_matrix)
+
+    cli::cli_alert_info("Running Augur perturbation priority on {.val {group_col} by {.val {condition_col}}")
     augur_result <- Augur::calculate_auc(
         input = expr_matrix,
         meta = meta,
