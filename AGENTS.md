@@ -34,14 +34,25 @@ git -C bookdown  branch --show-current   # → docs
   ```bash
   # 1) seconds — after every edit
   Rscript -e 'devtools::load_all(".", quiet=TRUE); testthat::test_file("tests/testthat/test-x.R")'
-  # 2) minutes — when a change is done
+  # 2) ~8 min all, or 463 s for one area — when a change is done
   Rscript -e 'devtools::test()'
+  Rscript -e 'devtools::load_all(".", quiet=TRUE); testthat::test_dir("tests/testthat", filter = "^ai-")'
   # 3) ~16 min — milestone close-out / before commit, a few times a day at most
   make check
   ```
-- **`devtools::test()` is itself slow**: >10 min, almost entirely
-  `malignancy-cnv` on real data. Gate that with
-  `skip_if_not(Sys.getenv("SLOW_TESTS") == "1")` so tier 2 stays useful.
+- **Tier 2 is ~8 min, and no single file dominates.** Measured 2026-10-21 by
+  timing every file: `test-malignancy-cnv.R` is **29 s**, not the ten minutes
+  an earlier note claimed (its 18 cases all mock `inferCNV`; nothing runs
+  JAGS). The 61 `test-ai-*` files total 463 s and the slowest single files are
+  `test-batch-robustness.R` (57 s), `test-state-refactor.R` (56 s) and
+  `test-deprecation-cleanup.R` (54 s) -- each is individually cheap, the cost
+  is the count. So **there is no `SLOW_TESTS` gate to add**: the earlier
+  instruction to gate `malignancy-cnv` described a problem that does not
+  exist. If tier 2 needs to be faster, filter by area
+  (`filter = "^ai-"` = 463 s) rather than skipping cases.
+- **Do not trust a timing claim in a doc without re-measuring it.** The
+  "10 minutes" figure above survived one editing pass because it was plausible
+  and nobody timed the file; the cost of checking was 29 seconds.
 - **Long runs must go through the job system, not `nohup ... &`**: the shell
   returns in seconds and the harness watches that dead shell, so the completion
   notice never fires and the run has to be polled with `sleep`. Use
