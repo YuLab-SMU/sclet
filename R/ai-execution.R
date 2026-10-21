@@ -17,6 +17,16 @@
 #' @param estimated_cost Optional cost label such as `"low"`, `"medium"`, or `"high"`.
 #' @param idempotent Logical. Whether repeating the action is expected to be safe.
 #' @return An action descriptor.
+#' @examples
+#' # Register a custom action and put it in a registry.
+#' my_action <- AIAction(
+#'     name = "count_cells",
+#'     handler = function(object, params) ncol(object),
+#'     description = "Count the cells on the object",
+#'     returns = "value"
+#' )
+#' registry <- AIExecutionRegistry(list(my_action))
+#' names(registry)
 #' @export
 AIAction <- function(
     name,
@@ -564,6 +574,10 @@ sclet_ai_action_param_type_problems <- function(params, schema) {
 #'   `"velocity"`, `"fate"`, `"spatial"`, `"multimodal"`, `"enrichment"`,
 #'   `"malignant"`, `"communication"`, `"milo"`, and `"all"`. Defaults to `"read"`.
 #' @return A `sclet_ai_execution_registry` containing the requested actions.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' registry <- AIDefaultExecutionRegistry(sce, include = "all")
+#' any(names(registry) == "normalize_data")
 #' @export
 AIDefaultExecutionRegistry <- function(object, include = "read") {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -849,6 +863,14 @@ sclet_ai_record_rare_cell_evidence <- function(object, name, rare_threshold) {
 #'
 #' @param actions Named list of `AIAction()` descriptors.
 #' @return An object of class `sclet_ai_execution_registry`.
+#' @examples
+#' action <- AIAction(
+#'     name = "count_cells",
+#'     handler = function(object, params) ncol(object),
+#'     returns = "value"
+#' )
+#' registry <- AIExecutionRegistry(list(action))
+#' registry[["count_cells"]]$name
 #' @export
 AIExecutionRegistry <- function(actions = list()) {
     if (is.null(actions)) {
@@ -1441,6 +1463,23 @@ sclet_ai_compare_criterion <- function(observed, check, expected) {
 #'   `status`. Dry-run results additionally include `success_criteria_preview`,
 #'   `stop_conditions_preview`, and `human_confirmations` (threaded through from
 #'   `validation$human_confirmations`), all purely descriptive and unevaluated.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' registry <- AIDefaultExecutionRegistry(sce, include = "all")
+#' plan <- list(
+#'     plan_id = "plan_demo",
+#'     task = "demo",
+#'     actions = list(list(id = "s1", action = "normalize_data"))
+#' )
+#' validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+#' # ExecuteAIPlan() needs the validation object itself, not only the
+#' # confirmation token: it re-checks that the plan and the object are
+#' # still the ones that were validated.
+#' execution <- ExecuteAIPlan(sce, plan, registry,
+#'     validation = validation,
+#'     dry_run = FALSE,
+#'     confirmation = validation$confirmation_token)
+#' execution$status
 #' @export
 ExecuteAIPlan <- function(
     object,
@@ -1690,6 +1729,17 @@ ExecuteAIPlan <- function(
 #'   validation; a character value is used as an explicit token.
 #' @param record Logical. Record non-dry execution results in the ledger.
 #' @return An `sclet_ai_execution` object.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' registry <- AIDefaultExecutionRegistry(sce, include = "all")
+#' plan <- list(
+#'     plan_id = "plan_demo",
+#'     task = "demo",
+#'     actions = list(list(id = "s1", action = "normalize_data"))
+#' )
+#' # RunAIPlan() validates and executes in one call.
+#' execution <- RunAIPlan(sce, plan, registry, dry_run = FALSE, confirm = TRUE)
+#' execution$status
 #' @export
 RunAIPlan <- function(
     object,

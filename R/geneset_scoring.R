@@ -19,6 +19,14 @@
 #' @importFrom S4Vectors metadata metadata<-
 #' @importFrom SummarizedExperiment assay colData colData<-
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the 'UCell', 'AUCell' or 'GSVA' Suggests package
+#' gs <- list(Program1 = c("Gene_0001", "Gene_0002", "Gene_0003"))
+#' sce <- RunGeneSetScoring(sce, gene_sets = gs, method = "UCell")
+#' colnames(colData(sce))
+#' }
 RunGeneSetScoring <- function(sce, gene_sets = NULL, features = NULL,
                               method = c("UCell", "AUCell", "GSVA"), 
                               assay_use = "counts", ncores = 1, name = "Score", 
@@ -183,6 +191,16 @@ RunGeneSetScoring <- function(sce, gene_sets = NULL, features = NULL,
 #' @param low,high Colors for the activity gradient.
 #' @return A ggplot object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' \dontrun{
+#' # needs the 'UCell', 'AUCell' or 'GSVA' Suggests package
+#' gs <- list(Program1 = c("Gene_0001", "Gene_0002", "Gene_0003"))
+#' sce <- RunGeneSetScoring(sce, gene_sets = gs, method = "UCell")
+#' p <- plot_program_activity(sce, program = "Program1")
+#' class(p)[1]
+#' }
 plot_program_activity <- function(object, program, source = c("auto", "geneset_scoring", "scenic"),
                                   reduction = NULL, id = NULL, assay = NULL,
                                   point_size = 0.6, low = "grey90", high = "firebrick") {
@@ -257,6 +275,16 @@ plot_program_activity <- function(object, program, source = c("auto", "geneset_s
 #' @param low,mid,high Colors for the fill gradient.
 #' @return A ggplot object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'UCell', 'AUCell' or 'GSVA' Suggests package
+#' gs <- list(Program1 = c("Gene_0001", "Gene_0002", "Gene_0003"))
+#' sce <- RunGeneSetScoring(sce, gene_sets = gs, method = "UCell")
+#' p <- plot_program_heatmap(sce, programs = "Program1")
+#' class(p)[1]
+#' }
 plot_program_heatmap <- function(object, programs, source = c("auto", "geneset_scoring", "scenic"),
                                  group.by = NULL, id = NULL, assay = NULL, scale_rows = TRUE,
                                  low = "#2166AC", mid = "white", high = "#B2182B") {
@@ -470,6 +498,16 @@ sclet_resolve_program_activity <- function(object, program, source, id = NULL, a
 #'
 #' @return A ggplot object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'UCell', 'AUCell' or 'GSVA' Suggests package
+#' gs <- list(Program1 = c("Gene_0001", "Gene_0002", "Gene_0003"))
+#' sce <- RunGeneSetScoring(sce, gene_sets = gs, method = "UCell")
+#' p <- plot_program_dotplot(sce, programs = "Program1")
+#' class(p)[1]
+#' }
 plot_program_dotplot <- function(object, programs, source = c("auto", "geneset_scoring", "scenic"),
                                  group.by = NULL, id = NULL,
                                  low = "#2166AC", high = "#B2182B") {

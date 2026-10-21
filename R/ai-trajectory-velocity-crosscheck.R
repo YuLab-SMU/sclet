@@ -22,6 +22,11 @@
 #'   either type exist and no id was given, returns `status = "ambiguous_run"`
 #'   listing the available ids. The result contains no per-cell values and
 #'   always sets `raw_values_included = FALSE`.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' comparison <- compare_trajectory_velocity_evidence(sce)
+#' comparison$status
+#' comparison$reason
 #' @export
 compare_trajectory_velocity_evidence <- function(object, trajectory_id = NULL, velocity_id = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {

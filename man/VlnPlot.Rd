@@ -19,3 +19,9 @@ violin plot
 \description{
 violine plot of selected features
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+colData(sce)$nCount_RNA <- seq_len(ncol(sce))
+p <- VlnPlot(sce, features = "nCount_RNA")
+class(p)[1]
+}

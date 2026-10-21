@@ -22,3 +22,9 @@ usable embedding are present for \code{RunVelocity()}. No velocity mode
 numerical-method choice for \code{run_velocity}'s own params, not a
 readiness gate. No design confirmation is required for this domain.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+readiness <- check_velocity_readiness(sce)
+readiness$status
+readiness$questions
+}

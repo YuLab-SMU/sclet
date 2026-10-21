@@ -17,3 +17,14 @@ The detest state record
 \description{
 Get Differential Expression Test Results
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+\dontrun{
+# needs the 'presto' Suggests package to record a detest result
+sce <- RunDEtest(sce)
+rec <- get_detest(sce)
+rec$summary$n_markers
+}
+}

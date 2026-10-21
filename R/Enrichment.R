@@ -15,6 +15,16 @@
 #' @param ... Additional arguments passed to enrichGO or enrichKEGG
 #' @return A SingleCellExperiment object with enrichment state added
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' and 'clusterProfiler' Suggests packages
+#' sce <- RunDEtest(sce, return.thresh = 0.5, logfc.threshold = 0)
+#' sce <- RunEnrichment(sce, db = "GO")
+#' get_enrichment(sce)$summary$n_enriched
+#' }
 RunEnrichment <- function(object, id = NULL, p_val_cutoff = 0.05, logfc_cutoff = 0.25, 
                           db = c("GO", "KEGG"), orgDb = "org.Hs.eg.db", keyType = "SYMBOL", 
                           ont = "BP", name = "enrichment", ...) {
@@ -121,6 +131,17 @@ RunEnrichment <- function(object, id = NULL, p_val_cutoff = 0.05, logfc_cutoff =
 #' @param id Analysis record id. If NULL, uses the active enrichment state.
 #' @return The enrichment state record
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' and 'clusterProfiler' Suggests packages
+#' sce <- RunDEtest(sce, return.thresh = 0.5, logfc.threshold = 0)
+#' sce <- RunEnrichment(sce, db = "GO")
+#' rec <- get_enrichment(sce)
+#' rec$summary$n_enriched
+#' }
 get_enrichment <- function(object, id = NULL) {
     if (is.null(id)) id <- sclet_get_active_state(object, "enrichment")
     if (is.null(id)) return(NULL)
@@ -134,6 +155,16 @@ get_enrichment <- function(object, id = NULL) {
 #' @param id Analysis record id. If NULL, uses the active enrichment state.
 #' @return Logical indicating if the enrichment state exists
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' and 'clusterProfiler' Suggests packages
+#' sce <- RunDEtest(sce, return.thresh = 0.5, logfc.threshold = 0)
+#' sce <- RunEnrichment(sce, db = "GO")
+#' has_enrichment(sce)
+#' }
 has_enrichment <- function(object, id = NULL) {
     !is.null(get_enrichment(object, id))
 }

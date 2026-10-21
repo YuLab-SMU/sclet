@@ -45,3 +45,10 @@ A SingleCellExperiment object with updated CCI state.
 \description{
 Run CellPhoneDB communication analysis
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the reticulate package and the CellPhoneDB Python environment
+sce <- RunCellPhoneDB(sce, group = "Treatment", iterations = 100)
+}
+}

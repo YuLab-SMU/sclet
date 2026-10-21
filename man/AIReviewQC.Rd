@@ -22,3 +22,10 @@ A structured \code{sclet_ai_result}.
 \description{
 Ask the AI to review deterministic QC and readiness information
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs a provider API key
+AIReviewQC(sce)
+}
+}

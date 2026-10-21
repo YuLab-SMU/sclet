@@ -15,3 +15,7 @@ character vector of available layer names
 \description{
 list available layers
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+Layers(sce)
+}

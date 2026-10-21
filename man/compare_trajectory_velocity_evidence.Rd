@@ -39,3 +39,9 @@ trajectory and velocity runs (\verb{ev:trajectory_<name>} and
 similar magnitude. It never reads raw per-cell \code{colData} columns, never
 claims either pseudotime is correct, and never writes a new evidence node.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+comparison <- compare_trajectory_velocity_evidence(sce)
+comparison$status
+comparison$reason
+}

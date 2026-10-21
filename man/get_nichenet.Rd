@@ -19,3 +19,11 @@ the full NicheNet record, a selected element, or \code{NULL}
 \description{
 Access NicheNet analysis results
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "run1", type = "communication", method = "NicheNet")
+state <- list(states = list(active = list(communication = "run1"),
+    records = list(communication = list(run1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+get_nichenet(sce)$method
+}

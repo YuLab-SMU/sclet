@@ -63,3 +63,19 @@ not at the ceiling.
 The function is read-only. It records no evidence, writes no finding and
 modifies nothing on the object.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RecordAIEvidence(sce, evidence = list(
+    id = "ev:cell_counts",
+    kind = "deterministic_summary",
+    values = list(n_cells = 20L)
+))
+ceiling <- check_claim_ceiling(sce)
+ceiling$ceiling_claim_level
+# A causal claim is never acceptable, and a claim above the ceiling
+# is downgraded rather than silently accepted.
+verdicts <- check_claim_ceiling(sce, claims = list(
+    list(claim_level = "causal", evidence_refs = "ev:cell_counts")
+))$verdicts
+verdicts[[1]]$status
+}

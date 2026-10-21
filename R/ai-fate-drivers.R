@@ -174,6 +174,11 @@ sclet_ai_fate_drivers_jaccard <- function(left, right) {
 #' @param id Optional CellRank trajectory record id. When supplied, that exact
 #'   completed record must be present.
 #' @return A read-only readiness summary.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' readiness <- check_fate_drivers_readiness(sce)
+#' readiness$status
+#' readiness$questions
 #' @export
 check_fate_drivers_readiness <- function(object, id = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -278,6 +283,12 @@ check_fate_drivers_readiness <- function(object, id = NULL) {
 #'   \code{driver_metric}, \code{driver_rank_codes},
 #'   \code{driver_abs_metric_summary}, \code{claim_level}, \code{caveats} and
 #'   \code{raw_values_included = FALSE}.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' # No cell fate run is on record, so no lineage is chosen.
+#' summary <- summarize_fate_lineage_drivers(sce)
+#' summary$status
+#' summary$reason
 #' @export
 summarize_fate_lineage_drivers <- function(object, id = NULL, lineage = NULL, top_n = 10L) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -393,6 +404,11 @@ summarize_fate_lineage_drivers <- function(object, id = NULL, lineage = NULL, to
 #'   \code{lineage_codes}, per-lineage summaries keyed by \code{route_N} codes,
 #'   \code{distinctness}, \code{claim_level}, \code{caveats} and
 #'   \code{raw_values_included = FALSE}.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' comparison <- compare_fate_lineages(sce)
+#' comparison$status
+#' comparison$reason
 #' @export
 compare_fate_lineages <- function(object, id = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {

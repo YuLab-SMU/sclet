@@ -28,3 +28,10 @@ symbol, file path, sample identifier or per-cell vector is ever returned, and
 no integration method is recommended. The function does not mutate the
 object and writes no evidence node.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+# No multimodal record is on record, so nothing is reported.
+summary <- summarize_multimodal_evidence(sce)
+summary$status
+summary$reason
+}

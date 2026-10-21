@@ -58,12 +58,15 @@ plot_lineage(
 }
 \value{
 A ggplot object displaying the UMAP plot with overlaid trajectories.
-
-p <- lineage_plot(sce = pancreas, group = "celltype", reduction = "UMAP")
-print(p)
-}
 }
 \description{
 This function visualizes single-cell trajectories using UMAP (or other specified reduction method) and overlays the trajectory curves.
 The cells are colored by their respective lineage trajectories and the lineages are drawn as curves based on Slingshot's inferred trajectories.
+}
+\examples{
+\dontrun{
+p <- lineage_plot(sce = pancreas, group = "celltype", reduction = "UMAP")
+print(p)
+}
+
 }

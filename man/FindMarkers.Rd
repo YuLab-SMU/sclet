@@ -47,3 +47,13 @@ calculating logFC. 1 by default.}
 \description{
 Find markers
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+\dontrun{
+# needs the 'presto' Suggests package
+res <- FindMarkers(sce, ident.1 = "c1")
+head(res)
+}
+}

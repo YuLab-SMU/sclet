@@ -21,6 +21,12 @@
 #' @importFrom SummarizedExperiment colData colData<-
 #' @importFrom utils write.csv
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a velocity result and the reticulate package with a CellRank Python environment
+#' sce <- RunCellRank(sce, reduction = "PCA", cluster_key = "Treatment")
+#' }
 RunCellRank <- function(sce, reduction = "PCA", cluster_key = ActiveIdent(sce),
                         velocity_id = NULL, backend = c("basilisk", "reticulate"),
                         python = NULL, name = "cellrank", ...) {
@@ -485,6 +491,12 @@ sclet_run_cellrank_python <- function(mtx_dir) {
 #'
 #' @return A SingleCellExperiment object with cell fate results recorded.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a velocity result and the reticulate package with a CellRank Python environment
+#' sce <- RunCellFate(sce, reduction = "PCA", cluster_key = "Treatment")
+#' }
 RunCellFate <- function(
     sce,
     method = c("CellRank"),
@@ -658,6 +670,19 @@ sclet_resolve_cellrank_fate_col <- function(cellrank, fate = NULL) {
 #'
 #' @return A list with `summary`, `terminal_states`, and `fate_probabilities`.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$cellrank_terminal_states <- rep(c("A", "B"), each = 10)
+#' SummarizedExperiment::colData(sce)$cellrank_fate_A <- runif(20)
+#' # a CellRank result, as RunCellRank() would record it
+#' record <- list(id = "cellrank", type = "trajectory", method = "CellRank",
+#'                inputs = list(reduction = "PCA"),
+#'                artifacts = list(terminal_state_col = "cellrank_terminal_states",
+#'                                 fate_probability_cols = "cellrank_fate_A",
+#'                                 fate_probability_names = "A"))
+#' S4Vectors::metadata(sce)$sclet$states$records$trajectory$cellrank <- record
+#' S4Vectors::metadata(sce)$sclet$states$active$trajectory <- "cellrank"
+#' CellRankSummary(sce)$summary
 CellRankSummary <- function(object, id = NULL) {
     cellrank <- get_cellrank(object, id = id)
     if (is.null(cellrank)) {
@@ -753,6 +778,17 @@ CellRankSummary <- function(object, id = NULL) {
 #'
 #' @return A data.frame with one row per fate probability column.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::assay(sce, "velocity") <- matrix(rnorm(50 * 20), nrow = 50,
+#'     dimnames = list(rownames(sce), colnames(sce)))
+#' SummarizedExperiment::colData(sce)$cellrank_fate_A <- runif(20)
+#' # a CellRank result, as RunCellRank() would record it
+#' record <- list(id = "cellrank", type = "trajectory", method = "CellRank",
+#'                artifacts = list(fate_probability_cols = "cellrank_fate_A"))
+#' S4Vectors::metadata(sce)$sclet$states$records$trajectory$cellrank <- record
+#' S4Vectors::metadata(sce)$sclet$states$active$trajectory <- "cellrank"
+#' VelocityFateCorrelation(sce, assay = "velocity")
 VelocityFateCorrelation <- function(
     object,
     velocity_id = NULL,
@@ -820,6 +856,18 @@ VelocityFateCorrelation <- function(
 #' @return A ggplot object.
 #' @importFrom rlang .data
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::assay(sce, "velocity") <- matrix(rnorm(50 * 20), nrow = 50,
+#'     dimnames = list(rownames(sce), colnames(sce)))
+#' SummarizedExperiment::colData(sce)$cellrank_fate_A <- runif(20)
+#' # a CellRank result, as RunCellRank() would record it
+#' record <- list(id = "cellrank", type = "trajectory", method = "CellRank",
+#'                artifacts = list(terminal_state_col = "cellrank_terminal_states",
+#'                                 fate_probability_cols = "cellrank_fate_A"))
+#' S4Vectors::metadata(sce)$sclet$states$records$trajectory$cellrank <- record
+#' S4Vectors::metadata(sce)$sclet$states$active$trajectory <- "cellrank"
+#' plot_velocity_fate_correlation(sce, assay = "velocity")
 plot_velocity_fate_correlation <- function(
     object,
     fate = NULL,
@@ -899,6 +947,19 @@ plot_velocity_fate_correlation <- function(
 #' @return A ggplot object.
 #' @importFrom rlang .data
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(rnorm(40), ncol = 2,
+#'     dimnames = list(colnames(sce), c("PC1", "PC2")))
+#' SummarizedExperiment::colData(sce)$cellrank_fate_A <- runif(20)
+#' # a CellRank result, as RunCellRank() would record it
+#' record <- list(id = "cellrank", type = "trajectory", method = "CellRank",
+#'                inputs = list(reduction = "PCA"),
+#'                artifacts = list(fate_probability_cols = "cellrank_fate_A",
+#'                                 fate_probability_names = "A"))
+#' S4Vectors::metadata(sce)$sclet$states$records$trajectory$cellrank <- record
+#' S4Vectors::metadata(sce)$sclet$states$active$trajectory <- "cellrank"
+#' plot_fate_probability(sce)
 plot_fate_probability <- function(
     object,
     fate = NULL,
@@ -972,6 +1033,18 @@ plot_fate_probability <- function(
 #' @return A ggplot object.
 #' @importFrom rlang .data
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(rnorm(40), ncol = 2,
+#'     dimnames = list(colnames(sce), c("PC1", "PC2")))
+#' SummarizedExperiment::colData(sce)$cellrank_terminal_states <- rep(c("A", "B"), each = 10)
+#' # a CellRank result, as RunCellRank() would record it
+#' record <- list(id = "cellrank", type = "trajectory", method = "CellRank",
+#'                inputs = list(reduction = "PCA"),
+#'                artifacts = list(terminal_state_col = "cellrank_terminal_states"))
+#' S4Vectors::metadata(sce)$sclet$states$records$trajectory$cellrank <- record
+#' S4Vectors::metadata(sce)$sclet$states$active$trajectory <- "cellrank"
+#' plot_fate_terminal_states(sce)
 plot_fate_terminal_states <- function(
     object,
     reduction = NULL,
@@ -1058,6 +1131,19 @@ plot_fate_terminal_states <- function(
 #' @return A ggplot object.
 #' @importFrom rlang .data
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$cellrank_fate_A <- runif(20)
+#' drivers <- data.frame(gene = rownames(sce)[1:3], lineage = "A",
+#'                        corr = c(0.9, 0.5, 0.2), stringsAsFactors = FALSE)
+#' # a CellRank result, as RunCellRank() would record it
+#' record <- list(id = "cellrank", type = "trajectory", method = "CellRank",
+#'                lineage_drivers = drivers,
+#'                artifacts = list(fate_probability_cols = "cellrank_fate_A",
+#'                                 fate_probability_names = "A"))
+#' S4Vectors::metadata(sce)$sclet$states$records$trajectory$cellrank <- record
+#' S4Vectors::metadata(sce)$sclet$states$active$trajectory <- "cellrank"
+#' plot_fate_driver_trends(sce, lineage = "A")
 plot_fate_driver_trends <- function(
     object,
     lineage = NULL,

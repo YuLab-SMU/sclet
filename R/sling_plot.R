@@ -17,6 +17,8 @@
 #' 
 #' @return A ggplot object displaying the UMAP plot with overlaid trajectories.
 #' 
+#' @examples
+#' \dontrun{
 #‘ pancreas <- readRDS("./pancreas_sub_sce.rds")
 #’ pancreas <- RunSlingshot(sce = pancreas, group = "celltype", reduction = "UMAP")
 #' p <- lineage_plot(sce = pancreas, group = "celltype", reduction = "UMAP")
@@ -93,6 +95,13 @@ lineage_plot <- function(
 #' @importFrom ggplot2 scale_color_viridis_c
 #'
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(rnorm(40), ncol = 2,
+#'     dimnames = list(colnames(sce), c("PC1", "PC2")))
+#' SummarizedExperiment::colData(sce)$slingPseudotime <- data.frame(
+#'     Lineage1 = seq_len(20), row.names = colnames(sce))
+#' pseudo_plot(sce, reduction = "PCA")
 pseudo_plot <- function(
     sce,
     reduction = NULL,
@@ -197,6 +206,14 @@ pseudo_plot <- function(
 #'
 #' @return A ggplot object displaying gene expression curves across pseudotime.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the reshape2 package
+#' SummarizedExperiment::colData(sce)$slingPseudotime <- data.frame(
+#'     Lineage1 = seq_len(20), row.names = colnames(sce))
+#' p <- genecurve_plot(sce, features = rownames(sce)[1:3])
+#' }
 genecurve_plot <- function(
     sce,
     assay_name = "logcounts",

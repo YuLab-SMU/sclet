@@ -25,3 +25,11 @@ every marker \code{"Cluster1"} when the marker table carries no cluster
 column, so it warns instead of erroring and produces a single-group
 comparison that means nothing. That hazard is reported rather than absorbed.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the clusterProfiler Suggests package
+readiness <- check_enrichment_readiness(sce)
+readiness$status
+}
+}

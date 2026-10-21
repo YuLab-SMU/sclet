@@ -45,3 +45,9 @@ records, and conservative read-only capability information. Expression
 matrices and other large objects are represented by size/type references;
 they are never copied into the ledger.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+ledger <- GetAnalysisLedger(sce)
+ledger$dataset$n_cells
+ledger$fingerprint
+}

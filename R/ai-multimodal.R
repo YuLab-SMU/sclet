@@ -161,6 +161,11 @@ sclet_ai_multimodal_caveats <- function() {
 #'   the caller's own request enters the result.
 #' @return A read-only readiness summary list with elements \code{status},
 #'   \code{checks}, \code{blocked_actions}, \code{questions} and \code{notes}.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' readiness <- check_multimodal_readiness(sce)
+#' readiness$status
+#' readiness$questions
 #' @export
 check_multimodal_readiness <- function(object, modalities = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -307,6 +312,12 @@ check_multimodal_readiness <- function(object, modalities = NULL) {
 #'   \code{claim_level}, \code{caveats} and \code{raw_values_included = FALSE}.
 #'   When no modality is available and no record exists, \code{status =
 #'   "not_available"} with \code{reason = "no_multimodal_record"}.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' # No multimodal record is on record, so nothing is reported.
+#' summary <- summarize_multimodal_evidence(sce)
+#' summary$status
+#' summary$reason
 #' @export
 summarize_multimodal_evidence <- function(object, name = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -416,6 +427,11 @@ summarize_multimodal_evidence <- function(object, name = NULL) {
 #'   \code{raw_values_included = FALSE}. Fewer than two registered modalities
 #'   return \code{status = "not_available"} with
 #'   \code{reason = "at_least_two_modalities_required"}.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' comparison <- compare_multimodal_evidence(sce)
+#' comparison$status
+#' comparison$reason
 #' @export
 compare_multimodal_evidence <- function(object) {
     if (!inherits(object, "SingleCellExperiment")) {

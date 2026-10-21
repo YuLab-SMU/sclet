@@ -17,3 +17,9 @@ the full HVG record, a selected element, or \code{NULL}
 \description{
 Access highly variable feature metadata
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- FindVariableFeatures(sce, nfeatures = 20)
+get_hvg(sce)$n
+}

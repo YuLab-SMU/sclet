@@ -48,3 +48,14 @@ Updated SingleCellExperiment object.
 This high-level entry point organizes reference annotation and label transfer
 into a single stable workflow shell.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- FindVariableFeatures(sce, nfeatures = 20)
+ref <- scuttle::mockSCE(ncells = 10, ngenes = 50)
+SummarizedExperiment::colData(ref)$label.main <- rep(c("alpha", "beta"), 5)
+\dontrun{
+# needs the BiocNeighbors package
+sce <- RunReferenceWorkflow(sce, ref = ref, method = "KNN")
+}
+}

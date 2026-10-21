@@ -17,3 +17,9 @@ the full batch record, a selected element, or \code{NULL}
 \description{
 Access batch correction results
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "batchcorrect", type = "batch", method = "BatchRemover")
+S4Vectors::metadata(sce)$sclet <- list(analyses = list(batch = record))
+get_batch(sce)$method
+}

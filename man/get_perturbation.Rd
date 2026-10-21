@@ -19,3 +19,11 @@ the full perturbation analysis record, a selected element, or \code{NULL}
 \description{
 Access CellOracle Perturbation analysis results
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "celloracle_GENE1", type = "perturbation", method = "CellOracle")
+state <- list(states = list(active = list(perturbation = "celloracle_GENE1"),
+    records = list(perturbation = list(celloracle_GENE1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+get_perturbation(sce)$method
+}

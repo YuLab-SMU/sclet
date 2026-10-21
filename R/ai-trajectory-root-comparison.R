@@ -56,6 +56,11 @@ sclet_ai_trajectory_root_spread_ratio <- function(a, b) {
 #'   usable runs return `status = "not_available"` with a typed `reason`. The
 #'   result contains no per-cell values, always sets `recommendation = NULL`,
 #'   and always sets `raw_values_included = FALSE`.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' comparison <- compare_trajectory_roots(sce)
+#' comparison$status
+#' comparison$reason
 #' @export
 compare_trajectory_roots <- function(object, ids = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {

@@ -20,6 +20,9 @@ setMethod("subset", "SingleCellExperiment",
 #' @return updated object if peek is FALSE
 #' @importFrom SingleCellExperiment counts
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' dim(subset_feature(sce, mincell = 5, peek = FALSE))
 subset_feature <- function(x, mincell, peek = TRUE) {
     if (!inherits(x, "SingleCellExperiment")) {
         stop("Only SingleCellExperiment objects are supported.")
@@ -51,6 +54,10 @@ subset_feature <- function(x, mincell, peek = TRUE) {
 #'     if method is 'mad' or 'sd' (data will be transform by `log1p``), only data within the interval `median (mean) +/- n * mad (sd)` will be retained.
 #' @return updated object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$nFeature_RNA <- seq_len(20)
+#' dim(subset_cell(sce, feature = "nFeature_RNA", method = "mad", n = 3))
 subset_cell <- function(x, feature = "nFeature_RNA", method = 'mad', n = 3) {
     if (!inherits(x, "SingleCellExperiment")) {
         stop("Only SingleCellExperiment objects are supported.")

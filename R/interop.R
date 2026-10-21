@@ -7,6 +7,12 @@
 #' @param ... Additional arguments passed to zellkonverter::readH5AD
 #' @return A SingleCellExperiment object
 #' @export
+#' @examples
+#' \dontrun{
+#' # needs the 'zellkonverter' Suggests package
+#' sce <- ReadH5AD("cells.h5ad")
+#' dim(sce)
+#' }
 ReadH5AD <- function(file, ...) {
     if (!requireNamespace("zellkonverter", quietly = TRUE)) {
         stop("Package 'zellkonverter' is needed for this function to work. Please install it.")
@@ -25,6 +31,12 @@ ReadH5AD <- function(file, ...) {
 #' @param ... Additional arguments passed to zellkonverter::writeH5AD
 #' @return Invisible NULL
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the 'zellkonverter' Suggests package
+#' WriteH5AD(sce, file.path(tempdir(), "cells.h5ad"))
+#' }
 WriteH5AD <- function(object, file, ...) {
     if (!requireNamespace("zellkonverter", quietly = TRUE)) {
         stop("Package 'zellkonverter' is needed for this function to work. Please install it.")
@@ -42,6 +54,15 @@ WriteH5AD <- function(object, file, ...) {
 #' @param ... Additional arguments passed to Seurat::as.Seurat
 #' @return A Seurat object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::altExps(sce) <- list()
+#' \dontrun{
+#' # needs the 'Seurat' Suggests package
+#' seurat_obj <- as.Seurat(sce)
+#' class(seurat_obj)[1]
+#' }
 as.Seurat <- function(object, ...) {
     if (!requireNamespace("Seurat", quietly = TRUE)) {
         stop("Package 'Seurat' is needed for this function to work. Please install it.")
@@ -62,6 +83,15 @@ as.Seurat <- function(object, ...) {
 #' @param ... Additional arguments passed to Seurat::as.SingleCellExperiment
 #' @return A SingleCellExperiment object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::altExps(sce) <- list()
+#' \dontrun{
+#' # needs the 'Seurat' Suggests package
+#' seurat_obj <- as.Seurat(sce)
+#' dim(as.SCE(seurat_obj))
+#' }
 as.SCE <- function(object, ...) {
     if (!requireNamespace("Seurat", quietly = TRUE)) {
         stop("Package 'Seurat' is needed for this function to work. Please install it.")

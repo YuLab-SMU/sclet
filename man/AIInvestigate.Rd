@@ -43,3 +43,10 @@ combines a bounded dataset profile, the analysis ledger, and deterministic
 readiness diagnostics. It never changes the \code{SingleCellExperiment} and never
 executes a proposed action.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs a provider API key
+AIInvestigate(sce, "Which analyses are missing for this dataset?")
+}
+}

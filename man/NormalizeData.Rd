@@ -19,3 +19,11 @@ a SingleCellExperiment object with 'logcounts' assay created/updated.
 \description{
 normalize data
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# the DelayedArray-backed branch needs the 'DelayedArray' Suggests package
+sce <- NormalizeData(sce)
+SummarizedExperiment::assayNames(sce)
+}
+}

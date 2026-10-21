@@ -20,3 +20,13 @@ A ggplot object.
 Summarizes the mean estimated cell type proportion across all spatial spots
 as a ranked bar chart.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(sce)$c2l_A <- runif(20)
+SummarizedExperiment::colData(sce)$c2l_B <- runif(20)
+# a deconvolution result, as RunSpatialDeconvolution() would record it
+S4Vectors::metadata(sce)$sclet$analyses$spatial_deconv <- list(
+    id = "spatial_deconv", method = "cell2location",
+    columns = c("c2l_A", "c2l_B"))
+plot_spatial_deconvolution(sce)
+}

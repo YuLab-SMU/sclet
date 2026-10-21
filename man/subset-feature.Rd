@@ -19,3 +19,7 @@ updated object if peek is FALSE
 \description{
 subset_feature
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+dim(subset_feature(sce, mincell = 5, peek = FALSE))
+}

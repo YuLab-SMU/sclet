@@ -23,3 +23,8 @@ call or a \code{reticulate} session.
 Calling that interpreter from inside a long-running R process needs
 \code{env = sclet_env_vars(...)}; see \code{\link[=sclet_env_run]{sclet_env_run()}}, which does it for you.
 }
+\examples{
+\dontrun{
+sclet_env_python_path("sclet_scvi_env")
+}
+}

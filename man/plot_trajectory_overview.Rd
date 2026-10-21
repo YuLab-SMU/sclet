@@ -34,3 +34,16 @@ Compose the key panels from a trajectory workflow into a single overview so
 users can follow the mainline directly instead of manually assembling
 lineage, velocity, and fate plots one by one.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+colData(sce)$cellrank_terminal_state <- rep(c("alpha", "beta"), length.out = 20)
+sce <- RunPCA(sce, ncomponents = 5)
+record <- list(id = "fate", type = "trajectory", method = "CellRank",
+    artifacts = list(terminal_state_col = "cellrank_terminal_state"))
+workflow <- list(id = "trajectory_workflow", artifacts = list(fate = "fate"))
+state <- list(states = list(active = list(trajectory = "fate"),
+    records = list(trajectory = list(fate = record))),
+    analyses = list(trajectory_workflow = workflow))
+S4Vectors::metadata(sce)$sclet <- state
+plot_trajectory_overview(sce, panels = "terminal_states")
+}

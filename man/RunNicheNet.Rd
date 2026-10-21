@@ -53,3 +53,17 @@ A SingleCellExperiment object with updated CCI state.
 \description{
 Run NicheNet communication analysis
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the nichenetr package and the pre-built NicheNet model matrices
+# (download them from the NicheNet repo, see the nichenetr vignette)
+ligand_target_matrix <- readRDS("ligand_target_matrix.rds")
+lr_network <- readRDS("lr_network.rds")
+weighted_networks <- readRDS("weighted_networks.rds")
+sce <- RunNicheNet(sce, receiver = "treat1", sender = "treat2",
+                   ligand_target_matrix = ligand_target_matrix,
+                   lr_network = lr_network,
+                   weighted_networks = weighted_networks)
+}
+}

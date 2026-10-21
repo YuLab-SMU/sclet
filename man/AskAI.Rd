@@ -25,3 +25,10 @@ A structured \code{sclet_ai_result}.
 the question together with the bounded analysis ledger, never the complete
 expression matrix, and returns a structured \code{sclet_ai_result}.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs a provider API key
+AskAI(sce, "What has been analysed so far?")
+}
+}

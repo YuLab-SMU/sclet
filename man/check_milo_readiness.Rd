@@ -25,3 +25,11 @@ guesses which colData column plays which design role and never recommends
 one: that mapping is the user's own statement about the experiment, which is
 what the confirmation gate exists to pin down.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the miloR Suggests package
+readiness <- check_milo_readiness(sce)
+readiness$status
+}
+}

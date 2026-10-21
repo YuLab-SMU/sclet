@@ -17,3 +17,9 @@ the colocalization record, a selected element, or \code{NULL}
 \description{
 Access spatial colocalization results
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "colocalization", type = "spatial", method = "SVP")
+S4Vectors::metadata(sce)$sclet <- list(analyses = list(colocalization = record))
+get_colocalization(sce)$method
+}

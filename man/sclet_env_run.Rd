@@ -32,3 +32,8 @@ symptom is an import failure well away from the cause -- on this machine,
 interpreter while \code{libpython3.12} came from the system. Clearing
 \code{LD_LIBRARY_PATH} for the child fixes it.
 }
+\examples{
+\dontrun{
+sclet_env_run("sclet_scvi_env", "train.py", c("--epochs", "10"))
+}
+}

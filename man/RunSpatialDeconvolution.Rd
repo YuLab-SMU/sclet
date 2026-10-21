@@ -36,3 +36,12 @@ A SingleCellExperiment object with deconvolution proportions added to \code{colD
 This function runs spatial transcriptomics deconvolution using \code{cell2location} via \code{basilisk}.
 It requires a spatial SingleCellExperiment (or SpatialExperiment) and a reference scRNA-seq SCE.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the reticulate package and the cell2location Python environment
+ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(ref)$cell_type <- rep(c("A", "B"), each = 10)
+sce <- RunSpatialDeconvolution(sce, sce_ref = ref, ref_group_key = "cell_type")
+}
+}

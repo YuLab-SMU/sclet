@@ -734,6 +734,21 @@ sclet_ai_claim_ceiling <- function(object, evidence_ids = NULL, proposed_claim_l
 #'   (derived), `requested_claim_level` (the original, preserved),
 #'   `ceiling_status`, `ceiling_reasons` and a `status` of `"allowed"`,
 #'   `"downgraded"`, `"overclaimed"` or `"unsupported"`.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RecordAIEvidence(sce, evidence = list(
+#'     id = "ev:cell_counts",
+#'     kind = "deterministic_summary",
+#'     values = list(n_cells = 20L)
+#' ))
+#' ceiling <- check_claim_ceiling(sce)
+#' ceiling$ceiling_claim_level
+#' # A causal claim is never acceptable, and a claim above the ceiling
+#' # is downgraded rather than silently accepted.
+#' verdicts <- check_claim_ceiling(sce, claims = list(
+#'     list(claim_level = "causal", evidence_refs = "ev:cell_counts")
+#' ))$verdicts
+#' verdicts[[1]]$status
 #' @export
 check_claim_ceiling <- function(object, claims = NULL, evidence_ids = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {

@@ -32,3 +32,10 @@ table but never leave this function: only counts, the metric column name,
 anonymized \code{route_N} codes and aggregate statistics of the absolute
 metric are returned.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+# No cell fate run is on record, so no lineage is chosen.
+summary <- summarize_fate_lineage_drivers(sce)
+summary$status
+summary$reason
+}

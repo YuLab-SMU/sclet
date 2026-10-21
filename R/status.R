@@ -11,6 +11,13 @@
 #'   ordered names of the velocity -> fate -> perturbation stages that are not
 #'   yet satisfied.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- FindVariableFeatures(sce, nfeatures = 20)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' Status(sce)$available$analyses
+#' Status(sce)$health$mainline_missing
 Status <- function(object, details = FALSE) {
     context <- get_analysis_context(object)
     commands <- CommandLog(object, details = isTRUE(details))

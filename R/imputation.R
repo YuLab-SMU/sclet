@@ -11,6 +11,14 @@ NULL
 #' @return an updated SingleCellExperiment object with imputed data in a new assay (e.g., 'alra_imputed')
 #' @export
 #' @importFrom SummarizedExperiment assay assay<- assayNames
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' \dontrun{
+#' # needs the 'ALRA' Suggests package
+#' sce <- RunImputation(sce, method = "ALRA", k = 10)
+#' SummarizedExperiment::assayNames(sce)
+#' }
 RunImputation <- function(sce, method = "ALRA", assay = "logcounts", ...) {
     method <- match.arg(toupper(method), choices = c("ALRA"))
     

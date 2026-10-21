@@ -43,3 +43,16 @@ Run KNN-based reference mapping for label transfer
 A lightweight alternative to SingleR that maps cells to a reference dataset
 using KNN in a shared feature space (e.g., highly variable genes).
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- FindVariableFeatures(sce, method = "scran", nfeatures = 20)
+\dontrun{
+# needs the 'BiocNeighbors' Suggests package and a reference dataset
+ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+ref <- NormalizeData(ref)
+colData(ref)$label.main <- rep(c("A", "B"), length.out = ncol(ref))
+sce <- RunKNNPredict(sce, ref, labels = "label.main")
+colnames(colData(sce))
+}
+}

@@ -84,6 +84,17 @@ classification from two observations, not a verification. \code{cnv_cut} and
 \code{transcriptomic_cut} are analysis parameters, not discovered thresholds.
 }
 
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+ref <- colnames(sce)[1:5]
+SummarizedExperiment::colData(sce)$cnv_burden <- ifelse(colnames(sce) \%in\% ref, 0, 0.2)
+SummarizedExperiment::colData(sce)$cnv_is_reference <- colnames(sce) \%in\% ref
+# a completed CNV run, as RunCNVInference() would record it
+S4Vectors::metadata(sce)$sclet$analyses$malignant_cnv$cnv <- list(status = "completed")
+sce <- CallMalignantCells(sce, signature = rownames(sce)[1:10])
+table(SummarizedExperiment::colData(sce)$malignant_call_state)
+}
 \seealso{
 \code{\link[=CallPhenotypeCells]{CallPhenotypeCells()}}, \code{\link[=RunCNVInference]{RunCNVInference()}}, \code{\link[=check_cnv_readiness]{check_cnv_readiness()}}
 }

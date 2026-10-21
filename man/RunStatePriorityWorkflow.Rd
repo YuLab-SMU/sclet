@@ -37,3 +37,11 @@ This is the semantic shell over the state-priority mainline. It currently
 dispatches perturbation priority analysis through Augur, and other
 prioritization modules will be added as backends mature.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 100, ngenes = 50)
+SummarizedExperiment::colData(sce)$cluster <- rep(c("alpha", "beta"), length.out = 100)
+\dontrun{
+# needs the Augur and BiocNeighbors packages and >= 20 cells per group
+sce <- RunStatePriorityWorkflow(sce, condition_col = "Treatment", group_col = "cluster")
+}
+}

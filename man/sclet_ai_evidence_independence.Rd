@@ -18,3 +18,29 @@ A list with \code{independent} (logical) plus \code{shared_dependency_groups} an
 Two evidence nodes are independent if they do not share a dependency_group
 and neither node is an ancestor of the other via the parents chain.
 }
+\examples{
+# Two nodes with different declared scopes are independent of each other.
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RecordAIEvidence(sce, evidence = list(
+    id = "ev:first",
+    kind = "deterministic_summary",
+    values = list(n = 1L),
+    scope = list(group = "group_1")
+))
+sce <- RecordAIEvidence(sce, evidence = list(
+    id = "ev:second",
+    kind = "deterministic_summary",
+    values = list(n = 2L),
+    scope = list(group = "group_2")
+))
+sclet_ai_evidence_independence(sce, c("ev:first", "ev:second"))$independent
+# Two nodes over the SAME scope are not: a claim resting on both is one
+# piece of evidence, not two, and the claim ceiling counts it as such.
+sce <- RecordAIEvidence(sce, evidence = list(
+    id = "ev:third",
+    kind = "deterministic_summary",
+    values = list(n = 3L),
+    scope = list(group = "group_1")
+))
+sclet_ai_evidence_independence(sce, c("ev:first", "ev:third"))$independent
+}

@@ -19,3 +19,11 @@ the full spatial analysis record, a selected element, or \code{NULL}
 \description{
 Access Spatial Deconvolution analysis results
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "run1", type = "spatial", method = "cell2location")
+state <- list(states = list(active = list(spatial = "run1"),
+    records = list(spatial = list(run1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+get_spatial(sce)$method
+}

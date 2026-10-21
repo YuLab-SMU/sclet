@@ -36,6 +36,11 @@
 #'   \code{"CellPhoneDB"}, \code{"NicheNet"}. When supplied, that engine's
 #'   package must be available.
 #' @return A read-only readiness summary list.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' readiness <- check_communication_readiness(sce)
+#' readiness$status
+#' readiness$questions
 #' @export
 check_communication_readiness <- function(object, method = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -351,6 +356,12 @@ sclet_ai_record_communication_evidence <- function(object, name, method = NULL) 
 #' @param object A \code{SingleCellExperiment} object.
 #' @param id Optional communication record id. When \code{NULL}, the active one.
 #' @return A read-only summary list.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' # No communication run is on record, so nothing is reported.
+#' summary <- summarize_communication_evidence(sce)
+#' summary$status
+#' summary$reason
 #' @export
 summarize_communication_evidence <- function(object, id = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {

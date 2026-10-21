@@ -32,3 +32,11 @@ A ggplot object
 \description{
 Plot Cell-Cell Communication Network
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the 'ggraph' Suggests package and a recorded communication run
+p <- plot_cci_network(sce)
+class(p)[1]
+}
+}

@@ -20,3 +20,10 @@ enrichment run recorded, in the same bounded shape the evidence node uses,
 and writes nothing. It never ranks categories, never recommends a database
 or an ontology, and never surfaces gene or term identity.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+# No enrichment run is on record, so nothing is reported.
+summary <- summarize_enrichment_evidence(sce)
+summary$status
+summary$reason
+}

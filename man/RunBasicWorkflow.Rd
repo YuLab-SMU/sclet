@@ -49,3 +49,9 @@ Every step delegates to the corresponding existing sclet function, which is
 responsible for its own state registration. This function only sequences
 the calls and never re-implements any analysis logic.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunBasicWorkflow(sce, n_features = 20, n_pcs = 5, verbose = FALSE)
+SingleCellExperiment::reducedDimNames(sce)
+table(SingleCellExperiment::colLabels(sce))
+}

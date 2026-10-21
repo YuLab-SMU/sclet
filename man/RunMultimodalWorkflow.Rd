@@ -30,3 +30,12 @@ perform modality-specific analysis. The point is to establish the
 object contract now so that analysis backends can be plugged in later
 without breaking the navigation model.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+adt <- SingleCellExperiment::SingleCellExperiment(
+    assays = list(counts = matrix(1, nrow = 3, ncol = 20,
+                                  dimnames = list(paste0("ADT", 1:3), colnames(sce)))))
+SingleCellExperiment::altExp(sce, "ADT") <- adt
+sce <- RunMultimodalWorkflow(sce)
+names(S4Vectors::metadata(sce)$sclet$analyses$multimodal_workflow$artifacts)
+}

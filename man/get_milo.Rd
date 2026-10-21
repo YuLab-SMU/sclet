@@ -19,3 +19,11 @@ the full milo analysis record, a selected element, or \code{NULL}
 \description{
 Access milo analysis results
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "run1", type = "milo", method = "miloR")
+state <- list(states = list(active = list(milo = "run1"),
+    records = list(milo = list(run1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+get_milo(sce)$method
+}

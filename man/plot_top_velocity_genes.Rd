@@ -29,3 +29,9 @@ A ggplot object.
 \description{
 Shows genes with the largest velocity magnitude across cells.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::assay(sce, "velocity") <- matrix(rnorm(50 * 20), nrow = 50,
+    dimnames = list(rownames(sce), colnames(sce)))
+plot_top_velocity_genes(sce, assay = "velocity", n = 5)
+}

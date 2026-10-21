@@ -177,6 +177,25 @@ sclet_ai_report_checks <- function(object, ledger, record) {
 #' @param path Optional file path. When supplied the report is written there;
 #'   the Markdown text is returned either way.
 #' @return The report as a single string of Markdown.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' result <- list(
+#'     task = "copilot",
+#'     answer = "No analysis has been recorded on this object yet.",
+#'     findings = list(),
+#'     evidence = list(),
+#'     warnings = list(),
+#'     recommendations = list(),
+#'     proposed_actions = list(),
+#'     success_criteria = list(),
+#'     stop_conditions = list(),
+#'     context = list(fingerprint = "example"),
+#'     metadata = list(provider = "example")
+#' )
+#' class(result) <- c("sclet_ai_result", "list")
+#' sce <- RecordAIResult(sce, result, id = "ai_report_example")
+#' report <- RenderAIReport(sce)
+#' grepl("ai_report_example", report, fixed = TRUE)
 #' @export
 RenderAIReport <- function(object, id = NULL, path = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {

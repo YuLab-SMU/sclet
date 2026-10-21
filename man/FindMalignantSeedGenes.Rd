@@ -83,6 +83,17 @@ transcriptomes: the top \code{n_top} genes most highly expressed in tumour relat
 to normal, and the top \code{n_top} most highly expressed in normal relative to
 tumour.
 }
+\examples{
+bulk <- matrix(rpois(200 * 12, 20), nrow = 200,
+               dimnames = list(paste0("Gene", 1:200), paste0("S", 1:12)))
+sample_info <- data.frame(sample = paste0("S", 1:12),
+                           condition = rep(c("Tumor", "Normal"), 6),
+                           patient = rep(paste0("P", 1:6), each = 2))
+\dontrun{
+# needs the limma package
+seed <- FindMalignantSeedGenes(expr = bulk, sample_info = sample_info)
+}
+}
 \seealso{
 \code{\link[=ClassifyMalignantEpithelium]{ClassifyMalignantEpithelium()}}
 }

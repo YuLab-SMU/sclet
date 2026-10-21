@@ -30,3 +30,9 @@ Group Heatmap Plot
 Plot a heatmap of features across cell groups.
 If \code{ggsc} handles it, we use it, otherwise fall back to \code{scater}.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+p <- GroupHeatmap(sce, features = rownames(sce)[1:5], group.by = "Cell_Cycle")
+class(p)[1]
+}

@@ -17,3 +17,11 @@ logical
 \description{
 Check whether SCENIC results are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "run1", type = "scenic", method = "pySCENIC")
+state <- list(states = list(active = list(scenic = "run1"),
+    records = list(scenic = list(run1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+has_scenic(sce)
+}

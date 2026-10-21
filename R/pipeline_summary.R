@@ -4,6 +4,11 @@
 #' @param object a SingleCellExperiment object
 #' @return a textual summary of the pipeline
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' PipelineSummary(sce)
 PipelineSummary <- function(object) {
     commands <- CommandLog(object, details = TRUE)
     if (nrow(commands) == 0) {

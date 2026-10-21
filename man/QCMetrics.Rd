@@ -15,3 +15,11 @@ update object with two QC metrics ('nFeature_RNA' and 'nCount_RNA')
 \description{
 add QC metrics
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the 'scrapper' Suggests package
+sce <- QCMetrics(sce)
+head(colData(sce)$nCount_RNA)
+}
+}

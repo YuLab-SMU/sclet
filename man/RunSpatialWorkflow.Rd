@@ -40,3 +40,12 @@ This is the semantic shell over the spatial-context mainline. It currently
 dispatches spatial deconvolution and reserves slots for colocalization and
 niche detection as backends mature.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the reticulate package and the cell2location Python environment
+ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(ref)$cell_type <- rep(c("A", "B"), each = 10)
+sce <- RunSpatialWorkflow(sce, sce_ref = ref, ref_group_key = "cell_type")
+}
+}

@@ -18,3 +18,12 @@ Updated SingleCellExperiment with multimodal state record.
 Records the presence and basic metadata of the ATAC altExp in the
 analysis-state layer.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+atac <- SingleCellExperiment::SingleCellExperiment(
+    assays = list(counts = matrix(1, nrow = 3, ncol = 20,
+                                  dimnames = list(paste0("ATAC", 1:3), colnames(sce)))))
+SingleCellExperiment::altExp(sce, "ATAC") <- atac
+sce <- register_multimodal_atac(sce)
+has_multimodal_atac(sce)
+}

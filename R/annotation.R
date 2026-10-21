@@ -91,6 +91,17 @@ sclet_resolve_singleR_labels <- function(ref, labels) {
 #' @param ... Additional arguments passed to SingleR::SingleR
 #' @return A SingleCellExperiment object with annotation added to colData
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' \dontrun{
+#' # needs the 'SingleR' Suggests package and a reference dataset
+#' ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' ref <- NormalizeData(ref)
+#' colData(ref)$label.main <- rep(c("A", "B"), length.out = ncol(ref))
+#' sce <- RunSingleR(sce, ref = ref, labels = "label.main")
+#' colnames(colData(sce))
+#' }
 RunSingleR <- function(object, ref = NULL, labels = NULL, assay.type = NULL,
                        layer = NULL, name = "singler", ...) {
     if (!requireNamespace("SingleR", quietly = TRUE)) {
@@ -249,6 +260,18 @@ RunSingleR <- function(object, ref = NULL, labels = NULL, assay.type = NULL,
 #' @param ... Additional arguments passed to the selected backend.
 #' @return A SingleCellExperiment object with mapping results added and recorded.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- FindVariableFeatures(sce, method = "scran", nfeatures = 20)
+#' \dontrun{
+#' # needs a reference dataset and the 'BiocNeighbors' Suggests package
+#' ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' ref <- NormalizeData(ref)
+#' colData(ref)$label.main <- rep(c("A", "B"), length.out = ncol(ref))
+#' sce <- RunReferenceMapping(sce, ref, labels = "label.main", method = "KNN")
+#' colnames(colData(sce))
+#' }
 RunReferenceMapping <- function(object, ref, labels = NULL,
                                 method = c("SingleR", "KNN", "Symphony"),
                                 assay.type = NULL, layer = NULL,
@@ -310,6 +333,18 @@ RunReferenceMapping <- function(object, ref, labels = NULL,
 #' @param ... Additional arguments
 #' @return A SingleCellExperiment object with predicted labels added to colData
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- FindVariableFeatures(sce, method = "scran", nfeatures = 20)
+#' \dontrun{
+#' # needs the 'BiocNeighbors' Suggests package and a reference dataset
+#' ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' ref <- NormalizeData(ref)
+#' colData(ref)$label.main <- rep(c("A", "B"), length.out = ncol(ref))
+#' sce <- RunKNNPredict(sce, ref, labels = "label.main")
+#' colnames(colData(sce))
+#' }
 RunKNNPredict <- function(object, ref, labels = NULL, features = NULL, layer = NULL, k = 5, name = "knn_map", ...) {
     if (!requireNamespace("BiocNeighbors", quietly = TRUE)) {
         stop("Package 'BiocNeighbors' is needed for this function to work. Please install it.")
@@ -461,6 +496,16 @@ RunKNNPredict <- function(object, ref, labels = NULL, features = NULL, layer = N
 #'
 #' @return Updated SingleCellExperiment with Symphony mapping in colData.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the 'symphony' package, which is not declared in DESCRIPTION
+#' ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' ref <- NormalizeData(ref)
+#' colData(ref)$label.main <- rep(c("A", "B"), length.out = ncol(ref))
+#' sce <- RunSymphonyMapping(sce, ref, labels = "label.main")
+#' colnames(colData(sce))
+#' }
 RunSymphonyMapping <- function(object, ref, labels = NULL, vars = NULL,
                                k = 5, layer = NULL, name = "symphony_map", ...) {
     if (!requireNamespace("symphony", quietly = TRUE)) {
@@ -641,6 +686,12 @@ RunSymphonyMapping <- function(object, ref, labels = NULL, vars = NULL,
 #' @param low,high Colors for the fill gradient.
 #' @return A ggplot object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' colData(sce)$SingleR_labels <- rep(c("T_cell", "B_cell"), length.out = ncol(sce))
+#' colData(sce)$cluster <- rep(c("c1", "c2"), length.out = ncol(sce))
+#' p <- plot_reference_label_transfer_heatmap(sce, group.by = "cluster")
+#' nrow(p$data)
 plot_reference_label_transfer_heatmap <- function(
     object,
     group.by = NULL,
@@ -769,6 +820,13 @@ plot_reference_label_transfer_heatmap <- function(
 #' @param jitter_width Numeric. Jitter width for overlaid points.
 #' @return A ggplot object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' colData(sce)$SingleR_labels <- rep(c("T_cell", "B_cell"), length.out = ncol(sce))
+#' colData(sce)$singler_score <- seq_len(ncol(sce))
+#' p <- plot_reference_label_confidence(sce, labels_col = "SingleR_labels",
+#'     score_col = "singler_score")
+#' nrow(p$data)
 plot_reference_label_confidence <- function(
     object,
     id = NULL,

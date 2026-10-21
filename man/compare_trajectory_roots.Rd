@@ -29,3 +29,9 @@ reports pairwise differences in lineage count and relative pseudotime spread.
 It never reads per-cell pseudotime vectors, never chooses a preferred root,
 and never writes a new evidence node.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+comparison <- compare_trajectory_roots(sce)
+comparison$status
+comparison$reason
+}

@@ -33,3 +33,8 @@ an updated SingleCellExperiment object with PCA dimension reduction
 \description{
 Run PCA
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+ncol(SingleCellExperiment::reducedDim(sce, "PCA"))
+}

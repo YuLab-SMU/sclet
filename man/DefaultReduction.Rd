@@ -20,3 +20,10 @@ current default reduction or updated object
 \description{
 get or set the default dimensional reduction
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+DefaultReduction(sce)
+DefaultReduction(sce) <- "PCA"
+DefaultReduction(sce)
+}

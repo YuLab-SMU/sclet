@@ -56,3 +56,14 @@ This function generates a heatmap of gene expression along a given pseudotime tr
 with options for scaling, sorting, clustering decision, and lineage selection. It also handles genes with all
 \code{NaN} expression values by issuing a warning and removing them from the analysis.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+\dontrun{
+# needs the 'ComplexHeatmap', 'reshape2' and 'viridis' Suggests packages
+# and pseudotime in colData(sce), as produced by RunSlingshot()
+p <- pseudo_heatmap(sce, features = rownames(sce)[1:5],
+    pseudotime.data = "slingPseudotime")
+class(p)[1]
+}
+}

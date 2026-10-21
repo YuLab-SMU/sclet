@@ -45,3 +45,11 @@ SingleCellExperiment object
 \description{
 Run SuperCell aggregation
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the SuperCell package
+sce <- RunSuperCell(sce, gamma = 20, k.knn = 5)
+ncol(sce)
+}
+}

@@ -29,3 +29,10 @@ agent driving sclet without aisdk has to make this declaration itself
 before any design-gated action can validate. See
 \code{inst/skills/sclet-driver/SKILL.md}.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+colData(sce)$batch_id <- rep(c("b1", "b2"), length.out = ncol(sce))
+sce <- ConfirmAIDesignSemantics(sce, design = list(batch = "batch_id"))
+# The confirmation is on the ledger now, so a design-gated action can run.
+names(GetAnalysisLedger(sce)$analyses)
+}

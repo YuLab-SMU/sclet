@@ -39,3 +39,17 @@ gene_summary_table
 This function append gene summary information to the input gene data frame and
 open the result in various formats.
 }
+\examples{
+\dontrun{
+n <- 3
+topn <- pbmc.markers |>
+    group_by(cluster) |>
+    dplyr::filter(avg_log2FC > 1) |>
+    slice_head(n = n) |>
+    ungroup()
+
+gene_summary_table(topn, gene_col = 'gene', keyType='SYMBOL')
+
+gene_summary_table(topn, gene_col = 'gene', cluster_col = 'cluster', keyType='SYMBOL')
+}
+}

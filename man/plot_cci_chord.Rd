@@ -23,3 +23,10 @@ NULL (Plots the diagram)
 \description{
 Plot Cell-Cell Communication Chord Diagram
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the 'circlize' Suggests package and a recorded communication run
+plot_cci_chord(sce)
+}
+}

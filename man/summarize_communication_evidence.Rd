@@ -20,3 +20,10 @@ aggregates the evidence node carries and writes nothing. It never ranks
 populations or pathways, never names a ligand or receptor, and never
 recommends an engine.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+# No communication run is on record, so nothing is reported.
+summary <- summarize_communication_evidence(sce)
+summary$status
+summary$reason
+}

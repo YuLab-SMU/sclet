@@ -36,6 +36,12 @@ Reports whether a copy-number measurement can run on this object: inferCNV
 and its JAGS dependency present, gene positions resolvable, and reference
 cells available. Read-only; runs nothing.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+readiness <- check_cnv_readiness(sce, reference_cells = colnames(sce)[1:5])
+readiness$ready
+readiness$issues
+}
 \seealso{
 \code{\link[=RunCNVInference]{RunCNVInference()}}
 }

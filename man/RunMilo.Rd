@@ -95,3 +95,12 @@ A list with:
 \description{
 Run Milo Differential Abundance Analysis
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(sce)$sample <- rep(c("s1", "s2"), each = 10)
+\dontrun{
+# needs the miloR package
+res <- RunMilo(sce, sample_col = "sample", condition_col = "Treatment",
+               contrasts = "treat2 - treat1")
+}
+}

@@ -19,3 +19,11 @@ the full SuperCell analysis record, a selected element, or \code{NULL}
 \description{
 Access SuperCell analysis results
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "run1", type = "aggregation", method = "SuperCell::SCimplify")
+state <- list(states = list(active = list(aggregation = "run1"),
+    records = list(aggregation = list(run1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+get_supercell(sce)$method
+}

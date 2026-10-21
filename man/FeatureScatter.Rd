@@ -19,3 +19,10 @@ a scatter plot
 \description{
 scatter plot to compare 2 features
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+colData(sce)$nCount_RNA <- seq_len(ncol(sce))
+colData(sce)$nFeature_RNA <- rev(seq_len(ncol(sce)))
+p <- FeatureScatter(sce, "nCount_RNA", "nFeature_RNA")
+nrow(p$data)
+}

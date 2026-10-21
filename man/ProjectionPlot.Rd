@@ -29,3 +29,13 @@ Projection Plot for Reference Mapping
 \details{
 Plot reference and query cells in the same dimensional reduction space.
 }
+\examples{
+query <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+query <- RunPCA(query, ncomponents = 5)
+ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+ref <- RunPCA(ref, ncomponents = 5)
+colData(query)$label.main <- rep(c("A", "B"), length.out = ncol(query))
+colData(ref)$label.main <- rep(c("A", "B"), length.out = ncol(ref))
+p <- ProjectionPlot(query, ref, reduction = "PCA", group.by = "label.main")
+class(p)[1]
+}

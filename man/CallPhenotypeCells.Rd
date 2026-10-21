@@ -97,6 +97,12 @@ evidence providers are all \code{shared_with_signature} cannot reach \code{suppo
 all -- that is deliberate, not an oversight.
 }
 
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- CallPhenotypeCells(sce, signature = rownames(sce)[1:10])
+table(SummarizedExperiment::colData(sce)$phenotype_call_call)
+}
 \seealso{
 \code{\link[=PhenotypeEvidenceProviders]{PhenotypeEvidenceProviders()}}, \code{\link[=CallMalignantCells]{CallMalignantCells()}}
 }

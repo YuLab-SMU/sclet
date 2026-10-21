@@ -13,3 +13,7 @@ A character vector of skill directory names, invisibly.
 Skills are plain SKILL.md files under \verb{inst/skills/<name>/}, readable by
 any AI agent, and by the internal \code{sclet_ai_skill_context()}.
 }
+\examples{
+skills <- AISkills()
+length(skills) > 0
+}

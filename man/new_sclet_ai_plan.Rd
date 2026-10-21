@@ -67,3 +67,24 @@ The plan's \code{context_fingerprint} must come from
 \code{GetAnalysisLedger(object)$fingerprint} for the object the plan will run
 against, or validation refuses it as stale.
 }
+\examples{
+\dontrun{
+sce <- your_SingleCellExperiment()
+plan <- new_sclet_ai_plan(
+    task = "pbmc_markers",
+    context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+    actions = list(
+        list(id = "s1", action = "normalize_data"),
+        list(id = "s2", action = "find_variable_features",
+             params = list(nfeatures = 2000), depends_on = "s1"),
+        list(id = "s3", action = "run_de_test",
+             params = list(name = "markers"), depends_on = "s2")
+    )
+)
+v <- ValidateAIPlan(plan, object = sce,
+    registry = AIDefaultExecutionRegistry(sce, include = "all"))
+executed <- RunAIPlan(sce, plan,
+    AIDefaultExecutionRegistry(sce, include = "all"),
+    dry_run = FALSE, confirm = TRUE)
+}
+}

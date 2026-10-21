@@ -45,3 +45,13 @@ A SingleCellExperiment object with detest state added
 \description{
 Run Differential Expression Test
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+\dontrun{
+# needs the 'presto' Suggests package
+sce <- RunDEtest(sce)
+get_detest(sce)$summary$n_markers
+}
+}

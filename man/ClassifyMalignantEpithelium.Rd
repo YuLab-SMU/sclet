@@ -111,6 +111,15 @@ Validation needs an independent line of evidence (copy-number inference,
 histology, or scoring against a signature derived elsewhere).
 }
 
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(sce)$sample <- rep(c("s1", "s2"), each = 10)
+\dontrun{
+# needs the limma package
+seed <- list(tumor = rownames(sce)[1:5], normal = rownames(sce)[6:10])
+sce <- ClassifyMalignantEpithelium(sce, seed = seed, sample_col = "sample")
+}
+}
 \seealso{
 \code{\link[=FindMalignantSeedGenes]{FindMalignantSeedGenes()}}
 }

@@ -16,6 +16,12 @@
 #' @importFrom S4Vectors metadata metadata<-
 #' @importFrom SummarizedExperiment colData colData<-
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the velociraptor package and a scVelo Python environment
+#' sce <- RunVelocity(sce, mode = "deterministic")
+#' }
 RunVelocity <- function(sce, mode = c("deterministic", "stochastic", "dynamical"), use.dimred = NULL,
                         subset.row = NULL, subset_row = NULL, name = "velocity", ...) {
     if (!requireNamespace("velociraptor", quietly = TRUE)) {
@@ -151,6 +157,12 @@ RunVelocity <- function(sce, mode = c("deterministic", "stochastic", "dynamical"
 #' @importFrom S4Vectors metadata
 #' @importFrom SummarizedExperiment colData
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the velociraptor package and a scVelo Python environment
+#' p <- VelocityPlot(sce)
+#' }
 VelocityPlot <- function(sce, reduction = NULL, group.by = NULL, id = NULL, ...) {
     if (!requireNamespace("velociraptor", quietly = TRUE)) {
         stop("Please install 'velociraptor' to plot RNA Velocity.")
@@ -266,6 +278,18 @@ plot_velocity <- VelocityPlot
 #'
 #' @return A ggplot object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$velocity_pseudotime <- seq_len(20) / 20
+#' SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(rnorm(40), ncol = 2,
+#'     dimnames = list(colnames(sce), c("PC1", "PC2")))
+#' # a velocity result, as RunVelocity() would record it
+#' record <- list(id = "velocity", type = "velocity", method = "velociraptor::scvelo",
+#'                inputs = list(reduction = "PCA"),
+#'                artifacts = list(colData = "velocity_pseudotime"))
+#' S4Vectors::metadata(sce)$sclet$states$records$velocity$velocity <- record
+#' S4Vectors::metadata(sce)$sclet$states$active$velocity <- "velocity"
+#' plot_velocity_latent_time(sce)
 plot_velocity_latent_time <- function(object, reduction = NULL, id = NULL,
                                       point_size = 0.6, low = "grey90", high = "firebrick") {
     if (!requireNamespace("ggplot2", quietly = TRUE)) {
@@ -383,6 +407,11 @@ sclet_velocity_assay_name <- function(object, id = NULL, assay = NULL) {
 #' @return A numeric vector, or an updated SingleCellExperiment when
 #'   `store = TRUE`.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::assay(sce, "velocity") <- matrix(rnorm(50 * 20), nrow = 50,
+#'     dimnames = list(rownames(sce), colnames(sce)))
+#' VelocityMagnitude(sce, assay = "velocity", margin = "cell")
 VelocityMagnitude <- function(object, id = NULL, assay = NULL,
                               margin = c("cell", "gene"), name = NULL,
                               store = FALSE) {
@@ -429,6 +458,13 @@ VelocityMagnitude <- function(object, id = NULL, assay = NULL,
 #'
 #' @return A ggplot object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::assay(sce, "velocity") <- matrix(rnorm(50 * 20), nrow = 50,
+#'     dimnames = list(rownames(sce), colnames(sce)))
+#' SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(rnorm(40), ncol = 2,
+#'     dimnames = list(colnames(sce), c("PC1", "PC2")))
+#' plot_velocity_magnitude(sce, assay = "velocity")
 plot_velocity_magnitude <- function(object, reduction = NULL, id = NULL,
                                     assay = NULL, point_size = 0.6,
                                     low = "grey90", high = "navy") {
@@ -483,6 +519,11 @@ plot_velocity_magnitude <- function(object, reduction = NULL, id = NULL,
 #'
 #' @return A data.frame with `gene`, `velocity_magnitude`, and `rank`.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::assay(sce, "velocity") <- matrix(rnorm(50 * 20), nrow = 50,
+#'     dimnames = list(rownames(sce), colnames(sce)))
+#' TopVelocityGenes(sce, assay = "velocity", n = 5)
 TopVelocityGenes <- function(object, id = NULL, assay = NULL, n = 20,
                              decreasing = TRUE) {
     magnitude <- VelocityMagnitude(object, id = id, assay = assay, margin = "gene")
@@ -508,6 +549,11 @@ TopVelocityGenes <- function(object, id = NULL, assay = NULL, n = 20,
 #'
 #' @return A ggplot object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::assay(sce, "velocity") <- matrix(rnorm(50 * 20), nrow = 50,
+#'     dimnames = list(rownames(sce), colnames(sce)))
+#' plot_top_velocity_genes(sce, assay = "velocity", n = 5)
 plot_top_velocity_genes <- function(object, id = NULL, assay = NULL, n = 20,
                                     fill = "steelblue") {
     if (!requireNamespace("ggplot2", quietly = TRUE)) {

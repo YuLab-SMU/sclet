@@ -15,3 +15,10 @@ clustering memberships
 \description{
 access the clustering memberships
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+sce <- FindNeighbors(sce, dims = 1:5)
+sce <- FindClusters(sce, resolution = 1)
+head(Idents(sce))
+}

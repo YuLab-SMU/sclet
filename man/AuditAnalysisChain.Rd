@@ -30,3 +30,11 @@ A character report for backward compatibility.
 \description{
 Audit an analysis chain through the R-native AI layer
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::assay(sce, "corrected") <- SummarizedExperiment::assay(sce, "counts")
+\dontrun{
+# needs the aisdk package and a configured provider
+AuditAnalysisChain(sce, features = rownames(sce)[1:3], integrated_layer = "corrected")
+}
+}

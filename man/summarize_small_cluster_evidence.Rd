@@ -58,3 +58,9 @@ small population is real or noise; it reports how many independent signal
 classes are available so that a caller can grade the strength of any claim
 made about that population.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+summary <- summarize_small_cluster_evidence(sce)
+summary$status
+summary$reason
+}

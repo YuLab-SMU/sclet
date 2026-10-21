@@ -10,6 +10,16 @@
 #' @export
 #' @importFrom SummarizedExperiment colData colData<-
 #' @importFrom S4Vectors metadata metadata<-
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the scPAS package
+#' bulk_matrix <- matrix(rnorm(50 * 6), nrow = 50,
+#'                       dimnames = list(rownames(sce), paste0("B", 1:6)))
+#' phenotype_data <- data.frame(time = 1:6, status = c(0, 1, 0, 1, 0, 1))
+#' sce <- RunPhenotypeAssociation(sce, bulk_matrix = bulk_matrix,
+#'                                phenotype_data = phenotype_data, family = "cox")
+#' }
 RunPhenotypeAssociation <- function(sce, bulk_matrix, phenotype_data, family = "cox", ...) {
     if (!requireNamespace("scPAS", quietly = TRUE)) {
         stop("Please install 'scPAS' via remotes::install_github('aiminXie/scPAS')")

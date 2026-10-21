@@ -225,6 +225,10 @@ sclet_env_use_system_dir <- function() {
 #' @param create Logical. Build the environment if the directory is missing.
 #' @return The environment's directory path, invisibly.
 #' @export
+#' @examples
+#' \dontrun{
+#' sclet_env_path("sclet_scvi_env")
+#' }
 sclet_env_path <- function(envname, create = FALSE) {
     env <- .env(envname)
     name <- sclet_env_spec_fingerprint(env)
@@ -272,6 +276,10 @@ sclet_env_python <- function(envpath) {
 #' @param create Logical. Build the environment if it is missing.
 #' @return The path to the interpreter, invisibly.
 #' @export
+#' @examples
+#' \dontrun{
+#' sclet_env_python_path("sclet_scvi_env")
+#' }
 sclet_env_python_path <- function(envname, create = FALSE) {
     invisible(sclet_env_python(sclet_env_path(envname, create = create)))
 }
@@ -297,6 +305,10 @@ sclet_env_python_path <- function(envname, create = FALSE) {
 #' @param ... Further arguments passed to [system2()], e.g. `stdout`/`stderr`.
 #' @return The exit status of the child process, invisibly.
 #' @export
+#' @examples
+#' \dontrun{
+#' sclet_env_run("sclet_scvi_env", "train.py", c("--epochs", "10"))
+#' }
 sclet_env_run <- function(envname, script, args = character(), ...) {
     python <- sclet_env_python_path(envname, create = TRUE)
     result <- system2(

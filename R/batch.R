@@ -115,6 +115,16 @@ combine_variable_features_scrapper <- function(hvg.info) {
 #'   integration is then recorded as embedding-only, since the batchelor
 #'   `reconstructed` matrix is not meant for quantitative analysis).
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- FindVariableFeatures(sce, method = "scran", nfeatures = 20)
+#' colData(sce)$batch <- rep(c("b1", "b2"), length.out = ncol(sce))
+#' \dontrun{
+#' # needs the 'batchelor' Suggests package
+#' sce <- BatchRemover(sce, batch = sce$batch)
+#' SingleCellExperiment::reducedDimNames(sce)
+#' }
 BatchRemover <- function (sce, batch = NULL, HVG = NULL, nHVG = 5000, 
                           assay.type = "logcounts", PARAM = NULL, 
                           restrict = NULL, correct.all = FALSE, name = "batchcorrect") { 
@@ -425,6 +435,15 @@ overlap <- function(x) {
 #' @return A SingleCellExperiment object
 #' @importFrom utils modifyList
 #' @export
+#' @examples
+#' sce1 <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce1 <- NormalizeData(sce1)
+#' sce1 <- FindVariableFeatures(sce1, method = "scran", nfeatures = 20)
+#' sce2 <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce2 <- NormalizeData(sce2)
+#' sce2 <- FindVariableFeatures(sce2, method = "scran", nfeatures = 20)
+#' merged <- sce_merge(list(batch1 = sce1, batch2 = sce2))
+#' ncol(merged)
 sce_merge <- function(sce_list, combineVarParams = list(equiweight = TRUE, ncells = NULL)){
 
   if (length(sce_list) < 2) {

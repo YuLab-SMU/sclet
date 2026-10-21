@@ -19,3 +19,9 @@ A bounded small-cluster summary.
 \description{
 Summarize very small clusters without exposing cluster labels
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+summary <- summarize_small_clusters(sce)
+summary$status
+summary$reason
+}

@@ -18,6 +18,15 @@
 #' `DefaultLayer(object)`.
 #' @param ... additional parameters
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' Suggests package
+#' res <- FindAllMarkers(sce)
+#' head(res)
+#' }
 FindAllMarkers <- function(
     object, 
     min.pct = 0.01,
@@ -151,6 +160,15 @@ FindAllMarkers <- function(
 #' `DefaultLayer(object)`.
 #' @param ... additional parameters
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' Suggests package
+#' res <- FindMarkers(sce, ident.1 = "c1")
+#' head(res)
+#' }
 FindMarkers <- function(
     object, 
     ident.1 = NULL, 
@@ -197,6 +215,15 @@ FindMarkers <- function(
 #' @param min_cells Minimum cells per pseudobulk sample (default 10).
 #' @return A SingleCellExperiment object with detest state added
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' Suggests package
+#' sce <- RunDEtest(sce)
+#' get_detest(sce)$summary$n_markers
+#' }
 RunDEtest <- function(object, ident.1 = NULL, ident.2 = NULL, name = "detest",
                       group = NULL, covariates = NULL, min_cells = 10L, ...) {
     # The thresholds are the run's own. They travel in `...` to FindMarkers /
@@ -266,6 +293,16 @@ RunDEtest <- function(object, ident.1 = NULL, ident.2 = NULL, name = "detest",
 #' @param id Analysis record id. If NULL, uses the active detest state.
 #' @return The detest state record
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' Suggests package to record a detest result
+#' sce <- RunDEtest(sce)
+#' rec <- get_detest(sce)
+#' rec$summary$n_markers
+#' }
 get_detest <- function(object, id = NULL) {
     if (is.null(id)) id <- sclet_get_active_state(object, "detest")
     if (is.null(id)) return(NULL)
@@ -279,6 +316,15 @@ get_detest <- function(object, id = NULL) {
 #' @param id Analysis record id. If NULL, uses the active detest state.
 #' @return Logical indicating if the detest state exists
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' Suggests package to record a detest result
+#' sce <- RunDEtest(sce)
+#' has_detest(sce)
+#' }
 has_detest <- function(object, id = NULL) {
     !is.null(get_detest(object, id))
 }

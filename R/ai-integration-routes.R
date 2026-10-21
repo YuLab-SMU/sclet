@@ -316,6 +316,14 @@ sclet_ai_run_one_route <- function(object, route, design) {
 #' @param ... Reserved for future arguments.
 #' @return A list describing object, plan, validation, preview, execution, status, and
 #'   report.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' # The raw baseline route runs without an integration package; the other
+#' # routes need one, so ask for a preview with confirm = "never" instead.
+#' routes <- RunIntegrationRoutes(sce, design = list(batch = "Treatment"),
+#'     routes = "raw", confirm = "always")
+#' routes$status
+#' routes$report$routes_executed
 #' @export
 RunIntegrationRoutes <- function(
     object,

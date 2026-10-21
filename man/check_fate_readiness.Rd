@@ -26,3 +26,9 @@ count as terminal, and what a fate probability means biologically, is a
 modeling assumption only the user can make. The result therefore contains no
 candidate terminal state, no ordering of clusters, and no fate ranking.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+readiness <- check_fate_readiness(sce)
+readiness$status
+readiness$questions
+}

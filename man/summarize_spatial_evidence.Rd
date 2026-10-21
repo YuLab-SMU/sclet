@@ -26,3 +26,10 @@ hold. Feature columns, per-spot values and input identifiers exist in the
 underlying records but never leave this function: only record counts,
 algorithm names, anonymized analysis codes and fixed caveats are returned.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+# No spatial run is on record, so nothing is reported.
+summary <- summarize_spatial_evidence(sce)
+summary$status
+summary$reason
+}

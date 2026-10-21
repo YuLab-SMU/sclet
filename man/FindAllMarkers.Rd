@@ -46,3 +46,13 @@ calculating logFC. 1 by default.}
 \description{
 Find markers for each of the identity classes
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+\dontrun{
+# needs the 'presto' Suggests package
+res <- FindAllMarkers(sce)
+head(res)
+}
+}

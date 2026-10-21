@@ -85,6 +85,11 @@ sclet_cnv_lineage_note <- function(object, ref) {
 #'
 #' @seealso [RunCNVInference()]
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' readiness <- check_cnv_readiness(sce, reference_cells = colnames(sce)[1:5])
+#' readiness$ready
+#' readiness$issues
 check_cnv_readiness <- function(object,
                                 reference_cells = NULL,
                                 reference_col = NULL,
@@ -222,6 +227,12 @@ check_cnv_readiness <- function(object,
 #'
 #' @seealso [check_cnv_readiness()], [CallMalignantCells()]
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the infercnv package and the JAGS system library
+#' sce <- RunCNVInference(sce, reference_cells = colnames(sce)[1:5])
+#' }
 RunCNVInference <- function(object,
                             reference_cells = NULL,
                             reference_col = NULL,

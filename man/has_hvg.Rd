@@ -15,3 +15,9 @@ logical
 \description{
 Check whether HVG metadata are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- FindVariableFeatures(sce, nfeatures = 20)
+has_hvg(sce)
+}

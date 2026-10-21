@@ -12,6 +12,10 @@
 \alias{plotColData}
 \alias{logNormCounts}
 \title{Objects exported from other packages}
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+dim(assay(sce))
+}
 \keyword{internal}
 \description{
 These objects are imported from other packages. Follow the links

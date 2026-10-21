@@ -17,3 +17,8 @@ a lightweight summary of the current active view and active analysis records
 \description{
 Access the current analysis context
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(sce)$SingleR_labels <- rep(c("alpha", "beta"), length.out = 20)
+names(get_analysis_context(sce)$records)
+}

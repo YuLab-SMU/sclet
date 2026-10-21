@@ -15,6 +15,11 @@
 #' @param velocity_id Optional velocity record id. When supplied, that exact
 #'   completed velocity record must be present.
 #' @return A read-only readiness summary.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' readiness <- check_fate_readiness(sce)
+#' readiness$status
+#' readiness$questions
 #' @export
 check_fate_readiness <- function(object, reduction = NULL, velocity_id = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {

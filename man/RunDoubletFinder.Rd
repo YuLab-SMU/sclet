@@ -17,3 +17,11 @@ an updated SingleCellExperiment object with doublet scores and classes
 \description{
 Run DoubletFinder to identify and filter doublets
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the 'scDblFinder' Suggests package
+sce <- RunDoubletFinder(sce)
+head(colData(sce)$scDblFinder.class)
+}
+}

@@ -36,3 +36,9 @@ the modality trackable by the mainline; it computes nothing. An object can
 therefore be reported as attached without being registered, and the returned
 questions say so explicitly rather than asking for data to be re-attached.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+readiness <- check_multimodal_readiness(sce)
+readiness$status
+readiness$questions
+}

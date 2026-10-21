@@ -27,3 +27,11 @@ Cell Dimensional Reduction Plot
 \details{
 Dimensional reduction plot that defaults to the active reduction and active identity.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- RunPCA(sce, ncomponents = 5)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+p <- CellDimPlot(sce)
+nrow(p$data)
+}

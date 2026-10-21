@@ -22,3 +22,9 @@ driver ranking or a nominated fate: which lineages matter, and what a driver
 score means biologically, is a modeling assumption only the user can make.
 The result therefore contains only counts and column names.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+readiness <- check_fate_drivers_readiness(sce)
+readiness$status
+readiness$questions
+}

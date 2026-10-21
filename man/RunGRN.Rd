@@ -42,3 +42,12 @@ the user-facing concept rather than "pySCENIC" as the implementation detail.
 Future backends (e.g. SCENIC+, decoupleR, FigR) can be routed through the
 same interface.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the reticulate package and the pySCENIC Python environment
+sce <- RunGRN(sce, tfs_path = "tfs.txt",
+              motif_annotations_path = "motifs.tbl",
+              database_paths = "ctx.db.feather")
+}
+}

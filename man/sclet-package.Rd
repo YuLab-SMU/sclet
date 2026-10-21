@@ -9,6 +9,12 @@
 \description{
 Provides a comprehensive, state-aware toolkit for single-cell and spatial transcriptomics analysis built around the Bioconductor SingleCellExperiment class. It introduces a lightweight analysis-state contract to manage dependencies, active context, and provenance across workflows. Features include end-to-end preprocessing with doublet and ambient-RNA detection (scDblFinder, DecontX) and zero-preserving imputation (ALRA), dimensionality reduction, clustering, multi-backend integration (fastMNN, Harmony, scVI), reference mapping (SingleR, Symphony, KNN), trajectory and RNA velocity inference (Slingshot, scVelo, RegVelo, CellRank), differential expression and enrichment, regulon and gene-set analysis (SCENIC, AUCell, GSVA, UCell), cell-cell communication (CellChat, CellPhoneDB, NicheNet), copy-number inference for malignant-cell calling (inferCNV), rare cell detection, perturbation sensitivity (Augur), metacell aggregation (SuperCell), differential abundance (Milo), spatial deconvolution (cell2location), spatial colocalization and niche detection (SVP), in-silico perturbation (CellOracle), phenotype association (scPAS), and enhanced visualization. An optional AI layer turns the recorded state into validated, step-wise analysis plans that execute against an evidence ledger, with the confidence a report may claim capped by the evidence that supports it; it requires the optional 'aisdk' package and makes no model call unless one is requested explicitly. Python backends run in self-managed, isolated environments whose dependencies are resolved automatically, and are exposed as plain R functions. Interoperability with AnnData and Seurat-style verb names is supported, but the primary design is centered on SingleCellExperiment-native analysis.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- RunPCA(sce, ncomponents = 5)
+Status(sce)$available$reductions
+}
 \seealso{
 Useful links:
 \itemize{

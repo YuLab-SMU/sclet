@@ -21,3 +21,11 @@ populations with enough cells to test, and whether a detest record already
 exists. It deliberately does not choose a group column, a clustering
 resolution or a marker threshold: those are user decisions.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the limma Suggests package
+readiness <- check_de_readiness(sce)
+readiness$status
+}
+}

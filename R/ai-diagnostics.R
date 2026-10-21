@@ -82,6 +82,12 @@ sclet_ai_diag_summary <- function(value) {
 #' @param object A `SingleCellExperiment` object.
 #' @param group A `colData` column name or a vector with one value per cell.
 #' @return A bounded aggregate summary; raw group values are never returned.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce$qc_score <- seq_len(ncol(sce)) / 2
+#' summary <- summarize_qc_by_group(sce, "Treatment")
+#' summary$status
+#' summary$group$n_groups
 #' @export
 summarize_qc_by_group <- function(object, group) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -155,6 +161,12 @@ sclet_ai_diag_eta_squared <- function(values, groups) {
 #' @param metadata A `colData` column name or a vector with one value per cell.
 #' @param reduction Optional reduction name; defaults to PCA if available.
 #' @return A bounded association summary without metadata values.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' # No PCA has been computed, so the association is not available.
+#' summary <- summarize_pca_metadata_association(sce, "Treatment")
+#' summary$status
+#' summary$reason
 #' @export
 summarize_pca_metadata_association <- function(object, metadata, reduction = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -205,6 +217,12 @@ summarize_pca_metadata_association <- function(object, metadata, reduction = NUL
 #' @param sample A `colData` sample column name or vector.
 #' @param cluster A `colData` cluster column name or vector.
 #' @return An aggregate cluster-by-sample composition summary.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' # No cluster assignment is on the object yet.
+#' summary <- summarize_cluster_sample_composition(sce, "Treatment")
+#' summary$status
+#' summary$reason
 #' @export
 summarize_cluster_sample_composition <- function(object, sample, cluster = NULL) {
     if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)
@@ -241,6 +259,11 @@ summarize_cluster_sample_composition <- function(object, sample, cluster = NULL)
 #' @param object A \code{SingleCellExperiment} object.
 #' @param cluster Optional \code{colData} cluster column name.
 #' @return A read-only readiness summary.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' readiness <- check_rare_cell_readiness(sce)
+#' readiness$status
+#' readiness$questions
 #' @export
 check_rare_cell_readiness <- function(object, cluster = NULL) {
     if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)
@@ -429,6 +452,11 @@ sclet_ai_diag_marker_signal <- function(object, cluster_index, pvalue_cutoff = 0
 #'   doublet calls must cover both the population and the rest, and sample
 #'   replication needs at least two sample labels. No population-level verdict is
 #'   returned and raw per-cell values are never included.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' summary <- summarize_small_cluster_evidence(sce)
+#' summary$status
+#' summary$reason
 #' @export
 summarize_small_cluster_evidence <- function(object, cluster = NULL, size_threshold = 10L, label = NULL,
                                              pvalue_cutoff = 0.05, logfc_threshold = 0.1,
@@ -660,6 +688,11 @@ sclet_ai_diag_embedding_name <- function(object, requested = NULL) {
 #' @param reduction Optional preferred reduction name. Defaults to `"UMAP"`
 #'   when available, then any usable embedding.
 #' @return A read-only readiness summary.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' readiness <- check_trajectory_readiness(sce)
+#' readiness$status
+#' readiness$questions
 #' @export
 check_trajectory_readiness <- function(object, reduction = NULL) {
     if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)
@@ -736,6 +769,11 @@ check_trajectory_readiness <- function(object, reduction = NULL) {
 #'   embedding.
 #' @param n_dims Number of leading embedding dimensions to summarize.
 #' @return A bounded list of per-cluster dimension summaries.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' summary <- summarize_trajectory_cluster_order(sce)
+#' summary$status
+#' summary$reason
 #' @export
 summarize_trajectory_cluster_order <- function(object, cluster = NULL, reduction = NULL, n_dims = 2L) {
     if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)
@@ -794,6 +832,11 @@ summarize_trajectory_cluster_order <- function(object, cluster = NULL, reduction
 #' @param threshold Maximum number of cells for a small cluster.
 #' @param cluster A `colData` cluster column name or vector.
 #' @return A bounded small-cluster summary.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' summary <- summarize_small_clusters(sce)
+#' summary$status
+#' summary$reason
 #' @export
 summarize_small_clusters <- function(object, threshold = 10L, cluster = NULL) {
     if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)
@@ -830,6 +873,11 @@ summarize_small_clusters <- function(object, threshold = 10L, cluster = NULL) {
 #'   \code{groups} optionally identifies the cluster column used for DE.
 #'   Passing a reference here avoids the \code{clarification_required} status.
 #' @return A read-only readiness and clarification summary.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' readiness <- check_annotation_readiness(sce)
+#' readiness$status
+#' readiness$questions
 #' @export
 check_annotation_readiness <- function(object, design = NULL) {
     if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)
@@ -911,6 +959,11 @@ check_annotation_readiness <- function(object, design = NULL) {
 #' @param design Optional named list with \code{sample}, \code{batch},
 #'   \code{condition} and \code{subject} column names.
 #' @return A read-only readiness and clarification summary.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' readiness <- check_integration_readiness(sce)
+#' readiness$status
+#' readiness$questions
 #' @export
 check_integration_readiness <- function(object, design = NULL) {
     if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)
@@ -963,6 +1016,11 @@ check_integration_readiness <- function(object, design = NULL) {
 #' @param reduction Optional preferred reduction name. Defaults to UMAP when
 #'   available, then any usable embedding.
 #' @return A read-only readiness summary.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' readiness <- check_velocity_readiness(sce)
+#' readiness$status
+#' readiness$questions
 #' @export
 check_velocity_readiness <- function(object, reduction = NULL) {
     if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)

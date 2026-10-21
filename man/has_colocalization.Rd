@@ -15,3 +15,9 @@ logical
 \description{
 Check whether colocalization results are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "colocalization", type = "spatial", method = "SVP")
+S4Vectors::metadata(sce)$sclet <- list(analyses = list(colocalization = record))
+has_colocalization(sce)
+}

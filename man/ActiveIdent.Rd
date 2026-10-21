@@ -20,3 +20,10 @@ current active identity source or updated object
 \description{
 get or set the active identity field
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+ActiveIdent(sce)
+ActiveIdent(sce) <- "Cell_Cycle"
+ActiveIdent(sce)
+}

@@ -43,3 +43,10 @@ A SingleCellExperiment object with CellRank states and transition probabilities 
 This function runs CellRank via \code{basilisk} to infer complex cellular trajectories
 and terminal states based on RNA velocity results.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs a velocity result and the reticulate package with a CellRank Python environment
+sce <- RunCellRank(sce, reduction = "PCA", cluster_key = "Treatment")
+}
+}

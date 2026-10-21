@@ -24,3 +24,9 @@ which analysis is \dQuote{right}: deconvolution, colocalization and niche
 detection are different algorithms answering different questions, so their
 outputs are not competing answers to one question.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+comparison <- compare_spatial_analyses(sce)
+comparison$status
+comparison$reason
+}

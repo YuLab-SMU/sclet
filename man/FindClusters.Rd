@@ -22,3 +22,10 @@ updated SingleCellExperiment object with clustering memberships
 \description{
 identify clusters
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+sce <- FindNeighbors(sce, dims = 1:5)
+sce <- FindClusters(sce, resolution = 1)
+table(Idents(sce))
+}

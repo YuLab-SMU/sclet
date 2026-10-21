@@ -70,6 +70,9 @@
 #'
 #' @seealso [CallPhenotypeCells()], [RunCNVInference()]
 #' @export
+#' @examples
+#' PhenotypeEvidenceProviders("list")
+#' PhenotypeEvidenceProviders("get", name = "cnv")$label
 PhenotypeEvidenceProviders <- function(action = c("list", "get", "register", "unregister"),
                                        name = NULL,
                                        provider = NULL,
@@ -135,6 +138,15 @@ PhenotypeEvidenceProviders <- function(action = c("list", "get", "register", "un
 #'
 #' @return `TRUE` invisibly, or an error naming the defects.
 #' @export
+#' @examples
+#' provider <- list(
+#'     name = "my_line",
+#'     label = "An independent measurement",
+#'     dependence = "independent",
+#'     available = function(object, ...) list(available = TRUE, issues = character()),
+#'     decide = function(object, ...) list(state = rep("positive", ncol(object)))
+#' )
+#' check_phenotype_provider(provider)
 check_phenotype_provider <- function(provider) {
     problems <- character(0)
     if (!is.list(provider)) {
@@ -240,6 +252,11 @@ check_phenotype_provider <- function(provider) {
 #'
 #' @seealso [PhenotypeEvidenceProviders()], [CallMalignantCells()]
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- CallPhenotypeCells(sce, signature = rownames(sce)[1:10])
+#' table(SummarizedExperiment::colData(sce)$phenotype_call_call)
 CallPhenotypeCells <- function(object,
                                signature = NULL,
                                signature_score = NULL,

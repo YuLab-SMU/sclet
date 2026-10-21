@@ -20,3 +20,13 @@ Convert to SingleCellExperiment object
 \details{
 Convert a Seurat object to a SingleCellExperiment object.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+SingleCellExperiment::altExps(sce) <- list()
+\dontrun{
+# needs the 'Seurat' Suggests package
+seurat_obj <- as.Seurat(sce)
+dim(as.SCE(seurat_obj))
+}
+}

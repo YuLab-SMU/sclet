@@ -10,6 +10,11 @@
 #' @importFrom ggplot2 ylab
 #' @importFrom ggplot2 theme_classic
 #' @importFrom rlang .data
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' p <- ElbowPlot(sce)
+#' nrow(p$data)
 ElbowPlot <- function(object) {
     pca_results <- reducedDim(object, "PCA")
 
@@ -29,6 +34,12 @@ ElbowPlot <- function(object) {
 #' @param value reduction name
 #' @return current default reduction or updated object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' DefaultReduction(sce)
+#' DefaultReduction(sce) <- "PCA"
+#' DefaultReduction(sce)
 DefaultReduction <- function(object) {
     state <- S4Vectors::metadata(object)$sclet
     reduction <- state$active$reduction
@@ -63,6 +74,12 @@ DefaultReduction <- function(object) {
 #' @param value assay name
 #' @return current default assay or updated object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' DefaultAssay(sce)
+#' DefaultAssay(sce) <- "counts"
+#' DefaultAssay(sce)
 DefaultAssay <- function(object) {
     state <- S4Vectors::metadata(object)$sclet
     assay <- state$active$assay
@@ -97,6 +114,11 @@ DefaultAssay <- function(object) {
 #' @param value graph name
 #' @return current default graph or updated object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' sce <- FindNeighbors(sce, dims = 1:5)
+#' DefaultGraph(sce)
 DefaultGraph <- function(object) {
     state <- S4Vectors::metadata(object)$sclet
     graph <- state$active$graph
@@ -131,6 +153,12 @@ DefaultGraph <- function(object) {
 #' @param value identity source, e.g. `colLabels` or a `colData` column name
 #' @return current active identity source or updated object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' ActiveIdent(sce)
+#' ActiveIdent(sce) <- "Cell_Cycle"
+#' ActiveIdent(sce)
 ActiveIdent <- function(object) {
     state <- S4Vectors::metadata(object)$sclet
     ident <- state$active$ident
@@ -160,6 +188,11 @@ ActiveIdent <- function(object) {
 #' @param details logical, whether to include raw `params` and `outputs` list columns
 #' @return a data.frame summarizing recorded commands
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' log <- CommandLog(sce)
+#' log$command
 CommandLog <- function(object, details = FALSE) {
     commands <- sclet_get_commands(object)
     if (length(commands) == 0) {
@@ -221,6 +254,10 @@ CommandLog <- function(object, details = FALSE) {
 #' @return an updated SingleCellExperiment object with PCA dimension reduction 
 #' @export
 #' @importFrom scater runPCA
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' ncol(SingleCellExperiment::reducedDim(sce, "PCA"))
 RunPCA <- function(object, subset_row = NULL, exprs_values = NULL, layer = NULL, ncomponents = 50, ...) {
     prev_state <- sclet_get_state(object)
     source <- sclet_resolve_expression_source(
@@ -299,6 +336,11 @@ RunPCA <- function(object, subset_row = NULL, exprs_values = NULL, layer = NULL,
 #' @return updated SingleCellExperiment object with UMAP dimension reduction
 #' @export
 #' @importFrom scater runUMAP
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' sce <- RunUMAP(sce)
+#' ncol(SingleCellExperiment::reducedDim(sce, "UMAP"))
 RunUMAP <- function(object, dims = NULL, reduction = NULL, layer = NULL, seed = 1L) {
     prev_state <- sclet_get_state(object)
     available_reductions <- SingleCellExperiment::reducedDimNames(object)
@@ -399,6 +441,14 @@ RunUMAP <- function(object, dims = NULL, reduction = NULL, layer = NULL, seed = 
 #' @export
 #' @importFrom SingleCellExperiment reducedDim<- reducedDim
 #' @importFrom SingleCellExperiment reducedDimNames
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' \dontrun{
+#' # needs the 'destiny' Suggests package
+#' sce <- RunDiffusionMap(sce, n_components = 5)
+#' SingleCellExperiment::reducedDimNames(sce)
+#' }
 RunDiffusionMap <- function(sce, n_components = 50, reduction = NULL, ...) {
     if (!requireNamespace("destiny", quietly = TRUE)) {
         stop("Please install 'destiny' via BiocManager::install('destiny')")

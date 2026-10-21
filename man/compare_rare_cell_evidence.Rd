@@ -23,3 +23,11 @@ rare-cell runs. Populations are matched by their recorded label within the
 same object; the result never claims cell-level overlap or biological truth.
 The returned run and population identifiers are anonymized deterministic codes.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+# Fewer than two completed rare-cell runs: the comparison reports a
+# typed result instead of inventing one.
+comparison <- compare_rare_cell_evidence(sce)
+comparison$status
+comparison$reason
+}

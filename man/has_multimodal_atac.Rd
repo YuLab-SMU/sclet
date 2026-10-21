@@ -15,3 +15,7 @@ logical. TRUE if \code{altExp(sce, "ATAC")} exists.
 \description{
 Check whether an ATAC modality is present
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+has_multimodal_atac(sce)
+}

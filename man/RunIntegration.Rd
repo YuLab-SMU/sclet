@@ -48,3 +48,14 @@ Run Integration
 \details{
 Unified entry point for batch correction and integration methods.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- RunPCA(sce, ncomponents = 5)
+colData(sce)$batch <- rep(c("b1", "b2"), length.out = ncol(sce))
+\dontrun{
+# needs the 'harmony' Suggests package (scVI also needs a Python environment)
+sce <- RunIntegration(sce, method = "Harmony", batch = "batch")
+SingleCellExperiment::reducedDimNames(sce)
+}
+}

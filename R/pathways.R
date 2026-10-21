@@ -11,6 +11,17 @@
 #'
 #' @return A data frame of significant marker pathways.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'UCell' and 'presto' Suggests packages
+#' gs <- list(Program1 = c("Gene_0001", "Gene_0002", "Gene_0003"))
+#' sce <- RunGeneSetScoring(sce, gene_sets = gs, method = "UCell",
+#'     name = "PathwayScores", as_altExp = TRUE)
+#' res <- FindMarkerPathways(sce)
+#' head(res)
+#' }
 FindMarkerPathways <- function(sce, altExp_name = "PathwayScores", group.by = NULL, assay = "scores", ...) {
     if (!requireNamespace("SingleCellExperiment", quietly = TRUE)) {
         stop("SingleCellExperiment is required.")
@@ -63,6 +74,13 @@ FindMarkerPathways <- function(sce, altExp_name = "PathwayScores", group.by = NU
 #'
 #' @return A list containing the updated `SingleCellExperiment` and the marker `data.frame` (if find_markers=TRUE).
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the 'clusterProfiler' Suggests package and network access to KEGG
+#' res <- RunKEGG(sce, species = "hsa")
+#' names(res)
+#' }
 RunKEGG <- function(sce, species = "hsa", method = "UCell", find_markers = TRUE, group.by = NULL, name = "KEGG", ...) {
     if (!requireNamespace("clusterProfiler", quietly = TRUE)) {
         stop("Please install 'clusterProfiler' to download KEGG pathways.")

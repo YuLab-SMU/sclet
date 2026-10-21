@@ -52,3 +52,16 @@ This wrapper keeps "reference mapping" as the stable user-facing concept,
 while routing to a concrete backend such as \code{SingleR} or the lightweight
 KNN mapper.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- FindVariableFeatures(sce, method = "scran", nfeatures = 20)
+\dontrun{
+# needs a reference dataset and the 'BiocNeighbors' Suggests package
+ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+ref <- NormalizeData(ref)
+colData(ref)$label.main <- rep(c("A", "B"), length.out = ncol(ref))
+sce <- RunReferenceMapping(sce, ref, labels = "label.main", method = "KNN")
+colnames(colData(sce))
+}
+}

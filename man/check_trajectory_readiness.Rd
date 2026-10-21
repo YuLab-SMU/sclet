@@ -22,3 +22,9 @@ cluster represents the origin of a trajectory is a biological assumption that
 only the user can make, so the result contains no recommendation, no
 candidate root, and no ordering of clusters.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+readiness <- check_trajectory_readiness(sce)
+readiness$status
+readiness$questions
+}

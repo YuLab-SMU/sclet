@@ -15,3 +15,9 @@ logical
 \description{
 Check whether batch correction results are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "batchcorrect", type = "batch", method = "BatchRemover")
+S4Vectors::metadata(sce)$sclet <- list(analyses = list(batch = record))
+has_batch(sce)
+}

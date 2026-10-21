@@ -12,6 +12,12 @@
 #' @param ... Arguments passed to the specific backend (e.g., `RunCellChat`).
 #' @return A SingleCellExperiment object with CCI results stored in the metadata.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the CellChat package
+#' sce <- RunCCI(sce, method = "CellChat")
+#' }
 RunCCI <- function(object, method = c("CellChat", "CellPhoneDB", "NicheNet"), keep_object = FALSE, ...) {
     method <- match.arg(method)
     if (method == "CellChat") {
@@ -55,6 +61,12 @@ RunCCI <- function(object, method = c("CellChat", "CellPhoneDB", "NicheNet"), ke
 #' @importFrom SummarizedExperiment assay
 #' @importFrom SummarizedExperiment assayNames
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the CellChat package
+#' sce <- RunCellChat(sce, group = "Treatment", min.cells = 5)
+#' }
 RunCellChat <- function(sce, group = NULL,
                         assay_name = NULL,
                         layer = NULL,
@@ -241,6 +253,12 @@ RunCellChat <- function(sce, group = NULL,
 #' @importFrom SummarizedExperiment assayNames
 #' @importFrom basilisk basiliskStart basiliskRun basiliskStop
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the reticulate package and the CellPhoneDB Python environment
+#' sce <- RunCellPhoneDB(sce, group = "Treatment", iterations = 100)
+#' }
 RunCellPhoneDB <- function(sce, group = NULL,
                            assay_name = NULL,
                            layer = NULL,
@@ -515,6 +533,19 @@ else:
 #' @importFrom SummarizedExperiment assayNames
 #' @importFrom utils head
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the nichenetr package and the pre-built NicheNet model matrices
+#' # (download them from the NicheNet repo, see the nichenetr vignette)
+#' ligand_target_matrix <- readRDS("ligand_target_matrix.rds")
+#' lr_network <- readRDS("lr_network.rds")
+#' weighted_networks <- readRDS("weighted_networks.rds")
+#' sce <- RunNicheNet(sce, receiver = "treat1", sender = "treat2",
+#'                    ligand_target_matrix = ligand_target_matrix,
+#'                    lr_network = lr_network,
+#'                    weighted_networks = weighted_networks)
+#' }
 RunNicheNet <- function(sce, group = NULL,
                         receiver,
                         sender = "all",

@@ -46,3 +46,10 @@ This visualization summarizes label transfer results as a heatmap whose rows
 are query groups (for example clusters) and whose columns are predicted
 reference labels.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+colData(sce)$SingleR_labels <- rep(c("T_cell", "B_cell"), length.out = ncol(sce))
+colData(sce)$cluster <- rep(c("c1", "c2"), length.out = ncol(sce))
+p <- plot_reference_label_transfer_heatmap(sce, group.by = "cluster")
+nrow(p$data)
+}

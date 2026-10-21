@@ -40,3 +40,14 @@ Updated SingleCellExperiment with Symphony mapping in colData.
 Symphony builds a harmonized reference atlas and then maps query cells
 into the same space, predicting cell type labels via k-NN.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the 'symphony' package, which is not declared in DESCRIPTION
+ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+ref <- NormalizeData(ref)
+colData(ref)$label.main <- rep(c("A", "B"), length.out = ncol(ref))
+sce <- RunSymphonyMapping(sce, ref, labels = "label.main")
+colnames(colData(sce))
+}
+}

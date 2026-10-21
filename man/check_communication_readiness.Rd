@@ -25,3 +25,9 @@ model and the sender/receiver framing, and it belongs to the user. When more
 than one engine is possible and none was named, the questions say the user
 must choose and report only the count of available engines.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+readiness <- check_communication_readiness(sce)
+readiness$status
+readiness$questions
+}

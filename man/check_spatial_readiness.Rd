@@ -26,3 +26,9 @@ colocalization and niche detection answer different questions, and which of
 them a dataset needs is an analysis decision only the user can make. The
 result therefore contains counts, availability flags and analysis keys only.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+readiness <- check_spatial_readiness(sce)
+readiness$status
+readiness$questions
+}

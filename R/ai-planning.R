@@ -552,6 +552,26 @@ sclet_ai_extract_dotted_field <- function(obj, field) {
 #' `GetAnalysisLedger(object)$fingerprint` for the object the plan will run
 #' against, or validation refuses it as stale.
 #'
+#' @examples
+#' \dontrun{
+#' sce <- your_SingleCellExperiment()
+#' plan <- new_sclet_ai_plan(
+#'     task = "pbmc_markers",
+#'     context_fingerprint = GetAnalysisLedger(sce)$fingerprint,
+#'     actions = list(
+#'         list(id = "s1", action = "normalize_data"),
+#'         list(id = "s2", action = "find_variable_features",
+#'              params = list(nfeatures = 2000), depends_on = "s1"),
+#'         list(id = "s3", action = "run_de_test",
+#'              params = list(name = "markers"), depends_on = "s2")
+#'     )
+#' )
+#' v <- ValidateAIPlan(plan, object = sce,
+#'     registry = AIDefaultExecutionRegistry(sce, include = "all"))
+#' executed <- RunAIPlan(sce, plan,
+#'     AIDefaultExecutionRegistry(sce, include = "all"),
+#'     dry_run = FALSE, confirm = TRUE)
+#' }
 #' @export
 new_sclet_ai_plan <- function(
     task = "analysis_plan",
@@ -618,6 +638,23 @@ new_sclet_ai_plan <- function(
 #'   `list(status = "unavailable", reason = ...)` when no object was supplied,
 #'   when the object is not a `SingleCellExperiment`, or when the ceiling
 #'   cannot be evaluated.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' registry <- AIDefaultExecutionRegistry(sce, include = "all")
+#' plan <- list(
+#'     plan_id = "plan_demo",
+#'     task = "demo",
+#'     actions = list(list(id = "s1", action = "normalize_data"))
+#' )
+#' validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+#' validation$valid
+#' # The `action` field must be an exact registry key.
+#' bad <- list(
+#'     plan_id = "plan_bad",
+#'     task = "demo",
+#'     actions = list(list(id = "s1", action = "no_such_action"))
+#' )
+#' ValidateAIPlan(bad, object = sce, registry = registry)$valid
 #' @export
 ValidateAIPlan <- function(
     plan,
@@ -1827,6 +1864,13 @@ sclet_ai_plan_once <- function(
 #'   feedback, since the returned plan's own errors are usually empty once
 #'   repair succeeds. This function itself
 #'   never executes proposed actions.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a provider API key
+#' plan <- AIPlanAnalysis(sce, goal = "cluster the cells and find markers")
+#' plan$validation$valid
+#' }
 #' @export
 AIPlanAnalysis <- function(
     object,

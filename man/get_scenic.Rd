@@ -19,3 +19,11 @@ the full scenic analysis record, a selected element, or \code{NULL}
 \description{
 Access pySCENIC analysis results
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "run1", type = "scenic", method = "pySCENIC")
+state <- list(states = list(active = list(scenic = "run1"),
+    records = list(scenic = list(run1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+get_scenic(sce)$method
+}

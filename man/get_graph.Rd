@@ -19,3 +19,9 @@ the full graph record, a selected element, or \code{NULL}
 \description{
 Access graph registry entries
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+sce <- FindNeighbors(sce, dims = 1:5)
+get_graph(sce)$name
+}

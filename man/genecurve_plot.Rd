@@ -68,3 +68,12 @@ This function visualizes the expression of specified genes across pseudotime usi
 smoothed line plots or GAM (Generalized Additive Models) predictions. It generates a
 ggplot showing the expression of selected genes along pseudotime for different cell fates.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the reshape2 package
+SummarizedExperiment::colData(sce)$slingPseudotime <- data.frame(
+    Lineage1 = seq_len(20), row.names = colnames(sce))
+p <- genecurve_plot(sce, features = rownames(sce)[1:3])
+}
+}

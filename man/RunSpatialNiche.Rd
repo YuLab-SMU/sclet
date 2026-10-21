@@ -39,3 +39,10 @@ SVP's Local Indicators of Spatial Association (LISA). For each feature,
 High-Low, Low-High, or not significant, identifying regions where a
 cell state is spatially enriched above random expectation.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the SVP package
+sce <- RunSpatialNiche(sce, features = c("c2l_A", "c2l_B"))
+}
+}

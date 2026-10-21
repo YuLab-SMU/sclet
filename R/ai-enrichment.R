@@ -39,6 +39,13 @@
 #' @param detest_id Optional detest record id. When supplied, that exact
 #'   record must exist.
 #' @return A read-only readiness summary.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the clusterProfiler Suggests package
+#' readiness <- check_enrichment_readiness(sce)
+#' readiness$status
+#' }
 #' @export
 check_enrichment_readiness <- function(object, detest_id = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -344,6 +351,12 @@ sclet_ai_record_enrichment_evidence <- function(object, name, detest_id = NULL) 
 #' @param object A \code{SingleCellExperiment} object.
 #' @param name Optional enrichment record id. When NULL, the active record.
 #' @return A read-only summary list.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' # No enrichment run is on record, so nothing is reported.
+#' summary <- summarize_enrichment_evidence(sce)
+#' summary$status
+#' summary$reason
 #' @export
 summarize_enrichment_evidence <- function(object, name = NULL) {
     unavailable <- function(reason) {

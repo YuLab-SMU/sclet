@@ -1,0 +1,301 @@
+diff --git a/man/CallMalignantCells.Rd b/man/CallMalignantCells.Rd
+index 38ad221..dd68576 100644
+--- a/man/CallMalignantCells.Rd
++++ b/man/CallMalignantCells.Rd
+@@ -22,34 +22,28 @@ CallMalignantCells(
+ \item{object}{A \code{SingleCellExperiment} object.}
+ 
+ \item{cnv_id}{Analysis record id of a completed \code{\link[=RunCNVInference]{RunCNVInference()}} run
+-(default \code{"cnv"}). When the run reported \code{status = "unavailable"}, the call
+-degrades to expression-only and every cell that cannot be decided becomes
+-\code{"undetermined"} rather than being called malignant on one line of evidence.}
++(default \code{"cnv"}).}
+ 
+ \item{signature}{A \code{c(malignant = ...)} list or the output of
+ \code{\link[=FindMalignantSeedGenes]{FindMalignantSeedGenes()}} whose \code{tumor_genes} is used.}
+ 
+-\item{signature_score}{Optional \code{colData} column already holding a malignant
++\item{signature_score}{Optional \code{colData} column holding a malignant
+ signature score. When supplied, \code{signature} is not scored again.}
+ 
+ \item{transcriptomic_cut}{Optional numeric. Cells scoring at or above it are
+ "signature positive". \code{NULL} uses the score's median.}
+ 
+-\item{cnv_cut}{Optional numeric cutoff on CNV burden. \code{NULL} puts the cutoff
+-at the reference cells' upper quantile plus three robust standard
+-deviations, computed from \code{reference_quantile}.}
++\item{cnv_cut}{Optional numeric cutoff on CNV burden. \code{NULL} derives it from
++the reference cells (see \code{\link[=sclet_cnv_reference_cut]{sclet_cnv_reference_cut()}}).}
+ 
+ \item{reference_quantile}{Numeric in (0, 1). Reference cells' quantile used as
+ the CNV baseline. Defaults to 0.99.}
+ 
+ \item{identity_genes}{Optional character vector naming a competing identity
+-programme (for a gastric tumour, the intestinal-metaplasia profile). When
+-supplied, the malignant side's mean identity score is compared to the
+-non-malignant side's and the call is demoted if the programme tracks the
+-malignant side.}
++programme (for a gastric tumour, the intestinal-metaplasia profile). It is
++passed to \code{\link[=CallPhenotypeCells]{CallPhenotypeCells()}} as a competing hypothesis.}
+ 
+-\item{identity_demote}{Numeric. Mean difference on \code{identity_genes} above
+-which a cell found malignant is demoted to \code{"undetermined"}.}
++\item{identity_demote}{Numeric. Separation above which a call is demoted.}
+ 
+ \item{assay}{Assay for scoring. Defaults to \code{"logcounts"}.}
+ 
+@@ -57,39 +51,32 @@ which a cell found malignant is demoted to \code{"undetermined"}.}
+ }
+ \value{
+ \code{object} with \code{colData} columns \verb{<name>_state}, \verb{<name>_evidence},
+-\verb{<name>_signature_score} and \verb{<name>_identity_score}, and a state record of
+-type \code{annotation} under \code{name}. \verb{<name>_state} is a factor with levels
+-\code{malignant}, \code{likely_malignant}, \code{undetermined} and \code{non_malignant}.
+-}
+-\description{
+-Combines a copy-number measurement (see \code{\link[=RunCNVInference]{RunCNVInference()}}) with a
+-transcriptional signature score and reports, for every cell, a four-state
+-malignancy call with its supporting evidence.
+-}
+-\section{The four states}{
++\verb{<name>_signature_score}, \verb{<name>_identity_score} (when \code{identity_genes} is
++supplied), \verb{<name>_cnv_state}, plus the generic columns written by
++\code{\link[=CallPhenotypeCells]{CallPhenotypeCells()}}. The state vocabulary is the four malignant states,
++mapped from the generic call:
+ 
+ \describe{
+-\item{\code{malignant}}{CNV-positive and signature-positive. Two independent
+-lines agree.}
+-\item{\code{likely_malignant}}{Exactly one line is positive, usually because the
+-other could not be measured. Reported separately so that a one-line call is
+-never read as a two-line one.}
+-\item{\code{undetermined}}{Evidence conflicts (CNV-positive but
+-signature-negative, or the reverse), the CNV layer did not run, or a
++\item{\code{malignant}}{\code{supported}: CNV and signature both positive.}
++\item{\code{likely_malignant}}{\code{probable}: exactly one line positive.}
++\item{\code{undetermined}}{\code{undetermined}: conflict, CNV unavailable, or a
+ competing identity programme explains the split.}
+-\item{\code{non_malignant}}{CNV-negative and signature-negative.}
++\item{\code{non_malignant}}{\code{refuted} or both lines negative.}
+ }
+ }
+-
++\description{
++The malignant-cell special case of \code{\link[=CallPhenotypeCells]{CallPhenotypeCells()}}: a two-line call
++where the copy-number line (see \code{\link[=RunCNVInference]{RunCNVInference()}}) is treated as independent
++of the transcriptional signature, because genomic instability is not a
++transcriptional identity programme.
++}
+ \section{What this does not establish}{
+ 
+ No per-cell ground truth exists for malignant identity, so this is a
+ classification from two observations, not a verification. \code{cnv_cut} and
+-\code{transcriptomic_cut} are analysis parameters, not discovered thresholds, and
+-moving them moves the answer. Report the state distribution and the
+-disagreement cells alongside any conclusion.
++\code{transcriptomic_cut} are analysis parameters, not discovered thresholds.
+ }
+ 
+ \seealso{
+-\code{\link[=RunCNVInference]{RunCNVInference()}}, \code{\link[=check_cnv_readiness]{check_cnv_readiness()}}, \code{\link[=FindMalignantSeedGenes]{FindMalignantSeedGenes()}}
++\code{\link[=CallPhenotypeCells]{CallPhenotypeCells()}}, \code{\link[=RunCNVInference]{RunCNVInference()}}, \code{\link[=check_cnv_readiness]{check_cnv_readiness()}}
+ }
+diff --git a/man/CallPhenotypeCells.Rd b/man/CallPhenotypeCells.Rd
+index 6cff239..c51f015 100644
+--- a/man/CallPhenotypeCells.Rd
++++ b/man/CallPhenotypeCells.Rd
+@@ -33,18 +33,15 @@ silently dropped.}
+ \item{transcriptomic_cut}{Optional numeric cutoff on the signature score.
+ \code{NULL} uses the median. The choice is recorded in the result either way.}
+ 
+-\item{competing}{Optional named list of competing signatures (\code{list(
+-hypothesis_name = genes, ...)}). For each, the call reports how well the
+-signature separates the evidence-positive cells from the rest, which is the
+-question "is this the axis we think it is?". The groups are defined by the
+-EVIDENCE (at least one line positive vs none), never by the resulting call:
+-comparing against the call would make the test circular, since the signature
+-selects the cells it is then asked to explain.}
++\item{competing}{Optional named list of competing signatures (\code{list( hypothesis_name = genes, ...)}). For each, the call reports how well the
++signature separates the evidence-positive cells from the rest. The groups
++come from the EVIDENCE (at least one line positive vs none), never from the
++resulting call: comparing against the call would be circular, because the
++signature selects the cells it is then asked to explain.".}
+ 
+ \item{competing_demote}{Numeric. Separation on the competing signature above
+-which affirmative calls (\code{supported}, \code{probable}) are demoted to
+-\code{undetermined}. A \code{refuted} call is never demoted: it was never
+-evidence-positive, so the axis question does not apply to it.}
++which affirmative calls are demoted to \code{undetermined}. A \code{refuted} call is
++never demoted: it was never evidence-positive.}
+ 
+ \item{assay}{Assay for scoring. Defaults to \code{"logcounts"}.}
+ 
+@@ -76,8 +73,10 @@ usable, or a competing signature explains the split.}
+ }
+ 
+ The asymmetry between a missing line and a negative one is deliberate. A low
+-signature score means \emph{this line did not fire}, not \emph{the phenotype is
+-absent}; only a provider that positively reports \code{negative} counts as a no.
++signature score means \emph{this line did not fire}, not \emph{the phenotype is absent};
++only a provider that positively reports \code{negative} counts as a no. That is why
++a signature-negative cell with one positive provider is \code{probable} rather than
++\code{undetermined}, and why \code{refuted} requires an explicit negative.
+ 
+ \verb{_claim} reuses the package's claim ladder (\code{observed}, \code{measured},
+ \code{associated}, \code{consistent_with}) rather than inventing a second vocabulary for
+diff --git a/man/FindClusters.Rd b/man/FindClusters.Rd
+index 595400e..8a83fc9 100644
+--- a/man/FindClusters.Rd
++++ b/man/FindClusters.Rd
+@@ -11,11 +11,10 @@ FindClusters(object, resolution = 0.5, seed = 1L)
+ 
+ \item{resolution}{resolution in clustering}
+ 
+-\item{seed}{integer seed for the Louvain clustering.
+-\code{igraph::cluster_louvain()} consumes random numbers, so the same graph
+-and resolution otherwise return different labels on each call; the seed is
+-recorded with the clustering state so a plan's clusters can actually be
+-reproduced.}
++\item{seed}{integer seed for the Louvain clustering. \code{igraph::cluster_louvain()}
++consumes random numbers, so the same graph and resolution otherwise return
++different labels on each call; the seed is recorded with the clustering
++state so a plan's clusters can actually be reproduced.}
+ }
+ \value{
+ updated SingleCellExperiment object with clustering memberships
+diff --git a/man/FindMalignantSeedGenes.Rd b/man/FindMalignantSeedGenes.Rd
+index 9a17ea0..6b17d9a 100644
+--- a/man/FindMalignantSeedGenes.Rd
++++ b/man/FindMalignantSeedGenes.Rd
+@@ -56,19 +56,19 @@ what the reference analysis was paired on.}
+ 
+ \item{min_samples}{Integer. Fewest samples per side required to run.}
+ 
+-\item{n_ctrl}{\code{AddModuleScore} control pool size, stored with the signature
+-so that scoring reproduces the reference's control-binned offsets.}
+-
+-\item{n_bins}{\code{AddModuleScore} expression bins, stored with the signature.}
+-
+-\item{sample_col}{Name of the \code{sample_info} column holding the sample ids
+-that appear in \code{colnames(expr)}. Defaults to \code{"sample"}.}
++\item{sample_col}{Name of the \code{sample_info} column holding the sample ids that
++appear in \code{colnames(expr)}. Defaults to \code{"sample"}.}
+ 
+ \item{case_values}{Character vector naming the tumour levels of \code{condition}.
+ Defaults to \code{"Tumor"}/\code{"Tumour"}/\code{"Cancer"}.}
+ 
+ \item{control_values}{Character vector naming the normal levels of
+ \code{condition}. Defaults to \code{"Normal"}/\code{"Control"}/\code{"Adjacent"}.}
++
++\item{n_ctrl}{\code{AddModuleScore} control pool size, stored with the signature
++so that scoring reproduces the reference's control-binned offsets.}
++
++\item{n_bins}{\code{AddModuleScore} expression bins, stored with the signature.}
+ }
+ \value{
+ A list with \code{tumor_genes}, \code{normal_genes} (character vectors of the
+diff --git a/man/GetAnalysisLedger.Rd b/man/GetAnalysisLedger.Rd
+index 746e8da..8cee5a4 100644
+--- a/man/GetAnalysisLedger.Rd
++++ b/man/GetAnalysisLedger.Rd
+@@ -22,7 +22,10 @@ GetAnalysisLedger(
+ \code{"perturbation"}, or \code{"report"}.}
+ 
+ \item{include_artifacts}{Logical. Include bounded artifact references in
+-analysis records. Defaults to \code{FALSE}.}
++analysis records. Defaults to \code{FALSE}, which also hides the \code{findings} a
++recorded AI result keeps under \code{artifacts} -- read a result back with
++\code{include_artifacts = TRUE}, or its findings come back empty rather than
++absent (a silent-empty trap measured 2026-10-20).}
+ 
+ \item{include_data}{Logical. Include bounded metadata previews and assay
+ dimensions. Complete expression matrices are never included. Defaults to
+diff --git a/man/PhenotypeEvidenceProviders.Rd b/man/PhenotypeEvidenceProviders.Rd
+index ed013d6..6b0aad9 100644
+--- a/man/PhenotypeEvidenceProviders.Rd
++++ b/man/PhenotypeEvidenceProviders.Rd
+@@ -34,11 +34,11 @@ A provider is a list with:
+ \describe{
+ \item{\code{name}}{Unique key.}
+ \item{\code{label}}{Human-readable description used in messages.}
+-\item{\code{available}}{\code{function(object, ...)} returning
++\item{\code{available}}{\verb{function(object, ...)} returning
+ \code{list(available = TRUE/FALSE, issues = character())}. A provider that
+ cannot run must say \code{FALSE} with a reason; it must never report
+ \code{available = TRUE} and then decide \code{negative} for "nothing measured".}
+-\item{\code{decide}}{\code{function(object, ...)} returning
++\item{\code{decide}}{\verb{function(object, ...)} returning
+ \code{list(state = character_vector_of_cells, detail = list(...))} where each
+ state is \code{"positive"}, \code{"negative"} or \code{"unavailable"}.}
+ \item{\code{dependence}}{\code{"independent"} or \code{"shared_with_signature"}. Only
+@@ -49,9 +49,6 @@ several: two wrappers over one measurement are not corroborating
+ observations. Use it whenever you register more than one provider over the
+ same data.}
+ }
+-
+-Registering a name that already exists is refused; unregister it first if you
+-mean to replace it.
+ }
+ 
+ \seealso{
+diff --git a/man/RunCNVInference.Rd b/man/RunCNVInference.Rd
+index 2cbb260..9b51282 100644
+--- a/man/RunCNVInference.Rd
++++ b/man/RunCNVInference.Rd
+@@ -38,10 +38,7 @@ value are reference cells. Mutually exclusive with \code{reference_cells}.}
+ \item{species}{\code{"human"} or \code{"mouse"}; names the TxDb fallback.}
+ 
+ \item{assay}{Assay to use. Defaults to \code{"counts"} because inferCNV models
+-raw counts. A non-count assay (non-integer, or with negative values) is
+-refused rather than truncated, and the refusal happens BEFORE the readiness
+-gate so that a malformed matrix is never masked by an unrelated
+-prerequisite message.}
++raw counts.}
+ 
+ \item{hmm}{Logical. Run inferCNV's HMM post-processing so that per-cell CNV
+ state probabilities are reported. Defaults to \code{TRUE}.}
+diff --git a/man/RunDEtest.Rd b/man/RunDEtest.Rd
+index 5eb3b0e..8ecaeb6 100644
+--- a/man/RunDEtest.Rd
++++ b/man/RunDEtest.Rd
+@@ -24,18 +24,6 @@ RunDEtest(
+ 
+ \item{name}{Analysis record id. Defaults to "detest".}
+ 
+-\item{group}{Optional colData column to contrast instead of the active
+-identity (e.g. "condition"). When given, ident.1/ident.2 are levels of that
+-column.}
+-
+-\item{covariates}{Optional colData columns to adjust the group contrast for.
+-With covariates the test is pseudobulk per covariate combination and
+-limma, design `~ group + covariates` (a paired analysis when the covariate
+-is the donor). Without covariates the existing cell-level FindMarkers is
+-used and donor/batch structure is NOT adjusted; the state records which.}
+-
+-\item{min_cells}{Minimum cells per pseudobulk sample (default 10).}
+-
+ \item{...}{Passed to FindMarkers or FindAllMarkers}
+ }
+ \value{
+diff --git a/man/sclet-package.Rd b/man/sclet-package.Rd
+index 73a1942..4eed915 100644
+--- a/man/sclet-package.Rd
++++ b/man/sclet-package.Rd
+@@ -7,7 +7,16 @@
+ \alias{package-sclet}
+ \title{sclet: A State-Aware Single-Cell and Spatial Transcriptomics Toolkit for SingleCellExperiment}
+ \description{
+-Provides a comprehensive, state-aware toolkit for single-cell and spatial transcriptomics analysis built around the Bioconductor SingleCellExperiment class. It introduces a lightweight analysis-state contract to manage dependencies, active context, and provenance across workflows. Features include end-to-end preprocessing, dimensionality reduction, clustering, multi-backend integration (Harmony, scVI), reference mapping (SingleR, Symphony, KNN), trajectory and RNA velocity inference (Slingshot, scVelo, RegVelo, CellRank), differential expression and enrichment, regulon and gene-set analysis (SCENIC, AUCell, GSVA, UCell), cell-cell communication (CellChat, CellPhoneDB, NicheNet), rare cell detection, perturbation sensitivity (Augur), metacell aggregation (SuperCell), differential abundance (Milo), spatial deconvolution (cell2location), spatial colocalization and niche detection (SVP), in-silico perturbation (CellOracle), phenotype association (scPAS), and enhanced visualization. Python backends run in self-managed, isolated environments whose dependencies are resolved automatically, and are exposed as plain R functions. Interoperability with AnnData and legacy compatibility aliases are supported, but the primary design is centered on SingleCellExperiment-native analysis.
++Provides a comprehensive, state-aware toolkit for single-cell and spatial transcriptomics analysis built around the Bioconductor SingleCellExperiment class. It introduces a lightweight analysis-state contract to manage dependencies, active context, and provenance across workflows. Features include end-to-end preprocessing with doublet and ambient-RNA detection (scDblFinder, DecontX) and zero-preserving imputation (ALRA), dimensionality reduction, clustering, multi-backend integration (fastMNN, Harmony, scVI), reference mapping (SingleR, Symphony, KNN), trajectory and RNA velocity inference (Slingshot, scVelo, RegVelo, CellRank), differential expression and enrichment, regulon and gene-set analysis (SCENIC, AUCell, GSVA, UCell), cell-cell communication (CellChat, CellPhoneDB, NicheNet), copy-number inference for malignant-cell calling (inferCNV), rare cell detection, perturbation sensitivity (Augur), metacell aggregation (SuperCell), differential abundance (Milo), spatial deconvolution (cell2location), spatial colocalization and niche detection (SVP), in-silico perturbation (CellOracle), phenotype association (scPAS), and enhanced visualization. An optional AI layer turns the recorded state into validated, step-wise analysis plans that execute against an evidence ledger, with the confidence a report may claim capped by the evidence that supports it; it requires the optional 'aisdk' package and makes no model call unless one is requested explicitly. Python backends run in self-managed, isolated environments whose dependencies are resolved automatically, and are exposed as plain R functions. Interoperability with AnnData and Seurat-style verb names is supported, but the primary design is centered on SingleCellExperiment-native analysis.
++}
++\seealso{
++Useful links:
++\itemize{
++  \item \url{https://yulab-smu.top/sclet}
++  \item \url{https://github.com/YuLab-SMU/sclet}
++  \item Report bugs at \url{https://github.com/YuLab-SMU/sclet/issues}
++}
++
+ }
+ \author{
+ \strong{Maintainer}: Guangchuang Yu \email{guangchuangyu@gmail.com} (\href{https://orcid.org/0000-0002-6485-8781}{ORCID})

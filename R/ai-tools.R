@@ -92,6 +92,12 @@ sclet_ai_call_tools <- function(tools, name, args = list()) {
 #'   summary stage. Defaults to `TRUE`.
 #' @param ... Additional arguments passed to `sclet_ai_call()`.
 #' @return A structured `sclet_ai_result`.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a provider API key
+#' AIStatus(sce)
+#' }
 #' @export
 AIStatus <- function(object, model = NULL, structured_output = TRUE, ...) {
     context <- sclet_ai_context(object, target = "status", detail = "summary")
@@ -118,6 +124,12 @@ AIStatus <- function(object, model = NULL, structured_output = TRUE, ...) {
 #'   summary stage. Defaults to `TRUE`.
 #' @param ... Additional arguments passed to `sclet_ai_call()`.
 #' @return A structured `sclet_ai_result`.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a provider API key
+#' AIReviewQC(sce)
+#' }
 #' @export
 AIReviewQC <- function(object, model = NULL, structured_output = TRUE, ...) {
     context <- sclet_ai_context(object, target = "qc", detail = "summary")
@@ -185,6 +197,12 @@ sclet_ai_annotate_result_ceiling <- function(object, result) {
 #'   summary stage. Defaults to `TRUE`.
 #' @param ... Additional arguments passed to `sclet_ai_call()`.
 #' @return A structured `sclet_ai_result`.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a provider API key
+#' AIExplainAnalysis(sce)
+#' }
 #' @export
 AIExplainAnalysis <- function(object, type = NULL, id = NULL, model = NULL, structured_output = TRUE, ...) {
     target <- type %||% id
@@ -436,6 +454,12 @@ sclet_ai_attach_ref_coverage <- function(result) {
 #'   `AIDefaultExecutionRegistry(object, include = "all")`.
 #' @param ... Additional arguments passed to `sclet_ai_call()`.
 #' @return A structured `sclet_ai_result` containing recommendations and proposed actions.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a provider API key
+#' AIRecommendNextStep(sce)
+#' }
 #' @export
 AIRecommendNextStep <- function(object, model = NULL, structured_output = TRUE, registry = NULL, ...) {
     if (is.null(registry)) {

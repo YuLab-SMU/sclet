@@ -9,6 +9,11 @@
 #' @param max_sparse_elements Maximum number of sparse assay elements for the
 #'   bounded `nnzero` summary. Larger sparse assays are reported as skipped.
 #' @return A value-free, versioned dataset profile.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' profile <- GetAIProfile(sce)
+#' profile$dataset$n_cells
+#' profile$schema_version
 #' @export
 GetAIProfile <- function(object, max_sparse_elements = 1000000L) {
     if (!inherits(object, "SingleCellExperiment")) {

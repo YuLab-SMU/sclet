@@ -69,3 +69,29 @@ In a non-interactive session without an \code{ask} function the function refuses
 to prompt and returns \code{status = "needs_interactive"} without modifying the
 object or recording anything.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+colData(sce)$batch_id <- rep(c("b1", "b2"), length.out = ncol(sce))
+# A clarification is a plain list: the questions, and where they came from.
+clarification <- list(
+    status = "clarification_required",
+    n_questions = 1L,
+    questions = list(list(
+        id = "design_batch",
+        text = "Which column is the batch?",
+        blocked_action = "run_integration",
+        related_function = "ConfirmAIDesignSemantics",
+        recognized = TRUE,
+        source_error = "design_semantics_not_confirmed"
+    )),
+    raw_errors = "design_semantics_not_confirmed"
+)
+# `ask` is the user. Supplying it makes the interaction scriptable.
+resolved <- ResolveAIClarifications(
+    sce,
+    clarification,
+    ask = function(question) "batch_id"
+)
+resolved$status
+resolved$transcript[[1L]]$outcome
+}

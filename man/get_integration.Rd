@@ -19,3 +19,10 @@ the full integration state record, a selected element, or \code{NULL}
 \description{
 Access integration state records
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "batchcorrect", type = "batch", method = "BatchRemover",
+    artifacts = list(layer = "corrected"))
+S4Vectors::metadata(sce)$sclet <- list(analyses = list(batch = record))
+get_integration(sce)$artifacts$layer
+}

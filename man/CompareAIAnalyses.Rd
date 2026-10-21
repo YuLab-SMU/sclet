@@ -23,3 +23,12 @@ A read-only route comparison or a typed not-available result.
 \description{
 Compare existing integration analysis routes without executing a route
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+# Record one integration route, then compare what is on record.
+routes <- RunIntegrationRoutes(sce, design = list(batch = "Treatment"),
+    routes = "raw", confirm = "always")
+comparison <- CompareAIAnalyses(routes$object)
+comparison$status
+comparison$baseline
+}

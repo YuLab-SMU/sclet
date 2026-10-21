@@ -17,3 +17,13 @@ Logical indicating if the detest state exists
 \description{
 Check if Differential Expression Test Results exist
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+\dontrun{
+# needs the 'presto' Suggests package to record a detest result
+sce <- RunDEtest(sce)
+has_detest(sce)
+}
+}

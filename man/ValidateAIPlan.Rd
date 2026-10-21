@@ -46,3 +46,21 @@ cannot be evaluated.
 \description{
 Validate an AI-generated analysis plan
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+registry <- AIDefaultExecutionRegistry(sce, include = "all")
+plan <- list(
+    plan_id = "plan_demo",
+    task = "demo",
+    actions = list(list(id = "s1", action = "normalize_data"))
+)
+validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+validation$valid
+# The `action` field must be an exact registry key.
+bad <- list(
+    plan_id = "plan_bad",
+    task = "demo",
+    actions = list(list(id = "s1", action = "no_such_action"))
+)
+ValidateAIPlan(bad, object = sce, registry = registry)$valid
+}

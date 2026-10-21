@@ -43,3 +43,14 @@ A ggplot object.
 This function summarizes one or more programs across cell groups and renders
 the result as a heatmap.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+\dontrun{
+# needs the 'UCell', 'AUCell' or 'GSVA' Suggests package
+gs <- list(Program1 = c("Gene_0001", "Gene_0002", "Gene_0003"))
+sce <- RunGeneSetScoring(sce, gene_sets = gs, method = "UCell")
+p <- plot_program_heatmap(sce, programs = "Program1")
+class(p)[1]
+}
+}

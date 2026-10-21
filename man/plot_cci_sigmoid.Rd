@@ -21,3 +21,11 @@ A ggplot object
 \description{
 Plot Cell-Cell Communication Sigmoid Diagram
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the 'ggbump' Suggests package and a recorded communication run
+p <- plot_cci_sigmoid(sce)
+class(p)[1]
+}
+}

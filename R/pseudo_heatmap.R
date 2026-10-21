@@ -24,6 +24,16 @@
 #' @importFrom stats ave
 #' @importFrom methods is
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' \dontrun{
+#' # needs the 'ComplexHeatmap', 'reshape2' and 'viridis' Suggests packages
+#' # and pseudotime in colData(sce), as produced by RunSlingshot()
+#' p <- pseudo_heatmap(sce, features = rownames(sce)[1:5],
+#'     pseudotime.data = "slingPseudotime")
+#' class(p)[1]
+#' }
 pseudo_heatmap <- function(
     sce, 
     features,

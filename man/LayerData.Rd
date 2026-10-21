@@ -17,3 +17,7 @@ assay matrix associated with the selected layer
 \description{
 access layer data
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+dim(LayerData(sce))
+}

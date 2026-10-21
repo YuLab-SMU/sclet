@@ -22,6 +22,13 @@
 #'   stored under `metadata(sce)$sclet$analyses$augur` for backwards
 #'   compatibility.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 100, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$cluster <- rep(c("alpha", "beta"), length.out = 100)
+#' \dontrun{
+#' # needs the Augur package (install it from GitHub) and >= 20 cells per group
+#' sce <- RunPerturbationPriority(sce, condition_col = "Treatment", group_col = "cluster")
+#' }
 RunPerturbationPriority <- function(sce, condition_col, group_col = NULL,
     layer = NULL, assay = NULL, name = "augur", ...) {
     if (!requireNamespace("Augur", quietly = TRUE)) {
@@ -156,6 +163,12 @@ RunPerturbationPriority <- function(sce, condition_col, group_col = NULL,
 #'
 #' @return A ggplot object ranking cell types by perturbation AUC.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "augur", type = "priority", method = "Augur",
+#'     AUC = data.frame(cell_type = c("alpha", "beta"), auc = c(0.7, 0.4)))
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(augur = record))
+#' plot_perturbation_ranking(sce)
 plot_perturbation_ranking <- function(object, n = 20, fill_color = "steelblue") {
     if (!requireNamespace("ggplot2", quietly = TRUE)) {
         stop("Package 'ggplot2' is needed for this function to work. Please install it.")
@@ -222,6 +235,13 @@ plot_perturbation_ranking <- function(object, n = 20, fill_color = "steelblue") 
 #'
 #' @return Updated SingleCellExperiment with `rare_cluster` in colData.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' \dontrun{
+#' # needs the BiocNeighbors package
+#' sce <- RunRareCellDetection(sce, reduction = "PCA", dims = 1:5, k = 10)
+#' }
 RunRareCellDetection <- function(sce, method = c("density"),
     reduction = "PCA", dims = 1:20, k = 20,
     q_threshold = 0.25, rare_threshold = 10, min_cluster_size = 3L,
@@ -467,6 +487,13 @@ RunRareCellDetection <- function(sce, method = c("density"),
 #'
 #' @return Updated `SingleCellExperiment` with state priority workflow record.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 100, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$cluster <- rep(c("alpha", "beta"), length.out = 100)
+#' \dontrun{
+#' # needs the Augur and BiocNeighbors packages and >= 20 cells per group
+#' sce <- RunStatePriorityWorkflow(sce, condition_col = "Treatment", group_col = "cluster")
+#' }
 RunStatePriorityWorkflow <- function(sce, condition_col = NULL,
     group_col = NULL, run_perturbation_priority = TRUE,
     run_rare_cell_detection = FALSE, name = "state_priority", ...) {

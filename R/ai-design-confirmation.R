@@ -17,6 +17,12 @@
 #'   to colData column names, e.g. \code{list(batch = "batch_id")}.
 #' @return The object with the confirmation recorded on its ledger.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' colData(sce)$batch_id <- rep(c("b1", "b2"), length.out = ncol(sce))
+#' sce <- ConfirmAIDesignSemantics(sce, design = list(batch = "batch_id"))
+#' # The confirmation is on the ledger now, so a design-gated action can run.
+#' names(GetAnalysisLedger(sce)$analyses)
 ConfirmAIDesignSemantics <- function(object, design) {
     if (!inherits(object, "SingleCellExperiment")) {
         stop("`object` must be a SingleCellExperiment.")

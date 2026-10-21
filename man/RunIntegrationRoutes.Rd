@@ -38,3 +38,12 @@ Run raw baseline plus one or more integration methods and register each route
 as a state-recorded analysis with bounded metrics. Each non-interactive sessions
 default to dry-run unless confirm is not "ask".
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+# The raw baseline route runs without an integration package; the other
+# routes need one, so ask for a preview with confirm = "never" instead.
+routes <- RunIntegrationRoutes(sce, design = list(batch = "Treatment"),
+    routes = "raw", confirm = "always")
+routes$status
+routes$report$routes_executed
+}

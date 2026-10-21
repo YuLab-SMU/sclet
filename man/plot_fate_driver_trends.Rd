@@ -55,3 +55,17 @@ A ggplot object.
 Plot expression trends of CellRank driver genes against pseudotime or fate
 probability using the \code{plot_module_graphic} naming convention.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(sce)$cellrank_fate_A <- runif(20)
+drivers <- data.frame(gene = rownames(sce)[1:3], lineage = "A",
+                       corr = c(0.9, 0.5, 0.2), stringsAsFactors = FALSE)
+# a CellRank result, as RunCellRank() would record it
+record <- list(id = "cellrank", type = "trajectory", method = "CellRank",
+               lineage_drivers = drivers,
+               artifacts = list(fate_probability_cols = "cellrank_fate_A",
+                                fate_probability_names = "A"))
+S4Vectors::metadata(sce)$sclet$states$records$trajectory$cellrank <- record
+S4Vectors::metadata(sce)$sclet$states$active$trajectory <- "cellrank"
+plot_fate_driver_trends(sce, lineage = "A")
+}

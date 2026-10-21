@@ -27,3 +27,9 @@ recommends an integration method. Because different assay platforms have
 different feature spaces, the counts compare stored dimensions rather than
 biological signal.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+comparison <- compare_multimodal_evidence(sce)
+comparison$status
+comparison$reason
+}

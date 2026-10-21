@@ -177,6 +177,14 @@ sclet_ai_comparison_normalize_missing <- function(metrics, known_names = c("batc
 #' @param ids Optional analysis ids to compare.
 #' @param criterion Comparison criterion.
 #' @return A read-only route comparison or a typed not-available result.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' # Record one integration route, then compare what is on record.
+#' routes <- RunIntegrationRoutes(sce, design = list(batch = "Treatment"),
+#'     routes = "raw", confirm = "always")
+#' comparison <- CompareAIAnalyses(routes$object)
+#' comparison$status
+#' comparison$baseline
 #' @export
 CompareAIAnalyses <- function(
     object,
@@ -316,6 +324,13 @@ sclet_ai_rare_cell_node_is_valid <- function(node, run_ids) {
 #' @return A bounded comparison with `status`, run summaries, recurring
 #'   population summaries, and an explicit limitation note. Fewer than two
 #'   usable runs returns `status = "not_available"`.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' # Fewer than two completed rare-cell runs: the comparison reports a
+#' # typed result instead of inventing one.
+#' comparison <- compare_rare_cell_evidence(sce)
+#' comparison$status
+#' comparison$reason
 #' @export
 compare_rare_cell_evidence <- function(object, ids = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {

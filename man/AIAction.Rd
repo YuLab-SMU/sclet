@@ -54,3 +54,14 @@ An action descriptor.
 \description{
 Define one explicitly registered AI execution action
 }
+\examples{
+# Register a custom action and put it in a registry.
+my_action <- AIAction(
+    name = "count_cells",
+    handler = function(object, params) ncol(object),
+    description = "Count the cells on the object",
+    returns = "value"
+)
+registry <- AIExecutionRegistry(list(my_action))
+names(registry)
+}

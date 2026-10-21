@@ -51,6 +51,10 @@ same data.}
 }
 }
 
+\examples{
+PhenotypeEvidenceProviders("list")
+PhenotypeEvidenceProviders("get", name = "cnv")$label
+}
 \seealso{
 \code{\link[=CallPhenotypeCells]{CallPhenotypeCells()}}, \code{\link[=RunCNVInference]{RunCNVInference()}}
 }

@@ -16,6 +16,13 @@
 #' @importFrom S4Vectors metadata metadata<-
 #' @importFrom SummarizedExperiment colData colData<- assay
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the reticulate package and the CellOracle Python environment
+#' sce <- RunInSilicoPerturbation(sce, target_gene = "Gene_0001",
+#'                                base_grn_path = "base_grn.csv")
+#' }
 RunInSilicoPerturbation <- function(sce, target_gene, perturbation_value = 0.0, base_grn_path, cluster_key = ActiveIdent(sce), reduction = "PCA", ...) {
     if (!requireNamespace("basilisk", quietly = TRUE)) {
         stop("Please install 'basilisk' to run CellOracle.")

@@ -15,3 +15,11 @@ logical
 \description{
 Check whether CellRank results are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "run1", type = "trajectory", method = "CellRank")
+state <- list(states = list(active = list(trajectory = "run1"),
+    records = list(trajectory = list(run1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+has_cellrank(sce)
+}

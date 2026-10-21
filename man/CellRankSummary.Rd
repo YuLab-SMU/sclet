@@ -20,3 +20,17 @@ counts and fate-probability ranges. This is useful for detecting smoke-test
 cases where CellRank returns a single terminal state or near-constant fate
 probabilities.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(sce)$cellrank_terminal_states <- rep(c("A", "B"), each = 10)
+SummarizedExperiment::colData(sce)$cellrank_fate_A <- runif(20)
+# a CellRank result, as RunCellRank() would record it
+record <- list(id = "cellrank", type = "trajectory", method = "CellRank",
+               inputs = list(reduction = "PCA"),
+               artifacts = list(terminal_state_col = "cellrank_terminal_states",
+                                fate_probability_cols = "cellrank_fate_A",
+                                fate_probability_names = "A"))
+S4Vectors::metadata(sce)$sclet$states$records$trajectory$cellrank <- record
+S4Vectors::metadata(sce)$sclet$states$active$trajectory <- "cellrank"
+CellRankSummary(sce)$summary
+}

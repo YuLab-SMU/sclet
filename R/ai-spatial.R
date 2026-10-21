@@ -175,6 +175,11 @@ sclet_ai_spatial_caveats <- function() {
 #'   reported.
 #' @return A read-only readiness summary list with \code{status},
 #'   \code{checks}, \code{blocked_actions}, \code{questions} and \code{notes}.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' readiness <- check_spatial_readiness(sce)
+#' readiness$status
+#' readiness$questions
 #' @export
 check_spatial_readiness <- function(object, analysis = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -273,6 +278,12 @@ check_spatial_readiness <- function(object, analysis = NULL) {
 #'   \code{"not_available"}), \code{reason}, \code{n_analyses},
 #'   \code{analyses} (per-analysis bounded counts keyed by anonymized codes),
 #'   \code{claim_level}, \code{caveats} and \code{raw_values_included = FALSE}.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' # No spatial run is on record, so nothing is reported.
+#' summary <- summarize_spatial_evidence(sce)
+#' summary$status
+#' summary$reason
 #' @export
 summarize_spatial_evidence <- function(object, analysis = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -359,6 +370,11 @@ summarize_spatial_evidence <- function(object, analysis = NULL) {
 #'   \code{analysis_codes} (anonymized \code{analysis_N} codes), per-analysis
 #'   bounded counts keyed by those codes, \code{claim_level}, \code{caveats},
 #'   \code{recommendation = NULL} and \code{raw_values_included = FALSE}.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' comparison <- compare_spatial_analyses(sce)
+#' comparison$status
+#' comparison$reason
 #' @export
 compare_spatial_analyses <- function(object) {
     if (!inherits(object, "SingleCellExperiment")) {

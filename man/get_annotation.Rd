@@ -19,3 +19,8 @@ the full annotation state record, a selected element, or \code{NULL}
 \description{
 Access annotation state records
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(sce)$SingleR_labels <- rep(c("alpha", "beta"), length.out = 20)
+get_annotation(sce)$summary$n_labels
+}

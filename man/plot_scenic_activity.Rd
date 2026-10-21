@@ -37,3 +37,18 @@ A ggplot object.
 \description{
 Plot SCENIC regulon activity on an embedding
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+auc <- SingleCellExperiment::SingleCellExperiment(
+    assays = list(AUC = matrix(runif(2 * 20), nrow = 2,
+                                dimnames = list(c("reg1", "reg2"), colnames(sce)))))
+SingleCellExperiment::altExp(sce, "SCENIC_AUC") <- auc
+SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(rnorm(40), ncol = 2,
+    dimnames = list(colnames(sce), c("PC1", "PC2")))
+# a SCENIC result, as RunSCENIC() would record it
+record <- list(id = "scenic", type = "scenic", method = "pySCENIC",
+               artifacts = list(altExp = "SCENIC_AUC"))
+S4Vectors::metadata(sce)$sclet$states$records$scenic$scenic <- record
+S4Vectors::metadata(sce)$sclet$states$active$scenic <- "scenic"
+plot_scenic_activity(sce, regulon = "reg1")
+}

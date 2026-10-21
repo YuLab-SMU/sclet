@@ -45,3 +45,10 @@ Thin frontend for cell fate inference. Currently, \code{CellRank} is the only
 supported backend and is used to estimate terminal states and fate
 probabilities from RNA velocity results.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs a velocity result and the reticulate package with a CellRank Python environment
+sce <- RunCellFate(sce, reduction = "PCA", cluster_key = "Treatment")
+}
+}

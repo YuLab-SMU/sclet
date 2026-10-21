@@ -22,3 +22,10 @@ even possible, without executing anything. It never ranks neighbourhoods,
 never names a sample or condition label, and never recommends a design column,
 a contrast or a graph parameter.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+# No Milo run is on record, so nothing is reported.
+summary <- summarize_milo_evidence(sce)
+summary$status
+summary$reason
+}

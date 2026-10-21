@@ -21,3 +21,9 @@ A value-free, versioned dataset profile.
 metadata values. Metadata design fields are name-based candidates only and
 require user confirmation before they can be treated as semantic variables.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+profile <- GetAIProfile(sce)
+profile$dataset$n_cells
+profile$schema_version
+}

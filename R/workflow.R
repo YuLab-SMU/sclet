@@ -12,6 +12,10 @@
 #' @param ... additional parameters passed to individual steps (currently not fully forwarded)
 #' @return an updated SingleCellExperiment object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunStandardPipeline(sce, nfeatures = 20, npcs = 5, dims = 1:5)
+#' SingleCellExperiment::reducedDimNames(sce)
 RunStandardPipeline <- function(object, nfeatures = 2000, npcs = 50, dims = 1:30, resolution = 0.8, ...) {
     object <- NormalizeData(object)
     object <- FindVariableFeatures(object, nfeatures = nfeatures)

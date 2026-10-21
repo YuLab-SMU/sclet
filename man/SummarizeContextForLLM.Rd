@@ -16,3 +16,8 @@ A character string containing the structured ledger.
 This compatibility formatter uses the same bounded ledger as the newer
 R-native AI functions. New code should prefer \code{GetAnalysisLedger()}.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+ledger <- SummarizeContextForLLM(sce)
+cat(substr(ledger, 1, 60), "\n")
+}

@@ -33,3 +33,15 @@ An \code{sclet_ai_execution} object.
 \description{
 Validate and run an AI analysis plan through one controlled workflow
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+registry <- AIDefaultExecutionRegistry(sce, include = "all")
+plan <- list(
+    plan_id = "plan_demo",
+    task = "demo",
+    actions = list(list(id = "s1", action = "normalize_data"))
+)
+# RunAIPlan() validates and executes in one call.
+execution <- RunAIPlan(sce, plan, registry, dry_run = FALSE, confirm = TRUE)
+execution$status
+}

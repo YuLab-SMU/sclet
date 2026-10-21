@@ -30,6 +30,14 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom SingleCellExperiment altExp altExp<-
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the reticulate package and the pySCENIC Python environment
+#' sce <- RunSCENIC(sce, tfs_path = "tfs.txt",
+#'                  motif_annotations_path = "motifs.tbl",
+#'                  database_paths = "ctx.db.feather")
+#' }
 RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths, 
                       assay_use = "counts", num_workers = 1L, seed = 123L,
                       name = "scenic", output_dir = NULL,
@@ -313,6 +321,20 @@ RunSCENIC <- function(sce, tfs_path, motif_annotations_path, database_paths,
 #' @param low,high Colors for the activity gradient.
 #' @return A ggplot object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' auc <- SingleCellExperiment::SingleCellExperiment(
+#'     assays = list(AUC = matrix(runif(2 * 20), nrow = 2,
+#'                                 dimnames = list(c("reg1", "reg2"), colnames(sce)))))
+#' SingleCellExperiment::altExp(sce, "SCENIC_AUC") <- auc
+#' SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(rnorm(40), ncol = 2,
+#'     dimnames = list(colnames(sce), c("PC1", "PC2")))
+#' # a SCENIC result, as RunSCENIC() would record it
+#' record <- list(id = "scenic", type = "scenic", method = "pySCENIC",
+#'                artifacts = list(altExp = "SCENIC_AUC"))
+#' S4Vectors::metadata(sce)$sclet$states$records$scenic$scenic <- record
+#' S4Vectors::metadata(sce)$sclet$states$active$scenic <- "scenic"
+#' plot_scenic_activity(sce, regulon = "reg1")
 plot_scenic_activity <- function(object, regulon, reduction = NULL, id = NULL,
                                  assay = "AUC", point_size = 0.6,
                                  low = "grey90", high = "firebrick") {
@@ -386,6 +408,14 @@ plot_scenic_activity <- function(object, regulon, reduction = NULL, id = NULL,
 #'
 #' @return Updated SingleCellExperiment with GRN results.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the reticulate package and the pySCENIC Python environment
+#' sce <- RunGRN(sce, tfs_path = "tfs.txt",
+#'               motif_annotations_path = "motifs.tbl",
+#'               database_paths = "ctx.db.feather")
+#' }
 RunGRN <- function(sce, tfs_path, motif_annotations_path, database_paths,
                    assay_use = "counts", method = c("SCENIC"), name = "grn", ...) {
     method <- match.arg(method)

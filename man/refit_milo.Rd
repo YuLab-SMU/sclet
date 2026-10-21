@@ -65,3 +65,19 @@ A list with:
 \description{
 Refit Milo DA after dropping separated neighbourhoods
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+colData(sce)$sample <- rep(c("s1", "s2"), each = 10)
+colData(sce)$condition <- rep(c("a", "b"), each = 10)
+design_df <- data.frame(condition = factor(c("a", "b")),
+    row.names = c("s1", "s2"))
+\dontrun{
+# needs the 'miloR' Suggests package and a Milo object with real neighbourhoods
+milo <- RunMilo(sce, sample_col = "sample", condition_col = "condition",
+    contrasts = "b - a")
+out <- refit_milo(milo, design_df, bad_hood = 1L,
+    formula = ~ condition, contrasts = "conditionb - conditiona")
+names(out)
+}
+}

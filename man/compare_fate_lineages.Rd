@@ -25,3 +25,9 @@ the lineages' driver sets overlap. It never nominates, ranks or describes any
 lineage as \dQuote{the} fate, and no gene symbol, per-cell value or
 \dQuote{best lineage} field is emitted.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+comparison <- compare_fate_lineages(sce)
+comparison$status
+comparison$reason
+}
