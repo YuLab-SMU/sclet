@@ -91,7 +91,7 @@ RunPerturbationPriority <- function(sce, condition_col, group_col = NULL,
     # this is the first time it is touched. `sclet` does not keep the dense copy.
     expr_matrix <- sclet_malignancy_dense(expr_matrix)
 
-    cli::cli_alert_info("Running Augur perturbation priority on {.val {group_col} by {.val {condition_col}}")
+    cli::cli_alert_info("Running Augur perturbation priority on {.val {group_col}} by {.val {condition_col}}")
     augur_result <- Augur::calculate_auc(
         input = expr_matrix,
         meta = meta,
