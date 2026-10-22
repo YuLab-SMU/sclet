@@ -374,3 +374,57 @@ test_that("run_fate_analysis surfaces fate evidence registration failure", {
     errors <- vapply(executed$results, function(step) step$error %||% "", character(1L))
     expect_true(any(grepl("simulated ledger refusal|fate_evidence_missing", errors)))
 })
+
+test_that("run_fate_analysis survives RunAIAnalysis end to end with bounded evidence", {
+    real_require_namespace <- base::requireNamespace
+    testthat::local_mocked_bindings(
+        requireNamespace = function(package, ...) {
+            if (identical(package, "reticulate")) return(TRUE)
+            if (identical(package, "basilisk")) return(TRUE)
+            real_require_namespace(package, ...)
+        },
+        .package = "base"
+    )
+    sce <- sclet_ai_test_fate_ready_object()
+    n_cells <- ncol(sce)
+    old <- options(sclet.ai.call = function(task, context, ...) {
+        list(
+            answer = "Estimate terminal states and fate probabilities with CellRank.",
+            proposed_actions = list(list(
+                id = "fate1",
+                action = "run_fate_analysis",
+                params = list(name = "fate_run_analysis")
+            ))
+        )
+    })
+    on.exit(options(old), add = TRUE)
+
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "fate"))
+    result <- with_mocked_bindings(
+        RunAIAnalysis(sce, goal = "Estimate terminal states with CellRank.",
+            confirm = "yes", registry = registry),
+        sclet_run_cellrank_backend = sclet_ai_test_fate_backend_mock(n_cells),
+        sclet_run_cellrank_python = sclet_ai_test_fate_no_python,
+        .package = "sclet"
+    )
+
+    expect_equal(result$status, "completed")
+    expect_equal(result$execution$status, "completed")
+    expect_equal(vapply(result$plan$actions, function(x) x$action, character(1L)),
+        "run_fate_analysis")
+
+    evidence <- sclet:::sclet_ai_evidence_get_all(result$object)
+    fate_ev <- evidence[["ev:fate_fate_run_analysis"]]
+    expect_false(is.null(fate_ev))
+    expect_equal(fate_ev$claim_level, "consistent_with")
+
+    has_per_cell <- function(x) {
+        if (is.list(x)) any(vapply(x, has_per_cell, logical(1L)))
+        else is.atomic(x) && length(x) >= ncol(result$object)
+    }
+    expect_false(has_per_cell(fate_ev$values))
+
+    trajectory <- sclet:::sclet_get_state_record(result$object, "trajectory", id = "fate_run_analysis")
+    expect_false(is.null(trajectory))
+    expect_equal(trajectory$method, "CellRank")
+})
