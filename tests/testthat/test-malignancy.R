@@ -103,7 +103,7 @@ test_that("results are written to colData and registered in the state contract",
     expect_equal(levels(cd$malignant_classification), c("malignant", "non_malignant"))
     expect_false(any(is.na(cd$malignant_classification)))
 
-    rec <- sclet_ns("sclet_get_state_record")(res, "annotation", "malignant")
+    rec <- sclet_ns("sclet_get_state_record")(res, "malignancy", "malignant")
     expect_false(is.null(rec))
     expect_equal(rec$summary$n_malignant + rec$summary$n_non_malignant, ncol(res))
 

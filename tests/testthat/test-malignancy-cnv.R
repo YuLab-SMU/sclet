@@ -124,7 +124,7 @@ test_that("agreeing two-line evidence gives malignant, disagreeing gives undeter
     expect_setequal(levels(st), c("malignant", "likely_malignant",
                                   "undetermined", "non_malignant"))
 
-    rec <- sclet_cnv_ns("sclet_get_state_record")(res, "annotation", "malignant_call")
+    rec <- sclet_cnv_ns("sclet_get_state_record")(res, "malignancy", "malignant_call")
     expect_equal(rec$summary$n_malignant, 30L)
 })
 
@@ -163,7 +163,7 @@ test_that("a competing identity programme demotes two-line calls", {
     expect_true(any(grepl("identity", w)))
     expect_equal(sum(st == "malignant"), 0L)
     expect_gt(sum(st == "undetermined"), 0L)
-    rec <- sclet_cnv_ns("sclet_get_state_record")(res, "annotation", "malignant_call")
+    rec <- sclet_cnv_ns("sclet_get_state_record")(res, "malignancy", "malignant_call")
     expect_true(isTRUE(rec$summary$identity_conflict))
 })
 

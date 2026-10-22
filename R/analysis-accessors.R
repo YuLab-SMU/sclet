@@ -445,7 +445,47 @@ get_annotation <- function(object, element = NULL, id = NULL) {
     extract_analysis_element(result, element)
 }
 
-#' Check whether annotation results are available
+#' Access malignant-cell call records
+#'
+#' @title get_malignancy
+#' @param object a SingleCellExperiment object
+#' @param element optional element name to extract from the selected record
+#' @param id optional record id. If NULL, the most recent one.
+#' @return the full record, a selected element, or `NULL`
+#' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "malignant", method = "four-state malignant-cell call")
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(malignancy = list(malignant = record)))
+#' get_malignancy(sce)$method
+get_malignancy <- function(object, element = NULL, id = NULL) {
+    records <- sclet_get_analysis(object, "malignancy")
+    if (is.null(records)) {
+        return(NULL)
+    }
+    result <- if (is.null(id)) {
+        records[[length(records)]]
+    } else {
+        records[[id]]
+    }
+    extract_analysis_element(result, element)
+}
+
+#' Check whether a malignant-cell call is available
+#'
+#' @title has_malignancy
+#' @param object a SingleCellExperiment object
+#' @param id optional record id
+#' @return logical
+#' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' has_malignancy(sce)
+has_malignancy <- function(object, id = NULL) {
+    !is.null(get_malignancy(object, id = id))
+}
+
+#' Access annotation state records
 #'
 #' @title has_annotation
 #' @param object a SingleCellExperiment object

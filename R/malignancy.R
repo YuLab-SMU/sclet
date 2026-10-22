@@ -737,9 +737,12 @@ ClassifyMalignantEpithelium <- function(
     md$malignancy[[name]] <- result
     S4Vectors::metadata(object) <- md
 
+    # `type = "malignancy"`, not "annotation": the annotation bucket answers
+    # "what is this object annotated as?", and a malignant-cell call is a
+    # different question. Measured 2026-10-22.
     object <- sclet_set_state_record(
         object = object,
-        type = "annotation",
+        type = "malignancy",
         id = name,
         value = list(
             method = "iterative AddModuleScore + k-means + pseudobulk limma (Zhang et al., Gut 2020)",

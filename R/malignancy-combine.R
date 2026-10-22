@@ -168,9 +168,14 @@ CallMalignantCells <- function(object,
     } else {
         FALSE
     }
+    # Its own `malignancy` record, not an `annotation` one. Putting it in the
+    # annotation bucket made `get_annotation()` return a four-state malignant
+    # call instead of the object's annotation (measured 2026-10-22). The record
+    # shape is unchanged -- only the bucket -- because its `summary` is what
+    # readers query.
     object <- sclet_set_state_record(
         object = object,
-        type = "annotation",
+        type = "malignancy",
         id = name,
         value = list(
             method = "four-state malignant-cell call from CNV + signature evidence",

@@ -15,7 +15,7 @@ has_annotation(object, id = NULL)
 logical
 }
 \description{
-Check whether annotation results are available
+Access annotation state records
 }
 \examples{
 sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)

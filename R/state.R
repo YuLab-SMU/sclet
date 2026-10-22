@@ -707,6 +707,14 @@ sclet_state_types <- function() {
         "priority",
         "rare_cells",
         "multimodal",
+        # Analyses that used to register under "annotation", where they made
+        # `get_annotation()` -- "what is this object annotated as?" -- return a
+        # CNV burden or a phenotype call. They are their own kinds of analysis,
+        # so they get their own records; "annotation" stays the answer to the
+        # annotation question. Measured 2026-10-22.
+        "cnv",
+        "malignancy",
+        "phenotype",
         "ai_evidence",
         "ai_design_confirmation"
     )

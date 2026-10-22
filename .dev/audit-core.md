@@ -653,3 +653,59 @@ method="infercnv::inferCNV"`）。修法是把 `cnv` / `malignancy` / `phenotype
 没有当场做的原因：这会**改变已导出函数的失败行为**——现在能跑通的调用会
 开始报错。哪些闸门的约束是硬性的（cnv 的 infercnv 依赖）、哪些只是建议性的
 （de 的细胞数下限），必须先逐个定性，否则会把本来能出结果的调用挡掉。
+
+---
+
+## 附录 C — #4 与 #2 的处置（2026-10-22，Lead 判断）
+
+### #4 annotation 桶共用 —— 已修（`872897a`）
+
+原报告建议"给 6 处写入加新 type"。实施时发现**只有 1 处需要新桶**：
+
+| 写入点 | 是否已有自己的记录 | 处置 |
+|---|---|---|
+| `malignancy-cnv.R`（完成路径） | 是：`analyses$malignant_cnv[[name]]` | 删除冗余的 annotation 写入 |
+| `malignancy-cnv.R`（unavailable 路径） | 是：同上 | 删除 |
+| `phenotype-evidence.R` | 是：`analyses$phenotype_call[[name]]` | 删除 |
+| `malignancy-combine.R`（四态判定） | **否**，annotation 是唯一记录 | 改写到 `analyses$malignancy`，补 `get_malignancy()` / `has_malignancy()` |
+| `annotation.R` | 本来的用途 | 不动 |
+
+所以没有新增 `sclet_state_types()` 词条，AI 层的 `required_states` 也没动。
+用户可见的后果消失：`get_annotation()` 在 CNV / 恶性判定 / 表型调用之后
+仍只回答注释。
+
+**仍待你定的**（原先划的"后做"那半，现在必要性下降了）：要不要把
+`cnv` / `malignancy` / `phenotype` 正式加进状态类型词表，让它们能被
+`get_*` 按**记录 id** 查（现在 `get_malignancy()` 只读 `analyses` 槽，
+不走 `sclet_get_state_record()` 的 id 索引）。
+
+### #2 闸门从不被调用 —— 只做了两处，其余不做（判断依据）
+
+实测 14 个闸门在一个正常对象上的返回：
+
+```
+ready_for_diagnostic    : communication, rare_cell
+clarification_required  : annotation, integration
+not_ready               : enrichment, milo, fate, velocity, spatial,
+                          multimodal, trajectory, fate_drivers, cnv
+```
+
+关键判据：**`not_ready` 大多指"缺前置分析"，不是"数据不适合"。**
+`check_enrichment_readiness()` 在没跑过 `RunDEtest()` 时返回 `not_ready`，
+问题文本是"先跑 RunDEtest()"。如果按原报告"每个 Run* 开头闸门 not_ready
+就 abort"，上面 10 个动词里 9 个会挡住现在能跑的调用。
+
+闸门的语义是**诊断**（报告缺什么），不是**守门**（拒绝执行）。因此只做
+两处真正需要"先确认再跑"的：
+
+1. `RunSingleR(ref = NULL)` 原来是**静默下载** `HumanPrimaryCellAtlasData`
+   并继续 —— 参考数据集是设计决策，静默替用户选会让所有下游标签都以一个
+   没人做过的选择为条件。现在 `stop()` 并指向
+   `check_annotation_readiness()` / `ConfirmAIDesignSemantics()`。
+2. `RunIntegration(batch = NULL)` 本来就 `stop()`，只是没说通道；现在
+   点名 `ConfirmAIDesignSemantics()` 和 `check_integration_readiness()`。
+
+**不做**：把 `not_ready` 的闸门变成硬门。那会改变已导出函数的失败行为，
+且挡住"用户知道自己在干什么"的场景（例如明知缺 detest 记录也要先看一眼
+enrichment 的参数）。`check_cnv_readiness` 是唯一本来就硬执行的闸门
+（inferCNV 缺包是硬依赖），保持不变。

@@ -556,9 +556,15 @@ CallPhenotypeCells <- function(object,
     md$phenotype_call[[name]] <- result
     S4Vectors::metadata(object) <- md
 
+    # Its own `phenotype` record, not an `annotation` one. Registering it under
+    # the annotation bucket made `get_annotation()` return a phenotype call
+    # instead of the object's annotation (measured 2026-10-22). It is not
+    # redundant with `analyses$phenotype_call` above: that slot holds the flat
+    # result (call, n_cells, providers ...) while this record carries the
+    # `summary` a reader queries, so both are kept -- only the bucket changes.
     object <- sclet_set_state_record(
         object = object,
-        type = "annotation",
+        type = "phenotype",
         id = name,
         value = list(
             method = "phenotype call from independent lines of evidence",

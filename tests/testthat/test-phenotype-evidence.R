@@ -75,7 +75,7 @@ test_that("an unavailable provider is reported and never counts as negative", {
     expect_true(all(cd$phenotype_call_cnv_state == "unavailable"))
     # Signature-positive cells are 'probable' (one line), never 'supported'.
     expect_false(any(cd$phenotype_call_call == "supported"))
-    rec <- sclet_ph_ns("sclet_get_state_record")(res, "annotation", "phenotype_call")
+    rec <- sclet_ph_ns("sclet_get_state_record")(res, "phenotype", "phenotype_call")
     expect_equal(rec$summary$unavailable_providers, "cnv")
 })
 
@@ -95,7 +95,7 @@ test_that("a shared-matrix provider cannot turn one line into two", {
     cd <- SummarizedExperiment::colData(res)
     # Every cell should be at most 'probable': the signature is the only line.
     expect_equal(sum(cd$phenotype_call_call == "supported"), 0L)
-    rec <- sclet_ph_ns("sclet_get_state_record")(res, "annotation", "phenotype_call")
+    rec <- sclet_ph_ns("sclet_get_state_record")(res, "phenotype", "phenotype_call")
     expect_equal(rec$summary$independent_lines, 0L)
 })
 
@@ -322,7 +322,7 @@ test_that("providers declaring the same source count as one line", {
 
     res <- CallPhenotypeCells(sce, signature = sclet_ph_test_sig(),
                               evidence = c("yes_a", "yes_b"), transcriptomic_cut = 0)
-    rec <- sclet_ph_ns("sclet_get_state_record")(res, "annotation", "phenotype_call")
+    rec <- sclet_ph_ns("sclet_get_state_record")(res, "phenotype", "phenotype_call")
     expect_equal(rec$summary$independent_lines, 1L)
     # Both providers are listed as participating, but they are ONE line.
     expect_setequal(rec$summary$independent_providers, c("yes_a", "yes_b"))
@@ -333,7 +333,7 @@ test_that("providers declaring the same source count as one line", {
     on.exit(PhenotypeEvidenceProviders("unregister", name = "yes_c"), add = TRUE)
     res2 <- CallPhenotypeCells(sce, signature = sclet_ph_test_sig(),
                                evidence = c("yes_a", "yes_c"), transcriptomic_cut = 0)
-    rec2 <- sclet_ph_ns("sclet_get_state_record")(res2, "annotation", "phenotype_call")
+    rec2 <- sclet_ph_ns("sclet_get_state_record")(res2, "phenotype", "phenotype_call")
     expect_equal(rec2$summary$independent_lines, 2L)
 })
 

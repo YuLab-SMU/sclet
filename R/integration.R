@@ -32,7 +32,17 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
     method <- match.arg(method)
     
     if (is.null(batch)) {
-        stop("Please specify 'batch' column.")
+        # Batch is a design role, and the AI layer refuses design-gated actions
+        # until the role is declared (ConfirmAIDesignSemantics). Point at that
+        # rather than only saying a name is missing, so the caller learns the
+        # channel it has to go through.
+        stop(
+            "`batch` must name the colData column that is the technical batch. ",
+            "If you are driving this through the AI layer, declare the role first ",
+            "with ConfirmAIDesignSemantics(object, design = list(batch = \"<column>\")), ",
+            "or see check_integration_readiness() for what is missing.",
+            call. = FALSE
+        )
     }
     
     if (!batch %in% colnames(SummarizedExperiment::colData(object))) {

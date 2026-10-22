@@ -112,8 +112,23 @@ RunSingleR <- function(object, ref = NULL, labels = NULL, assay.type = NULL,
         if (!requireNamespace("celldex", quietly = TRUE)) {
             stop("Package 'celldex' is needed to load default reference. Please install it.")
         }
-        message("Loading HumanPrimaryCellAtlasData from celldex...")
-        ref <- celldex::HumanPrimaryCellAtlasData()
+        # The reference is a DESIGN decision, not a default: which atlas is
+        # right depends on species, tissue and what the cells are, and
+        # substituting HumanPrimaryCellAtlasData silently makes every label
+        # downstream conditional on a choice the user never made. It also
+        # downloads a few hundred MB without saying so. `check_annotation_readiness()`
+        # already reports this as `clarification_required` and asks which
+        # reference to use; the caller should answer, not have one picked for
+        # it. Measured 2026-10-22: `ref = NULL` loaded the human atlas and
+        # carried on.
+        stop(
+            "`ref` must be supplied, or the reference chosen explicitly: the right atlas ",
+            "depends on the species and tissue, and picking one silently would make every ",
+            "label conditional on a choice nobody made. Pass `ref = celldex::<Dataset>()` ",
+            "with `labels`, or record the choice with ConfirmAIDesignSemantics() and let the ",
+            "AI layer supply it. See check_annotation_readiness() for what is missing.",
+            call. = FALSE
+        )
     }
     
     if (is.null(labels)) {

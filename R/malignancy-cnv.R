@@ -422,9 +422,13 @@ RunCNVInference <- function(object,
     md$malignant_cnv[[name]] <- result
     S4Vectors::metadata(object) <- md
 
+    # Its own `cnv` record, not an `annotation` one: the annotation bucket has
+    # a single "active" slot, so this made `get_annotation()` return a CNV
+    # burden run instead of the object's annotation (measured 2026-10-22). The
+    # payload is unchanged -- only the bucket.
     object <- sclet_set_state_record(
         object = object,
-        type = "annotation",
+        type = "cnv",
         id = name,
         value = list(
             method = "inferCNV per-cell copy-number burden",
@@ -668,9 +672,11 @@ sclet_cnv_record_unavailable <- function(object, name, readiness) {
     md$malignant_cnv[[name]] <- result
     S4Vectors::metadata(object) <- md
 
+    # Its own `cnv` record for the failed run too, for the same reason: the
+    # annotation bucket must keep answering "what is this object annotated as?".
     object <- sclet_set_state_record(
         object = object,
-        type = "annotation",
+        type = "cnv",
         id = name,
         value = list(
             method = "inferCNV per-cell copy-number burden",
