@@ -396,6 +396,16 @@ RunAIAnalysis <- function(
         model = model,
         structured_output = structured_output,
         fallback_on_structure_error = fallback_on_structure_error,
+        # The SAME registry that will validate and execute. Without this,
+        # AIPlanAnalysis() defaults to include = "all" and the planner is shown
+        # 39 actions, then ValidateAIPlan() below checks the plan against the
+        # narrower registry built from `include` (11 by default) and refuses
+        # whatever the planner legitimately chose from the extra groups.
+        # Measured 2026-10-21: goal "find markers" proposed `run_de_test`, which
+        # is in the annotation group, and the plan came back `invalid_plan` with
+        # "action is not registered: run_de_test" -- the planner had been told
+        # the action existed. Planning and execution must agree on the catalog.
+        registry = registry,
         ...
     )
     validation <- ValidateAIPlan(plan, object = object, registry = registry, strict = FALSE)
