@@ -276,3 +276,63 @@ test_that("AI results can be explicitly recorded without changing active view", 
     expect_equal(record$inputs$context_fingerprint, "test")
     expect_equal(DefaultAssay(updated), "counts")
 })
+
+test_that("run_integration survives RunAIAnalysis end to end after design confirmation", {
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(stats::rpois(60L * 12L, lambda = 5L), nrow = 60L, ncol = 12L,
+            dimnames = list(paste0("g", seq_len(60L)), paste0("c", seq_len(12L)))))
+    )
+    SummarizedExperiment::colData(sce)$batch <- rep(c("b1", "b2"), each = 6L)
+    SummarizedExperiment::colData(sce)$condition <- rep(c("ctrl", "stim"), 6L)
+    sce <- NormalizeData(sce)
+    sce <- FindVariableFeatures(sce, nfeatures = 30L)
+    sce <- RunPCA(sce, ncomponents = 5L)
+
+    old <- options(sclet.ai.call = function(task, context, ...) {
+        list(
+            answer = "Confirm the batch design, then integrate with fastMNN.",
+            proposed_actions = list(
+                list(id = "design1", action = "confirm_design",
+                    params = list(batch = "batch", condition = "condition")),
+                list(id = "integrate1", action = "run_integration",
+                    params = list(method = "fastMNN", batch = "batch", name = "fastmnn"))
+            )
+        )
+    })
+    on.exit(options(old), add = TRUE)
+
+    registry <- AIDefaultExecutionRegistry(sce, include = c("read", "integration"))
+    result <- with_mocked_bindings(
+        RunAIAnalysis(sce, goal = "Integrate the batches in this dataset.",
+            confirm = "yes", registry = registry),
+        RunIntegration = function(object, ...) {
+            args <- list(...)
+            SingleCellExperiment::reducedDim(object, "corrected") <- matrix(
+                seq_len(ncol(object) * 2L), ncol = 2L)
+            sclet_set_analysis_state(
+                object = object,
+                type = "integration",
+                id = args$name %||% "fastmnn",
+                method = "mocked_integration",
+                inputs = list(batch = args$batch),
+                artifacts = list(reduction = "corrected"),
+                summary = list(),
+                active = FALSE
+            )
+        },
+        .package = "sclet"
+    )
+
+    expect_equal(result$status, "completed")
+    expect_equal(result$execution$status, "completed")
+    expect_equal(vapply(result$plan$actions, function(x) x$action, character(1L)),
+        c("confirm_design", "run_integration"))
+
+    rec <- sclet_get_state_record(result$object, "integration", "fastmnn")
+    expect_false(is.null(rec))
+    expect_equal(rec$artifacts$reduction, "corrected")
+    expect_true(length(rec$summary$metrics %||% list()) > 0L)
+    batch_mixing <- Filter(function(metric) identical(metric$name %||% "", "batch_mixing"),
+        rec$summary$metrics %||% list())[[1L]]
+    expect_equal(batch_mixing$parameters$reduction, "corrected")
+})
