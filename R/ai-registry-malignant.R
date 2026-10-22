@@ -118,10 +118,10 @@ sclet_ai_registry_malignant <- function(object, include) {
             },
             returns = "sce",
             output_schema = list(
-                required_states = list(annotation = "any"),
+                required_states = list(cnv = "any", ai_evidence = "any"),
                 cnv_id = "cnv_record_id"
             ),
-            allowed_state_types = c("annotation", "ai_evidence"),
+            allowed_state_types = c("cnv", "ai_evidence"),
             mutates_object = TRUE,
             requires_confirmation = TRUE,
             estimated_cost = "high",
@@ -290,9 +290,9 @@ sclet_ai_registry_malignant <- function(object, include) {
             },
             returns = "sce",
             output_schema = list(
-                required_states = list(annotation = "any")
+                required_states = list(malignancy = "any", ai_evidence = "any")
             ),
-            allowed_state_types = c("annotation", "ai_evidence"),
+            allowed_state_types = c("malignancy", "ai_evidence"),
             mutates_object = TRUE,
             requires_confirmation = TRUE,
             estimated_cost = "low",
