@@ -272,7 +272,15 @@ check_de_readiness <- function(object, group = NULL) {
     records <- tryCatch(sclet_get_state_records(object, "detest"), error = function(e) list())
     if (is.null(records)) records <- list()
     detest_ids <- names(records)
-    de_package_available <- base::requireNamespace("limma", quietly = TRUE)
+    # The DEFAULT marker path is presto, not limma. R/markers.R stops on a
+    # missing presto (the fast wilcoxauc path), and limma is only reached by the
+    # pseudobulk/covariate branch of RunDEtest(). Gating on limma answered a
+    # different question from the one the caller was about to ask: it reported
+    # "not ready" when presto was missing, and "ready" when presto was missing
+    # and limma was present. Measured 2026-10-22.
+    presto_available <- base::requireNamespace("presto", quietly = TRUE)
+    limma_available <- base::requireNamespace("limma", quietly = TRUE)
+    de_package_available <- presto_available
 
     questions <- character()
     if (!group_resolvable) {
@@ -302,8 +310,18 @@ check_de_readiness <- function(object, group = NULL) {
         ))
     }
     if (!de_package_available) {
-        questions <- c(questions,
-            "The 'limma' package is not installed, which the marker test relies on.")
+        questions <- c(questions, paste0(
+            "The 'presto' package is not installed, and the default marker test ",
+            "uses its wilcoxauc path; install it with ",
+            "remotes::install_github('immunogenomics/presto')."
+        ))
+    }
+    if (!limma_available) {
+        questions <- c(questions, paste0(
+            "The 'limma' package is not installed. The default marker test does not ",
+            "need it, but a covariate-adjusted (pseudobulk) contrast does -- add it ",
+            "if you plan to adjust for donor or batch."
+        ))
     }
 
     ready <- group_resolvable && enough_groups && enough_cells && de_package_available
@@ -319,6 +337,8 @@ check_de_readiness <- function(object, group = NULL) {
             detest_record_available = length(detest_ids) > 0L,
             available_detest_ids = detest_ids,
             de_package_available = de_package_available,
+        de_package = "presto",
+        limma_available = limma_available,
             raw_values_included = FALSE
         ),
         blocked_actions = if (ready) character() else "de",
