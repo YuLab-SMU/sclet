@@ -1549,6 +1549,27 @@ ExecuteAIPlan <- function(
                 "The supplied plan validation does not match the current object or plan. Revalidate before execution."
             )
         }
+        # The token certified the plan, not the code. A registry rebuilt between
+        # validation and execution -- same action names, different handlers -- is
+        # a different program, and the human confirmed the one that was
+        # validated. An absent fingerprint means the validation predates this
+        # binding and is allowed through for compatibility; a present mismatch
+        # is not. Measured 2026-10-22: a validation minted against the real
+        # registry executed a one-line impostor handler and reported
+        # status = "completed".
+        if (!is.null(validation$registry_fingerprint) &&
+            !identical(as.character(validation$registry_fingerprint),
+                       sclet_ai_registry_fingerprint(registry))) {
+            sclet_ai_error(
+                "sclet_ai_stale_registry",
+                paste(
+                    "The supplied plan validation was minted against a different registry:",
+                    "an action's handler changed since the plan was confirmed, so executing it now",
+                    "would run code the confirmation did not cover.",
+                    "Revalidate the plan against the registry you are about to execute."
+                )
+            )
+        }
     }
     # Backstop to the plan_empty validation rule, for a caller that bypasses
     # ValidateAIPlan() with a hand-built validation object: executing zero
@@ -1589,11 +1610,22 @@ ExecuteAIPlan <- function(
             class = c("sclet_ai_execution", "list")
         ))
     }
+    # `is.null(validation$confirmation_token)` has to be its own failure case.
+    # `identical(as.character(NULL), as.character(NULL))` is TRUE, so a
+    # validation that minted NO token (because it was validated without an
+    # object) used to match a caller who passed no confirmation, and a non-dry
+    # execution went through. Measured 2026-10-22.
     if (isTRUE(validation$requires_confirmation) &&
-        !identical(as.character(confirmation), as.character(validation$confirmation_token))) {
+        (is.null(validation$confirmation_token) ||
+            !identical(as.character(confirmation),
+                       as.character(validation$confirmation_token)))) {
         sclet_ai_error(
             "sclet_ai_confirmation_required",
-            "Non-dry execution requires the confirmation token returned by ValidateAIPlan()."
+            paste(
+                "Non-dry execution requires the confirmation token returned by ValidateAIPlan().",
+                "A validation made without an `object` has no token, because there was no object",
+                "to bind it to: revalidate against the object you are about to execute."
+            )
         )
     }
 

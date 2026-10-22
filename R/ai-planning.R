@@ -167,6 +167,63 @@ sclet_ai_plan_fingerprint <- function(plan) {
     paste0("sclet-ai-plan-", unname(tools::md5sum(path)))
 }
 
+# A digest of what a registry WILL RUN.
+#
+# The confirmation token bound the plan TEXT, not the code: a plan validated
+# against the real registry could be executed against one whose `normalize_data`
+# handler was a one-line impostor, and the execution reported
+# `status = "completed"`. Measured 2026-10-22. The practical shape of that
+# mistake is ordinary -- a caller rebuilds `AIDefaultExecutionRegistry(object,
+# include = ...)` between the two calls, or assembles a registry per round -- so
+# the token certified a plan whose approved code had been replaced.
+#
+# The descriptor METADATA is not enough to catch it: the impostor copied the
+# description, the input schema and the prerequisites, and was still a different
+# function. So the handler's own formals and body are part of the digest.
+#
+# Known limit, stated rather than implied: `deparse()` captures the handler's
+# source, not the environment it closes over. Two closures with identical bodies
+# that capture different values would digest the same. That is a much narrower
+# door than "any registry at all", and closing it would mean digesting the
+# environment, which is both large and not stable across sessions.
+sclet_ai_registry_fingerprint <- function(registry) {
+    if (is.null(registry) || !length(registry)) return(NA_character_)
+    nms <- sort(names(registry))
+    parts <- vapply(nms, function(nm) {
+        descriptor <- registry[[nm]]
+        handler <- descriptor$handler
+        handler_formals <- if (is.function(handler)) {
+            paste(names(formals(handler)), collapse = ",")
+        } else {
+            ""
+        }
+        handler_body <- if (is.function(handler)) {
+            paste(deparse(body(handler)), collapse = " ")
+        } else {
+            paste(deparse(handler), collapse = " ")
+        }
+        paste(
+            nm,
+            as.character(descriptor$description %||% "")[[1L]],
+            paste(deparse(descriptor$input_schema), collapse = " "),
+            paste(deparse(descriptor$requires_confirmation), collapse = " "),
+            paste(deparse(descriptor$mutates_object), collapse = " "),
+            handler_formals,
+            handler_body,
+            sep = "\u001f"
+        )
+    }, character(1))
+    canonical <- paste(parts, collapse = "\u001e")
+    if (requireNamespace("digest", quietly = TRUE)) {
+        return(paste0("sclet-ai-registry-",
+                      digest::digest(canonical, algo = "sha256", serialize = FALSE)))
+    }
+    path <- tempfile("sclet-ai-registry-")
+    on.exit(unlink(path), add = TRUE)
+    writeLines(canonical, path)
+    paste0("sclet-ai-registry-", unname(tools::md5sum(path)))
+}
+
 #' Project a plan output reference onto the outputs a plan PROMISES
 #'
 #' Resolves a `${step_id.output.field}` reference against the outputs the plan
@@ -1110,7 +1167,22 @@ ValidateAIPlan <- function(
         !is.null(descriptor) && (isTRUE(descriptor$requires_confirmation) ||
             isTRUE(descriptor$mutates_object))
     }, logical(1)))
-    confirmation_token <- if (valid && requires_confirmation) {
+    # The token authorises EXECUTION, and execution's object check is guarded on
+    # a non-NULL `context_fingerprint`:
+    #
+    #     if (!is.null(validation$context_fingerprint) && !identical(...))
+    #
+    # With `object = NULL` there is nothing to bind the token to, so a token
+    # minted here would authorise the plan against ANY object with no
+    # prerequisite check having run -- and `object = NULL` is a documented,
+    # legal call. Measured 2026-10-22: the token was minted, and the object
+    # check was skipped entirely. Reviewing a plan without an object stays
+    # legal, because that is a real use ("does this plan even parse?"); it just
+    # yields no token, so the plan cannot be executed on the strength of a
+    # review that never looked at the data.
+    token_bound_to_object <- !is.null(current_fingerprint) ||
+        !is.null(plan$context_fingerprint)
+    confirmation_token <- if (valid && requires_confirmation && token_bound_to_object) {
         paste0("sclet-confirm-", paste(sample(c(letters, 0:9), 32L, replace = TRUE), collapse = ""))
     } else {
         NULL
@@ -1159,6 +1231,10 @@ ValidateAIPlan <- function(
             sclet_ai_plan_fingerprint(fingerprinted)
         },
         context_fingerprint = current_fingerprint %||% plan$context_fingerprint %||% NULL,
+        # Bind the token to the CODE that will run, not only to the plan text.
+        # ExecuteAIPlan() compares this against the registry it was handed; see
+        # sclet_ai_registry_fingerprint() for why the handler body is included.
+        registry_fingerprint = sclet_ai_registry_fingerprint(registry),
         requires_confirmation = requires_confirmation,
         confirmation_token = confirmation_token,
         claim_ceiling = claim_ceiling,
