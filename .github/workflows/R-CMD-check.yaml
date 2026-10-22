@@ -85,6 +85,17 @@ jobs:
           "JAGS_HOME=$jags" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           "$jags\x64\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
+      - name: Install Python argparse (Windows)
+        # infercnv imports argparse, whose .onLoad requires the *Python* module
+        # of the same name (`required_modules = c("argparse", "json |
+        # simplejson")`), and the runner's Python does not ship it, so building
+        # infercnv died with "Couldn't find a sufficient Python binary".
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check argparse
+          python -c "import argparse, json; print('argparse ok', argparse.__version__)"
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: |
