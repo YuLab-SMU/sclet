@@ -57,9 +57,18 @@ jobs:
             any::BiocManager
           needs: check
 
-      - name: Install Bioconductor ${{ matrix.config.bioc }}
+      - name: Pin Bioconductor ${{ matrix.config.bioc }}
+        # `version = "release"` is not a valid argument: only a numeric version
+        # (e.g. "3.22") or the literal "devel" are accepted, and BiocManager
+        # rejects anything else with `invalid version specification`. Resolve
+        # the tag to a number here instead of passing the tag through.
+        # R's release already ships the matching BiocVersion, so `version()`
+        # is the number to pin for that row; `devel` is passed through as-is.
         run: |
-          BiocManager::install(version = "${{ matrix.config.bioc }}", ask = FALSE, update = FALSE)
+          bioc <- "${{ matrix.config.bioc }}"
+          version <- if (identical(bioc, "devel")) "devel" else as.character(BiocManager::version())
+          message("Pinning Bioconductor ", bioc, " -> version ", version)
+          BiocManager::install(version = version, ask = FALSE, update = FALSE)
         shell: Rscript {0}
 
       - name: Install GitHub remotes
