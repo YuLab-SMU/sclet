@@ -14,6 +14,7 @@ CallPhenotypeCells(
   competing_demote = 0.1,
   assay = NULL,
   name = "phenotype_call",
+  rng_seed = 1L,
   ...
 )
 }
@@ -48,6 +49,10 @@ evidence-positive, so the axis question does not apply to it.}
 \item{assay}{Assay for scoring. Defaults to \code{"logcounts"}.}
 
 \item{name}{Analysis record id. Defaults to \code{"phenotype_call"}.}
+
+\item{rng_seed}{Integer. Seed for the control pool drawn by \code{sample()}
+when a signature has to be scored. Without it the same object scored
+differently on every call.}
 
 \item{...}{Arguments passed to each provider's \code{decide()}.}
 }

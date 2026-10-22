@@ -23,6 +23,7 @@ ClassifyMalignantEpithelium(
   name = "malignant",
   nstart = 25,
   seed_genes = NULL,
+  rng_seed = 1L,
   verbose = TRUE
 )
 }
@@ -76,6 +77,11 @@ Taken from \code{seed$info$signature} when present.}
 \item{seed_genes}{Optional character vector. Signature genes to track across
 rounds (e.g. an intestinal metaplasia profile) so that the result reports
 how much of the malignant side expresses them.}
+
+\item{rng_seed}{Integer. Seed for the two stochastic steps: the control
+pool drawn by \code{sample()}, and the \code{kmeans(nstart = )} split. Named
+\code{rng_seed} because \code{seed} is already the gene signature, and a caller
+who reads \verb{seed =} as "make this reproducible" would be wrong.}
 
 \item{verbose}{Logical. Print one line per round.}
 }

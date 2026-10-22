@@ -209,6 +209,9 @@ check_phenotype_provider <- function(provider) {
 #'    `undetermined`. A `refuted` call is never demoted: it was never
 #'    evidence-positive, so the axis question does not apply to it.
 #' @param assay Assay for scoring. Defaults to `"logcounts"`.
+#' @param rng_seed Integer. Seed for the control pool drawn by `sample()`
+#'   when a signature has to be scored. Without it the same object scored
+#'   differently on every call.
 #' @param name Analysis record id. Defaults to `"phenotype_call"`.
 #' @param ... Arguments passed to each provider's `decide()`.
 #'
@@ -266,6 +269,7 @@ CallPhenotypeCells <- function(object,
                                competing_demote = 0.1,
                                assay = NULL,
                                name = "phenotype_call",
+                               rng_seed = 1L,
                                ...) {
     if (!nzchar(name)) {
         stop("`name` must be a non-empty prefix.")
@@ -291,7 +295,7 @@ CallPhenotypeCells <- function(object,
         expr <- sclet_malignancy_dense(SummarizedExperiment::assay(object, assay))
         bins <- sclet_gene_expression_bins(expr, n_bins = 25)
         sig_score <- sclet_add_module_score(expr, genes, bins = bins, n_ctrl = 100,
-                                            exclude = genes)
+                                            exclude = genes, seed = rng_seed)
         signature_used <- list(status = "scored", assay = assay, genes = length(genes))
     }
     cut_used <- if (is.null(transcriptomic_cut)) {
@@ -474,7 +478,7 @@ CallPhenotypeCells <- function(object,
                     next
                 }
                 cscore <- sclet_add_module_score(expr, genes, bins = bins, n_ctrl = 100,
-                                                 exclude = genes)
+                                                 exclude = genes, seed = rng_seed)
                 usable <- !is.na(cscore)
                 sep <- if (sum(in_scope & usable) > 2 && sum(residual & usable) > 2) {
                     mean(cscore[in_scope & usable]) - mean(cscore[residual & usable])
@@ -689,8 +693,12 @@ sclet_phenotype_builtin_providers <- function() {
                 }
                 expr <- sclet_malignancy_dense(SummarizedExperiment::assay(object, assay))
                 bins <- sclet_gene_expression_bins(expr, n_bins = 25)
+                # Fixed seed on purpose: this provider is a pure function of
+                # the object, and it has no caller to inherit a seed from. The
+                # control pool is drawn with sample(), so without a seed the
+                # same object scored differently on every call.
                 sc <- sclet_add_module_score(expr, genes, bins = bins, n_ctrl = 100,
-                                             exclude = genes)
+                                             exclude = genes, seed = 1L)
                 cut <- if (is.null(module_cut)) stats::median(sc, na.rm = TRUE) else module_cut
                 list(state = ifelse(is.na(sc), "unavailable",
                                     ifelse(sc >= cut, "positive", "negative")),

@@ -341,6 +341,10 @@ FindMalignantSeedGenes <- function(
 #' @param seed_genes Optional character vector. Signature genes to track across
 #'   rounds (e.g. an intestinal metaplasia profile) so that the result reports
 #'   how much of the malignant side expresses them.
+#' @param rng_seed Integer. Seed for the two stochastic steps: the control
+#'   pool drawn by `sample()`, and the `kmeans(nstart = )` split. Named
+#'   `rng_seed` because `seed` is already the gene signature, and a caller
+#'   who reads `seed =` as "make this reproducible" would be wrong.
 #' @param verbose Logical. Print one line per round.
 #'
 #' @return `object` with `colData` columns `<name>_malignant_score`,
@@ -390,6 +394,7 @@ ClassifyMalignantEpithelium <- function(
     name = "malignant",
     nstart = 25,
     seed_genes = NULL,
+    rng_seed = 1L,
     verbose = TRUE
 ) {
     method <- match.arg(method)
@@ -515,12 +520,13 @@ ClassifyMalignantEpithelium <- function(
         all_sig <- unique(c(tumor_genes, normal_genes))
         mal_score <- sclet_add_module_score(expr_full, tumor_genes, bins = bins,
                                             n_ctrl = n_ctrl, cells = cells,
-                                            exclude = all_sig)
+                                            exclude = all_sig, seed = rng_seed)
         non_score <- sclet_add_module_score(expr_full, normal_genes, bins = bins,
                                             n_ctrl = n_ctrl, cells = cells,
-                                            exclude = all_sig)
+                                            exclude = all_sig, seed = rng_seed)
 
-        split <- sclet_kmeans_two_scores(mal_score, non_score, nstart = nstart)
+        split <- sclet_kmeans_two_scores(mal_score, non_score, nstart = nstart,
+                                         seed = rng_seed)
         if (is.null(split)) {
             stop_reason <- "scores_constant"
             break
@@ -627,7 +633,8 @@ ClassifyMalignantEpithelium <- function(
     seed_tracking <- NULL
     if (length(seed_genes) > 0) {
         sg_score <- sclet_add_module_score(expr_full, seed_genes, bins = bins, n_ctrl = n_ctrl,
-                                          cells = cells, exclude = seed_genes)
+                                          cells = cells, exclude = seed_genes,
+                                          seed = rng_seed)
         seed_tracking <- list(
             genes = seed_genes,
             mean_malignant = mean(sg_score[labels == "malignant"]),
@@ -826,7 +833,7 @@ sclet_gene_expression_bins <- function(mat, n_bins = 25) {
 # over signature genes. Signature genes absent from `expr` are dropped; empty
 # signatures score 0.
 sclet_add_module_score <- function(expr, genes, bins = NULL, n_ctrl = 100, cells = NULL,
-                                    exclude = NULL) {
+                                    exclude = NULL, seed = NULL) {
     if (is.null(dim(expr))) {
         expr <- matrix(expr, nrow = 1)
     }
@@ -851,6 +858,11 @@ sclet_add_module_score <- function(expr, genes, bins = NULL, n_ctrl = 100, cells
     bin_of[is.na(bin_of)] <- NA_integer_
     scores <- rep(0, ncol(expr))
     row_idx <- seq_len(nrow(expr))
+    # The control pool is drawn with `sample()`, so two calls on the same input
+    # returned different scores (measured 2026-10-22: max abs difference 0.0348).
+    # `sclet_with_seed()` restores the caller's RNG stream afterwards, so asking
+    # for a reproducible score does not move the caller's own simulation.
+    sclet_with_seed(seed, {
     for (g in genes) {
         b <- bin_of[[g]]
         same <- !is.na(bin_of) & bin_of == b
@@ -875,6 +887,7 @@ sclet_add_module_score <- function(expr, genes, bins = NULL, n_ctrl = 100, cells
             scores <- scores + as.numeric(expr[g, ]) - as.numeric(ctrl_mean)
         }
     }
+    })
     scores <- scores / length(genes)
     stats::setNames(as.numeric(scores), ids)
 }
@@ -882,7 +895,7 @@ sclet_add_module_score <- function(expr, genes, bins = NULL, n_ctrl = 100, cells
 # k-means on the two scaled scores, k = 2. The cluster whose cells have the
 # higher malignant score is "malignant". Returns NULL when the scores are
 # constant (k-means would split identical points arbitrarily).
-sclet_kmeans_two_scores <- function(mal_score, non_score, nstart = 25) {
+sclet_kmeans_two_scores <- function(mal_score, non_score, nstart = 25, seed = NULL) {
     x <- cbind(malignant = as.numeric(mal_score), non = as.numeric(non_score))
     if (any(!is.finite(x))) {
         stop("Non-finite scores encountered; check for NA expression values in the scored genes.")
@@ -893,7 +906,9 @@ sclet_kmeans_two_scores <- function(mal_score, non_score, nstart = 25) {
     sd_x <- apply(x, 2, stats::sd)
     sd_x[sd_x == 0] <- 1
     z <- sweep(x, 2, sd_x, "/")
-    km <- stats::kmeans(z, centers = 2, nstart = nstart)
+    # `kmeans(nstart = 25)` starts from random centroids, so the split is
+    # stochastic even when the scores are fixed.
+    km <- sclet_with_seed(seed, stats::kmeans(z, centers = 2, nstart = nstart))
     mal_cluster <- which.max(tapply(x[, "malignant"], km$cluster, mean))
     list(
         cluster = km$cluster,
