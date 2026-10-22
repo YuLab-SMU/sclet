@@ -59,30 +59,42 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # SourceForge hands out a different mirror per request and one of them
-          # served a truncated file; Start-Process then reported the temp file
-          # as "corrupted and unreadable". Retry, and insist on a real
-          # executable before running it.
-          $url = "https://downloads.sourceforge.net/project/mcmc-jags/JAGS/4.x/Windows/JAGS-4.3.2.exe"
+          # The bare `downloads.` URL now answers with SourceForge's interstitial
+          # HTML page (about 144 KB, mirror picker, no binary) instead of the
+          # installer, and Start-Process then rejects that file as "corrupted
+          # and unreadable". The `/download` suffix is the form that still
+          # redirects to the file itself, so use it and retry across mirrors.
+          $urls = @(
+            "https://sourceforge.net/projects/mcmc-jags/files/JAGS/4.x/Windows/JAGS-4.3.2.exe/download"
+            "https://netix.dl.sourceforge.net/project/mcmc-jags/JAGS/4.x/Windows/JAGS-4.3.2.exe/download"
+          )
           $installer = "$env:RUNNER_TEMP\jags.exe"
           $ok = $false
-          foreach ($attempt in 1..5) {
+          foreach ($url in $urls) {
             try {
               Invoke-WebRequest -Uri $url -OutFile $installer -MaximumRetryCount 2 -RetryIntervalSec 5
+              # A real installer is tens of MB; anything small is the HTML page.
               if ((Get-Item $installer).Length -gt 5MB) {
                 $ok = $true
                 break
               }
-              Write-Host "attempt ${attempt}: only $((Get-Item $installer).Length) bytes"
+              Write-Host "$url returned only $((Get-Item $installer).Length) bytes"
             } catch {
-              Write-Host "attempt ${attempt} failed: $_"
+              Write-Host "$url failed: $_"
             }
             Start-Sleep -Seconds 10
           }
           if (-not $ok) { throw "could not download a usable JAGS installer" }
           Write-Host "JAGS installer: $((Get-Item $installer).Length) bytes"
-          Start-Process -FilePath $installer -ArgumentList "/S" -Wait
-          "C:\Program Files\JAGS\JAGS-4.3.2\x64\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          # Extract rather than run /S. rjags hardcodes the install location it
+          # probes (C:\Program Files\JAGS\JAGS-4.3.2\x64), so keeping that name
+          # under RUNNER_TEMP is both where it looks and where we point the PATH;
+          # extracting also avoids depending on the silent switch.
+          $jags = "C:\Program Files\JAGS\JAGS-4.3.2"
+          New-Item -ItemType Directory -Force -Path $jags | Out-Null
+          7z x $installer "-o$jags" -y | Select-Object -Last 3
+          & "$jags\x64\bin\jags-terminal.exe" --version
+          "$jags\x64\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
