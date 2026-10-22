@@ -22,8 +22,8 @@ Observational comparison of the stored CellRank driver table across at least
 two lineages. The function summarizes how many drivers each anonymized
 lineage carries, how large their absolute metric values are, and how much
 the lineages' driver sets overlap. It never nominates, ranks or describes any
-lineage as \dQuote{the} fate, and no gene symbol, per-cell value or
-\dQuote{best lineage} field is emitted.
+lineage as \emph{the} fate, and no gene symbol, per-cell value or
+\emph{best lineage} field is emitted.
 }
 \examples{
 sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)

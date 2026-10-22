@@ -16,7 +16,7 @@ PhenotypeEvidenceProviders(
 
 \item{name}{Provider name.}
 
-\item{provider}{A provider list, see \sQuote{Providers}.}
+\item{provider}{A provider list, see \emph{Providers}.}
 
 \item{include}{Optional character vector restricting the returned names.}
 }

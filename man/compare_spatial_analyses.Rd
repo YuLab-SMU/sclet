@@ -20,7 +20,7 @@ Observational comparison across the spatial analyses stored on the object.
 The function reports how many analyses are present, how many records and
 feature columns each carries, and how those bounded counts differ. It never
 selects a best analysis, never ranks one above another and never reports
-which analysis is \dQuote{right}: deconvolution, colocalization and niche
+which analysis is \emph{right}: deconvolution, colocalization and niche
 detection are different algorithms answering different questions, so their
 outputs are not competing answers to one question.
 }

@@ -40,7 +40,7 @@
 #'
 #' @param action One of `"list"`, `"get"`, `"register"`, `"unregister"`.
 #' @param name Provider name.
-#' @param provider A provider list, see \sQuote{Providers}.
+#' @param provider A provider list, see *Providers*.
 #' @param include Optional character vector restricting the returned names.
 #'
 #'

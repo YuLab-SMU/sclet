@@ -1015,10 +1015,10 @@ sclet_ai_action_state_problems <- function(before, after, descriptor) {
 #' They must agree. When they did not, validation resolved a reference against
 #' the action's declared `output_schema` (which has keys like `required_hvg`)
 #' while execution resolved it against the runtime summary (which does not), so
-#' a plan containing `${step_2.output.required_hvg}` *passed validation and
+#' a plan containing `` `${step_2.output.required_hvg}` `` *passed validation and
 #' then failed at execution* with "Plan output field is not available":
 #'
-#'   step_3: Plan output field is not available: `${step_2.output.required_hvg}`
+#'   step_3: Plan output field is not available: `` `${step_2.output.required_hvg}` ``
 #'
 #' Reproduced in two of four real benchmark runs. Validation that accepts what
 #' execution cannot do is worse than stricter validation, because the failure

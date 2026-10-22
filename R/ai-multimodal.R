@@ -141,14 +141,14 @@ sclet_ai_multimodal_caveats <- function() {
 #' Reports which multimodal modalities are attached to the object as altExps,
 #' which of them carry a multimodal analysis-state record, and whether a
 #' multimodal workflow record is present. This diagnostic deliberately never
-#' says which modalities an object \emph{should} have, never recommends an
+#' says which modalities an object *should* have, never recommends an
 #' integration method, and never ranks or scores a modality: which modalities
 #' are expected, and how they should be combined, is a modeling assumption only
 #' the user can make.
 #'
 #' The diagnostic distinguishes two separate states for each modality. A
-#' modality is \strong{attached} when an altExp such as \code{"ADT"} or
-#' \code{"ATAC"} exists on the object. It is \strong{registered} when a
+#' modality is **attached** when an altExp such as \code{"ADT"} or
+#' \code{"ATAC"} exists on the object. It is **registered** when a
 #' \code{"multimodal"} analysis-state record exists for it. Registration makes
 #' the modality trackable by the mainline; it computes nothing. An object can
 #' therefore be reported as attached without being registered, and the returned

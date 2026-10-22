@@ -395,8 +395,8 @@ summarize_fate_lineage_drivers <- function(object, id = NULL, lineage = NULL, to
 #' two lineages. The function summarizes how many drivers each anonymized
 #' lineage carries, how large their absolute metric values are, and how much
 #' the lineages' driver sets overlap. It never nominates, ranks or describes any
-#' lineage as \dQuote{the} fate, and no gene symbol, per-cell value or
-#' \dQuote{best lineage} field is emitted.
+#' lineage as *the* fate, and no gene symbol, per-cell value or
+#' *best lineage* field is emitted.
 #'
 #' @param object A \code{SingleCellExperiment} object.
 #' @param id Optional CellRank trajectory record id.

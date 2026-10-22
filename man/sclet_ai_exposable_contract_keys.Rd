@@ -32,11 +32,11 @@ One definition, shared by the runtime output summary and by validation.
 They must agree. When they did not, validation resolved a reference against
 the action's declared \code{output_schema} (which has keys like \code{required_hvg})
 while execution resolved it against the runtime summary (which does not), so
-a plan containing \verb{$\{step_2.output.required_hvg\}} \emph{passed validation and
+a plan containing \code{`${step_2.output.required_hvg}`} \emph{passed validation and
 then failed at execution} with "Plan output field is not available":
 }
 \details{
-step_3: Plan output field is not available: \verb{$\{step_2.output.required_hvg\}}
+step_3: Plan output field is not available: \code{`${step_2.output.required_hvg}`}
 
 Reproduced in two of four real benchmark runs. Validation that accepts what
 execution cannot do is worse than stricter validation, because the failure
