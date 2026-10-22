@@ -345,7 +345,10 @@ In this small smoke-test object, CellRank detects only one terminal state and th
 This closes the loop on question 1: when spliced/unspliced assays are available, the same trajectory mainline can extend from lineage inference to velocity and fate mapping in a single call — every stage still lands in the state layer under one workflow record:
 
 ```{r trajectory-mainline-dynamic, eval=FALSE}
-sce <- RunTrajectoryWorkflow(
+# Not executed: `run_velocity`/`run_fate = "auto"` need spliced and unspliced
+# assays, which the PBMC demo does not have, and they run through a basilisk
+# Python environment (scVelo + CellRank). The chapter's earlier sections reach
+# the same state from the cached velocity/fate objects in `data/`.
   sce,
   group = "cluster",
   reduction = "PCA",

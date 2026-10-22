@@ -29,7 +29,7 @@ If your real question is "what does this query dataset correspond to in a refere
 
 If you have a reference `SingleCellExperiment` with cell type annotations, you can use it to map labels to your query dataset quickly:
 
-```{r run-knn-predict, eval = FALSE}
+```{r run-knn-predict, eval = eval_chunks}
 set.seed(1)
 ref_idx <- sample(seq_len(ncol(pbmc)), 500)
 ref_sce <- pbmc[, ref_idx]
@@ -55,6 +55,8 @@ ProjectionPlot(query_sce, ref_sce)
 ```
 
 ```{r run-knn-predict-cache, include=FALSE, eval=FALSE}
+# Not executed: it is the offline shortcut for a render that skipped the chunk
+# above, so running it here would re-read the file the very run is producing.
 knn_query_sce <- if (file.exists("data/knn-refmap-pbmc.rds")) {
     readRDS("data/knn-refmap-pbmc.rds")
 } else {
@@ -157,7 +159,10 @@ get_mapping(object, id = "symphony_demo")
 Symphony mapping also works through `RunReferenceWorkflow()`:
 
 ```{r symphony-workflow, eval=FALSE}
-object <- RunReferenceWorkflow(
+# Not executed: needs a `ref` SingleCellExperiment with a `cell_type` label
+# column. No bundled dataset in this book is a labelled reference atlas (the
+# KNN demo above splits `pbmc` into its own query and reference), and
+# downloading one is a data decision, not a documentation one.
     object,
     ref = ref,
     labels = "cell_type",

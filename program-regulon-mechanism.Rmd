@@ -258,7 +258,11 @@ stat1 <- get_program(sce, "STAT1(+)", source = "scenic")
 When you want a single overview of multiple programs across cell groups, `plot_program_dotplot()` summarizes each program per group with dot size reflecting the fraction of expressing cells and color reflecting mean activity. This is the program-level equivalent of Seurat's DotPlot, consuming the same typed state records as `get_program()`.
 
 ```{r program-dotplot, eval=FALSE}
-plot_program_dotplot(
+# Not executed: reads a program-scoring record that `RunGeneSetScoring()`
+# writes. The scoring itself runs in this chapter, but under the `pbmc` object
+# that index.Rmd builds, and this chunk's `sce` refers to the program-chapter
+# object built further down, so running it in book order would fail on a
+# missing record rather than on the plot.
     sce,
     programs = c("T_cell", "B_cell", "Myeloid", "STAT1(+)"),
     source = "auto",

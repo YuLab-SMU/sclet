@@ -9,6 +9,9 @@ All three modes run on the same three components, and all three are only as trus
 The usual script is a straight line:
 
 ```{r ai-foundations-naive, eval=FALSE}
+# Not executed: `sce` is a placeholder and the point is the SHAPE of the script
+# -- four calls with no record of why. The same four calls run for real in the
+# [core workflow](#core-workflow) chapter, with the state they leave behind.
 sce <- NormalizeData(sce)
 sce <- FindVariableFeatures(sce)
 sce <- FindClusters(sce)

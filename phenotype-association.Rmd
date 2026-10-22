@@ -21,7 +21,10 @@ The important thing is not the toy syntax, but the data alignment:
 To keep the example grounded, the template below uses **package-backed real data** instead of a fabricated pseudo-bulk matrix: `TENxPBMCData` provides the single-cell object and `airway` provides a bulk RNA-seq cohort with a real treatment phenotype. The biology is still only a mechanics demo rather than a matched study design, but at least the data source is a proper R package instead of something we invented on the spot.
 
 ```{r phenotype-association, eval=FALSE}
-library(sclet)
+# Not executed: needs the `scPAS` package, which is not on CRAN or
+# Bioconductor, plus a bulk cohort whose phenotypes match the single-cell
+# object. `airway` is a real cohort but it is not a PBMC cohort, so the
+# template shows the mechanics and is not a runnable study design.
 library(TENxPBMCData)
 library(airway)
 
