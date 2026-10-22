@@ -72,19 +72,17 @@ jobs:
           if ($actual -ne $sha256) {
             throw "JAGS installer hash mismatch: got $actual"
           }
-          # Extract rather than run /S. rjags hardcodes the install location it
-          # probes (C:\Program Files\JAGS\JAGS-4.3.2\x64), so keeping that name
-          # is what makes the DLL findable; extracting also avoids depending on
-          # the silent switch.
-          $jags = "C:\Program Files\JAGS\JAGS-4.3.2"
+          # Extract rather than run /S. rjags does not search PATH: its
+          # .onLoad looks at JAGS_HOME and then at the registry entry the real
+          # installer would write. Extracting writes no registry entry, so
+          # JAGS_HOME is what makes it findable.
+          $jags = "$env:RUNNER_TEMP\JAGS-4.3.2"
           New-Item -ItemType Directory -Force -Path $jags | Out-Null
           7z x $installer "-o$jags" -y | Select-Object -Last 3
-          # jags-terminal has no --version flag ("Unable to open command file
-          # --version"), so assert on the library itself, which is what rjags
-          # actually loads.
           if (-not (Test-Path "$jags\x64\bin\libjags-4.dll")) {
             throw "libjags-4.dll missing after extraction"
           }
+          "JAGS_HOME=$jags" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           "$jags\x64\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
       - uses: r-lib/actions/setup-r-dependencies@v2
