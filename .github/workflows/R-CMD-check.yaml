@@ -59,10 +59,28 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          # SourceForge hands out a different mirror per request and one of them
+          # served a truncated file; Start-Process then reported the temp file
+          # as "corrupted and unreadable". Retry, and insist on a real
+          # executable before running it.
+          $url = "https://downloads.sourceforge.net/project/mcmc-jags/JAGS/4.x/Windows/JAGS-4.3.2.exe"
           $installer = "$env:RUNNER_TEMP\jags.exe"
-          Invoke-WebRequest `
-            -Uri "https://downloads.sourceforge.net/project/mcmc-jags/JAGS/4.x/Windows/JAGS-4.3.2.exe" `
-            -OutFile $installer
+          $ok = $false
+          foreach ($attempt in 1..5) {
+            try {
+              Invoke-WebRequest -Uri $url -OutFile $installer -MaximumRetryCount 2 -RetryIntervalSec 5
+              if ((Get-Item $installer).Length -gt 5MB) {
+                $ok = $true
+                break
+              }
+              Write-Host "attempt ${attempt}: only $((Get-Item $installer).Length) bytes"
+            } catch {
+              Write-Host "attempt ${attempt} failed: $_"
+            }
+            Start-Sleep -Seconds 10
+          }
+          if (-not $ok) { throw "could not download a usable JAGS installer" }
+          Write-Host "JAGS installer: $((Get-Item $installer).Length) bytes"
           Start-Process -FilePath $installer -ArgumentList "/S" -Wait
           "C:\Program Files\JAGS\JAGS-4.3.2\x64\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
