@@ -95,6 +95,13 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check argparse
           python -c "import argparse, json; print('argparse ok', argparse.__version__)"
+          # findpython tries getOption("python_cmd"), then PYTHON, then the
+          # python*/python3.* names on PATH. Pin the interpreter we just
+          # installed into explicitly, so the module and the binary that R
+          # probes cannot diverge.
+          $python = (Get-Command python).Source
+          "PYTHON=$python" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          Write-Host "PYTHON=$python"
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
