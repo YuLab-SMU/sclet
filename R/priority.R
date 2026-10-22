@@ -10,9 +10,17 @@
 # limit (it reported 112 on the machine where this was measured, either way),
 # because the refusal happens inside `mclapply`, not in the core count. The
 # limit is the environment variable `parallel` itself reads, so read it.
+#
+# Windows is a separate wall, not a smaller limit: `mclapply()` refuses any
+# `mc.cores > 1` there at all ("'mc.cores' > 1 is not supported on Windows"),
+# so the number has to be 1 regardless of what the limit says. That is what
+# four tests in test-perturbation-priority.R hit on the Windows runner.
 sclet_augur_threads <- function(requested = NULL) {
     if (!is.null(requested)) {
         return(as.integer(requested))
+    }
+    if (.Platform$OS.type == "windows") {
+        return(1L)
     }
     if (identical(Sys.getenv("_R_CHECK_LIMIT_CORES_"), "TRUE")) {
         return(2L)

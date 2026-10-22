@@ -109,3 +109,20 @@ test_that("a DelayedMatrix assay is densified before reaching Augur", {
     rec <- get_perturbation_priority(out)
     expect_setequal(as.character(rec$AUC$cell_type), c("a", "b"))
 })
+
+## Augur runs its cell types through `parallel::mclapply()`, which refuses any
+## `mc.cores > 1` on Windows ("'mc.cores' > 1 is not supported on Windows").
+## The thread count had been raised to a minimum of 2 to satisfy
+## `_R_CHECK_LIMIT_CORES_`, so every test in this file failed on the Windows
+## runner while passing everywhere else. Measured 2026-10-22.
+test_that("Augur is asked for one thread on Windows", {
+    threads <- sclet:::sclet_augur_threads
+    expect_identical(threads(1), 1L)
+    # An explicit request is honoured everywhere; only the default differs.
+    expect_identical(threads(8), 8L)
+    if (.Platform$OS.type == "windows") {
+        expect_identical(threads(), 1L)
+    } else {
+        expect_gte(threads(), 1L)
+    }
+})
