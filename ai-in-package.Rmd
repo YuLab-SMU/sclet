@@ -53,8 +53,7 @@ length(unique(demo$ident))
 ## `AIPlanAnalysis`: ask for a plan
 
 ```{r ai-in-package-plan, eval=eval_ai}
-plan <- AIPlanAnalysis(demo, goal = "find markers that distinguish the clusters",
-    include = c("read", "preprocess", "dimred", "graph", "cluster", "annotation"))
+plan <- AIPlanAnalysis(demo, goal = "find markers that distinguish the clusters")
 
 plan$actions
 ```
@@ -63,13 +62,13 @@ The result is an ordinary plan — the same structure you wrote by hand in the p
 
 ### The registry has to match the goal
 
-Note the `include` argument above. `RunAIAnalysis()` and `AIPlanAnalysis()` default to a *beginner* registry — read, preprocess, dimred, graph, cluster — which is the right default for "run a pipeline" and the wrong one for "find markers", because `run_de_test` lives in the `annotation` group.
+`AIPlanAnalysis()` plans against every action group by default. `RunAIAnalysis()` differs: it defaults to a *beginner* registry — read, preprocess, dimred, graph, cluster — which is the right set for "run a pipeline from raw counts" and the wrong one for "find markers", because `run_de_test` lives in the `annotation` group.
 
-Leaving it at the default does not silently give you a weaker analysis. The planner is shown only the actions that registry contains, so it has to improvise a name for the step your goal implies, and the engine refuses it:
+What that costs you is worth watching once, because the failure is instructive rather than silent. With the beginner registry the planner is shown only its eleven actions, so for a marker goal it proposes a step it was never offered, and validation refuses the plan:
 
-> `action is not registered: run_de_test; the action field must be an exact registry key`
+> `action is not registered: run_de_test; it exists, but in the 'annotation' registry group, which this registry did not request -- add 'annotation' to include`
 
-That refusal is the system working. The lesson is on your side of the line: **the registry you pass is part of the question**, not a detail to leave alone.
+Two things are true at once here. The registry you pass **is** part of the question — pass the groups your goal needs. And the engine's refusal tells you exactly how to fix it, because a bare "not registered" would have sent you looking for a typo.
 
 ## `RunAIAnalysis`: plan, preview, ask, execute in one call
 
