@@ -39,9 +39,9 @@ value are reference cells. Mutually exclusive with \code{reference_cells}.}
 
 \item{assay}{Assay to use. Defaults to \code{"counts"} because inferCNV models
 raw counts. A non-count assay (non-integer, or with negative values) is
-refused rather than truncated, and the refusal happens BEFORE the readiness
-gate so that a malformed matrix is never masked by an unrelated
-prerequisite message.}
+refused rather than truncated, and the refusal happens BEFORE the
+readiness gate so that a malformed matrix is never masked by an
+unrelated prerequisite message.}
 
 \item{hmm}{Logical. Run inferCNV's HMM post-processing so that per-cell CNV
 state probabilities are reported. Defaults to \code{TRUE}.}
@@ -83,6 +83,13 @@ malignant. CNV-positivity is therefore strong positive evidence, and
 CNV-negativity is weak negative evidence.
 }
 
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the infercnv package and the JAGS system library
+sce <- RunCNVInference(sce, reference_cells = colnames(sce)[1:5])
+}
+}
 \seealso{
 \code{\link[=check_cnv_readiness]{check_cnv_readiness()}}, \code{\link[=CallMalignantCells]{CallMalignantCells()}}
 }

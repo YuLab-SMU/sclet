@@ -2,7 +2,10 @@
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
 on:
   push:
-    branches: 
+    branches:
+      - devel
+  pull_request:
+    branches:
       - devel
 
 name: R-CMD-check
@@ -11,17 +14,30 @@ jobs:
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
 
-    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
+    name: ${{ matrix.config.os }} (R ${{ matrix.config.r }}, Bioc ${{ matrix.config.bioc }})
 
     strategy:
       fail-fast: false
       matrix:
         config:
-          - {os: ubuntu-latest,   r: 'release'}
+          # The four cells BiocCheck/Bioc submission expects. A single
+          # ubuntu+release cell is not a check matrix: it cannot catch a
+          # platform-only failure, and it says nothing about whether the
+          # package installs against Bioc devel rather than the release.
+          - {os: ubuntu-latest,  r: 'release', bioc: 'release'}
+          - {os: ubuntu-latest,  r: 'devel',   bioc: 'devel'}
+          - {os: macos-latest,   r: 'release', bioc: 'release'}
+          - {os: windows-latest, r: 'release', bioc: 'release'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      # 53 Suggests packages, most of them heavy optional backends (infercnv,
+      # CellChat, SCENIC, scVI, Augur, ...). Forcing them all would make the
+      # matrix fail on an unrelated backend's install, not on this package.
+      # The backends that DO install are still exercised -- the package's
+      # own tests skip what is absent.
+      _R_CHECK_FORCE_SUGGESTS_: false
 
     steps:
       - uses: actions/checkout@v4
@@ -36,10 +52,20 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck
+          extra-packages: |
+            any::rcmdcheck
+            any::BiocManager
           needs: check
 
-      - name: Install Remotes
+      - name: Install Bioconductor ${{ matrix.config.bioc }}
+        run: |
+          BiocManager::install(version = "${{ matrix.config.bioc }}", ask = FALSE, update = FALSE)
+        shell: Rscript {0}
+
+      - name: Install GitHub remotes
+        # These four are in Suggests and have no Bioconductor release, so
+        # setup-r-dependencies cannot place them. The package's own code
+        # requireNamespace()s them, so a missing one changes behaviour.
         run: |
           install.packages('remotes')
           remotes::install_github("saeyslab/nichenetr")
@@ -50,3 +76,5 @@ jobs:
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
+          error-on: '"error"'
+          checkargs: 'c("--no-manual", "--as-cran")'

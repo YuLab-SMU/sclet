@@ -9,6 +9,12 @@
 #' @importFrom SummarizedExperiment rowData
 #' @importFrom SummarizedExperiment colData
 #' @export
+#' @examples
+#' \dontrun{
+#' # needs the 'DropletUtils' Suggests package
+#' sce <- Read10X("/path/to/10x/filtered_feature_bc_matrix")
+#' dim(sce)
+#' }
 Read10X <- function(data.dir, backend = c("memory", "HDF5"), ...) {
     if (!requireNamespace("DropletUtils", quietly = TRUE)) {
         stop("Package 'DropletUtils' is needed for Read10X(). Please install it.", call. = FALSE)

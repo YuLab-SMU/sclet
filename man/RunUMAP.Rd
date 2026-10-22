@@ -4,7 +4,7 @@
 \alias{RunUMAP}
 \title{RunUMAP}
 \usage{
-RunUMAP(object, dims = NULL, reduction = NULL, layer = NULL)
+RunUMAP(object, dims = NULL, reduction = NULL, layer = NULL, seed = 1L)
 }
 \arguments{
 \item{object}{a SingleCellExperiment object}
@@ -18,10 +18,22 @@ tries \code{DefaultReduction(object)}, then falls back to a non-UMAP reduction.}
 \item{layer}{source layer annotation used for provenance. If NULL, sclet
 tries to infer it from the source reduction state, then falls back to
 \code{DefaultLayer(object)}.}
+
+\item{seed}{integer seed for the UMAP embedding, or \code{NULL} to leave the
+embedding unseeded. \code{scater::runUMAP()} initialises uwot from random
+numbers and does not read R's \code{.Random.seed}, so without a seed the same
+input returns a different embedding on each call; the seed is recorded with
+the reduction state so the embedding can actually be reproduced.}
 }
 \value{
 updated SingleCellExperiment object with UMAP dimension reduction
 }
 \description{
 run umap
+}
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+sce <- RunUMAP(sce)
+ncol(SingleCellExperiment::reducedDim(sce, "UMAP"))
 }

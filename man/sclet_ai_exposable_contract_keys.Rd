@@ -36,7 +36,7 @@ a plan containing \verb{$\{step_2.output.required_hvg\}} \emph{passed validation
 then failed at execution} with "Plan output field is not available":
 }
 \details{
-step_3: Plan output field is not available: \code{\${step_2.output.required_hvg}}
+step_3: Plan output field is not available: \verb{$\{step_2.output.required_hvg\}}
 
 Reproduced in two of four real benchmark runs. Validation that accepts what
 execution cannot do is worse than stricter validation, because the failure

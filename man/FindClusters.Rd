@@ -11,15 +11,21 @@ FindClusters(object, resolution = 0.5, seed = 1L)
 
 \item{resolution}{resolution in clustering}
 
-\item{seed}{integer seed for the Louvain clustering.
-\code{igraph::cluster_louvain()} consumes random numbers, so the same graph
-and resolution otherwise return different labels on each call; the seed is
-recorded with the clustering state so a plan's clusters can actually be
-reproduced.}
+\item{seed}{integer seed for the Louvain clustering. \code{igraph::cluster_louvain()}
+consumes random numbers, so the same graph and resolution otherwise return
+different labels on each call; the seed is recorded with the clustering
+state so a plan's clusters can actually be reproduced.}
 }
 \value{
 updated SingleCellExperiment object with clustering memberships
 }
 \description{
 identify clusters
+}
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+sce <- FindNeighbors(sce, dims = 1:5)
+sce <- FindClusters(sce, resolution = 1)
+table(Idents(sce))
 }

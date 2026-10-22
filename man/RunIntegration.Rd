@@ -12,6 +12,7 @@ RunIntegration(
   layer = NULL,
   reduction = NULL,
   name = NULL,
+  seed = 1L,
   ...
 )
 }
@@ -30,6 +31,12 @@ RunIntegration(
 
 \item{name}{Integration record id. Defaults to the method name.}
 
+\item{seed}{integer seed for the stochastic backends. \code{harmony::RunHarmony()}
+and scVI's training both initialise from random numbers, so the same input
+otherwise returns a different embedding on each call; the seed is recorded
+with the integration state so the route can actually be reproduced.
+fastMNN is deterministic and ignores it.}
+
 \item{...}{Additional arguments passed to the underlying integration functions.}
 }
 \value{
@@ -40,4 +47,15 @@ Run Integration
 }
 \details{
 Unified entry point for batch correction and integration methods.
+}
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- RunPCA(sce, ncomponents = 5)
+colData(sce)$batch <- rep(c("b1", "b2"), length.out = ncol(sce))
+\dontrun{
+# needs the 'harmony' Suggests package (scVI also needs a Python environment)
+sce <- RunIntegration(sce, method = "Harmony", batch = "batch")
+SingleCellExperiment::reducedDimNames(sce)
+}
 }

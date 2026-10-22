@@ -18,6 +18,15 @@
 #' `DefaultLayer(object)`.
 #' @param ... additional parameters
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' Suggests package
+#' res <- FindAllMarkers(sce)
+#' head(res)
+#' }
 FindAllMarkers <- function(
     object, 
     min.pct = 0.01,
@@ -34,9 +43,21 @@ FindAllMarkers <- function(
     if (is.null(idents)) stop("No identities found. Please run FindClusters() first.")
     assay <- resolve_marker_assay(object, assay = assay, layer = layer)
     
-    # Ensure presto is available
-    if (!is.installed("presto")) {
-        install_zip_gh("immunogenomics/presto")
+    # Ensure presto is available.
+    #
+    # This used to INSTALL presto from GitHub when it was missing, which made
+    # a marker call a network operation the user never asked for -- slow,
+    # surprising, and impossible offline. Every other optional backend in this
+    # package stops with an install hint instead (see ALRA in imputation.R,
+    # scPAS in phenotype.R, Augur in priority.R), and presto is the same
+    # case: it is a Suggests dependency, so its absence is the user's to
+    # resolve, not the function's to silently fix.
+    if (!requireNamespace("presto", quietly = TRUE)) {
+        stop(
+            "Package 'presto' is required for marker testing. Please install it ",
+            "with remotes::install_github('immunogenomics/presto').",
+            call. = FALSE
+        )
     }
     wilcoxauc <- get_fun_from_pkg("presto", "wilcoxauc")
 
@@ -139,6 +160,15 @@ FindAllMarkers <- function(
 #' `DefaultLayer(object)`.
 #' @param ... additional parameters
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' Suggests package
+#' res <- FindMarkers(sce, ident.1 = "c1")
+#' head(res)
+#' }
 FindMarkers <- function(
     object, 
     ident.1 = NULL, 
@@ -173,8 +203,27 @@ FindMarkers <- function(
 #' @param ident.2 A second identity class for comparison
 #' @param name Analysis record id. Defaults to "detest".
 #' @param ... Passed to FindMarkers or FindAllMarkers
+#' @param group Optional colData column to contrast instead of the active
+#'    identity (e.g. "condition"). When given, ident.1/ident.2 are levels of
+#'    that column.
+#' @param covariates Optional colData columns to adjust the group contrast
+#'    for. With covariates the test is pseudobulk per covariate combination
+#'    and limma, design `~ group + covariates` (a paired analysis when the
+#'    covariate is the donor). Without covariates the existing cell-level
+#'    FindMarkers is used and donor/batch structure is NOT adjusted; the state
+#'    records which.
+#' @param min_cells Minimum cells per pseudobulk sample (default 10).
 #' @return A SingleCellExperiment object with detest state added
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' Suggests package
+#' sce <- RunDEtest(sce)
+#' get_detest(sce)$summary$n_markers
+#' }
 RunDEtest <- function(object, ident.1 = NULL, ident.2 = NULL, name = "detest",
                       group = NULL, covariates = NULL, min_cells = 10L, ...) {
     # The thresholds are the run's own. They travel in `...` to FindMarkers /
@@ -244,6 +293,16 @@ RunDEtest <- function(object, ident.1 = NULL, ident.2 = NULL, name = "detest",
 #' @param id Analysis record id. If NULL, uses the active detest state.
 #' @return The detest state record
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' Suggests package to record a detest result
+#' sce <- RunDEtest(sce)
+#' rec <- get_detest(sce)
+#' rec$summary$n_markers
+#' }
 get_detest <- function(object, id = NULL) {
     if (is.null(id)) id <- sclet_get_active_state(object, "detest")
     if (is.null(id)) return(NULL)
@@ -257,6 +316,15 @@ get_detest <- function(object, id = NULL) {
 #' @param id Analysis record id. If NULL, uses the active detest state.
 #' @return Logical indicating if the detest state exists
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' Suggests package to record a detest result
+#' sce <- RunDEtest(sce)
+#' has_detest(sce)
+#' }
 has_detest <- function(object, id = NULL) {
     !is.null(get_detest(object, id))
 }
@@ -272,7 +340,6 @@ resolve_marker_assay <- function(object, assay = NULL, layer = NULL) {
     source$assay
 }
 
-#' @importFrom yulab.utils install_zip_gh
 #' @importFrom yulab.utils is.installed
 #' @importFrom Matrix rowSums
 FindMarkers_Presto <- function(object, ident.1 = NULL, ident.2 = NULL, clusters, 
@@ -317,8 +384,12 @@ FindMarkers_Presto <- function(object, ident.1 = NULL, ident.2 = NULL, clusters,
 
     group_labels <- c(rep("group1", length(cells.1)), rep("group2", length(cells.2)))
 
-    if (!is.installed("presto")) {
-        install_zip_gh("immunogenomics/presto")
+    if (!requireNamespace("presto", quietly = TRUE)) {
+        stop(
+            "Package 'presto' is required for marker testing. Please install it ",
+            "with remotes::install_github('immunogenomics/presto').",
+            call. = FALSE
+        )
     }
 
     wilcoxauc <- get_fun_from_pkg("presto", "wilcoxauc")

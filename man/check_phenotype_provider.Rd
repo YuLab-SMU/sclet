@@ -16,3 +16,13 @@ check_phenotype_provider(provider)
 Validates a provider list before it is registered. Returns \code{TRUE} invisibly on
 success and names every problem it finds otherwise.
 }
+\examples{
+provider <- list(
+    name = "my_line",
+    label = "An independent measurement",
+    dependence = "independent",
+    available = function(object, ...) list(available = TRUE, issues = character()),
+    decide = function(object, ...) list(state = rep("positive", ncol(object)))
+)
+check_phenotype_provider(provider)
+}

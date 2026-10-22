@@ -70,6 +70,7 @@ Suggests:
     ALRA,
     AnnotationDbi,
     AUCell,
+    Augur,
     batchelor,
     BiocNeighbors,
     BiocParallel,
@@ -80,6 +81,7 @@ Suggests:
     clusterProfiler,
     ComplexHeatmap,
     DESeq2,
+    destiny,
     DelayedArray,
     DropletUtils,
     enrichplot,
@@ -108,6 +110,7 @@ Suggests:
     rjags,
     scDblFinder,
     scrapper,
+    scPAS,
     Seurat,
     SingleR,
     slingshot,
@@ -120,9 +123,6 @@ Suggests:
     viridis,
     zellkonverter
 Enhances:
-    Augur,
-    destiny,
-    scPAS,
     symphony
 License: Artistic-2.0
 URL: https://yulab-smu.top/sclet, https://github.com/YuLab-SMU/sclet

@@ -21,3 +21,9 @@ highly variable features
 \description{
 get variable features
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- FindVariableFeatures(sce, method = "scran", nfeatures = 20)
+head(VariableFeatures(sce))
+}

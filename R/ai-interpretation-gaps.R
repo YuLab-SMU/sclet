@@ -223,6 +223,13 @@ sclet_ai_record_cnv_evidence <- function(object, name = "cnv", replace = FALSE) 
 #' @param group Optional group column name. When NULL it resolves from the
 #'   active identity.
 #' @return A read-only readiness summary list.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the limma Suggests package
+#' readiness <- check_de_readiness(sce)
+#' readiness$status
+#' }
 #' @export
 check_de_readiness <- function(object, group = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -397,6 +404,13 @@ sclet_ai_milo_design_roles <- function(object, sample_col = NULL, condition_col 
 #' @param condition_col Optional column name the caller intends as the
 #'   condition.
 #' @return A read-only readiness summary list.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the miloR Suggests package
+#' readiness <- check_milo_readiness(sce)
+#' readiness$status
+#' }
 #' @export
 check_milo_readiness <- function(object, sample_col = NULL, condition_col = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -620,6 +634,12 @@ sclet_ai_record_milo_evidence <- function(object, name, replace = FALSE) {
 #' @param object A \code{SingleCellExperiment} object.
 #' @param id Optional Milo record id. When \code{NULL}, the active one.
 #' @return A read-only summary list.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' # No Milo run is on record, so nothing is reported.
+#' summary <- summarize_milo_evidence(sce)
+#' summary$status
+#' summary$reason
 #' @export
 summarize_milo_evidence <- function(object, id = NULL) {
     if (!inherits(object, "SingleCellExperiment")) {

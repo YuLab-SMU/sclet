@@ -45,3 +45,11 @@ using the Augur framework. Augur trains a machine-learning model for each
 cell type to predict experimental condition from molecular measurements, then
 ranks cell types by cross-validated AUC.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 100, ngenes = 50)
+SummarizedExperiment::colData(sce)$cluster <- rep(c("alpha", "beta"), length.out = 100)
+\dontrun{
+# needs the Augur package (install it from GitHub) and >= 20 cells per group
+sce <- RunPerturbationPriority(sce, condition_col = "Treatment", group_col = "cluster")
+}
+}

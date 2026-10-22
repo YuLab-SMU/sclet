@@ -59,3 +59,10 @@ Run CellChat communication analysis
 \details{
 https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/CellChat-vignette.html#c-starting-from-a-singlecellexperiment-object
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the CellChat package
+sce <- RunCellChat(sce, group = "Treatment", min.cells = 5)
+}
+}

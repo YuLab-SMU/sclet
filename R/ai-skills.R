@@ -34,6 +34,9 @@
 #' any AI agent, and by the internal \code{sclet_ai_skill_context()}.
 #'
 #' @return A character vector of skill directory names, invisibly.
+#' @examples
+#' skills <- AISkills()
+#' length(skills) > 0
 #' @export
 AISkills <- function() {
     root <- system.file("skills", package = "sclet")
@@ -49,6 +52,10 @@ AISkills <- function() {
 #'
 #' @param skill Skill name, as returned by [AISkills()].
 #' @return List with `name`, `description`, `body` and `path`.
+#' @examples
+#' skill <- ReadAISkill(AISkills()[[1]])
+#' skill$name
+#' nchar(skill$body) > 0
 #' @export
 ReadAISkill <- function(skill) {
     stopifnot(is.character(skill), length(skill) == 1L, nzchar(skill))

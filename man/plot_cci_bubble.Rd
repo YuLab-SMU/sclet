@@ -35,3 +35,11 @@ A ggplot object
 \description{
 Plot Cell-Cell Communication Bubble Chart
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs a recorded cell-cell communication run (RunCCI())
+p <- plot_cci_bubble(sce)
+class(p)[1]
+}
+}

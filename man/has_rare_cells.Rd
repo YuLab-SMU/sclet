@@ -15,3 +15,11 @@ logical
 \description{
 Check whether rare cell detection results are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "rareq", type = "rare_cells", method = "density",
+    artifacts = list(label_col = "rare_cluster"),
+    summary = list(n_clusters = 3, n_rare_clusters = 1))
+S4Vectors::metadata(sce)$sclet <- list(analyses = list(rare_cells = record))
+has_rare_cells(sce)
+}

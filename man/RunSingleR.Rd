@@ -43,3 +43,15 @@ Run SingleR for cell type annotation
 \details{
 Wrapper for SingleR to perform automatic cell type annotation.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+\dontrun{
+# needs the 'SingleR' Suggests package and a reference dataset
+ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+ref <- NormalizeData(ref)
+colData(ref)$label.main <- rep(c("A", "B"), length.out = ncol(ref))
+sce <- RunSingleR(sce, ref = ref, labels = "label.main")
+colnames(colData(sce))
+}
+}

@@ -43,3 +43,12 @@ This function calculates gene set or pathway activity scores for individual cell
 methods like AUCell, UCell, or GSVA. The resulting scores are added to the \code{colData} of the
 SingleCellExperiment object and registered in the analysis-state contract.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the 'UCell', 'AUCell' or 'GSVA' Suggests package
+gs <- list(Program1 = c("Gene_0001", "Gene_0002", "Gene_0003"))
+sce <- RunGeneSetScoring(sce, gene_sets = gs, method = "UCell")
+colnames(colData(sce))
+}
+}

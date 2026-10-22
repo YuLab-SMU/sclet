@@ -37,3 +37,17 @@ A ggplot object.
 Plot fate probabilities inferred by CellRank on a reduced-dimensional
 embedding using the \code{plot_module_graphic} naming convention.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(rnorm(40), ncol = 2,
+    dimnames = list(colnames(sce), c("PC1", "PC2")))
+SummarizedExperiment::colData(sce)$cellrank_fate_A <- runif(20)
+# a CellRank result, as RunCellRank() would record it
+record <- list(id = "cellrank", type = "trajectory", method = "CellRank",
+               inputs = list(reduction = "PCA"),
+               artifacts = list(fate_probability_cols = "cellrank_fate_A",
+                                fate_probability_names = "A"))
+S4Vectors::metadata(sce)$sclet$states$records$trajectory$cellrank <- record
+S4Vectors::metadata(sce)$sclet$states$active$trajectory <- "cellrank"
+plot_fate_probability(sce)
+}

@@ -57,3 +57,12 @@ via \code{basilisk} to isolate the Python environment. The resulting AUC matrix 
 alternative experiment (\code{altExp}) in the SingleCellExperiment object, and the analysis state
 is updated to track the SCENIC results.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the reticulate package and the pySCENIC Python environment
+sce <- RunSCENIC(sce, tfs_path = "tfs.txt",
+                 motif_annotations_path = "motifs.tbl",
+                 database_paths = "ctx.db.feather")
+}
+}

@@ -4,6 +4,13 @@
 #' @param object a 'SingleCellExperiment' object
 #' @return update object with two QC metrics ('nFeature_RNA' and 'nCount_RNA')
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the 'scrapper' Suggests package
+#' sce <- QCMetrics(sce)
+#' head(colData(sce)$nCount_RNA)
+#' }
 QCMetrics <- function(object) {
     qc_metrics <- scrapper::computeRnaQcMetrics(
         SummarizedExperiment::assay(object, "counts"),
@@ -22,6 +29,10 @@ QCMetrics <- function(object) {
 #' @param feature search pattern from feature of the object. If NULL, use the `rownames(object)`, otherwise, use `rowData(object)[[feature]]`
 #' @return the percentage of each cell
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' pct <- PercentageFeatureSet(sce, pattern = "^Gene_000[1-5]$")
+#' head(pct)
 PercentageFeatureSet <- function(object, pattern = NULL, feature=NULL) {
     if (is.null(feature)) {
         features <- rownames(object)
@@ -53,6 +64,13 @@ PercentageFeatureSet <- function(object, pattern = NULL, feature=NULL) {
 #' @importFrom SummarizedExperiment assay
 #' @importFrom methods as
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # the DelayedArray-backed branch needs the 'DelayedArray' Suggests package
+#' sce <- NormalizeData(sce)
+#' SummarizedExperiment::assayNames(sce)
+#' }
 NormalizeData <- function(object, scale.factor = 10000, assay = "counts") {
     if (!assay %in% SummarizedExperiment::assayNames(object)) {
         stop(
@@ -136,6 +154,14 @@ NormalizeData <- function(object, scale.factor = 10000, assay = "counts") {
 #' @importFrom stats loess
 #' @importFrom scran modelGeneVar
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' \dontrun{
+#' # the 'scrapper' method needs the 'scrapper' Suggests package
+#' sce <- FindVariableFeatures(sce, method = "scrapper", nfeatures = 20)
+#' head(VariableFeatures(sce))
+#' }
 FindVariableFeatures <- function(object, nfeatures = 2000, method = "scran", ...) {
     method <- match.arg(method, c("seurat", "scran", "scrapper"))
     if (identical(method, "seurat")) {
@@ -195,6 +221,11 @@ FindVariableFeatures <- function(object, nfeatures = 2000, method = "scran", ...
 #' @param ... additional parameters for ranking the `method = "scran"` HVG table
 #' @return highly variable features
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- FindVariableFeatures(sce, method = "scran", nfeatures = 20)
+#' head(VariableFeatures(sce))
 VariableFeatures <- function(object, method = "scran", ...) {
     if (missing(method)) {
         method <- sclet_resolve_hvg_method(object)
@@ -690,6 +721,11 @@ sclet_model_gene_var <- function(object, ..., assay.type = "logcounts",
 #' @return an updated SingleCellExperiment object with 'scaled' assay
 #' @export
 #' @importFrom stats sd
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- ScaleData(sce)
+#' SummarizedExperiment::assayNames(sce)
 ScaleData <- function(object, features = NULL, assay = "logcounts") {
     prev_state <- sclet_get_state(object)
     if (is.null(features)) {

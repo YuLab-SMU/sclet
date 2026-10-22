@@ -34,3 +34,10 @@ A structured \code{sclet_ai_result} containing recommendations and proposed acti
 \description{
 Ask the AI to recommend a conservative next analysis step
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs a provider API key
+AIRecommendNextStep(sce)
+}
+}

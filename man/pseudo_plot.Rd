@@ -38,3 +38,11 @@ A \code{ggplot} object representing the pseudotime visualization.
 \description{
 Visualize pseudotime data on reduction plots
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(rnorm(40), ncol = 2,
+    dimnames = list(colnames(sce), c("PC1", "PC2")))
+SummarizedExperiment::colData(sce)$slingPseudotime <- data.frame(
+    Lineage1 = seq_len(20), row.names = colnames(sce))
+pseudo_plot(sce, reduction = "PCA")
+}

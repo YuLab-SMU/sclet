@@ -17,6 +17,16 @@
 #' @param estimated_cost Optional cost label such as `"low"`, `"medium"`, or `"high"`.
 #' @param idempotent Logical. Whether repeating the action is expected to be safe.
 #' @return An action descriptor.
+#' @examples
+#' # Register a custom action and put it in a registry.
+#' my_action <- AIAction(
+#'     name = "count_cells",
+#'     handler = function(object, params) ncol(object),
+#'     description = "Count the cells on the object",
+#'     returns = "value"
+#' )
+#' registry <- AIExecutionRegistry(list(my_action))
+#' names(registry)
 #' @export
 AIAction <- function(
     name,
@@ -163,7 +173,7 @@ sclet_ai_assay_count_problem <- function(object, assay) {
 # the marker "hvg": the static form must not carry 2000 gene names into every
 # planning context, so the real set only exists after the step executes. A
 # downstream step therefore writes
-# `features = "${step_2.output.variable_features}"`, and
+# `features = "$\{step_2.output.variable_features\}"`, and
 # `sclet_ai_project_plan_value()` deliberately leaves that reference
 # unprojected -- projecting it would substitute the meaningless marker and hand
 # validation a literal it could not act on.
@@ -179,8 +189,8 @@ sclet_ai_is_deferred_gene_selector <- function(value) {
 }
 
 # The `<field>` of a deferred gene-selector reference, or NULL when the value is
-# an ordinary selector. Only the exact `${step.output.field}` shape counts: a
-# bare `${step}` or `${step.output}` is a malformed reference that must keep its
+# an ordinary selector. Only the exact `$\{step.output.field\}` shape counts: a
+# bare `$\{step\}` or `$\{step.output\}` is a malformed reference that must keep its
 # own error message, and a gene vector or a prose description is not a promise.
 sclet_ai_deferred_selector_field <- function(value) {
     if (is.null(value) || !is.character(value) || length(value) != 1L) {
@@ -334,6 +344,16 @@ sclet_ai_gene_selector <- function(object, value, arg = "features") {
 
     unsupported(missing_rows)
 }
+#' Report which action parameters do not match the registry schema
+#'
+#' Compares a plan step's parameters against the input schema of the action it
+#' names and returns a human-readable description of what does not line up:
+#' unknown parameters, missing required ones, and values of the wrong type.
+#'
+#' @param params The `params` list of a plan step.
+#' @param schema The action's `input_schema`, as held by the registry.
+#' @return A character string describing the problems, empty when the
+#'   parameters match the schema.
 sclet_ai_action_param_problems <- function(params, schema) {
     if (is.null(params)) {
         params <- list()
@@ -554,6 +574,10 @@ sclet_ai_action_param_type_problems <- function(params, schema) {
 #'   `"velocity"`, `"fate"`, `"spatial"`, `"multimodal"`, `"enrichment"`,
 #'   `"malignant"`, `"communication"`, `"milo"`, and `"all"`. Defaults to `"read"`.
 #' @return A `sclet_ai_execution_registry` containing the requested actions.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' registry <- AIDefaultExecutionRegistry(sce, include = "all")
+#' any(names(registry) == "normalize_data")
 #' @export
 AIDefaultExecutionRegistry <- function(object, include = "read") {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -839,6 +863,14 @@ sclet_ai_record_rare_cell_evidence <- function(object, name, rare_threshold) {
 #'
 #' @param actions Named list of `AIAction()` descriptors.
 #' @return An object of class `sclet_ai_execution_registry`.
+#' @examples
+#' action <- AIAction(
+#'     name = "count_cells",
+#'     handler = function(object, params) ncol(object),
+#'     returns = "value"
+#' )
+#' registry <- AIExecutionRegistry(list(action))
+#' registry[["count_cells"]]$name
 #' @export
 AIExecutionRegistry <- function(actions = list()) {
     if (is.null(actions)) {
@@ -954,7 +986,7 @@ sclet_ai_action_state_problems <- function(before, after, descriptor) {
 #' a plan containing `${step_2.output.required_hvg}` *passed validation and
 #' then failed at execution* with "Plan output field is not available":
 #'
-#'   step_3: Plan output field is not available: ${step_2.output.required_hvg}
+#'   step_3: Plan output field is not available: `${step_2.output.required_hvg}`
 #'
 #' Reproduced in two of four real benchmark runs. Validation that accepts what
 #' execution cannot do is worse than stricter validation, because the failure
@@ -1030,7 +1062,7 @@ sclet_ai_execution_summary <- function(value, descriptor = NULL) {
         if (!is.null(active_reduction)) {
             summary$active_reduction <- active_reduction
             # Alias plans naturally chain after integration:
-            # `find_neighbors(reduction = "${step.output.reduction}")`.
+            # `find_neighbors(reduction = "$\{step.output.reduction\}")`.
             summary$reduction <- active_reduction
         }
         # Observed state, not declared state: the object really has these. They
@@ -1060,7 +1092,7 @@ sclet_ai_execution_summary <- function(value, descriptor = NULL) {
         # than a declaration -- same pattern as `variable_features` above. The
         # static marker in `output_schema` ("detest_record_id") is replaced by
         # the real id, read back from the returned object, so a downstream
-        # `run_enrichment(detest_id = "${step.output.detest_id}")` resolves.
+        # `run_enrichment(detest_id = "$\{step.output.detest_id\}")` resolves.
         # Only run_de_test promises the field, hence the name check.
         detest_ids <- if (isTRUE((descriptor %||% list())$name == "run_de_test")) {
             tryCatch(names(sclet_get_state_records(value, "detest")),
@@ -1431,6 +1463,23 @@ sclet_ai_compare_criterion <- function(observed, check, expected) {
 #'   `status`. Dry-run results additionally include `success_criteria_preview`,
 #'   `stop_conditions_preview`, and `human_confirmations` (threaded through from
 #'   `validation$human_confirmations`), all purely descriptive and unevaluated.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' registry <- AIDefaultExecutionRegistry(sce, include = "all")
+#' plan <- list(
+#'     plan_id = "plan_demo",
+#'     task = "demo",
+#'     actions = list(list(id = "s1", action = "normalize_data"))
+#' )
+#' validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+#' # ExecuteAIPlan() needs the validation object itself, not only the
+#' # confirmation token: it re-checks that the plan and the object are
+#' # still the ones that were validated.
+#' execution <- ExecuteAIPlan(sce, plan, registry,
+#'     validation = validation,
+#'     dry_run = FALSE,
+#'     confirmation = validation$confirmation_token)
+#' execution$status
 #' @export
 ExecuteAIPlan <- function(
     object,
@@ -1680,6 +1729,17 @@ ExecuteAIPlan <- function(
 #'   validation; a character value is used as an explicit token.
 #' @param record Logical. Record non-dry execution results in the ledger.
 #' @return An `sclet_ai_execution` object.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' registry <- AIDefaultExecutionRegistry(sce, include = "all")
+#' plan <- list(
+#'     plan_id = "plan_demo",
+#'     task = "demo",
+#'     actions = list(list(id = "s1", action = "normalize_data"))
+#' )
+#' # RunAIPlan() validates and executes in one call.
+#' execution <- RunAIPlan(sce, plan, registry, dry_run = FALSE, confirm = TRUE)
+#' execution$status
 #' @export
 RunAIPlan <- function(
     object,

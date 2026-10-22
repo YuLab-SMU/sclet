@@ -21,3 +21,12 @@ an updated SingleCellExperiment object with a 'DM' reduction
 \description{
 Run Diffusion Map for complex trajectory inference
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+\dontrun{
+# needs the 'destiny' Suggests package
+sce <- RunDiffusionMap(sce, n_components = 5)
+SingleCellExperiment::reducedDimNames(sce)
+}
+}

@@ -21,3 +21,10 @@ scatter plot
 \description{
 variable feature plot
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- FindVariableFeatures(sce, method = "scran", nfeatures = 20)
+p <- VariableFeaturePlot(sce)
+nrow(p$data)
+}

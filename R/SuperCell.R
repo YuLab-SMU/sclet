@@ -16,6 +16,13 @@
 #' @param name aggregation record id. Defaults to `"supercell"`.
 #' @return SingleCellExperiment object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the SuperCell package
+#' sce <- RunSuperCell(sce, gamma = 20, k.knn = 5)
+#' ncol(sce)
+#' }
 RunSuperCell <- function(object, assay = "logcounts", layer = NULL, nHVG = 2000, hvg_method = "scran",
                         cellname = "Barcode", gamma = 20, k.knn = 5, name = "supercell") {
 

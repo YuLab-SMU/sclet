@@ -37,3 +37,9 @@ Computes the Euclidean norm of a stored velocity matrix per cell or per gene.
 For RegVelo results this uses the assay recorded in
 \code{get_velocity(object, id)$artifacts$velocity_assay}.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::assay(sce, "velocity") <- matrix(rnorm(50 * 20), nrow = 50,
+    dimnames = list(rownames(sce), colnames(sce)))
+VelocityMagnitude(sce, assay = "velocity", margin = "cell")
+}

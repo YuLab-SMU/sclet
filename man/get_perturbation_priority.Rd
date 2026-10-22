@@ -17,3 +17,10 @@ the full priority record, a selected element, or \code{NULL}
 \description{
 Access perturbation priority analysis results (Augur)
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "augur", type = "priority", method = "Augur",
+    AUC = data.frame(cell_type = c("alpha", "beta"), auc = c(0.7, 0.4)))
+S4Vectors::metadata(sce)$sclet <- list(analyses = list(augur = record))
+get_perturbation_priority(sce)$AUC$auc
+}

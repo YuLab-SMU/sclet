@@ -37,3 +37,10 @@ This function runs RNA velocity analysis using \code{velociraptor::scvelo}.
 It requires the input SingleCellExperiment to have "spliced" and "unspliced" assays.
 The velocity results will be stored in the analysis-state contract under \code{velocity}.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the velociraptor package and a scVelo Python environment
+sce <- RunVelocity(sce, mode = "deterministic")
+}
+}

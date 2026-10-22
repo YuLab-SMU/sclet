@@ -21,3 +21,9 @@ updated SingleCellExperiment object with KNN graph
 \description{
 build KNN graph
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+sce <- FindNeighbors(sce, dims = 1:5)
+DefaultGraph(sce)
+}

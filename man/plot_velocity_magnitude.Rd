@@ -35,3 +35,11 @@ A ggplot object.
 Colors cells on a dimensional reduction by the per-cell magnitude of a stored
 velocity matrix.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::assay(sce, "velocity") <- matrix(rnorm(50 * 20), nrow = 50,
+    dimnames = list(rownames(sce), colnames(sce)))
+SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(rnorm(40), ncol = 2,
+    dimnames = list(colnames(sce), c("PC1", "PC2")))
+plot_velocity_magnitude(sce, assay = "velocity")
+}

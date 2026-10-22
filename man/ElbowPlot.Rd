@@ -15,3 +15,9 @@ elbow plot
 \description{
 elbow plot
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+p <- ElbowPlot(sce)
+nrow(p$data)
+}

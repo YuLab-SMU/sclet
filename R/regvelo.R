@@ -31,6 +31,14 @@
 #' @importFrom S4Vectors metadata metadata<-
 #' @importFrom SummarizedExperiment colData colData<- rowData rowData<-
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the reticulate package and a RegVelo Python environment
+#' grn <- matrix(rnorm(50 * 2), nrow = 50,
+#'               dimnames = list(rownames(sce), c("Gene_0001", "Gene_0002")))
+#' sce <- RunRegVelo(sce, grn = grn, backend = "reticulate")
+#' }
 RunRegVelo <- function(
     sce,
     grn,

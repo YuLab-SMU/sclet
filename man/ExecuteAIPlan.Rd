@@ -44,3 +44,21 @@ issued confirmation token returned by \code{ValidateAIPlan()} when the plan
 contains a mutating or confirmation-required action, and invokes only
 actions present in the supplied \code{AIExecutionRegistry()}.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+registry <- AIDefaultExecutionRegistry(sce, include = "all")
+plan <- list(
+    plan_id = "plan_demo",
+    task = "demo",
+    actions = list(list(id = "s1", action = "normalize_data"))
+)
+validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+# ExecuteAIPlan() needs the validation object itself, not only the
+# confirmation token: it re-checks that the plan and the object are
+# still the ones that were validated.
+execution <- ExecuteAIPlan(sce, plan, registry,
+    validation = validation,
+    dry_run = FALSE,
+    confirmation = validation$confirmation_token)
+execution$status
+}

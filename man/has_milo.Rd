@@ -17,3 +17,11 @@ logical
 \description{
 Check whether milo results are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "run1", type = "milo", method = "miloR")
+state <- list(states = list(active = list(milo = "run1"),
+    records = list(milo = list(run1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+has_milo(sce)
+}

@@ -15,3 +15,9 @@ logical
 \description{
 Check whether spatial niche results are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "spatial_niche", type = "spatial", method = "SVP")
+S4Vectors::metadata(sce)$sclet <- list(analyses = list(spatial_niche = record))
+has_spatial_niche(sce)
+}

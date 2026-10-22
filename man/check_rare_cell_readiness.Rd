@@ -21,3 +21,9 @@ doublet run is not blocking, but it is reported because doublet evidence is
 one of the independent signals required before a small population may be
 described with anything stronger than a low-confidence guess.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+readiness <- check_rare_cell_readiness(sce)
+readiness$status
+readiness$questions
+}

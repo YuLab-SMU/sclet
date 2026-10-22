@@ -29,3 +29,10 @@ Feature Dimensional Reduction Plot
 \details{
 Plot feature expression on a dimensional reduction, defaulting to the active reduction and active layer.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- RunPCA(sce, ncomponents = 5)
+p <- FeatureDimPlot(sce, features = rownames(sce)[1:3])
+class(p)[1]
+}

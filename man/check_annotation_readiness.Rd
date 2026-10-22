@@ -22,3 +22,9 @@ A read-only readiness and clarification summary.
 \description{
 Check whether an object is ready for annotation and differential-expression actions
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+readiness <- check_annotation_readiness(sce)
+readiness$status
+readiness$questions
+}

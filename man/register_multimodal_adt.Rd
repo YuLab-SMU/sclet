@@ -19,3 +19,12 @@ Records the presence and basic metadata of the ADT altExp in the
 analysis-state layer so that downstream code can reason about
 multimodal data without inspecting object internals directly.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+adt <- SingleCellExperiment::SingleCellExperiment(
+    assays = list(counts = matrix(1, nrow = 3, ncol = 20,
+                                  dimnames = list(paste0("ADT", 1:3), colnames(sce)))))
+SingleCellExperiment::altExp(sce, "ADT") <- adt
+sce <- register_multimodal_adt(sce)
+has_multimodal_adt(sce)
+}

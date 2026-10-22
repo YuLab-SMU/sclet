@@ -17,3 +17,11 @@ logical
 \description{
 Check whether velocity results are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "run1", type = "velocity", method = "velociraptor::scvelo")
+state <- list(states = list(active = list(velocity = "run1"),
+    records = list(velocity = list(run1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+has_velocity(sce)
+}

@@ -17,3 +17,9 @@ a data.frame summarizing recorded commands
 \description{
 inspect sclet command log
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+log <- CommandLog(sce)
+log$command
+}

@@ -8,6 +8,11 @@
 #' @return updated SingleCellExperiment object with KNN graph
 #' @importFrom bluster makeSNNGraph
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' sce <- FindNeighbors(sce, dims = 1:5)
+#' DefaultGraph(sce)
 FindNeighbors <- function(object, dims, reduction = NULL, k = 10) {
     if (is.null(reduction)) {
         reduction <- DefaultReduction(object)
@@ -86,6 +91,12 @@ FindNeighbors <- function(object, dims, reduction = NULL, k = 10) {
 #' @importFrom igraph cluster_louvain
 # @importFrom SingleCellExperiment 'colLabels<-'
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' sce <- FindNeighbors(sce, dims = 1:5)
+#' sce <- FindClusters(sce, resolution = 1)
+#' table(Idents(sce))
 FindClusters <- function(object, resolution = 0.5, seed = 1L) {
     graph_name <- DefaultGraph(object)
     if (is.null(graph_name)) {
@@ -156,6 +167,12 @@ FindClusters <- function(object, resolution = 0.5, seed = 1L) {
 #' @export
 #' @importFrom SummarizedExperiment colData
 #' @importFrom stats setNames
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' sce <- FindNeighbors(sce, dims = 1:5)
+#' sce <- FindClusters(sce, resolution = 1)
+#' head(Idents(sce))
 Idents <- function(object) {
     active_ident <- ActiveIdent(object)
     if (is.null(active_ident)) {
@@ -183,6 +200,11 @@ Idents <- function(object) {
 #' @importFrom SingleCellExperiment colLabels
 #' @importFrom SingleCellExperiment "colLabels<-"
 #' @export 
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' sce <- RenameIdents(sce, c(c1 = "TypeA", c2 = "TypeB"))
+#' levels(SingleCellExperiment::colLabels(sce))
 RenameIdents <- function(object, new_ids) {
     old_ids <- colLabels(object)
     lv <- levels(old_ids)

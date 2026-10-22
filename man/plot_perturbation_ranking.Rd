@@ -19,3 +19,10 @@ A ggplot object ranking cell types by perturbation AUC.
 \description{
 Plot perturbation priority ranking from Augur results
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "augur", type = "priority", method = "Augur",
+    AUC = data.frame(cell_type = c("alpha", "beta"), auc = c(0.7, 0.4)))
+S4Vectors::metadata(sce)$sclet <- list(analyses = list(augur = record))
+plot_perturbation_ranking(sce)
+}

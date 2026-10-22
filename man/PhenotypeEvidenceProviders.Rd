@@ -34,11 +34,11 @@ A provider is a list with:
 \describe{
 \item{\code{name}}{Unique key.}
 \item{\code{label}}{Human-readable description used in messages.}
-\item{\code{available}}{\code{function(object, ...)} returning
+\item{\code{available}}{\verb{function(object, ...)} returning
 \code{list(available = TRUE/FALSE, issues = character())}. A provider that
 cannot run must say \code{FALSE} with a reason; it must never report
 \code{available = TRUE} and then decide \code{negative} for "nothing measured".}
-\item{\code{decide}}{\code{function(object, ...)} returning
+\item{\code{decide}}{\verb{function(object, ...)} returning
 \code{list(state = character_vector_of_cells, detail = list(...))} where each
 state is \code{"positive"}, \code{"negative"} or \code{"unavailable"}.}
 \item{\code{dependence}}{\code{"independent"} or \code{"shared_with_signature"}. Only
@@ -49,11 +49,12 @@ several: two wrappers over one measurement are not corroborating
 observations. Use it whenever you register more than one provider over the
 same data.}
 }
-
-Registering a name that already exists is refused; unregister it first if you
-mean to replace it.
 }
 
+\examples{
+PhenotypeEvidenceProviders("list")
+PhenotypeEvidenceProviders("get", name = "cnv")$label
+}
 \seealso{
 \code{\link[=CallPhenotypeCells]{CallPhenotypeCells()}}, \code{\link[=RunCNVInference]{RunCNVInference()}}
 }

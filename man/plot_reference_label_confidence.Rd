@@ -46,3 +46,11 @@ reference labels. For \code{KNN} backends this usually corresponds to the
 majority-neighbor proportion; for \code{SingleR} it uses the stored delta-based
 score when available.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+colData(sce)$SingleR_labels <- rep(c("T_cell", "B_cell"), length.out = ncol(sce))
+colData(sce)$singler_score <- seq_len(ncol(sce))
+p <- plot_reference_label_confidence(sce, labels_col = "SingleR_labels",
+    score_col = "singler_score")
+nrow(p$data)
+}

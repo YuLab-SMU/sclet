@@ -41,3 +41,10 @@ A SingleCellExperiment object with added pseudotime information in colData.
 \description{
 Runs Slingshot on a SingleCellExperiment object with specified clustering and dimensionality reduction.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the slingshot package
+sce <- RunSlingshot(sce, group = "Treatment", reduction = "PCA")
+}
+}

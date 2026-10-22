@@ -41,3 +41,14 @@ A ggplot object.
 This function provides a unified visualization entry for program-level
 activity results produced by either \code{RunGeneSetScoring()} or \code{RunSCENIC()}.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+\dontrun{
+# needs the 'UCell', 'AUCell' or 'GSVA' Suggests package
+gs <- list(Program1 = c("Gene_0001", "Gene_0002", "Gene_0003"))
+sce <- RunGeneSetScoring(sce, gene_sets = gs, method = "UCell")
+p <- plot_program_activity(sce, program = "Program1")
+class(p)[1]
+}
+}

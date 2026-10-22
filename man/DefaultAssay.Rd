@@ -20,3 +20,10 @@ current default assay or updated object
 \description{
 get or set the default assay
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+DefaultAssay(sce)
+DefaultAssay(sce) <- "counts"
+DefaultAssay(sce)
+}

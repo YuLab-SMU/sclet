@@ -24,3 +24,15 @@ Find markers using pseudobulk DE (DESeq2)
 \details{
 Performs differential expression analysis on pseudobulk data using DESeq2.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+colData(sce)$sample <- rep(paste0("s", 1:4), each = 5)
+colData(sce)$condition <- rep(c("ctrl", "treat"), each = 10)
+\dontrun{
+# needs the 'DESeq2' Suggests package
+agg <- AggregateExpression(sce, group_by = c("sample", "condition"))
+res <- FindMarkers_pseudobulk(agg, design = ~ condition,
+    contrast = c("condition", "treat", "ctrl"))
+head(res)
+}
+}

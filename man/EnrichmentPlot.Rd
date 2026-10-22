@@ -27,3 +27,15 @@ Enrichment Plot
 \details{
 Plot enrichment results using dotplot from enrichplot.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+\dontrun{
+# needs the 'presto', 'clusterProfiler' and 'enrichplot' Suggests packages
+sce <- RunDEtest(sce, return.thresh = 0.5, logfc.threshold = 0)
+sce <- RunEnrichment(sce, db = "GO")
+p <- EnrichmentPlot(sce)
+class(p)[1]
+}
+}

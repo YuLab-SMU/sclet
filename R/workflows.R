@@ -21,6 +21,14 @@
 #' @param name Workflow analysis id. Defaults to `"trajectory_workflow"`.
 #' @return Updated SingleCellExperiment object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$cluster <- rep(c("alpha", "beta"), length.out = 20)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' \dontrun{
+#' # needs the slingshot and destiny packages
+#' sce <- RunTrajectoryWorkflow(sce, group = "cluster")
+#' }
 RunTrajectoryWorkflow <- function(
     sce,
     group = NULL,
@@ -163,6 +171,13 @@ RunTrajectoryWorkflow <- function(
 #' @param name Workflow analysis id.
 #' @return Updated SingleCellExperiment object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' gene_sets <- list(sigA = rownames(sce)[1:5])
+#' \dontrun{
+#' # needs the UCell package
+#' sce <- RunProgramWorkflow(sce, gene_sets = gene_sets, scoring_method = "UCell")
+#' }
 RunProgramWorkflow <- function(
     sce,
     gene_sets = NULL,
@@ -276,6 +291,16 @@ RunProgramWorkflow <- function(
 #' @param ... Additional arguments passed to the underlying mapping function.
 #' @return Updated SingleCellExperiment object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- FindVariableFeatures(sce, nfeatures = 20)
+#' ref <- scuttle::mockSCE(ncells = 10, ngenes = 50)
+#' SummarizedExperiment::colData(ref)$label.main <- rep(c("alpha", "beta"), 5)
+#' \dontrun{
+#' # needs the BiocNeighbors package
+#' sce <- RunReferenceWorkflow(sce, ref = ref, method = "KNN")
+#' }
 RunReferenceWorkflow <- function(
     object,
     ref,
@@ -360,6 +385,18 @@ RunReferenceWorkflow <- function(
 #'   `"velocity"`, `"terminal_states"`, and `"fate_probability"`.
 #' @return A combined plot object from `aplot::plot_list()`.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' colData(sce)$cellrank_terminal_state <- rep(c("alpha", "beta"), length.out = 20)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' record <- list(id = "fate", type = "trajectory", method = "CellRank",
+#'     artifacts = list(terminal_state_col = "cellrank_terminal_state"))
+#' workflow <- list(id = "trajectory_workflow", artifacts = list(fate = "fate"))
+#' state <- list(states = list(active = list(trajectory = "fate"),
+#'     records = list(trajectory = list(fate = record))),
+#'     analyses = list(trajectory_workflow = workflow))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' plot_trajectory_overview(sce, panels = "terminal_states")
 plot_trajectory_overview <- function(
     object,
     id = NULL,

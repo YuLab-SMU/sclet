@@ -30,3 +30,25 @@ nodes (an empty character vector when none are cited).
 \description{
 Record a structured AI result in the analysis ledger
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+# An `sclet_ai_result` is a plain list; it can be written by hand.
+result <- list(
+    task = "copilot",
+    answer = "The object holds 20 cells and 50 features.",
+    findings = list(),
+    evidence = list(),
+    warnings = list(),
+    recommendations = list(),
+    proposed_actions = list(),
+    success_criteria = list(),
+    stop_conditions = list(),
+    context = list(fingerprint = "example"),
+    metadata = list(provider = "example")
+)
+class(result) <- c("sclet_ai_result", "list")
+sce <- RecordAIResult(sce, result, id = "ai_copilot_example")
+ids <- vapply(GetAnalysisLedger(sce)$analyses,
+    function(record) record$id, character(1))
+any(ids == "ai_copilot_example")
+}

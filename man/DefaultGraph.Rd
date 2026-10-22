@@ -20,3 +20,9 @@ current default graph or updated object
 \description{
 get or set the default graph
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+sce <- FindNeighbors(sce, dims = 1:5)
+DefaultGraph(sce)
+}

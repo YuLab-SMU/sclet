@@ -20,3 +20,10 @@ Read H5AD file
 \details{
 Wrapper for zellkonverter::readH5AD to import AnnData objects as SingleCellExperiment.
 }
+\examples{
+\dontrun{
+# needs the 'zellkonverter' Suggests package
+sce <- ReadH5AD("cells.h5ad")
+dim(sce)
+}
+}

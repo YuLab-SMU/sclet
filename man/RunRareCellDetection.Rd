@@ -52,3 +52,11 @@ on the kNN graph. The algorithm computes a mutual connectivity metric
 micro-clusters as seeds, propagates labels outward, and flags small
 clusters as rare populations.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+\dontrun{
+# needs the BiocNeighbors package
+sce <- RunRareCellDetection(sce, reduction = "PCA", dims = 1:5, k = 10)
+}
+}

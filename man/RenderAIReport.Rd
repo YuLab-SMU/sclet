@@ -35,8 +35,22 @@ No model is called and no raw values are included: evidence nodes carry
 bounded aggregates, and the renderer prints what the ledger holds.
 }
 \examples{
-\dontrun{
-rendered <- RenderAIReport(sce)
-RenderAIReport(sce, id = "ai_report_pbmc10k_m1", path = "report.md")
-}
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+result <- list(
+    task = "copilot",
+    answer = "No analysis has been recorded on this object yet.",
+    findings = list(),
+    evidence = list(),
+    warnings = list(),
+    recommendations = list(),
+    proposed_actions = list(),
+    success_criteria = list(),
+    stop_conditions = list(),
+    context = list(fingerprint = "example"),
+    metadata = list(provider = "example")
+)
+class(result) <- c("sclet_ai_result", "list")
+sce <- RecordAIResult(sce, result, id = "ai_report_example")
+report <- RenderAIReport(sce)
+grepl("ai_report_example", report, fixed = TRUE)
 }

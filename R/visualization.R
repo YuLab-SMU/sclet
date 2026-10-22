@@ -13,6 +13,11 @@
 #' @importFrom ggplot2 theme
 #' @importFrom ggplot2 theme_classic
 #' @importFrom ggplot2 element_blank
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' colData(sce)$nCount_RNA <- seq_len(ncol(sce))
+#' p <- VlnPlot(sce, features = "nCount_RNA")
+#' class(p)[1]
 VlnPlot <- function(object, features, ncol="auto") {
     pp <- lapply(features, function(y) {
         ## scater::plotColData(object, y=y) +
@@ -41,6 +46,12 @@ VlnPlot <- function(object, features, ncol="auto") {
 #' @return a scatter plot
 #' @importFrom ggplot2 geom_point
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' colData(sce)$nCount_RNA <- seq_len(ncol(sce))
+#' colData(sce)$nFeature_RNA <- rev(seq_len(ncol(sce)))
+#' p <- FeatureScatter(sce, "nCount_RNA", "nFeature_RNA")
+#' nrow(p$data)
 FeatureScatter <- function(object, feature1, feature2) {
     # scater::plotColData(object, x=feature1, y=feature2) +
         #scale_x_log10() + 
@@ -63,6 +74,12 @@ FeatureScatter <- function(object, feature1, feature2) {
 #' @importFrom ggplot2 scale_x_log10
 #' @importFrom ggplot2 xlab
 #' @importFrom ggplot2 scale_color_manual
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- FindVariableFeatures(sce, method = "scran", nfeatures = 20)
+#' p <- VariableFeaturePlot(sce)
+#' nrow(p$data)
 VariableFeaturePlot <- function(object, label = NULL, method = NULL) {
     d <- as.data.frame(rowData(object))
     gene <- if ("Symbol" %in% names(d)) d$Symbol else rownames(object)
@@ -125,6 +142,13 @@ VariableFeaturePlot <- function(object, label = NULL, method = NULL) {
 #' @return ggplot object
 #' @importFrom ggsc sc_dim
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' p <- DimPlot(sce, reduction = "PCA")
+#' nrow(p$data)
 DimPlot <- function(object, reduction = NULL, ...) {
     if (is.null(reduction)) {
         reduction <- DefaultReduction(object)
@@ -146,6 +170,13 @@ DimPlot <- function(object, reduction = NULL, ...) {
 #' @param ... additional parameters passed to `ggsc::sc_dim`
 #' @return ggplot object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' p <- CellDimPlot(sce)
+#' nrow(p$data)
 CellDimPlot <- function(object, group.by = NULL, reduction = NULL, ...) {
     if (is.null(reduction)) {
         reduction <- DefaultReduction(object)
@@ -197,6 +228,12 @@ CellDimPlot <- function(object, group.by = NULL, reduction = NULL, ...) {
 #' @return ggplot object
 #' @importFrom ggsc sc_feature
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' p <- FeatureDimPlot(sce, features = rownames(sce)[1:3])
+#' class(p)[1]
 FeatureDimPlot <- function(object, features, layer = NULL, reduction = NULL, ...) {
     if (is.null(reduction)) {
         reduction <- DefaultReduction(object)
@@ -228,6 +265,11 @@ FeatureDimPlot <- function(object, features, layer = NULL, reduction = NULL, ...
 #' @param ... additional parameters passed to underlying plotting function.
 #' @return ggplot or ComplexHeatmap object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' p <- GroupHeatmap(sce, features = rownames(sce)[1:5], group.by = "Cell_Cycle")
+#' class(p)[1]
 GroupHeatmap <- function(object, features, group.by = NULL, layer = NULL, ...) {
     if (is.null(group.by)) {
         group.by <- ActiveIdent(object)
@@ -269,6 +311,10 @@ GroupHeatmap <- function(object, features, group.by = NULL, layer = NULL, ...) {
 #' @return ggplot object
 #' @importFrom ggplot2 ggplot aes geom_bar theme_classic ylab xlab theme
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' p <- CellStatPlot(sce, group.by = "Cell_Cycle")
+#' nrow(p$data)
 CellStatPlot <- function(object, group.by = NULL, split.by = NULL, position = "fill", ...) {
     if (is.null(group.by)) {
         group.by <- ActiveIdent(object)
@@ -328,6 +374,16 @@ CellStatPlot <- function(object, group.by = NULL, split.by = NULL, position = "f
 #' @return ggplot object
 #' @importFrom ggplot2 ggplot aes geom_point theme_classic scale_color_manual geom_vline geom_hline xlab ylab
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto' Suggests package used by the marker test
+#' sce <- RunDEtest(sce, return.thresh = 0.5, logfc.threshold = 0)
+#' p <- DEtestPlot(sce)
+#' class(p)[1]
+#' }
 DEtestPlot <- function(object, id = NULL, p_val_cutoff = 0.05, logfc_cutoff = 0.25, ...) {
     detest_state <- get_detest(object, id)
     if (is.null(detest_state)) {
@@ -378,6 +434,17 @@ DEtestPlot <- function(object, id = NULL, p_val_cutoff = 0.05, logfc_cutoff = 0.
 #' @param ... additional parameters passed to enrichplot::dotplot
 #' @return ggplot object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs the 'presto', 'clusterProfiler' and 'enrichplot' Suggests packages
+#' sce <- RunDEtest(sce, return.thresh = 0.5, logfc.threshold = 0)
+#' sce <- RunEnrichment(sce, db = "GO")
+#' p <- EnrichmentPlot(sce)
+#' class(p)[1]
+#' }
 EnrichmentPlot <- function(object, id = NULL, showCategory = 10, ...) {
     enrich_state <- get_enrichment(object, id)
     if (is.null(enrich_state)) {
@@ -407,6 +474,15 @@ EnrichmentPlot <- function(object, id = NULL, showCategory = 10, ...) {
 #' @return ggplot object
 #' @importFrom ggplot2 ggplot aes geom_point theme_classic scale_color_manual guides guide_legend xlab ylab
 #' @export
+#' @examples
+#' query <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' query <- RunPCA(query, ncomponents = 5)
+#' ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' ref <- RunPCA(ref, ncomponents = 5)
+#' colData(query)$label.main <- rep(c("A", "B"), length.out = ncol(query))
+#' colData(ref)$label.main <- rep(c("A", "B"), length.out = ncol(ref))
+#' p <- ProjectionPlot(query, ref, reduction = "PCA", group.by = "label.main")
+#' class(p)[1]
 ProjectionPlot <- function(query, ref, reduction = "UMAP", group.by = NULL, ...) {
     if (!reduction %in% SingleCellExperiment::reducedDimNames(query)) {
         stop(paste("Reduction", reduction, "not found in query object."))

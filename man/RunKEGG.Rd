@@ -36,3 +36,11 @@ A list containing the updated \code{SingleCellExperiment} and the marker \code{d
 A convenient wrapper to download KEGG pathways for a specific species, score cells,
 and optionally identify cell-type specific marker pathways.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the 'clusterProfiler' Suggests package and network access to KEGG
+res <- RunKEGG(sce, species = "hsa")
+names(res)
+}
+}

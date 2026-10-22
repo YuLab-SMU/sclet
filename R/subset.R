@@ -20,6 +20,9 @@ setMethod("subset", "SingleCellExperiment",
 #' @return updated object if peek is FALSE
 #' @importFrom SingleCellExperiment counts
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' dim(subset_feature(sce, mincell = 5, peek = FALSE))
 subset_feature <- function(x, mincell, peek = TRUE) {
     if (!inherits(x, "SingleCellExperiment")) {
         stop("Only SingleCellExperiment objects are supported.")
@@ -42,15 +45,19 @@ subset_feature <- function(x, mincell, peek = TRUE) {
     }
 }
 
-##' @title subset_cell
-##' @rdname subset-cell
-##' @param x a SingleCellExperiment object
-##' @param feature selected features to filter out cells
-##' @param method selected method to detect outliers to be filtered. One of 'mad', 'sd', and 'quantile'
-##' @param n if method='quantile' and e.g. n=.98, then the lower and upper side of 1% data will be filter out; 
-##'     if method is 'mad' or 'sd' (data will be transform by `log1p``), only data within the interval `median (mean) +/- n * mad (sd)` will be retained.
-##' @return updated object
-##' @export
+#' @title subset_cell
+#' @rdname subset-cell
+#' @param x a SingleCellExperiment object
+#' @param feature selected features to filter out cells
+#' @param method selected method to detect outliers to be filtered. One of 'mad', 'sd', and 'quantile'
+#' @param n if method='quantile' and e.g. n=.98, then the lower and upper side of 1% data will be filter out; 
+#'     if method is 'mad' or 'sd' (data will be transform by `log1p``), only data within the interval `median (mean) +/- n * mad (sd)` will be retained.
+#' @return updated object
+#' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$nFeature_RNA <- seq_len(20)
+#' dim(subset_cell(sce, feature = "nFeature_RNA", method = "mad", n = 3))
 subset_cell <- function(x, feature = "nFeature_RNA", method = 'mad', n = 3) {
     if (!inherits(x, "SingleCellExperiment")) {
         stop("Only SingleCellExperiment objects are supported.")

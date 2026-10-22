@@ -9,6 +9,13 @@
 #' @param edge_width_scale A scaling factor for edge width.
 #' @return A ggplot object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the 'ggraph' Suggests package and a recorded communication run
+#' p <- plot_cci_network(sce)
+#' class(p)[1]
+#' }
 plot_cci_network <- function(object, signaling = NULL, id = NULL, pval_thresh = 0.05, layout = "circle", edge_width_scale = 1) {
     if (!requireNamespace("igraph", quietly = TRUE)) {
         stop("Package 'igraph' is needed for this function to work. Please install it.")
@@ -70,6 +77,13 @@ plot_cci_network <- function(object, signaling = NULL, id = NULL, pval_thresh = 
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_viridis_c scale_size_continuous theme_minimal theme_bw theme element_text element_line element_rect labs facet_grid
 #' @importFrom rlang .data
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a recorded cell-cell communication run (RunCCI())
+#' p <- plot_cci_bubble(sce)
+#' class(p)[1]
+#' }
 plot_cci_bubble <- function(object, sources = NULL, targets = NULL, id = NULL, pval_thresh = 0.05, type = c("interaction", "summary", "facet"), top_n = NULL) {
     type <- match.arg(type)
     if (!requireNamespace("ggplot2", quietly = TRUE)) {
@@ -174,6 +188,12 @@ plot_cci_bubble <- function(object, sources = NULL, targets = NULL, id = NULL, p
 #' @param ... Additional arguments passed to `circlize::chordDiagram`.
 #' @return NULL (Plots the diagram)
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the 'circlize' Suggests package and a recorded communication run
+#' plot_cci_chord(sce)
+#' }
 plot_cci_chord <- function(object, signaling = NULL, id = NULL, pval_thresh = 0.05, ...) {
     if (!requireNamespace("circlize", quietly = TRUE)) {
         stop("Package 'circlize' is needed for this function to work. Please install it.")
@@ -224,6 +244,13 @@ plot_cci_chord <- function(object, signaling = NULL, id = NULL, pval_thresh = 0.
 #' @param top_n Integer. If provided, limits the plot to the top N interactions (by probability).
 #' @return A ggplot object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the 'ggbump' Suggests package and a recorded communication run
+#' p <- plot_cci_sigmoid(sce)
+#' class(p)[1]
+#' }
 plot_cci_sigmoid <- function(object, id = NULL, pval_thresh = 0.05, top_n = NULL) {
     if (!requireNamespace("ggbump", quietly = TRUE)) {
         stop("Package 'ggbump' is needed for this function to work. Please install it.")
@@ -309,6 +336,15 @@ plot_cci_sigmoid <- function(object, id = NULL, pval_thresh = 0.05, top_n = NULL
 #' @param layer The assay layer to use for expression calculation (default: "logcounts").
 #' @return A ggplot object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+#' \dontrun{
+#' # needs a recorded cell-cell communication run (RunCCI())
+#' p <- plot_cci_arrow(sce, cell_a = "c1", cell_b = "c2", group = "label")
+#' class(p)[1]
+#' }
 plot_cci_arrow <- function(object, cell_a, cell_b, group, id = NULL, pval_thresh = 0.05, top_n = NULL, layer = "logcounts") {
     if (!layer %in% SummarizedExperiment::assayNames(object)) {
         stop(paste("Layer", layer, "not found in the object assays."))

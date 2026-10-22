@@ -6,6 +6,10 @@
 #' @param sce A `SingleCellExperiment` object.
 #' @return A character string containing the structured ledger.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' ledger <- SummarizeContextForLLM(sce)
+#' cat(substr(ledger, 1, 60), "\n")
 SummarizeContextForLLM <- function(sce) {
     ledger <- GetAnalysisLedger(sce, detail = "full", include_artifacts = FALSE)
     paste(
@@ -30,6 +34,12 @@ SummarizeContextForLLM <- function(sce) {
 #' @param ... Additional arguments passed to the AI adapter.
 #' @return A character response from the structured sclet AI adapter.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a provider API key
+#' sclet_copilot(sce, "What has been analysed so far?")
+#' }
 sclet_copilot <- function(sce, question, model = NULL, structured_output = TRUE, ...) {
     result <- sclet_ai_call(
         task = "copilot",
@@ -57,6 +67,13 @@ sclet_copilot <- function(sce, question, model = NULL, structured_output = TRUE,
 #' @param ... Additional arguments passed to `AIAuditAnalysisChain()`.
 #' @return A character report for backward compatibility.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::assay(sce, "corrected") <- SummarizedExperiment::assay(sce, "counts")
+#' \dontrun{
+#' # needs the aisdk package and a configured provider
+#' AuditAnalysisChain(sce, features = rownames(sce)[1:3], integrated_layer = "corrected")
+#' }
 AuditAnalysisChain <- function(
     sce,
     features,

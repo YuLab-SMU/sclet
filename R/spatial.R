@@ -15,6 +15,14 @@
 #' @importFrom S4Vectors metadata metadata<-
 #' @importFrom SummarizedExperiment assay colData colData<-
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the reticulate package and the cell2location Python environment
+#' ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(ref)$cell_type <- rep(c("A", "B"), each = 10)
+#' sce <- RunSpatialDeconvolution(sce, sce_ref = ref, ref_group_key = "cell_type")
+#' }
 RunSpatialDeconvolution <- function(sce_spatial, sce_ref, ref_group_key,
     ref_batch_key = NULL, max_epochs = 250L, name = "spatial_deconv", ...) {
     if (!requireNamespace("basilisk", quietly = TRUE)) {
@@ -176,6 +184,12 @@ RunSpatialDeconvolution <- function(sce_spatial, sce_ref, ref_group_key,
 #'   the analysis state and a pairwise correlation matrix in
 #'   `metadata(sce)$sclet$analyses$colocalization$matrix`.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the SVP package
+#' sce <- RunSpatialColocalization(sce, features = c("c2l_A", "c2l_B"))
+#' }
 RunSpatialColocalization <- function(sce, features = NULL,
     method = c("SVP"), name = "colocalization", ...) {
     method <- match.arg(method)
@@ -308,6 +322,15 @@ RunSpatialColocalization <- function(sce, features = NULL,
 #'
 #' @return A ggplot object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$c2l_A <- runif(20)
+#' SummarizedExperiment::colData(sce)$c2l_B <- runif(20)
+#' # a deconvolution result, as RunSpatialDeconvolution() would record it
+#' S4Vectors::metadata(sce)$sclet$analyses$spatial_deconv <- list(
+#'     id = "spatial_deconv", method = "cell2location",
+#'     columns = c("c2l_A", "c2l_B"))
+#' plot_spatial_deconvolution(sce)
 plot_spatial_deconvolution <- function(object, n = 20, fill_color = "darkgreen") {
     if (!requireNamespace("ggplot2", quietly = TRUE)) {
         stop("Package 'ggplot2' is needed for this function to work. Please install it.")
@@ -365,6 +388,15 @@ plot_spatial_deconvolution <- function(object, n = 20, fill_color = "darkgreen")
 #'
 #' @return A ggplot object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$c2l_A <- runif(20)
+#' SummarizedExperiment::colData(sce)$c2l_B <- runif(20)
+#' # a deconvolution result, as RunSpatialDeconvolution() would record it
+#' S4Vectors::metadata(sce)$sclet$analyses$spatial_deconv <- list(
+#'     id = "spatial_deconv", method = "cell2location",
+#'     columns = c("c2l_A", "c2l_B"))
+#' plot_spatial_composition(sce)
 plot_spatial_composition <- function(object, n = 15, scale_rows = TRUE,
                                      low = "#2166AC", high = "#B2182B") {
     if (!requireNamespace("ggplot2", quietly = TRUE)) {
@@ -443,6 +475,12 @@ plot_spatial_composition <- function(object, n = 15, scale_rows = TRUE,
 #' @return Updated SingleCellExperiment with LISA hotspot categories in
 #'   `colData` (columns prefixed with `lisa_`) and a niche state record.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the SVP package
+#' sce <- RunSpatialNiche(sce, features = c("c2l_A", "c2l_B"))
+#' }
 RunSpatialNiche <- function(sce, features = NULL,
     method = c("SVP"), name = "spatial_niche", ...) {
     method <- match.arg(method)
@@ -579,6 +617,14 @@ RunSpatialNiche <- function(sce, features = NULL,
 #'
 #' @return Updated `SingleCellExperiment` with spatial workflow record.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the reticulate package and the cell2location Python environment
+#' ref <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(ref)$cell_type <- rep(c("A", "B"), each = 10)
+#' sce <- RunSpatialWorkflow(sce, sce_ref = ref, ref_group_key = "cell_type")
+#' }
 RunSpatialWorkflow <- function(sce, sce_ref = NULL, ref_group_key = NULL,
     run_deconvolution = TRUE, run_colocalization = FALSE,
     run_niche = FALSE, name = "spatial_workflow", ...) {

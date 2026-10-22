@@ -32,6 +32,21 @@ sclet_ai_call(
 
 \item{system_prompt}{Optional additional system instructions.}
 
+\item{structured_output}{Logical. Ask the provider for a structured
+response instead of free text.}
+
+\item{fallback_on_structure_error}{Logical. Fall back to a text answer
+when the provider's structured output does not validate.}
+
+\item{privacy}{Privacy level for the outbound payload: \code{"standard"},
+\code{"strict"} or \code{"off"}.}
+
+\item{privacy_consent}{Logical. Record that the user consented to the
+privacy level used for this call.}
+
+\item{enforce_privacy}{Logical. Refuse a call whose payload the privacy
+layer cannot bound.}
+
 \item{...}{Additional adapter options, including \code{max_steps}.}
 }
 \value{

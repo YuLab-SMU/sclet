@@ -36,3 +36,11 @@ A SingleCellExperiment object with predicted cell state shifts recorded.
 This function performs in silico gene perturbation (e.g., virtual knockout) using
 \code{celloracle} via \code{basilisk}. It predicts the shift in cell states upon perturbation.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the reticulate package and the CellOracle Python environment
+sce <- RunInSilicoPerturbation(sce, target_gene = "Gene_0001",
+                               base_grn_path = "base_grn.csv")
+}
+}

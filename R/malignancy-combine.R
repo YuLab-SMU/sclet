@@ -23,24 +23,32 @@
 #' transcriptional identity programme.
 #'
 #' @param object A `SingleCellExperiment` object.
-#' @param cnv_id Analysis record id of a completed [RunCNVInference()] run
-#'   (default `"cnv"`).
+#' @param cnv_id Analysis record id of a completed `[RunCNVInference()]` run
+#'    (default `"cnv"`). When the run reported `status = "unavailable"`, the
+#'    call degrades to expression-only and every cell that cannot be decided
+#'    becomes `"undetermined"` rather than being called malignant on one line
+#'    of evidence.
 #' @param signature A `c(malignant = ...)` list or the output of
 #'   [FindMalignantSeedGenes()] whose `tumor_genes` is used.
 #' @param signature_score Optional `colData` column holding a malignant
 #'   signature score. When supplied, `signature` is not scored again.
 #' @param transcriptomic_cut Optional numeric. Cells scoring at or above it are
 #'   "signature positive". `NULL` uses the score's median.
-#' @param cnv_cut Optional numeric cutoff on CNV burden. `NULL` derives it from
-#'   the reference cells (see [sclet_cnv_reference_cut()]).
+#' @param cnv_cut Optional numeric cutoff on CNV burden. `NULL` puts the
+#'    cutoff at the reference cells' upper quantile plus three robust standard
+#'    deviations, computed from `reference_quantile`.
 #' @param reference_quantile Numeric in (0, 1). Reference cells' quantile used as
 #'   the CNV baseline. Defaults to 0.99.
 #' @param identity_genes Optional character vector naming a competing identity
-#'   programme (for a gastric tumour, the intestinal-metaplasia profile). It is
-#'   passed to [CallPhenotypeCells()] as a competing hypothesis.
-#' @param identity_demote Numeric. Separation above which a call is demoted.
+#'    programme (for a gastric tumour, the intestinal-metaplasia profile).
+#'    When supplied, the malignant side's mean identity score is compared to
+#'    the non-malignant side's and the call is demoted if the programme tracks
+#'    the malignant side.
+#' @param identity_demote Numeric. Mean difference on `identity_genes` above
+#'    which a cell found malignant is demoted to `"undetermined"`.
 #' @param assay Assay for scoring. Defaults to `"logcounts"`.
 #' @param name Analysis record id. Defaults to `"malignant_call"`.
+#'
 #'
 #' @return `object` with `colData` columns `<name>_state`, `<name>_evidence`,
 #'   `<name>_signature_score`, `<name>_identity_score` (when `identity_genes` is
@@ -63,6 +71,16 @@
 #'
 #' @seealso [CallPhenotypeCells()], [RunCNVInference()], [check_cnv_readiness()]
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' ref <- colnames(sce)[1:5]
+#' SummarizedExperiment::colData(sce)$cnv_burden <- ifelse(colnames(sce) %in% ref, 0, 0.2)
+#' SummarizedExperiment::colData(sce)$cnv_is_reference <- colnames(sce) %in% ref
+#' # a completed CNV run, as RunCNVInference() would record it
+#' S4Vectors::metadata(sce)$sclet$analyses$malignant_cnv$cnv <- list(status = "completed")
+#' sce <- CallMalignantCells(sce, signature = rownames(sce)[1:10])
+#' table(SummarizedExperiment::colData(sce)$malignant_call_state)
 CallMalignantCells <- function(object,
                                cnv_id = "cnv",
                                signature = NULL,

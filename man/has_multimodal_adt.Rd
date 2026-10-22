@@ -15,3 +15,7 @@ logical. TRUE if \code{altExp(sce, "ADT")} exists.
 \description{
 Check whether an ADT modality is present
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+has_multimodal_adt(sce)
+}

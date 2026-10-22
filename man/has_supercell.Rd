@@ -17,3 +17,11 @@ logical
 \description{
 Check whether SuperCell results are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "run1", type = "aggregation", method = "SuperCell::SCimplify")
+state <- list(states = list(active = list(aggregation = "run1"),
+    records = list(aggregation = list(run1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+has_supercell(sce)
+}

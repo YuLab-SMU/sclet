@@ -29,3 +29,14 @@ A structured validation result with resolved evidence and errors.
 \description{
 Validate evidence references against the current analysis ledger
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RecordAIEvidence(sce, evidence = list(
+    id = "ev:cell_counts",
+    kind = "deterministic_summary",
+    values = list(n_cells = 20L)
+))
+ValidateAIEvidenceRefs(sce, "ev:cell_counts")$valid
+# An id that was never recorded does not resolve.
+ValidateAIEvidenceRefs(sce, "ev:missing")$valid
+}

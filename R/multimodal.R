@@ -3,6 +3,9 @@
 #' @param sce A SingleCellExperiment object.
 #' @return logical. TRUE if `altExp(sce, "ADT")` exists.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' has_multimodal_adt(sce)
 has_multimodal_adt <- function(sce) {
     "ADT" %in% SingleCellExperiment::altExpNames(sce)
 }
@@ -12,6 +15,9 @@ has_multimodal_adt <- function(sce) {
 #' @param sce A SingleCellExperiment object.
 #' @return logical. TRUE if `altExp(sce, "ATAC")` exists.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' has_multimodal_atac(sce)
 has_multimodal_atac <- function(sce) {
     "ATAC" %in% SingleCellExperiment::altExpNames(sce)
 }
@@ -27,6 +33,14 @@ has_multimodal_atac <- function(sce) {
 #'
 #' @return Updated SingleCellExperiment with multimodal state record.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' adt <- SingleCellExperiment::SingleCellExperiment(
+#'     assays = list(counts = matrix(1, nrow = 3, ncol = 20,
+#'                                   dimnames = list(paste0("ADT", 1:3), colnames(sce)))))
+#' SingleCellExperiment::altExp(sce, "ADT") <- adt
+#' sce <- register_multimodal_adt(sce)
+#' has_multimodal_adt(sce)
 register_multimodal_adt <- function(sce, name = "ADT") {
     stopifnot(is(sce, "SingleCellExperiment"))
     if (!has_multimodal_adt(sce)) {
@@ -82,6 +96,14 @@ register_multimodal_adt <- function(sce, name = "ADT") {
 #'
 #' @return Updated SingleCellExperiment with multimodal state record.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' atac <- SingleCellExperiment::SingleCellExperiment(
+#'     assays = list(counts = matrix(1, nrow = 3, ncol = 20,
+#'                                   dimnames = list(paste0("ATAC", 1:3), colnames(sce)))))
+#' SingleCellExperiment::altExp(sce, "ATAC") <- atac
+#' sce <- register_multimodal_atac(sce)
+#' has_multimodal_atac(sce)
 register_multimodal_atac <- function(sce, name = "ATAC") {
     stopifnot(is(sce, "SingleCellExperiment"))
     if (!has_multimodal_atac(sce)) {
@@ -142,6 +164,14 @@ register_multimodal_atac <- function(sce, name = "ATAC") {
 #'
 #' @return Updated SingleCellExperiment with multimodal workflow record.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' adt <- SingleCellExperiment::SingleCellExperiment(
+#'     assays = list(counts = matrix(1, nrow = 3, ncol = 20,
+#'                                   dimnames = list(paste0("ADT", 1:3), colnames(sce)))))
+#' SingleCellExperiment::altExp(sce, "ADT") <- adt
+#' sce <- RunMultimodalWorkflow(sce)
+#' names(S4Vectors::metadata(sce)$sclet$analyses$multimodal_workflow$artifacts)
 RunMultimodalWorkflow <- function(sce, register_adt = TRUE,
     register_atac = TRUE, name = "multimodal") {
 

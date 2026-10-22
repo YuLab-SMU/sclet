@@ -4,6 +4,9 @@
 #' @param object a SingleCellExperiment object
 #' @return character vector of available layer names
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' Layers(sce)
 Layers <- function(object) {
     names(sclet_get_layer_registry(object))
 }
@@ -16,6 +19,9 @@ Layers <- function(object) {
 #' @return assay matrix associated with the selected layer
 #' @importFrom SummarizedExperiment assay
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' dim(LayerData(sce))
 LayerData <- function(object, layer = NULL) {
     resolved <- sclet_resolve_layer(object, layer = layer)
     if (is.null(resolved)) {
@@ -31,6 +37,9 @@ LayerData <- function(object, layer = NULL) {
 #' @param value layer name
 #' @return current default layer or updated object
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' DefaultLayer(sce)
 DefaultLayer <- function(object) {
     sclet_get_active_layer(object)
 }

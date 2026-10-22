@@ -30,3 +30,9 @@ Reports how clusters are distributed across the leading embedding
 dimensions. This is a description of the data only: it never ranks clusters,
 never suggests a root, and never interprets the cluster order as time.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+summary <- summarize_trajectory_cluster_order(sce)
+summary$status
+summary$reason
+}

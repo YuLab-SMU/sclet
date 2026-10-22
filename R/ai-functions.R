@@ -10,6 +10,12 @@
 #'   summary stage. Defaults to `TRUE`.
 #' @param ... Additional arguments passed to `sclet_ai_call()`.
 #' @return A structured `sclet_ai_result`.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a provider API key
+#' AIAuditAnalysisChain(sce, features = rownames(sce)[1:2])
+#' }
 #' @export
 AIAuditAnalysisChain <- function(
     sce,
@@ -78,22 +84,18 @@ AIAuditAnalysisChain <- function(
     )
 }
 
-# Keep the original character-returning facade while routing calls through the
-# structured adapter. This definition is collated after the legacy copilot.R.
-sclet_copilot <- function(sce, question, model = NULL) {
-    result <- sclet_ai_call(
-        task = "copilot",
-        context = GetAnalysisLedger(sce, detail = "full"),
-        tools = sclet_ai_tool_registry(sce),
-        model = model,
-        system_prompt = paste(
-            "Answer the user's question using only the ledger and read-only",
-            "tools. Explain evidence and limitations explicitly.",
-            sep = "\n"
-        )
-    )
-    result$answer %||% ""
-}
+# The character-returning facade `sclet_copilot()` used to live here as a
+# second definition of the same exported name. It was DEAD: DESCRIPTION's
+# Collate lists this file at 164 and `copilot.R` at 199, and R keeps the LAST
+# definition, so the five-argument version in `copilot.R` is the one in the
+# namespace -- the one `man/sclet_copilot.Rd` documents. The comment here
+# claimed the opposite ("This definition is collated after the legacy
+# copilot.R"), which was wrong.
+#
+# It was not just noise: whichever way Collate was sorted decided which
+# signature users got, silently. A second definition of an exported name that
+# only the collation order keeps apart is a trap, so the duplicate is gone and
+# `sclet_copilot()` lives in `R/copilot.R` only.
 
 # The evidence ids a set of findings cites, read by EXACT name.
 #
@@ -169,6 +171,27 @@ sclet_ai_recorded_findings <- function(object, result, audit, audit_claims) {
 #' @return The updated `SingleCellExperiment` object. Each record summary
 #'   includes `cited_user_decisions`, the evidence ids of cited user-decision
 #'   nodes (an empty character vector when none are cited).
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' # An `sclet_ai_result` is a plain list; it can be written by hand.
+#' result <- list(
+#'     task = "copilot",
+#'     answer = "The object holds 20 cells and 50 features.",
+#'     findings = list(),
+#'     evidence = list(),
+#'     warnings = list(),
+#'     recommendations = list(),
+#'     proposed_actions = list(),
+#'     success_criteria = list(),
+#'     stop_conditions = list(),
+#'     context = list(fingerprint = "example"),
+#'     metadata = list(provider = "example")
+#' )
+#' class(result) <- c("sclet_ai_result", "list")
+#' sce <- RecordAIResult(sce, result, id = "ai_copilot_example")
+#' ids <- vapply(GetAnalysisLedger(sce)$analyses,
+#'     function(record) record$id, character(1))
+#' any(ids == "ai_copilot_example")
 #' @export
 RecordAIResult <- function(object, result, id = NULL, active = FALSE, audit_claims = TRUE) {
     validate_sclet_ai_result(result)
@@ -285,6 +308,12 @@ RecordAIResult <- function(object, result, id = NULL, active = FALSE, audit_clai
 #' @param structured_output Logical. Use structured output when available.
 #' @param ... Additional arguments passed to `sclet_ai_call()`.
 #' @return A structured `sclet_ai_result`.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a provider API key
+#' AskAI(sce, "What has been analysed so far?")
+#' }
 #' @export
 AskAI <- function(object, question, model = NULL, structured_output = TRUE, ...) {
     if (!inherits(object, "SingleCellExperiment")) {
@@ -356,6 +385,12 @@ AskAI <- function(object, question, model = NULL, structured_output = TRUE, ...)
 #' @param ... Additional arguments passed to `AIPlanAnalysis()`.
 #' @return An object of class `sclet_ai_analysis` containing the original or
 #'   updated object, plan, validation, dry-run preview, execution, and report.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a provider API key
+#' RunAIAnalysis(sce, goal = "cluster the cells", confirm = "yes")
+#' }
 #' @export
 RunAIAnalysis <- function(
     object,
@@ -1060,6 +1095,31 @@ sclet_ai_format_clarification <- function(validation_errors, readiness_results =
 #'   the ledger as a `user_decision` node); a plan-parameter answer is recorded
 #'   without being applied.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' colData(sce)$batch_id <- rep(c("b1", "b2"), length.out = ncol(sce))
+#' # A clarification is a plain list: the questions, and where they came from.
+#' clarification <- list(
+#'     status = "clarification_required",
+#'     n_questions = 1L,
+#'     questions = list(list(
+#'         id = "design_batch",
+#'         text = "Which column is the batch?",
+#'         blocked_action = "run_integration",
+#'         related_function = "ConfirmAIDesignSemantics",
+#'         recognized = TRUE,
+#'         source_error = "design_semantics_not_confirmed"
+#'     )),
+#'     raw_errors = "design_semantics_not_confirmed"
+#' )
+#' # `ask` is the user. Supplying it makes the interaction scriptable.
+#' resolved <- ResolveAIClarifications(
+#'     sce,
+#'     clarification,
+#'     ask = function(question) "batch_id"
+#' )
+#' resolved$status
+#' resolved$transcript[[1L]]$outcome
 ResolveAIClarifications <- function(
     object,
     clarification,

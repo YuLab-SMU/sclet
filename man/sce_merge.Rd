@@ -17,3 +17,13 @@ A SingleCellExperiment object
 \description{
 merge a list of SingleCellExperiment objects to a single SingleCellExperiment object
 }
+\examples{
+sce1 <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce1 <- NormalizeData(sce1)
+sce1 <- FindVariableFeatures(sce1, method = "scran", nfeatures = 20)
+sce2 <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce2 <- NormalizeData(sce2)
+sce2 <- FindVariableFeatures(sce2, method = "scran", nfeatures = 20)
+merged <- sce_merge(list(batch1 = sce1, batch2 = sce2))
+ncol(merged)
+}

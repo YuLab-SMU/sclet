@@ -54,3 +54,12 @@ user's analysis goal instead of exposing only individual algorithms. It can
 orchestrate diffusion map, Slingshot, RNA velocity, and CellRank/CellFate
 using the existing atomic interfaces in \code{sclet}.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(sce)$cluster <- rep(c("alpha", "beta"), length.out = 20)
+sce <- RunPCA(sce, ncomponents = 5)
+\dontrun{
+# needs the slingshot and destiny packages
+sce <- RunTrajectoryWorkflow(sce, group = "cluster")
+}
+}

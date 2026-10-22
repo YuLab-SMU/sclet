@@ -19,3 +19,11 @@ the full velocity analysis record, a selected element, or \code{NULL}
 \description{
 Access RNA velocity analysis results
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "run1", type = "velocity", method = "velociraptor::scvelo")
+state <- list(states = list(active = list(velocity = "run1"),
+    records = list(velocity = list(run1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+get_velocity(sce)$method
+}

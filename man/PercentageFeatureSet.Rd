@@ -19,3 +19,8 @@ the percentage of each cell
 \description{
 calculate percentage of genes that matched a pattern
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+pct <- PercentageFeatureSet(sce, pattern = "^Gene_000[1-5]$")
+head(pct)
+}

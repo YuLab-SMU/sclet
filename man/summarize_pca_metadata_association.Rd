@@ -19,3 +19,10 @@ A bounded association summary without metadata values.
 \description{
 Summarize PCA association with a metadata column
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+# No PCA has been computed, so the association is not available.
+summary <- summarize_pca_metadata_association(sce, "Treatment")
+summary$status
+summary$reason
+}

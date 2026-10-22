@@ -37,3 +37,10 @@ spatially-resolved feature columns (e.g., cell type proportions from
 deconvolution), \code{runGLOBALBV()} computes the spatial correlation between
 every pair, identifying which features tend to co-occur in space.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the SVP package
+sce <- RunSpatialColocalization(sce, features = c("c2l_A", "c2l_B"))
+}
+}

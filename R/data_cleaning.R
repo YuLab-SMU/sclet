@@ -9,6 +9,13 @@ NULL
 #' @return an updated SingleCellExperiment object with doublet scores and classes
 #' @export
 #' @importFrom SummarizedExperiment colData colData<- assayNames
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the 'scDblFinder' Suggests package
+#' sce <- RunDoubletFinder(sce)
+#' head(colData(sce)$scDblFinder.class)
+#' }
 RunDoubletFinder <- function(sce, ...) {
     if (!requireNamespace("scDblFinder", quietly = TRUE)) {
         stop("Please install the 'scDblFinder' package to use RunDoubletFinder.")
@@ -71,6 +78,13 @@ RunDoubletFinder <- function(sce, ...) {
 #' @return an updated SingleCellExperiment object with 'decontXcounts' assay
 #' @export
 #' @importFrom SummarizedExperiment assay assay<- colData colData<- assayNames
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the 'celda' Suggests package
+#' sce <- RunDecontX(sce)
+#' SummarizedExperiment::assayNames(sce)
+#' }
 RunDecontX <- function(sce, assay = "counts", ...) {
     if (!requireNamespace("celda", quietly = TRUE)) {
         stop("Please install the 'celda' package to use RunDecontX.")

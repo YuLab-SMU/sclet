@@ -19,3 +19,9 @@ an updated SingleCellExperiment object with 'scaled' assay
 \description{
 scale data
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- ScaleData(sce)
+SummarizedExperiment::assayNames(sce)
+}

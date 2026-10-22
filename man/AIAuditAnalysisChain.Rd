@@ -37,3 +37,10 @@ A structured \code{sclet_ai_result}.
 \description{
 Audit a feature analysis chain with the R-native AI adapter
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs a provider API key
+AIAuditAnalysisChain(sce, features = rownames(sce)[1:2])
+}
+}

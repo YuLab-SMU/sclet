@@ -66,3 +66,11 @@ never executes proposed actions.
 \description{
 The function only creates a plan. It never executes proposed actions.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs a provider API key
+plan <- AIPlanAnalysis(sce, goal = "cluster the cells and find markers")
+plan$validation$valid
+}
+}

@@ -47,3 +47,14 @@ Run Functional Enrichment Analysis
 \details{
 Wrapper for clusterProfiler enrichment analysis on marker genes.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+\dontrun{
+# needs the 'presto' and 'clusterProfiler' Suggests packages
+sce <- RunDEtest(sce, return.thresh = 0.5, logfc.threshold = 0)
+sce <- RunEnrichment(sce, db = "GO")
+get_enrichment(sce)$summary$n_enriched
+}
+}

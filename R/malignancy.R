@@ -59,6 +59,7 @@
 #'   so that scoring reproduces the reference's control-binned offsets.
 #' @param n_bins `AddModuleScore` expression bins, stored with the signature.
 #'
+#'
 #' @return A list with `tumor_genes`, `normal_genes` (character vectors of the
 #'   same length as `n_top` unless the data are thin), `deg` (the full limma
 #'   table, ordered by adjusted p-value) and `info` (counts, cutoffs, design,
@@ -67,6 +68,16 @@
 #'
 #' @seealso [ClassifyMalignantEpithelium()]
 #' @export
+#' @examples
+#' bulk <- matrix(rpois(200 * 12, 20), nrow = 200,
+#'                dimnames = list(paste0("Gene", 1:200), paste0("S", 1:12)))
+#' sample_info <- data.frame(sample = paste0("S", 1:12),
+#'                            condition = rep(c("Tumor", "Normal"), 6),
+#'                            patient = rep(paste0("P", 1:6), each = 2))
+#' \dontrun{
+#' # needs the limma package
+#' seed <- FindMalignantSeedGenes(expr = bulk, sample_info = sample_info)
+#' }
 FindMalignantSeedGenes <- function(
     expr,
     sample_info,
@@ -352,6 +363,14 @@ FindMalignantSeedGenes <- function(
 #'
 #' @seealso [FindMalignantSeedGenes()]
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$sample <- rep(c("s1", "s2"), each = 10)
+#' \dontrun{
+#' # needs the limma package
+#' seed <- list(tumor = rownames(sce)[1:5], normal = rownames(sce)[6:10])
+#' sce <- ClassifyMalignantEpithelium(sce, seed = seed, sample_col = "sample")
+#' }
 ClassifyMalignantEpithelium <- function(
     object,
     seed,

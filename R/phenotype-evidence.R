@@ -43,6 +43,7 @@
 #' @param provider A provider list, see \sQuote{Providers}.
 #' @param include Optional character vector restricting the returned names.
 #'
+#'
 #' @return `action = "list"` returns the provider names; `"get"` returns one
 #'   provider; `"register"` and `"unregister"` return `NULL` invisibly.
 #'
@@ -69,6 +70,9 @@
 #'
 #' @seealso [CallPhenotypeCells()], [RunCNVInference()]
 #' @export
+#' @examples
+#' PhenotypeEvidenceProviders("list")
+#' PhenotypeEvidenceProviders("get", name = "cnv")$label
 PhenotypeEvidenceProviders <- function(action = c("list", "get", "register", "unregister"),
                                        name = NULL,
                                        provider = NULL,
@@ -134,6 +138,15 @@ PhenotypeEvidenceProviders <- function(action = c("list", "get", "register", "un
 #'
 #' @return `TRUE` invisibly, or an error naming the defects.
 #' @export
+#' @examples
+#' provider <- list(
+#'     name = "my_line",
+#'     label = "An independent measurement",
+#'     dependence = "independent",
+#'     available = function(object, ...) list(available = TRUE, issues = character()),
+#'     decide = function(object, ...) list(state = rep("positive", ncol(object)))
+#' )
+#' check_phenotype_provider(provider)
 check_phenotype_provider <- function(provider) {
     problems <- character(0)
     if (!is.list(provider)) {
@@ -185,17 +198,20 @@ check_phenotype_provider <- function(provider) {
 #' @param transcriptomic_cut Optional numeric cutoff on the signature score.
 #'   `NULL` uses the median. The choice is recorded in the result either way.
 #' @param competing Optional named list of competing signatures (`list(
-#'   hypothesis_name = genes, ...)`). For each, the call reports how well the
-#'   signature separates the evidence-positive cells from the rest. The groups
-#'   come from the EVIDENCE (at least one line positive vs none), never from the
-#'   resulting call: comparing against the call would be circular, because the
-#'   signature selects the cells it is then asked to explain.".
-#' @param competing_demote Numeric. Separation on the competing signature above
-#'   which affirmative calls are demoted to `undetermined`. A `refuted` call is
-#'   never demoted: it was never evidence-positive.
+#'    hypothesis_name = genes, ...)`). For each, the call reports how well the
+#'    signature separates the evidence-positive cells from the rest, which is
+#'    the question "is this the axis we think it is?". The groups are defined
+#'    by the EVIDENCE (at least one line positive vs none), never by the
+#'    resulting call: comparing against the call would make the test circular,
+#'    since the signature selects the cells it is then asked to explain.
+#' @param competing_demote Numeric. Separation on the competing signature
+#'    above which affirmative calls (`supported`, `probable`) are demoted to
+#'    `undetermined`. A `refuted` call is never demoted: it was never
+#'    evidence-positive, so the axis question does not apply to it.
 #' @param assay Assay for scoring. Defaults to `"logcounts"`.
 #' @param name Analysis record id. Defaults to `"phenotype_call"`.
 #' @param ... Arguments passed to each provider's `decide()`.
+#'
 #'
 #' @return `object` with `colData` columns `<name>_call`, `<name>_claim`,
 #'   `<name>_n_lines`, `<name>_signature_score` and one `<name>_<provider>_state`
@@ -236,6 +252,11 @@ check_phenotype_provider <- function(provider) {
 #'
 #' @seealso [PhenotypeEvidenceProviders()], [CallMalignantCells()]
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- CallPhenotypeCells(sce, signature = rownames(sce)[1:10])
+#' table(SummarizedExperiment::colData(sce)$phenotype_call_call)
 CallPhenotypeCells <- function(object,
                                signature = NULL,
                                signature_score = NULL,

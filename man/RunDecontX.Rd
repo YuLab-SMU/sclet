@@ -19,3 +19,11 @@ an updated SingleCellExperiment object with 'decontXcounts' assay
 \description{
 Run decontX to remove ambient RNA contamination
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the 'celda' Suggests package
+sce <- RunDecontX(sce)
+SummarizedExperiment::assayNames(sce)
+}
+}

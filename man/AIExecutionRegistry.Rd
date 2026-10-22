@@ -16,3 +16,12 @@ An object of class \code{sclet_ai_execution_registry}.
 An empty registry is the default. Actions are never discovered from the
 global environment or invoked by name unless explicitly registered here.
 }
+\examples{
+action <- AIAction(
+    name = "count_cells",
+    handler = function(object, params) ncol(object),
+    returns = "value"
+)
+registry <- AIExecutionRegistry(list(action))
+registry[["count_cells"]]$name
+}

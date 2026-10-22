@@ -25,14 +25,15 @@ RunDEtest(
 \item{name}{Analysis record id. Defaults to "detest".}
 
 \item{group}{Optional colData column to contrast instead of the active
-identity (e.g. "condition"). When given, ident.1/ident.2 are levels of that
-column.}
+identity (e.g. "condition"). When given, ident.1/ident.2 are levels of
+that column.}
 
-\item{covariates}{Optional colData columns to adjust the group contrast for.
-With covariates the test is pseudobulk per covariate combination and
-limma, design `~ group + covariates` (a paired analysis when the covariate
-is the donor). Without covariates the existing cell-level FindMarkers is
-used and donor/batch structure is NOT adjusted; the state records which.}
+\item{covariates}{Optional colData columns to adjust the group contrast
+for. With covariates the test is pseudobulk per covariate combination
+and limma, design \code{~ group + covariates} (a paired analysis when the
+covariate is the donor). Without covariates the existing cell-level
+FindMarkers is used and donor/batch structure is NOT adjusted; the state
+records which.}
 
 \item{min_cells}{Minimum cells per pseudobulk sample (default 10).}
 
@@ -43,4 +44,14 @@ A SingleCellExperiment object with detest state added
 }
 \description{
 Run Differential Expression Test
+}
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+\dontrun{
+# needs the 'presto' Suggests package
+sce <- RunDEtest(sce)
+get_detest(sce)$summary$n_markers
+}
 }

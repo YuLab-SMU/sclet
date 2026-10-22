@@ -22,3 +22,11 @@ ggplot object
 \description{
 Dimensional reduction plot
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- RunPCA(sce, ncomponents = 5)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+p <- DimPlot(sce, reduction = "PCA")
+nrow(p$data)
+}

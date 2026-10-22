@@ -30,3 +30,15 @@ A data frame of significant marker pathways.
 This function identifies cell-type specific pathways by performing differential testing
 on pathway scores stored as an alternative experiment (altExp).
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+\dontrun{
+# needs the 'UCell' and 'presto' Suggests packages
+gs <- list(Program1 = c("Gene_0001", "Gene_0002", "Gene_0003"))
+sce <- RunGeneSetScoring(sce, gene_sets = gs, method = "UCell",
+    name = "PathwayScores", as_altExp = TRUE)
+res <- FindMarkerPathways(sce)
+head(res)
+}
+}

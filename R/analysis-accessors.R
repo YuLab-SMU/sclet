@@ -6,6 +6,13 @@
 #' @param id optional trajectory record id. If NULL, use the active trajectory record.
 #' @return the full trajectory analysis record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "trajectory", method = "slingshot")
+#' state <- list(states = list(active = list(trajectory = "run1"),
+#'     records = list(trajectory = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' get_trajectory(sce)$method
 get_trajectory <- function(object, element = NULL, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "trajectory")
@@ -31,6 +38,13 @@ get_trajectory <- function(object, element = NULL, id = NULL) {
 #' @param id optional trajectory record id
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "trajectory", method = "slingshot")
+#' state <- list(states = list(active = list(trajectory = "run1"),
+#'     records = list(trajectory = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_trajectory(sce)
 has_trajectory <- function(object, id = NULL) {
     !is.null(get_trajectory(object, id = id))
 }
@@ -43,6 +57,13 @@ has_trajectory <- function(object, id = NULL) {
 #' @param id optional milo record id. If NULL, use the active milo record.
 #' @return the full milo analysis record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "milo", method = "miloR")
+#' state <- list(states = list(active = list(milo = "run1"),
+#'     records = list(milo = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' get_milo(sce)$method
 get_milo <- function(object, element = NULL, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "milo")
@@ -72,6 +93,13 @@ get_milo <- function(object, element = NULL, id = NULL) {
 #' @param id optional milo record id
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "milo", method = "miloR")
+#' state <- list(states = list(active = list(milo = "run1"),
+#'     records = list(milo = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_milo(sce)
 has_milo <- function(object, id = NULL) {
     !is.null(get_milo(object, id = id))
 }
@@ -84,6 +112,13 @@ has_milo <- function(object, id = NULL) {
 #' @param id optional aggregation record id. If NULL, use the active aggregation record.
 #' @return the full SuperCell analysis record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "aggregation", method = "SuperCell::SCimplify")
+#' state <- list(states = list(active = list(aggregation = "run1"),
+#'     records = list(aggregation = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' get_supercell(sce)$method
 get_supercell <- function(object, element = NULL, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "aggregation")
@@ -113,6 +148,13 @@ get_supercell <- function(object, element = NULL, id = NULL) {
 #' @param id optional aggregation record id
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "aggregation", method = "SuperCell::SCimplify")
+#' state <- list(states = list(active = list(aggregation = "run1"),
+#'     records = list(aggregation = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_supercell(sce)
 has_supercell <- function(object, id = NULL) {
     !is.null(get_supercell(object, id = id))
 }
@@ -125,6 +167,13 @@ has_supercell <- function(object, id = NULL) {
 #' @param id optional communication record id. If NULL, use the active communication record.
 #' @return the full CellChat record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "communication", method = "CellChat")
+#' state <- list(states = list(active = list(communication = "run1"),
+#'     records = list(communication = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' get_cellchat(sce)$method
 get_cellchat <- function(object, element = NULL, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "communication")
@@ -154,6 +203,13 @@ get_cellchat <- function(object, element = NULL, id = NULL) {
 #' @param id optional communication record id
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "communication", method = "CellChat")
+#' state <- list(states = list(active = list(communication = "run1"),
+#'     records = list(communication = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_cellchat(sce)
 has_cellchat <- function(object, id = NULL) {
     !is.null(get_cellchat(object, id = id))
 }
@@ -166,6 +222,13 @@ has_cellchat <- function(object, id = NULL) {
 #' @param id optional communication record id. If NULL, use the active communication record.
 #' @return the full CellPhoneDB record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "communication", method = "CellPhoneDB")
+#' state <- list(states = list(active = list(communication = "run1"),
+#'     records = list(communication = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' get_cellphonedb(sce)$method
 get_cellphonedb <- function(object, element = NULL, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "communication")
@@ -195,6 +258,13 @@ get_cellphonedb <- function(object, element = NULL, id = NULL) {
 #' @param id optional communication record id
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "communication", method = "CellPhoneDB")
+#' state <- list(states = list(active = list(communication = "run1"),
+#'     records = list(communication = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_cellphonedb(sce)
 has_cellphonedb <- function(object, id = NULL) {
     !is.null(get_cellphonedb(object, id = id))
 }
@@ -207,6 +277,13 @@ has_cellphonedb <- function(object, id = NULL) {
 #' @param id optional communication record id. If NULL, use the active communication record.
 #' @return the full NicheNet record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "communication", method = "NicheNet")
+#' state <- list(states = list(active = list(communication = "run1"),
+#'     records = list(communication = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' get_nichenet(sce)$method
 get_nichenet <- function(object, element = NULL, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "communication")
@@ -236,6 +313,13 @@ get_nichenet <- function(object, element = NULL, id = NULL) {
 #' @param id optional communication record id
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "communication", method = "NicheNet")
+#' state <- list(states = list(active = list(communication = "run1"),
+#'     records = list(communication = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_nichenet(sce)
 has_nichenet <- function(object, id = NULL) {
     !is.null(get_nichenet(object, id = id))
 }
@@ -247,6 +331,16 @@ has_nichenet <- function(object, id = NULL) {
 #' @param id optional communication record id. If NULL, use the active communication record.
 #' @return a data.frame containing standardized CCI interactions, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' interactions <- data.frame(source = "alpha", target = "beta",
+#'     ligand = "L1", receptor = "R1")
+#' record <- list(id = "run1", type = "communication", method = "CellChat",
+#'     interactions = interactions)
+#' state <- list(states = list(active = list(communication = "run1"),
+#'     records = list(communication = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' nrow(get_cci(sce))
 get_cci <- function(object, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "communication")
@@ -279,6 +373,16 @@ get_cci <- function(object, id = NULL) {
 #' @param id optional communication record id
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' interactions <- data.frame(source = "alpha", target = "beta",
+#'     ligand = "L1", receptor = "R1")
+#' record <- list(id = "run1", type = "communication", method = "CellChat",
+#'     interactions = interactions)
+#' state <- list(states = list(active = list(communication = "run1"),
+#'     records = list(communication = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_cci(sce)
 has_cci <- function(object, id = NULL) {
     !is.null(get_cci(object, id = id))
 }
@@ -291,6 +395,10 @@ has_cci <- function(object, id = NULL) {
 #' @param id optional annotation record id. If NULL, use the active annotation record.
 #' @return the full annotation state record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$SingleR_labels <- rep(c("alpha", "beta"), length.out = 20)
+#' get_annotation(sce)$summary$n_labels
 get_annotation <- function(object, element = NULL, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "annotation")
@@ -326,6 +434,10 @@ get_annotation <- function(object, element = NULL, id = NULL) {
 #' @param id optional annotation record id
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$SingleR_labels <- rep(c("alpha", "beta"), length.out = 20)
+#' has_annotation(sce)
 has_annotation <- function(object, id = NULL) {
     !is.null(get_annotation(object, id = id))
 }
@@ -338,6 +450,10 @@ has_annotation <- function(object, id = NULL) {
 #' @param id optional mapping record id. If NULL, use the active mapping record.
 #' @return the full mapping state record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$SingleR_labels <- rep(c("alpha", "beta"), length.out = 20)
+#' get_mapping(sce)$artifacts$mapping_type
 get_mapping <- function(object, element = NULL, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "mapping")
@@ -377,6 +493,10 @@ get_mapping <- function(object, element = NULL, id = NULL) {
 #' @param id optional mapping record id
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$SingleR_labels <- rep(c("alpha", "beta"), length.out = 20)
+#' has_mapping(sce)
 has_mapping <- function(object, id = NULL) {
     !is.null(get_mapping(object, id = id))
 }
@@ -438,6 +558,11 @@ sclet_normalize_analysis_record <- function(type, id, record = NULL, analysis = 
 #' @param element optional element name to extract from the stored batch record
 #' @return the full batch record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "batchcorrect", type = "batch", method = "BatchRemover")
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(batch = record))
+#' get_batch(sce)$method
 get_batch <- function(object, element = NULL) {
     result <- sclet_normalize_analysis_record(
         type = "batch",
@@ -453,6 +578,11 @@ get_batch <- function(object, element = NULL) {
 #' @param object a SingleCellExperiment object
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "batchcorrect", type = "batch", method = "BatchRemover")
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(batch = record))
+#' has_batch(sce)
 has_batch <- function(object) {
     !is.null(get_batch(object))
 }
@@ -466,8 +596,11 @@ has_batch <- function(object) {
 #' @return the full integration state record, a selected element, or `NULL`
 #' @export
 #' @examples
-#' # get_integration(sce)
-#' # get_integration(sce, id = "merged_inputs")
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "batchcorrect", type = "batch", method = "BatchRemover",
+#'     artifacts = list(layer = "corrected"))
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(batch = record))
+#' get_integration(sce)$artifacts$layer
 get_integration <- function(object, element = NULL, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "integration")
@@ -505,6 +638,12 @@ get_integration <- function(object, element = NULL, id = NULL) {
 #' @param id optional integration record id
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "batchcorrect", type = "batch", method = "BatchRemover",
+#'     artifacts = list(layer = "corrected"))
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(batch = record))
+#' has_integration(sce)
 has_integration <- function(object, id = NULL) {
     !is.null(get_integration(object, id = id))
 }
@@ -516,6 +655,11 @@ has_integration <- function(object, id = NULL) {
 #' @param element optional element name to extract from the stored HVG record
 #' @return the full HVG record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- FindVariableFeatures(sce, nfeatures = 20)
+#' get_hvg(sce)$n
 get_hvg <- function(object, element = NULL) {
     rd <- SummarizedExperiment::rowData(object)
     result <- list(
@@ -542,6 +686,11 @@ get_hvg <- function(object, element = NULL) {
 #' @param object a SingleCellExperiment object
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- NormalizeData(sce)
+#' sce <- FindVariableFeatures(sce, nfeatures = 20)
+#' has_hvg(sce)
 has_hvg <- function(object) {
     !is.null(get_hvg(object))
 }
@@ -554,6 +703,11 @@ has_hvg <- function(object) {
 #' @param element optional element name to extract from the stored graph record
 #' @return the full graph record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' sce <- FindNeighbors(sce, dims = 1:5)
+#' get_graph(sce)$name
 get_graph <- function(object, name = NULL, element = NULL) {
     state <- sclet_get_state(object)
     if (is.null(name)) {
@@ -579,6 +733,11 @@ get_graph <- function(object, name = NULL, element = NULL) {
 #' @param name graph name; if NULL, use the active graph
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' sce <- FindNeighbors(sce, dims = 1:5)
+#' has_graph(sce)
 has_graph <- function(object, name = NULL) {
     !is.null(get_graph(object, name = name))
 }
@@ -599,6 +758,10 @@ summarize_analysis_context_record <- function(record) {
 #' @param element optional element name to extract from the context summary
 #' @return a lightweight summary of the current active view and active analysis records
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$SingleR_labels <- rep(c("alpha", "beta"), length.out = 20)
+#' names(get_analysis_context(sce)$records)
 get_analysis_context <- function(object, element = NULL) {
     records <- list(
         integration = summarize_analysis_context_record(get_integration(object)),
@@ -639,6 +802,13 @@ get_analysis_context <- function(object, element = NULL) {
 #' @param id optional velocity record id. If NULL, use the active velocity record.
 #' @return the full velocity analysis record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "velocity", method = "velociraptor::scvelo")
+#' state <- list(states = list(active = list(velocity = "run1"),
+#'     records = list(velocity = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' get_velocity(sce)$method
 get_velocity <- function(object, element = NULL, id = NULL) {
     requested_id <- id
     if (is.null(id)) {
@@ -669,6 +839,13 @@ get_velocity <- function(object, element = NULL, id = NULL) {
 #' @param id optional velocity record id
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "velocity", method = "velociraptor::scvelo")
+#' state <- list(states = list(active = list(velocity = "run1"),
+#'     records = list(velocity = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_velocity(sce)
 has_velocity <- function(object, id = NULL) {
     !is.null(get_velocity(object, id = id))
 }
@@ -681,6 +858,13 @@ has_velocity <- function(object, id = NULL) {
 #' @param id optional scenic record id. If NULL, use the active scenic record.
 #' @return the full scenic analysis record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "scenic", method = "pySCENIC")
+#' state <- list(states = list(active = list(scenic = "run1"),
+#'     records = list(scenic = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' get_scenic(sce)$method
 get_scenic <- function(object, element = NULL, id = NULL) {
     requested_id <- id
     if (is.null(id)) {
@@ -711,6 +895,13 @@ get_scenic <- function(object, element = NULL, id = NULL) {
 #' @param id optional scenic record id
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "scenic", method = "pySCENIC")
+#' state <- list(states = list(active = list(scenic = "run1"),
+#'     records = list(scenic = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_scenic(sce)
 has_scenic <- function(object, id = NULL) {
     !is.null(get_scenic(object, id = id))
 }
@@ -723,6 +914,15 @@ has_scenic <- function(object, id = NULL) {
 #' @param id optional geneset_scoring record id. If NULL, use the active geneset_scoring record.
 #' @return the full geneset_scoring analysis record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$Score_sigA <- seq_len(20)
+#' record <- list(id = "Score", type = "geneset_scoring", method = "UCell",
+#'     artifacts = list(storage = "colData", score_columns = "Score_sigA"))
+#' state <- list(states = list(active = list(geneset_scoring = "Score"),
+#'     records = list(geneset_scoring = list(Score = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' get_geneset_scoring(sce)$method
 get_geneset_scoring <- function(object, element = NULL, id = NULL) {
     requested_id <- id
     if (is.null(id)) {
@@ -753,6 +953,15 @@ get_geneset_scoring <- function(object, element = NULL, id = NULL) {
 #' @param id optional geneset_scoring record id
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$Score_sigA <- seq_len(20)
+#' record <- list(id = "Score", type = "geneset_scoring", method = "UCell",
+#'     artifacts = list(storage = "colData", score_columns = "Score_sigA"))
+#' state <- list(states = list(active = list(geneset_scoring = "Score"),
+#'     records = list(geneset_scoring = list(Score = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_geneset_scoring(sce)
 has_geneset_scoring <- function(object, id = NULL) {
     !is.null(get_geneset_scoring(object, id = id))
 }
@@ -765,6 +974,13 @@ has_geneset_scoring <- function(object, id = NULL) {
 #' @param id optional cellrank record id
 #' @return the full cellrank analysis record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "trajectory", method = "CellRank")
+#' state <- list(states = list(active = list(trajectory = "run1"),
+#'     records = list(trajectory = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' get_cellrank(sce)$method
 get_cellrank <- function(object, element = NULL, id = NULL) {
     requested_id <- id
     if (is.null(id)) {
@@ -800,6 +1016,13 @@ get_cellrank <- function(object, element = NULL, id = NULL) {
 #' @param object a SingleCellExperiment object
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "trajectory", method = "CellRank")
+#' state <- list(states = list(active = list(trajectory = "run1"),
+#'     records = list(trajectory = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_cellrank(sce)
 has_cellrank <- function(object) {
     !is.null(get_cellrank(object))
 }
@@ -812,6 +1035,13 @@ has_cellrank <- function(object) {
 #' @param id optional spatial record id
 #' @return the full spatial analysis record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "spatial", method = "cell2location")
+#' state <- list(states = list(active = list(spatial = "run1"),
+#'     records = list(spatial = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' get_spatial(sce)$method
 get_spatial <- function(object, element = NULL, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "spatial")
@@ -840,6 +1070,13 @@ get_spatial <- function(object, element = NULL, id = NULL) {
 #' @param object a SingleCellExperiment object
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "run1", type = "spatial", method = "cell2location")
+#' state <- list(states = list(active = list(spatial = "run1"),
+#'     records = list(spatial = list(run1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_spatial(sce)
 has_spatial <- function(object) {
     !is.null(get_spatial(object))
 }
@@ -851,6 +1088,11 @@ has_spatial <- function(object) {
 #' @param element optional element name
 #' @return the colocalization record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "colocalization", type = "spatial", method = "SVP")
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(colocalization = record))
+#' get_colocalization(sce)$method
 get_colocalization <- function(object, element = NULL) {
     result <- sclet_get_analysis(object, "colocalization")
     extract_analysis_element(result, element)
@@ -862,6 +1104,11 @@ get_colocalization <- function(object, element = NULL) {
 #' @param object a SingleCellExperiment object
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "colocalization", type = "spatial", method = "SVP")
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(colocalization = record))
+#' has_colocalization(sce)
 has_colocalization <- function(object) {
     !is.null(get_colocalization(object))
 }
@@ -873,6 +1120,11 @@ has_colocalization <- function(object) {
 #' @param element optional element name
 #' @return the niche record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "spatial_niche", type = "spatial", method = "SVP")
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(spatial_niche = record))
+#' get_spatial_niche(sce)$method
 get_spatial_niche <- function(object, element = NULL) {
     result <- sclet_get_analysis(object, "spatial_niche")
     extract_analysis_element(result, element)
@@ -884,6 +1136,11 @@ get_spatial_niche <- function(object, element = NULL) {
 #' @param object a SingleCellExperiment object
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "spatial_niche", type = "spatial", method = "SVP")
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(spatial_niche = record))
+#' has_spatial_niche(sce)
 has_spatial_niche <- function(object) {
     !is.null(get_spatial_niche(object))
 }
@@ -896,6 +1153,13 @@ has_spatial_niche <- function(object) {
 #' @param id optional perturbation record id (e.g. `"celloracle_<gene>"`)
 #' @return the full perturbation analysis record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "celloracle_GENE1", type = "perturbation", method = "CellOracle")
+#' state <- list(states = list(active = list(perturbation = "celloracle_GENE1"),
+#'     records = list(perturbation = list(celloracle_GENE1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' get_perturbation(sce)$method
 get_perturbation <- function(object, element = NULL, id = NULL) {
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "perturbation")
@@ -914,6 +1178,13 @@ get_perturbation <- function(object, element = NULL, id = NULL) {
 #' @param object a SingleCellExperiment object
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "celloracle_GENE1", type = "perturbation", method = "CellOracle")
+#' state <- list(states = list(active = list(perturbation = "celloracle_GENE1"),
+#'     records = list(perturbation = list(celloracle_GENE1 = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_perturbation(sce)
 has_perturbation <- function(object) {
     !is.null(get_perturbation(object))
 }
@@ -925,6 +1196,12 @@ has_perturbation <- function(object) {
 #' @param element optional element name to extract (e.g. `"AUC"`, `"result"`)
 #' @return the full priority record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "augur", type = "priority", method = "Augur",
+#'     AUC = data.frame(cell_type = c("alpha", "beta"), auc = c(0.7, 0.4)))
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(augur = record))
+#' get_perturbation_priority(sce)$AUC$auc
 get_perturbation_priority <- function(object, element = NULL) {
     result <- sclet_get_analysis(object, "augur")
     extract_analysis_element(result, element)
@@ -936,6 +1213,12 @@ get_perturbation_priority <- function(object, element = NULL) {
 #' @param object a SingleCellExperiment object
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "augur", type = "priority", method = "Augur",
+#'     AUC = data.frame(cell_type = c("alpha", "beta"), auc = c(0.7, 0.4)))
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(augur = record))
+#' has_perturbation_priority(sce)
 has_perturbation_priority <- function(object) {
     !is.null(get_perturbation_priority(object))
 }
@@ -947,6 +1230,13 @@ has_perturbation_priority <- function(object) {
 #' @param element optional element name to extract
 #' @return the full rare cell record, a selected element, or `NULL`
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "rareq", type = "rare_cells", method = "density",
+#'     artifacts = list(label_col = "rare_cluster"),
+#'     summary = list(n_clusters = 3, n_rare_clusters = 1))
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(rare_cells = record))
+#' get_rare_cells(sce)$summary$n_clusters
 get_rare_cells <- function(object, element = NULL) {
     result <- sclet_get_analysis(object, "rare_cells")
     extract_analysis_element(result, element)
@@ -958,6 +1248,13 @@ get_rare_cells <- function(object, element = NULL) {
 #' @param object a SingleCellExperiment object
 #' @return logical
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "rareq", type = "rare_cells", method = "density",
+#'     artifacts = list(label_col = "rare_cluster"),
+#'     summary = list(n_clusters = 3, n_rare_clusters = 1))
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(rare_cells = record))
+#' has_rare_cells(sce)
 has_rare_cells <- function(object) {
     !is.null(get_rare_cells(object))
 }
@@ -975,6 +1272,15 @@ has_rare_cells <- function(object) {
 #' @param assay Optional assay name when reading from an altExp.
 #' @return A named numeric vector of program activity values.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$Score_sigA <- seq_len(20)
+#' record <- list(id = "Score", type = "geneset_scoring", method = "UCell",
+#'     artifacts = list(storage = "colData", score_columns = "Score_sigA"))
+#' state <- list(states = list(active = list(geneset_scoring = "Score"),
+#'     records = list(geneset_scoring = list(Score = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' head(get_program(sce, "sigA"))
 get_program <- function(object, program, source = c("auto", "geneset_scoring", "scenic"),
                         id = NULL, assay = NULL) {
     source <- match.arg(source)
@@ -993,6 +1299,15 @@ get_program <- function(object, program, source = c("auto", "geneset_scoring", "
 #' @param id Optional analysis record id.
 #' @return logical.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$Score_sigA <- seq_len(20)
+#' record <- list(id = "Score", type = "geneset_scoring", method = "UCell",
+#'     artifacts = list(storage = "colData", score_columns = "Score_sigA"))
+#' state <- list(states = list(active = list(geneset_scoring = "Score"),
+#'     records = list(geneset_scoring = list(Score = record))))
+#' S4Vectors::metadata(sce)$sclet <- state
+#' has_program(sce, "sigA")
 has_program <- function(object, program, source = c("auto", "geneset_scoring", "scenic"),
                         id = NULL) {
     activity <- tryCatch(

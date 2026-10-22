@@ -23,3 +23,9 @@ A data.frame with \code{gene}, \code{velocity_magnitude}, and \code{rank}.
 \description{
 Returns genes ranked by the magnitude of their velocity vector across cells.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::assay(sce, "velocity") <- matrix(rnorm(50 * 20), nrow = 50,
+    dimnames = list(rownames(sce), colnames(sce)))
+TopVelocityGenes(sce, assay = "velocity", n = 5)
+}

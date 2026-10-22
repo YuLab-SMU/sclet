@@ -33,3 +33,15 @@ Computes correlations between per-cell velocity magnitude and CellRank fate
 probabilities. This is a lightweight diagnostic for connecting RegVelo or
 scVelo velocity strength to downstream fate assignments.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::assay(sce, "velocity") <- matrix(rnorm(50 * 20), nrow = 50,
+    dimnames = list(rownames(sce), colnames(sce)))
+SummarizedExperiment::colData(sce)$cellrank_fate_A <- runif(20)
+# a CellRank result, as RunCellRank() would record it
+record <- list(id = "cellrank", type = "trajectory", method = "CellRank",
+               artifacts = list(fate_probability_cols = "cellrank_fate_A"))
+S4Vectors::metadata(sce)$sclet$states$records$trajectory$cellrank <- record
+S4Vectors::metadata(sce)$sclet$states$active$trajectory <- "cellrank"
+VelocityFateCorrelation(sce, assay = "velocity")
+}

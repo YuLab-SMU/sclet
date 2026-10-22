@@ -15,6 +15,14 @@
 #' @importFrom methods as
 #' @importFrom scuttle aggregateAcrossCells
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' colData(sce)$sample <- rep(c("s1", "s2"), length.out = ncol(sce))
+#' \dontrun{
+#' # needs the 'scrapper' Suggests package
+#' agg <- AggregateExpression(sce, group_by = "sample")
+#' dim(agg)
+#' }
 AggregateExpression <- function(object, group_by, assay.type = "counts", fun = "sum") {
     
     if (!all(group_by %in% colnames(colData(object)))) {
@@ -63,6 +71,17 @@ AggregateExpression <- function(object, group_by, assay.type = "counts", fun = "
 #' @param ... Additional arguments passed to DESeq2::DESeq
 #' @return A data.frame with DE results
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' colData(sce)$sample <- rep(paste0("s", 1:4), each = 5)
+#' colData(sce)$condition <- rep(c("ctrl", "treat"), each = 10)
+#' \dontrun{
+#' # needs the 'DESeq2' Suggests package
+#' agg <- AggregateExpression(sce, group_by = c("sample", "condition"))
+#' res <- FindMarkers_pseudobulk(agg, design = ~ condition,
+#'     contrast = c("condition", "treat", "ctrl"))
+#' head(res)
+#' }
 FindMarkers_pseudobulk <- function(object, design, contrast, ...) {
     if (!requireNamespace("DESeq2", quietly = TRUE)) {
         stop("Package 'DESeq2' is needed for pseudobulk DE. Please install it.")

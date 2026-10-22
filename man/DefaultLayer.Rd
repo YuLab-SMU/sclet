@@ -20,3 +20,7 @@ current default layer or updated object
 \description{
 get or set the default layer
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+DefaultLayer(sce)
+}

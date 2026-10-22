@@ -36,3 +36,8 @@ It sequentially runs NormalizeData, FindVariableFeatures, ScaleData, RunPCA, Fin
 \details{
 Run standard single-cell analysis workflow
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunStandardPipeline(sce, nfeatures = 20, npcs = 5, dims = 1:5)
+SingleCellExperiment::reducedDimNames(sce)
+}

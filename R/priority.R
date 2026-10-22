@@ -1,3 +1,25 @@
+# How many parallel processes to ask Augur for.
+#
+# Augur's own default is 4, and it hands that straight to
+# `mclapply(mc.cores = 4)`. R CMD check sets `_R_CHECK_LIMIT_CORES_`, and
+# under it the `parallel` package refuses to spawn more than TWO processes --
+# so Augur's default made this package's test suite fail inside `R CMD check`
+# while passing under `devtools::test()`. Measured 2026-10-22.
+#
+# `parallel::detectCores()` is NOT the way to ask: it does not honour the
+# limit (it reported 112 on the machine where this was measured, either way),
+# because the refusal happens inside `mclapply`, not in the core count. The
+# limit is the environment variable `parallel` itself reads, so read it.
+sclet_augur_threads <- function(requested = NULL) {
+    if (!is.null(requested)) {
+        return(as.integer(requested))
+    }
+    if (identical(Sys.getenv("_R_CHECK_LIMIT_CORES_"), "TRUE")) {
+        return(2L)
+    }
+    max(1L, min(4L, as.integer(parallel::detectCores())))
+}
+
 #' Run perturbation priority analysis with Augur
 #'
 #' Prioritize cell types by their responsiveness to experimental perturbation
@@ -22,6 +44,13 @@
 #'   stored under `metadata(sce)$sclet$analyses$augur` for backwards
 #'   compatibility.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 100, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$cluster <- rep(c("alpha", "beta"), length.out = 100)
+#' \dontrun{
+#' # needs the Augur package (install it from GitHub) and >= 20 cells per group
+#' sce <- RunPerturbationPriority(sce, condition_col = "Treatment", group_col = "cluster")
+#' }
 RunPerturbationPriority <- function(sce, condition_col, group_col = NULL,
     layer = NULL, assay = NULL, name = "augur", ...) {
     if (!requireNamespace("Augur", quietly = TRUE)) {
@@ -92,12 +121,33 @@ RunPerturbationPriority <- function(sce, condition_col, group_col = NULL,
     expr_matrix <- sclet_malignancy_dense(expr_matrix)
 
     cli::cli_alert_info("Running Augur perturbation priority on {.val {group_col}} by {.val {condition_col}}")
-    augur_result <- Augur::calculate_auc(
-        input = expr_matrix,
-        meta = meta,
-        cell_type_col = group_col,
-        label_col = condition_col,
-        ...
+    # Augur's `n_threads` default is 4, and it hands that straight to
+    # `mclapply(mc.cores = 4)`. R CMD check sets `_R_CHECK_LIMIT_CORES_`, and
+    # under it the `parallel` package refuses to spawn more than TWO
+    # processes -- so Augur's own default made this package's test suite
+    # fail inside `R CMD check` while passing under `devtools::test()`.
+    # Measured 2026-10-22 on the test added for the colLabels shortcut.
+    #
+    # `parallel::detectCores()` is NOT the way to ask: it does not honour the
+    # limit (it reports 112 on this machine either way), because the refusal
+    # happens inside `mclapply`, not in the core count. The limit is the
+    # environment variable `parallel` itself reads, so read it.
+    # A caller who asked for a specific `n_threads` keeps it.
+    dots <- list(...)
+    if (is.null(dots$n_threads)) {
+        dots$n_threads <- sclet_augur_threads()
+    }
+    augur_result <- do.call(
+        Augur::calculate_auc,
+        c(
+            list(
+                input = expr_matrix,
+                meta = meta,
+                cell_type_col = group_col,
+                label_col = condition_col
+            ),
+            dots
+        )
     )
 
     sce <- sclet_set_analysis(
@@ -156,6 +206,12 @@ RunPerturbationPriority <- function(sce, condition_col, group_col = NULL,
 #'
 #' @return A ggplot object ranking cell types by perturbation AUC.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' record <- list(id = "augur", type = "priority", method = "Augur",
+#'     AUC = data.frame(cell_type = c("alpha", "beta"), auc = c(0.7, 0.4)))
+#' S4Vectors::metadata(sce)$sclet <- list(analyses = list(augur = record))
+#' plot_perturbation_ranking(sce)
 plot_perturbation_ranking <- function(object, n = 20, fill_color = "steelblue") {
     if (!requireNamespace("ggplot2", quietly = TRUE)) {
         stop("Package 'ggplot2' is needed for this function to work. Please install it.")
@@ -222,6 +278,13 @@ plot_perturbation_ranking <- function(object, n = 20, fill_color = "steelblue") 
 #'
 #' @return Updated SingleCellExperiment with `rare_cluster` in colData.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunPCA(sce, ncomponents = 5)
+#' \dontrun{
+#' # needs the BiocNeighbors package
+#' sce <- RunRareCellDetection(sce, reduction = "PCA", dims = 1:5, k = 10)
+#' }
 RunRareCellDetection <- function(sce, method = c("density"),
     reduction = "PCA", dims = 1:20, k = 20,
     q_threshold = 0.25, rare_threshold = 10, min_cluster_size = 3L,
@@ -467,6 +530,13 @@ RunRareCellDetection <- function(sce, method = c("density"),
 #'
 #' @return Updated `SingleCellExperiment` with state priority workflow record.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 100, ngenes = 50)
+#' SummarizedExperiment::colData(sce)$cluster <- rep(c("alpha", "beta"), length.out = 100)
+#' \dontrun{
+#' # needs the Augur and BiocNeighbors packages and >= 20 cells per group
+#' sce <- RunStatePriorityWorkflow(sce, condition_col = "Treatment", group_col = "cluster")
+#' }
 RunStatePriorityWorkflow <- function(sce, condition_col = NULL,
     group_col = NULL, run_perturbation_priority = TRUE,
     run_rare_cell_detection = FALSE, name = "state_priority", ...) {

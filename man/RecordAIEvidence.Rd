@@ -42,3 +42,12 @@ matrices are rejected. Each evidence node carries a deterministic
 \code{dependency_group} derived from its \code{parents} and \code{scope}, so downstream
 comparisons can detect shared lineage.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RecordAIEvidence(sce, evidence = list(
+    id = "ev:cell_counts",
+    kind = "deterministic_summary",
+    values = list(n_cells = 20L, n_features = 50L)
+))
+names(GetAnalysisLedger(sce)$state_records$ai_evidence)
+}

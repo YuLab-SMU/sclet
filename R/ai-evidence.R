@@ -151,6 +151,14 @@ sclet_ai_record_evidence_for_run <- function(object, evidence, source = NULL,
 #'   `FALSE`, which keeps the write-once refusal.
 #' @return The SCE with an `ai_evidence` state record, plus a deterministic
 #'   `dependency_group` derived from `parents` + `scope`.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RecordAIEvidence(sce, evidence = list(
+#'     id = "ev:cell_counts",
+#'     kind = "deterministic_summary",
+#'     values = list(n_cells = 20L, n_features = 50L)
+#' ))
+#' names(GetAnalysisLedger(sce)$state_records$ai_evidence)
 #' @export
 RecordAIEvidence <- function(object, evidence, source = NULL, parents = NULL,
                              scope = NULL, replace = FALSE) {
@@ -226,6 +234,31 @@ RecordAIEvidence <- function(object, evidence, source = NULL, parents = NULL,
 #' @param evidence_ids Character vector of exactly two evidence ids.
 #' @return A list with `independent` (logical) plus `shared_dependency_groups` and `lineage_paths` diagnostics.
 #' @export
+#' @examples
+#' # Two nodes with different declared scopes are independent of each other.
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RecordAIEvidence(sce, evidence = list(
+#'     id = "ev:first",
+#'     kind = "deterministic_summary",
+#'     values = list(n = 1L),
+#'     scope = list(group = "group_1")
+#' ))
+#' sce <- RecordAIEvidence(sce, evidence = list(
+#'     id = "ev:second",
+#'     kind = "deterministic_summary",
+#'     values = list(n = 2L),
+#'     scope = list(group = "group_2")
+#' ))
+#' sclet_ai_evidence_independence(sce, c("ev:first", "ev:second"))$independent
+#' # Two nodes over the SAME scope are not: a claim resting on both is one
+#' # piece of evidence, not two, and the claim ceiling counts it as such.
+#' sce <- RecordAIEvidence(sce, evidence = list(
+#'     id = "ev:third",
+#'     kind = "deterministic_summary",
+#'     values = list(n = 3L),
+#'     scope = list(group = "group_1")
+#' ))
+#' sclet_ai_evidence_independence(sce, c("ev:first", "ev:third"))$independent
 sclet_ai_evidence_independence <- function(object, evidence_ids) {
     if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)
     if (!is.character(evidence_ids) || length(evidence_ids) != 2L) stop("evidence_ids must be exactly two ids", call. = FALSE)
@@ -283,6 +316,16 @@ sclet_ai_evidence_independence <- function(object, evidence_ids) {
 #' @param requesting_scope Optional aggregate scope of the referencing context; scope is bounded by the evidence's own scope.
 #' @param requesting_kind Optional kind of the referencing context, used to enforce cross-kind rules.
 #' @return A structured validation result with resolved evidence and errors.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RecordAIEvidence(sce, evidence = list(
+#'     id = "ev:cell_counts",
+#'     kind = "deterministic_summary",
+#'     values = list(n_cells = 20L)
+#' ))
+#' ValidateAIEvidenceRefs(sce, "ev:cell_counts")$valid
+#' # An id that was never recorded does not resolve.
+#' ValidateAIEvidenceRefs(sce, "ev:missing")$valid
 #' @export
 ValidateAIEvidenceRefs <- function(object, refs, fingerprint = NULL, requesting_scope = NULL, requesting_kind = NULL) {
     if (!inherits(object, "SingleCellExperiment")) stop("object must be a SingleCellExperiment", call. = FALSE)

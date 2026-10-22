@@ -21,3 +21,12 @@ an updated SingleCellExperiment object with imputed data in a new assay (e.g., '
 \description{
 Run imputation to denoise single-cell data
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+\dontrun{
+# needs the 'ALRA' Suggests package
+sce <- RunImputation(sce, method = "ALRA", k = 10)
+SummarizedExperiment::assayNames(sce)
+}
+}

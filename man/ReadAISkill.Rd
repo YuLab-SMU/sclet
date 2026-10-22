@@ -17,3 +17,8 @@ Parses the YAML frontmatter (name, description) and returns the body
 separately, so a caller can show a model the description cheaply and the
 body only when the skill is relevant.
 }
+\examples{
+skill <- ReadAISkill(AISkills()[[1]])
+skill$name
+nchar(skill$body) > 0
+}

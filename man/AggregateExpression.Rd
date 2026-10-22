@@ -26,3 +26,12 @@ Aggregate expression for pseudobulk analysis
 \details{
 Aggregates expression values by groups (e.g. cluster and sample) to create a pseudobulk object.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+colData(sce)$sample <- rep(c("s1", "s2"), length.out = ncol(sce))
+\dontrun{
+# needs the 'scrapper' Suggests package
+agg <- AggregateExpression(sce, group_by = "sample")
+dim(agg)
+}
+}

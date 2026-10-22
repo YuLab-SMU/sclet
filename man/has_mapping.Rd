@@ -17,3 +17,8 @@ logical
 \description{
 Check whether mapping results are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(sce)$SingleR_labels <- rep(c("alpha", "beta"), length.out = 20)
+has_mapping(sce)
+}

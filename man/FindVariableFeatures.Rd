@@ -26,3 +26,12 @@ an updated SingleCellExperiment object with identified highly variable features
 \description{
 identify variable features
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+\dontrun{
+# the 'scrapper' method needs the 'scrapper' Suggests package
+sce <- FindVariableFeatures(sce, method = "scrapper", nfeatures = 20)
+head(VariableFeatures(sce))
+}
+}

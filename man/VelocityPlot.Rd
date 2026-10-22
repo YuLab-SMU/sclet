@@ -29,3 +29,10 @@ A ggplot object.
 \description{
 Plots RNA velocity stream or arrows on a reduced dimension plot.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the velociraptor package and a scVelo Python environment
+p <- VelocityPlot(sce)
+}
+}

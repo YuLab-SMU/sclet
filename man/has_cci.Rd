@@ -17,3 +17,14 @@ logical
 \description{
 Check whether standardized CCI results are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+interactions <- data.frame(source = "alpha", target = "beta",
+    ligand = "L1", receptor = "R1")
+record <- list(id = "run1", type = "communication", method = "CellChat",
+    interactions = interactions)
+state <- list(states = list(active = list(communication = "run1"),
+    records = list(communication = list(run1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+has_cci(sce)
+}

@@ -22,3 +22,10 @@ Write H5AD file
 \details{
 Wrapper for zellkonverter::writeH5AD to export SingleCellExperiment objects as .h5ad.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the 'zellkonverter' Suggests package
+WriteH5AD(sce, file.path(tempdir(), "cells.h5ad"))
+}
+}

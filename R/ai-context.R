@@ -1,4 +1,5 @@
 #' Build a stable AI-facing analysis ledger
+#' Build a stable AI-facing analysis ledger
 #'
 #' `GetAnalysisLedger()` returns a bounded, versioned view of the current
 #' `SingleCellExperiment` analysis state. It includes deterministic dataset
@@ -20,7 +21,14 @@
 #' @param include_data Logical. Include bounded metadata previews and assay
 #'   dimensions. Complete expression matrices are never included. Defaults to
 #'   `FALSE`.
+#'   dimensions. Complete expression matrices are never included. Defaults to
+#'   `FALSE`.
 #' @return A versioned, bounded AI context list.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' ledger <- GetAnalysisLedger(sce)
+#' ledger$dataset$n_cells
+#' ledger$fingerprint
 #' @export
 GetAnalysisLedger <- function(
     object,

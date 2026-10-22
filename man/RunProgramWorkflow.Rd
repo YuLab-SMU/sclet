@@ -42,3 +42,11 @@ This high-level entry point organizes mechanism-oriented analyses around the
 user's question, combining pathway/signature scoring and regulon activity in
 a single workflow shell.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+gene_sets <- list(sigA = rownames(sce)[1:5])
+\dontrun{
+# needs the UCell package
+sce <- RunProgramWorkflow(sce, gene_sets = gene_sets, scoring_method = "UCell")
+}
+}

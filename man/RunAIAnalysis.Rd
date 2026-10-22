@@ -78,3 +78,10 @@ against a built-in allowlist, previews the actions, and executes only after
 explicit approval. With \code{confirm = "ask"}, interactive sessions prompt the
 user; non-interactive sessions stop after the dry run.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs a provider API key
+RunAIAnalysis(sce, goal = "cluster the cells", confirm = "yes")
+}
+}

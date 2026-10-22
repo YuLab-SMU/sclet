@@ -96,6 +96,12 @@ sclet_ai_investigate_context <- function(object, question, design, scope) {
 #'   structured output is unavailable.
 #' @param ... Additional adapter arguments.
 #' @return A read-only `sclet_ai_result`.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a provider API key
+#' AIInvestigate(sce, "Which analyses are missing for this dataset?")
+#' }
 #' @export
 AIInvestigate <- function(
     object,

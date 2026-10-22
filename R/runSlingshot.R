@@ -16,7 +16,12 @@
 #' @importFrom graphics plot lines
 #' @return A SingleCellExperiment object with added pseudotime information in colData.
 #' @export
-
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs the slingshot package
+#' sce <- RunSlingshot(sce, group = "Treatment", reduction = "PCA")
+#' }
 RunSlingshot <- function(
     sce,
     group,

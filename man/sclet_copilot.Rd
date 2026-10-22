@@ -24,3 +24,10 @@ A character response from the structured sclet AI adapter.
 \description{
 sclet AI Copilot compatibility facade
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs a provider API key
+sclet_copilot(sce, "What has been analysed so far?")
+}
+}

@@ -15,3 +15,9 @@ a textual summary of the pipeline
 \description{
 Print a textual summary of the analysis pipeline
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- RunPCA(sce, ncomponents = 5)
+PipelineSummary(sce)
+}

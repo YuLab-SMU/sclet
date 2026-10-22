@@ -29,3 +29,14 @@ Differential Expression Test Volcano Plot
 \details{
 Plot a volcano plot from detest state results.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+\dontrun{
+# needs the 'presto' Suggests package used by the marker test
+sce <- RunDEtest(sce, return.thresh = 0.5, logfc.threshold = 0)
+p <- DEtestPlot(sce)
+class(p)[1]
+}
+}

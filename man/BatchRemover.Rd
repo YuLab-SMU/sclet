@@ -51,3 +51,14 @@ Batch correction
 \details{
 State-aware batch correction built on \code{batchelor::batchCorrect()}.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+sce <- FindVariableFeatures(sce, method = "scran", nfeatures = 20)
+colData(sce)$batch <- rep(c("b1", "b2"), length.out = ncol(sce))
+\dontrun{
+# needs the 'batchelor' Suggests package
+sce <- BatchRemover(sce, batch = sce$batch)
+SingleCellExperiment::reducedDimNames(sce)
+}
+}

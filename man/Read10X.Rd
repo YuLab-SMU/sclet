@@ -19,3 +19,10 @@ a 'SingleCellExperiment' object
 \description{
 read 10x single cell expression matrix folder
 }
+\examples{
+\dontrun{
+# needs the 'DropletUtils' Suggests package
+sce <- Read10X("/path/to/10x/filtered_feature_bc_matrix")
+dim(sce)
+}
+}

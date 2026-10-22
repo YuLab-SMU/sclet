@@ -32,3 +32,10 @@ This function acts as a unified entry point for different cell-cell communicatio
 methods (e.g., CellChat). It delegates to the specific backend method and stores a
 standardized \code{cci_interactions} data frame in the \code{SingleCellExperiment} object.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+\dontrun{
+# needs the CellChat package
+sce <- RunCCI(sce, method = "CellChat")
+}
+}

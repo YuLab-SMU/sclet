@@ -17,3 +17,11 @@ logical
 \description{
 Check whether trajectory results are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+record <- list(id = "run1", type = "trajectory", method = "slingshot")
+state <- list(states = list(active = list(trajectory = "run1"),
+    records = list(trajectory = list(run1 = record))))
+S4Vectors::metadata(sce)$sclet <- state
+has_trajectory(sce)
+}

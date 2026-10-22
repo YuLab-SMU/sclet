@@ -24,6 +24,11 @@
 #'   the logging style used elsewhere in the package.
 #' @return the updated SingleCellExperiment object.
 #' @export
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' sce <- RunBasicWorkflow(sce, n_features = 20, n_pcs = 5, verbose = FALSE)
+#' SingleCellExperiment::reducedDimNames(sce)
+#' table(SingleCellExperiment::colLabels(sce))
 RunBasicWorkflow <- function(
     object,
     n_features = 2000,

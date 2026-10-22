@@ -35,3 +35,8 @@ Cell Statistics Plot
 \details{
 Plot the proportion or count of cells across groups (e.g. clusters across batches).
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+p <- CellStatPlot(sce, group.by = "Cell_Cycle")
+nrow(p$data)
+}

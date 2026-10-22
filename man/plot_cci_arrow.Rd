@@ -38,3 +38,13 @@ A ggplot object
 \description{
 Plot Cell-Cell Communication Arrow Diagram
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- NormalizeData(sce)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+\dontrun{
+# needs a recorded cell-cell communication run (RunCCI())
+p <- plot_cci_arrow(sce, cell_a = "c1", cell_b = "c2", group = "label")
+class(p)[1]
+}
+}

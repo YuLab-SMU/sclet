@@ -17,3 +17,10 @@ A bounded aggregate summary; raw group values are never returned.
 \description{
 Summarize numeric QC columns by an anonymized metadata grouping
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce$qc_score <- seq_len(ncol(sce)) / 2
+summary <- summarize_qc_by_group(sce, "Treatment")
+summary$status
+summary$group$n_groups
+}

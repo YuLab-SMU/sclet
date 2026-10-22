@@ -39,3 +39,16 @@ A ggplot object.
 Draws a per-cell scatter plot linking velocity magnitude to one CellRank fate
 probability. Cells can be colored by terminal state when available.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::assay(sce, "velocity") <- matrix(rnorm(50 * 20), nrow = 50,
+    dimnames = list(rownames(sce), colnames(sce)))
+SummarizedExperiment::colData(sce)$cellrank_fate_A <- runif(20)
+# a CellRank result, as RunCellRank() would record it
+record <- list(id = "cellrank", type = "trajectory", method = "CellRank",
+               artifacts = list(terminal_state_col = "cellrank_terminal_states",
+                                fate_probability_cols = "cellrank_fate_A"))
+S4Vectors::metadata(sce)$sclet$states$records$trajectory$cellrank <- record
+S4Vectors::metadata(sce)$sclet$states$active$trajectory <- "cellrank"
+plot_velocity_fate_correlation(sce, assay = "velocity")
+}

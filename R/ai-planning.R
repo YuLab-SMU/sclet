@@ -43,7 +43,7 @@ sclet_ai_reference_is_well_formed <- function(path) {
 #' unchanged, and [sclet_ai_resolve_plan_value()] refuses it outright at
 #' execution time. Detecting the malformed form during validation turns a
 #' silent pass-through -- which surfaces later as an unrelated "reduction is
-#' not available: ${step_4.reduction}" from some action's prerequisite --
+#' not available: `${step_4.reduction}`" from some action's prerequisite --
 #' into an error that names the actual mistake.
 #'
 #' @param value A parameter value, possibly nested.
@@ -91,6 +91,15 @@ sclet_ai_suggest_reference_fix <- function(value) {
 }
 
 
+#' Resolve a plan output reference against the outputs produced so far
+#'
+#' Turns a `${step_id.output.field}` reference into the value the referenced
+#' step produced. A reference that cannot be resolved is an error: a plan that
+#' points at an output nobody produced would otherwise run against `NULL`.
+#'
+#' @param value The reference, or any other value (returned unchanged).
+#' @param outputs Named list of the outputs produced by the steps run so far.
+#' @return The resolved value, or `value` itself when it is not a reference.
 sclet_ai_resolve_plan_value <- function(value, outputs) {
     if (is.character(value) && length(value) == 1L && grepl("^\\$\\{[^}]+\\}$", value)) {
         token <- sub("^\\$\\{", "", sub("\\}$", "", value))
@@ -158,6 +167,15 @@ sclet_ai_plan_fingerprint <- function(plan) {
     paste0("sclet-ai-plan-", unname(tools::md5sum(path)))
 }
 
+#' Project a plan output reference onto the outputs a plan PROMISES
+#'
+#' Resolves a `${step_id.output.field}` reference against the outputs the plan
+#' declares it will produce, rather than against the outputs that exist yet.
+#' Used when validating a plan, where the referenced step has not run.
+#'
+#' @param value The reference, or any other value (returned unchanged).
+#' @param planned_outputs Named list of the outputs the plan declares.
+#' @return The projected value, or `value` itself when it is not a reference.
 sclet_ai_project_plan_value <- function(value, planned_outputs) {
     if (is.character(value) && length(value) == 1L && grepl("^\\$\\{[^}]+\\}$", value)) {
         token <- sub("^\\$\\{", "", sub("\\}$", "", value))
@@ -189,7 +207,7 @@ sclet_ai_project_plan_value <- function(value, planned_outputs) {
 # for the variable-feature set; `detest_record_id` stands for the id
 # run_de_test registers; `cnv_record_id` stands for the id run_cnv_inference
 # registers (measured 2026-10-19: a model wrote
-# `cnv_id = "${step_1.output.cnv_id}"`, the projection substituted this
+# `cnv_id = "$\{step_1.output.cnv_id\}"`, the projection substituted this
 # marker, and the call step was refused with `cnv_record_missing` naming
 # "cnv_record_id" -- a literal no planned CNV run could ever have). Each is
 # written into the execution summary as an observation, so projecting the
@@ -307,10 +325,10 @@ sclet_ai_apply_planned_output <- function(planned, descriptor, params) {
     }
     # `run_integration` registers its reduction under a method-dependent name,
     # so its schema cannot state one statically. Without this, the natural
-    # chain `find_neighbors(reduction = "${integration.output.reduction}")`
+    # chain `find_neighbors(reduction = "$\{integration.output.reduction\}")`
     # cannot project (the reference stays a literal) and its prerequisite
     # refuses the plan with "reduction is not available:
-    # ${step_6.output.reduction}" -- measured 2026-10-19 on the Kang goal, where
+    # $\{step_6.output.reduction\}" -- measured 2026-10-19 on the Kang goal, where
     # it made the standard integrate -> cluster -> annotate -> DE pipeline
     # unplannable. Same deferred-projection treatment as run_pca above.
     if (identical(descriptor$name, "run_integration")) {
@@ -620,6 +638,23 @@ new_sclet_ai_plan <- function(
 #'   `list(status = "unavailable", reason = ...)` when no object was supplied,
 #'   when the object is not a `SingleCellExperiment`, or when the ceiling
 #'   cannot be evaluated.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' registry <- AIDefaultExecutionRegistry(sce, include = "all")
+#' plan <- list(
+#'     plan_id = "plan_demo",
+#'     task = "demo",
+#'     actions = list(list(id = "s1", action = "normalize_data"))
+#' )
+#' validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+#' validation$valid
+#' # The `action` field must be an exact registry key.
+#' bad <- list(
+#'     plan_id = "plan_bad",
+#'     task = "demo",
+#'     actions = list(list(id = "s1", action = "no_such_action"))
+#' )
+#' ValidateAIPlan(bad, object = sce, registry = registry)$valid
 #' @export
 ValidateAIPlan <- function(
     plan,
@@ -999,7 +1034,7 @@ ValidateAIPlan <- function(
                 # `run_integration` cannot declare its reduction statically (the
                 # name depends on the method), but a later step may reference it.
                 # Fill the projected output with the name this method registers,
-                # so `${integration.output.reduction}` resolves instead of
+                # so `$\{integration.output.reduction\}` resolves instead of
                 # passing the template through to a prerequisite.
                 if (identical(step$action, "run_integration")) {
                     planned_outputs[[step$id]]$reduction <- sclet_ai_integration_reduction(
@@ -1419,7 +1454,7 @@ sclet_ai_goal_contrast_check <- function(goal, plan, object) {
 #   * a targeted DE step exists (group, or both idents);
 #   * the goal does not ask for markers;
 #   * no other step references the all-cluster step's output
-#     (`${step.output...}` or its detest_id);
+#     (`$\{step.output...\}` or its detest_id);
 #   * it is not the only DE step.
 #
 # Removals are recorded in `plan$metadata$removed_redundant_steps` so the report
@@ -1451,7 +1486,7 @@ sclet_ai_deduplicate_de_steps <- function(plan, goal = NULL) {
     ## Success criteria and stop conditions are part of the plan too: removing a
     ## step they name produced `success_criterion_unresolvable: c9 references
     ## unknown step step_10` on Kang (2026-10-18). A reference there is often
-    ## embedded in prose ("the marker table from ${m1.output.detest_id} is
+    ## embedded in prose ("the marker table from $\{m1.output.detest_id\} is
     ## non-empty"), and the token collector only recognises a string that IS the
     ## token, so scan every string for the `${<step>.` prefix instead.
     ##
@@ -1829,6 +1864,13 @@ sclet_ai_plan_once <- function(
 #'   feedback, since the returned plan's own errors are usually empty once
 #'   repair succeeds. This function itself
 #'   never executes proposed actions.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs a provider API key
+#' plan <- AIPlanAnalysis(sce, goal = "cluster the cells and find markers")
+#' plan$validation$valid
+#' }
 #' @export
 AIPlanAnalysis <- function(
     object,

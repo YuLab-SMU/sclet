@@ -26,3 +26,13 @@ logical.
 \description{
 Check whether a program result is available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(sce)$Score_sigA <- seq_len(20)
+record <- list(id = "Score", type = "geneset_scoring", method = "UCell",
+    artifacts = list(storage = "colData", score_columns = "Score_sigA"))
+state <- list(states = list(active = list(geneset_scoring = "Score"),
+    records = list(geneset_scoring = list(Score = record))))
+S4Vectors::metadata(sce)$sclet <- state
+has_program(sce, "sigA")
+}

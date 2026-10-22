@@ -17,3 +17,9 @@ logical
 \description{
 Check whether graph results are available
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+sce <- RunPCA(sce, ncomponents = 5)
+sce <- FindNeighbors(sce, dims = 1:5)
+has_graph(sce)
+}

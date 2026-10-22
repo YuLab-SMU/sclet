@@ -32,3 +32,16 @@ A ggplot object.
 Colors cells on a dimensional reduction by velocity pseudotime (latent time),
 showing the predicted temporal ordering inferred by scVelo.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(sce)$velocity_pseudotime <- seq_len(20) / 20
+SingleCellExperiment::reducedDim(sce, "PCA") <- matrix(rnorm(40), ncol = 2,
+    dimnames = list(colnames(sce), c("PC1", "PC2")))
+# a velocity result, as RunVelocity() would record it
+record <- list(id = "velocity", type = "velocity", method = "velociraptor::scvelo",
+               inputs = list(reduction = "PCA"),
+               artifacts = list(colData = "velocity_pseudotime"))
+S4Vectors::metadata(sce)$sclet$states$records$velocity$velocity <- record
+S4Vectors::metadata(sce)$sclet$states$active$velocity <- "velocity"
+plot_velocity_latent_time(sce)
+}

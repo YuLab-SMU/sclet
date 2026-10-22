@@ -22,3 +22,8 @@ updated object
 \description{
 subset_cell
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(sce)$nFeature_RNA <- seq_len(20)
+dim(subset_cell(sce, feature = "nFeature_RNA", method = "mad", n = 3))
+}

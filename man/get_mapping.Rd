@@ -19,3 +19,8 @@ the full mapping state record, a selected element, or \code{NULL}
 \description{
 Access mapping state records
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SummarizedExperiment::colData(sce)$SingleR_labels <- rep(c("alpha", "beta"), length.out = 20)
+get_mapping(sce)$artifacts$mapping_type
+}

@@ -19,3 +19,10 @@ An aggregate cluster-by-sample composition summary.
 \description{
 Summarize cluster composition across anonymized samples
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+# No cluster assignment is on the object yet.
+summary <- summarize_cluster_sample_composition(sce, "Treatment")
+summary$status
+summary$reason
+}

@@ -17,3 +17,9 @@ updated SingleCellExperiment object
 \description{
 rename cluster ids
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+SingleCellExperiment::colLabels(sce) <- factor(rep(c("c1", "c2"), 10))
+sce <- RenameIdents(sce, c(c1 = "TypeA", c2 = "TypeB"))
+levels(SingleCellExperiment::colLabels(sce))
+}

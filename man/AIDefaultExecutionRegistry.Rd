@@ -23,3 +23,8 @@ The \code{read} group exposes bounded deterministic ledger views. The optional
 analysis groups wrap existing sclet functions and therefore require the
 normal plan validation and confirmation safeguards.
 }
+\examples{
+sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+registry <- AIDefaultExecutionRegistry(sce, include = "all")
+any(names(registry) == "normalize_data")
+}
