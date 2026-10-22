@@ -2,20 +2,20 @@ test_that("GetAnalysisLedger returns a bounded, versioned AI view", {
     sce <- SingleCellExperiment::SingleCellExperiment(
         list(counts = matrix(1, nrow = 5, ncol = 4))
     )
-    sce <- sclet_set_analysis(
+    sce <- sclet:::sclet_set_analysis(
         sce, "augur",
         list(id = "augur", method = "Augur", AUC = data.frame(auc = 0.8))
     )
-    sce <- sclet_set_analysis_state(
+    sce <- sclet:::sclet_set_analysis_state(
         sce, "priority", "augur", "Augur",
         inputs = list(group_col = "condition"),
         summary = list(best_cell_type = "T")
     )
-    sce <- sclet_set_analysis(
+    sce <- sclet:::sclet_set_analysis(
         sce, "rare_cells",
         list(id = "rare_1", method = "density", labels = rep(FALSE, 4))
     )
-    sce <- sclet_set_analysis_state(
+    sce <- sclet:::sclet_set_analysis_state(
         sce, "rare_cells", "rare_1", "density",
         artifacts = list(label_col = "rare_cluster")
     )
@@ -36,7 +36,7 @@ test_that("legacy LLM context is generated from the AI ledger", {
     sce <- SingleCellExperiment::SingleCellExperiment(
         list(counts = matrix(1, nrow = 3, ncol = 2))
     )
-    sce <- sclet_set_analysis(
+    sce <- sclet:::sclet_set_analysis(
         sce, "state_priority",
         list(id = "state_priority", method = "state_priority", summary = list(ok = TRUE))
     )
@@ -50,16 +50,16 @@ test_that("read-only AI tools expose deterministic handlers", {
     sce <- SingleCellExperiment::SingleCellExperiment(
         list(counts = matrix(1, nrow = 3, ncol = 2))
     )
-    tools <- sclet_ai_tool_registry(sce)
+    tools <- sclet:::sclet_ai_tool_registry(sce)
     expect_true(all(c("get_status", "get_ledger", "get_capabilities", "get_analysis_lineage", "get_quality_checks") %in% names(tools)))
     expect_true(all(vapply(tools, function(x) isTRUE(x$read_only), logical(1))))
-    expect_equal(sclet_ai_call_tools(tools, "get_status")$n_commands, 0)
-    expect_equal(length(sclet_ai_tool_registry(sce, mode = "execute")), 0)
+    expect_equal(sclet:::sclet_ai_call_tools(tools, "get_status")$n_commands, 0)
+    expect_equal(length(sclet:::sclet_ai_tool_registry(sce, mode = "execute")), 0)
     skip_if_not_installed("aisdk")
-    native <- sclet_ai_native_tools(tools)
+    native <- sclet:::sclet_ai_native_tools(tools)
     expect_length(native, length(tools))
     expect_true(all(vapply(native, inherits, logical(1), what = "Tool")))
-    expect_s3_class(sclet_ai_native_result_schema(), "z_schema")
+    expect_s3_class(sclet:::sclet_ai_native_result_schema(), "z_schema")
 })
 
 test_that("mocked aisdk calls return structured AI results", {
@@ -84,7 +84,7 @@ test_that("mocked aisdk calls return structured AI results", {
     expect_s3_class(result, "sclet_ai_result")
     expect_equal(result$task, "status_review")
     expect_true(grepl("mock answer", result$answer, fixed = TRUE))
-    expect_equal(validate_sclet_ai_result(result), TRUE)
+    expect_equal(sclet:::validate_sclet_ai_result(result), TRUE)
 
     qc <- AIReviewQC(sce)
     expect_s3_class(qc, "sclet_ai_result")
@@ -252,7 +252,7 @@ test_that("a missing structured object is an error when fallback is disabled", {
 })
 test_that("AI result validation rejects unsupported causal claims", {
     expect_error(
-        new_sclet_ai_result(
+        sclet:::new_sclet_ai_result(
             "test",
             findings = list(list(claim_level = "causal"))
         ),
@@ -264,14 +264,14 @@ test_that("AI results can be explicitly recorded without changing active view", 
     sce <- SingleCellExperiment::SingleCellExperiment(
         list(counts = matrix(1, nrow = 3, ncol = 2))
     )
-    result <- new_sclet_ai_result(
+    result <- sclet:::new_sclet_ai_result(
         "status_review",
         answer = "all inputs are visible",
         context = list(schema_version = "1.0", fingerprint = "test"),
         metadata = list(provider = "mock")
     )
     updated <- RecordAIResult(sce, result, id = "ai_status_1")
-    record <- sclet_get_analysis(updated, "ai_status_1")
+    record <- sclet:::sclet_get_analysis(updated, "ai_status_1")
     expect_equal(record$type, "ai_status_review")
     expect_equal(record$inputs$context_fingerprint, "test")
     expect_equal(DefaultAssay(updated), "counts")
@@ -309,7 +309,7 @@ test_that("run_integration survives RunAIAnalysis end to end after design confir
             args <- list(...)
             SingleCellExperiment::reducedDim(object, "corrected") <- matrix(
                 seq_len(ncol(object) * 2L), ncol = 2L)
-            sclet_set_analysis_state(
+            sclet:::sclet_set_analysis_state(
                 object = object,
                 type = "integration",
                 id = args$name %||% "fastmnn",
@@ -328,7 +328,7 @@ test_that("run_integration survives RunAIAnalysis end to end after design confir
     expect_equal(vapply(result$plan$actions, function(x) x$action, character(1L)),
         c("confirm_design", "run_integration"))
 
-    rec <- sclet_get_state_record(result$object, "integration", "fastmnn")
+    rec <- sclet:::sclet_get_state_record(result$object, "integration", "fastmnn")
     expect_false(is.null(rec))
     expect_equal(rec$artifacts$reduction, "corrected")
     expect_true(length(rec$summary$metrics %||% list()) > 0L)
