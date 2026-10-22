@@ -270,14 +270,7 @@ test_that("fate evidence is bounded, anonymous and carries no per-cell vector", 
     expect_false(isTRUE(values$pseudotime_is_absolute_time))
 
     ## No per-cell vector -- nothing with one entry per cell.
-    has_per_cell <- function(x) {
-        if (is.list(x)) {
-            any(vapply(x, has_per_cell, logical(1L)))
-        } else {
-            is.atomic(x) && length(x) >= n_cells
-        }
-    }
-    expect_false(has_per_cell(values))
+    expect_false(sclet_ai_test_has_per_cell(values, n_cells))
     ## The structure passes the shared evidence value guard as a whole.
     expect_true(sclet:::sclet_ai_evidence_value_ok(fate_ev$values))
 })
@@ -418,11 +411,7 @@ test_that("run_fate_analysis survives RunAIAnalysis end to end with bounded evid
     expect_false(is.null(fate_ev))
     expect_equal(fate_ev$claim_level, "consistent_with")
 
-    has_per_cell <- function(x) {
-        if (is.list(x)) any(vapply(x, has_per_cell, logical(1L)))
-        else is.atomic(x) && length(x) >= ncol(result$object)
-    }
-    expect_false(has_per_cell(fate_ev$values))
+    expect_false(sclet_ai_test_has_per_cell(fate_ev$values, ncol(result$object)))
 
     trajectory <- sclet:::sclet_get_state_record(result$object, "trajectory", id = "fate_run_analysis")
     expect_false(is.null(trajectory))

@@ -4,93 +4,92 @@
 ## Proves that communication and malignant-cell workflows complete a real
 ## context -> plan -> execute -> report loop through RunAIAnalysis(), not just
 ## ValidateAIPlan()/ExecuteAIPlan() on hand-built plans.
+##
+## The communication fixtures live in helper-ai-fixtures.R, which testthat
+## loads for this file whether it is run alone or as part of the suite.
 
-sclet_ai_test_e2e_cci_object <- function(n_cells = 40L) {
-    genes <- c("CXCL12", "ACKR1", "HLA-A", "CD8A", "APP", "CD74", "ACTB", "GAPDH")
-    counts <- matrix(stats::rpois(length(genes) * n_cells, lambda = 8L),
-        nrow = length(genes), ncol = n_cells,
-        dimnames = list(genes, paste0("cell_", seq_len(n_cells))))
-    sce <- SingleCellExperiment::SingleCellExperiment(assays = list(counts = counts))
-    sce$cluster <- factor(rep(c("beta cells", "alpha cells"), length.out = n_cells),
-        levels = c("beta cells", "alpha cells"))
-    ActiveIdent(sce) <- "cluster"
-    sce
-}
-
-sclet_ai_test_e2e_cci_table <- function(method = "CellChat") {
-    data.frame(
-        source_group = c("beta cells", "beta cells", "alpha cells", "alpha cells", "beta cells"),
-        target_group = c("alpha cells", "alpha cells", "beta cells", "beta cells", "beta cells"),
-        ligand = c("CXCL12", "APP", "HLA-A", "CXCL12", "ACKR1"),
-        receptor = c("ACKR1", "CD74", "CD8A", "ACKR1", "CXCL12"),
-        pathway = c("CXCL12_ACKR1", "APP_CD74", "HLA-A_CD8A", "CXCL12_ACKR1", "ACKR1_CXCL12"),
-        probability = c(0.91, 0.62, 0.44, 0.31, 0.08),
-        p_value = c(0.001, 0.02, 0.34, 0.48, 0.99),
-        method = method,
-        stringsAsFactors = FALSE
+## The malignant fixture's design, declared ONCE here and then used to build
+## the per-cell values. Assertions compare against these declared numbers, not
+## against a helper the stub also calls: a check whose two sides share one
+## function cannot fail, and the earlier version of this file had exactly that
+## (setting the state mapping to a single label left every assertion green).
+##   * 6 malignant, 4 likely_malignant, 1 undetermined, 9 non_malignant
+##   * 5 normal cells are the reference population and carry the LOWEST burden
+sclet_ai_test_e2e_malignant_design <- function() {
+    list(
+        n_malignant = 6L,
+        n_likely_malignant = 4L,
+        n_undetermined = 1L,
+        n_non_malignant = 9L,
+        n_reference = 5L
     )
 }
 
-sclet_ai_test_e2e_cci_store <- function(object, id = "cci1", method = "CellChat",
-                                        analysis_key = "cellchat",
-                                        table = sclet_ai_test_e2e_cci_table(method),
-                                        group = "cluster") {
-    object <- sclet:::sclet_set_analysis(object, analysis_key, list(
-        id = id,
-        method = method,
-        object = NULL,
-        interactions = table,
-        group = group
-    ))
-    sclet:::sclet_set_analysis_state(
-        object = object,
-        type = "communication",
-        id = id,
-        method = method,
-        inputs = list(assay = "counts", layer = NULL, group = group),
-        artifacts = list(analysis_key = analysis_key),
-        params = list(species = "human"),
-        summary = list(n_groups = length(unique(table$source_group))),
-        active = TRUE
+## Expression scores for the object, in cell order: malignant plateau, a band
+## that straddles the cutoff, one NA (the cell the call cannot classify), then
+## the non-malignant tail.
+##
+## These counts are deliberately NOT read from sclet_ai_test_e2e_malignant_design():
+## if the scores were derived from the same constants the assertions compare
+## against, editing a declared count would silently reshape the fixture to agree
+## with itself and the assertion could never fail (that was the defect this file
+## had). They are independent literals instead, and the stopifnot below turns
+## "someone edited only one of the two places" into a loud fixture error at
+## setup time rather than a confusing count mismatch later.
+sclet_ai_test_e2e_malignant_scores <- function() {
+    n_plateau <- 6L
+    n_straddle <- 4L
+    n_tail <- 9L
+    design <- sclet_ai_test_e2e_malignant_design()
+    stopifnot(
+        "malignant plateau count disagrees with the declared design" =
+            n_plateau == design$n_malignant,
+        "likely_malignant band count disagrees with the declared design" =
+            n_straddle == design$n_likely_malignant,
+        "non_malignant tail count disagrees with the declared design" =
+            n_tail == design$n_non_malignant
+    )
+    c(
+        seq(2.0, 0.6, length.out = n_plateau),
+        seq(0.45, -0.45, length.out = n_straddle),
+        NA_real_,
+        seq(-0.6, -2.0, length.out = n_tail)
     )
 }
 
-sclet_ai_test_e2e_cci_engine_stub <- function(id = "cci1", method = "CellChat",
-                                              analysis_key = "cellchat") {
-    forced_method <- method
-    function(object, method = NULL, ...) {
-        sclet_ai_test_e2e_cci_store(object, id = id,
-            method = method %||% forced_method,
-            analysis_key = analysis_key)
-    }
-}
-
-sclet_ai_test_e2e_pin_communication_engines <- function(env = parent.frame()) {
-    real_require_namespace <- base::requireNamespace
-    testthat::local_mocked_bindings(
-        requireNamespace = function(package, ...) {
-            if (identical(package, "CellChat")) return(TRUE)
-            if (identical(package, "basilisk")) return(TRUE)
-            if (identical(package, "nichenetr")) return(FALSE)
-            real_require_namespace(package, ...)
-        },
-        .package = "base",
-        .env = env
-    )
+## Thresholds applied to a score. This is the STUB's behaviour, so assertions
+## must not call it on both sides -- use the design constants instead.
+##
+## Boundaries belong to the OUTER state: 0.5 is malignant, -0.5 is
+## non_malignant, and anything left (including NA) is undetermined. Stated here
+## because the three conditions below have to be read together to see that every
+## input lands in exactly one state.
+sclet_ai_test_e2e_malignant_state <- function(scores) {
+    state <- rep("undetermined", length(scores))
+    state[!is.na(scores) & scores >= 0.5] <- "malignant"
+    state[!is.na(scores) & scores < 0.5 & scores > -0.5] <- "likely_malignant"
+    state[!is.na(scores) & scores <= -0.5] <- "non_malignant"
+    factor(state,
+        levels = c("malignant", "likely_malignant", "undetermined", "non_malignant"))
 }
 
 sclet_ai_test_e2e_malignant_object <- function() {
+    design <- sclet_ai_test_e2e_malignant_design()
+    n_cells <- design$n_malignant + design$n_likely_malignant +
+        design$n_undetermined + design$n_non_malignant
     set.seed(1L)
-    counts <- matrix(stats::rnbinom(50L * 20L, mu = 5, size = 2),
-        nrow = 50L, ncol = 20L,
-        dimnames = list(paste0("g", seq_len(50L)), paste0("c", seq_len(20L))))
+    counts <- matrix(stats::rnbinom(50L * n_cells, mu = 5, size = 2),
+        nrow = 50L, ncol = n_cells,
+        dimnames = list(paste0("g", seq_len(50L)), paste0("c", seq_len(n_cells))))
     sce <- SingleCellExperiment::SingleCellExperiment(list(counts = counts))
-    SummarizedExperiment::colData(sce)$reference <- rep(c(TRUE, FALSE), each = 10L)
-    SummarizedExperiment::colData(sce)$malignant_score <- c(
-        seq(2, 0.5, length.out = 6L),
-        seq(0.4, -0.4, length.out = 4L),
-        seq(-0.5, -2, length.out = 10L)
-    )
+    ## Reference cells are the normal population, so they are the LAST cells:
+    ## in a real tumour the reference must be the low-burden tail, not the
+    ## malignant plateau. Marking the high-score cells as reference strung the
+    ## CNV threshold above the whole distribution.
+    SummarizedExperiment::colData(sce)$reference <- seq_len(n_cells) >
+        (n_cells - design$n_reference)
+    SummarizedExperiment::colData(sce)$malignant_score <-
+        sclet_ai_test_e2e_malignant_scores()
     sce
 }
 
@@ -108,9 +107,23 @@ sclet_ai_test_e2e_cnv_stub <- function(default_name = "cnv") {
         actual_name <- name %||% default_name
         cdata <- SummarizedExperiment::colData(object)
         ref_col <- reference_col %||% "reference"
-        burden <- c(seq(0.12, 0.09, length.out = 6L),
-            seq(0.085, 0.07, length.out = 4L),
-            seq(0.05, 0.02, length.out = ncol(object) - 10L))
+        scores <- cdata[["malignant_score"]]
+        if (is.null(scores)) scores <- seq_len(ncol(object))
+
+        ## Burden tracks the score so the two lines of evidence agree on which
+        ## cells are abnormal, and it is high on the malignant tail, low on the
+        ## reference tail. A cell with an NA score keeps a mid-range burden: it
+        ## is still measured, it is the call that cannot classify it.
+        burden <- rep(0.05, ncol(object))
+        finite <- is.finite(scores)
+        finite_scores <- scores[finite]
+        if (length(finite_scores)) {
+            score_range <- range(finite_scores)
+            if (diff(score_range) > 0) {
+                burden[finite] <- 0.02 + 0.10 *
+                    (finite_scores - score_range[[1L]]) / diff(score_range)
+            }
+        }
         cdata[[paste0(actual_name, "_burden")]] <- burden
         cdata[[paste0(actual_name, "_is_reference")]] <- as.logical(cdata[[ref_col]])
         SummarizedExperiment::colData(object) <- cdata
@@ -172,15 +185,33 @@ sclet_ai_test_e2e_call_malignant_stub <- function(default_name = "malignant_call
         cdata <- SummarizedExperiment::colData(object)
         score_col <- signature_score %||% "malignant_score"
         scores <- cdata[[score_col]]
-        state <- c(
-            rep("malignant", 6L),
-            rep("likely_malignant", 4L),
-            rep("non_malignant", ncol(object) - 10L)
-        )
-        cdata[[paste0(actual_name, "_state")]] <- factor(state,
-            levels = c("malignant", "likely_malignant", "undetermined", "non_malignant"))
+        state <- sclet_ai_test_e2e_malignant_state(scores)
+        cdata[[paste0(actual_name, "_state")]] <- state
         cdata[[paste0(actual_name, "_signature_score")]] <- scores
         SummarizedExperiment::colData(object) <- cdata
+
+        burden_col <- paste0(cnv_id, "_burden")
+        reference_col <- paste0(cnv_id, "_is_reference")
+        burden <- cdata[[burden_col]]
+        reference_mask <- cdata[[reference_col]]
+        cnv_reference_threshold <- NA_real_
+        if (!is.null(burden) && !is.null(reference_mask)) {
+            ref_burden <- burden[as.logical(reference_mask)]
+            if (any(is.finite(ref_burden))) {
+                cnv_reference_threshold <- as.numeric(stats::quantile(
+                    ref_burden,
+                    probs = reference_quantile,
+                    na.rm = TRUE
+                ))
+            }
+        }
+        if (is.null(burden)) {
+            cnv_positive <- rep(FALSE, length(scores))
+        } else if (is.na(cnv_reference_threshold)) {
+            cnv_positive <- is.finite(burden)
+        } else {
+            cnv_positive <- is.finite(burden) & burden > cnv_reference_threshold
+        }
 
         state_counts <- table(state)
         object <- sclet:::sclet_set_state_record(
@@ -194,16 +225,16 @@ sclet_ai_test_e2e_call_malignant_stub <- function(default_name = "malignant_call
                 summary = list(
                     n_malignant = as.integer(unname(state_counts[["malignant"]])),
                     n_likely_malignant = as.integer(unname(state_counts[["likely_malignant"]])),
-                    n_undetermined = 0L,
+                    n_undetermined = as.integer(unname(state_counts[["undetermined"]])),
                     n_non_malignant = as.integer(unname(state_counts[["non_malignant"]])),
-                    cnv_available = TRUE,
+                    cnv_available = !is.null(burden),
                     identity_conflict = FALSE,
                     signature_cut = 0,
                     signature_cut_is_median = 0L,
                     n_signature_positive = as.integer(sum(scores >= 0, na.rm = TRUE)),
-                    n_cnv_positive = 10L,
-                    cnv_reference_threshold = 0.08,
-                    n_pre_demote_supported = 10L
+                    n_cnv_positive = as.integer(sum(cnv_positive, na.rm = TRUE)),
+                    cnv_reference_threshold = cnv_reference_threshold,
+                    n_pre_demote_supported = as.integer(sum(state != "non_malignant", na.rm = TRUE))
                 ),
                 created_at = Sys.time()
             )
@@ -213,8 +244,8 @@ sclet_ai_test_e2e_call_malignant_stub <- function(default_name = "malignant_call
 }
 
 test_that("run_cci survives RunAIAnalysis end to end with bounded evidence", {
-    sclet_ai_test_e2e_pin_communication_engines()
-    object <- sclet_ai_test_e2e_cci_object()
+    sclet_ai_test_cci_pin_engines()
+    object <- sclet_ai_test_cci_object()
     old <- options(sclet.ai.call = function(task, context, ...) {
         list(
             answer = "Infer cell-cell interactions with CellChat.",
@@ -231,7 +262,7 @@ test_that("run_cci survives RunAIAnalysis end to end with bounded evidence", {
     result <- with_mocked_bindings(
         RunAIAnalysis(object, goal = "Infer cell-cell interactions between the clusters.",
             confirm = "yes", registry = registry),
-        RunCCI = sclet_ai_test_e2e_cci_engine_stub(id = "e2e_cci", method = "CellChat"),
+        RunCCI = sclet_ai_test_cci_engine_stub(id = "e2e_cci", method = "CellChat"),
         .package = "sclet"
     )
 
@@ -293,13 +324,43 @@ test_that("malignant two-step plan survives RunAIAnalysis end to end with bounde
     expect_false(is.null(malignant_node))
     expect_equal(malignant_node$claim_level, "associated")
 
-    per_cell <- any(vapply(malignant_node$values, function(v) {
-        is.atomic(v) && length(v) >= ncol(result$object)
-    }, logical(1L)))
-    expect_false(isTRUE(per_cell))
+    expect_false(sclet_ai_test_has_per_cell(malignant_node$values, ncol(result$object)))
 
+    ## The four-state call really is four states. `undetermined` is only
+    ## reachable when a cell's score is missing, so the fixture now carries one
+    ## such cell: a mapping that silently collapses to three states fails here.
+    design <- sclet_ai_test_e2e_malignant_design()
+    observed_state <- SummarizedExperiment::colData(result$object)$e2e_malignant_state
+    expect_s3_class(observed_state, "factor")
+    expect_equal(levels(observed_state),
+        c("malignant", "likely_malignant", "undetermined", "non_malignant"))
+    expect_length(observed_state, ncol(result$object))
+    expect_setequal(as.character(observed_state), levels(observed_state))
+
+    ## Counts against the DESIGN, not against the function the stub used to
+    ## write the column: same-source assertions cannot fail.
     summary <- sclet:::sclet_get_state_record(result$object, "malignancy", "e2e_malignant")$summary
-    expect_equal(summary$n_malignant, 6L)
-    expect_equal(summary$n_likely_malignant, 4L)
+    expect_equal(summary$n_malignant, design$n_malignant)
+    expect_equal(summary$n_likely_malignant, design$n_likely_malignant)
+    expect_equal(summary$n_undetermined, design$n_undetermined)
+    expect_equal(summary$n_non_malignant, design$n_non_malignant)
+    expect_equal(
+        summary$n_malignant + summary$n_likely_malignant +
+            summary$n_undetermined + summary$n_non_malignant,
+        ncol(result$object)
+    )
+
+    ## The CNV line is a real second observation, not an empty set: normal
+    ## cells are the reference, so cells must sit above its threshold, and the
+    ## abnormal ones must be among them. (The exact count is not pinned: the
+    ## threshold is the reference quantile, which by construction leaves some
+    ## normal cells just above it.)
     expect_true(isTRUE(summary$cnv_available))
+    expect_false(is.na(summary$cnv_reference_threshold))
+    expect_gt(summary$n_cnv_positive, 0L)
+    expect_gte(summary$n_cnv_positive, summary$n_malignant)
+
+    ## Product-side self-check (computed by the package from the ledger, not
+    ## written by a stub): this round's report verified.
+    expect_equal(result$report$verification_status, "passed")
 })
