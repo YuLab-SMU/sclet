@@ -610,6 +610,38 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
     AIExecutionRegistry(actions)
 }
 
+# Which registry groups contain an action name.
+#
+# Used to turn "action is not registered" from a dead end into an instruction.
+# That message is correct but incomplete: the action usually exists and was
+# simply left out of the `include` set, so a caller who reads only "not
+# registered" concludes the package cannot do the thing. Measured 2026-10-21:
+# `RunAIAnalysis(goal = "find markers")` proposed `run_de_test`, which is a
+# registry action in the `annotation` group, and the only feedback was
+# "action is not registered: run_de_test".
+#
+# `AIDefaultExecutionRegistry(include = g)` layers the groups, and each factory
+# guards on its own group, so asking for one group at a time answers the
+# question without a second table to keep in sync with the registry.
+sclet_ai_action_groups <- function(object, action) {
+    groups <- c(
+        "read", "preprocess", "dimred", "graph", "cluster", "integration",
+        "annotation", "rare_cell", "trajectory", "velocity", "fate", "spatial",
+        "multimodal", "enrichment", "malignant", "communication", "milo"
+    )
+    hit <- character()
+    for (g in groups) {
+        members <- tryCatch(
+            names(AIDefaultExecutionRegistry(object, include = g)),
+            error = function(e) character()
+        )
+        if (action %in% members) {
+            hit <- c(hit, g)
+        }
+    }
+    hit
+}
+
 # Resolve the CellRank trajectory record a fate action should act on.
 #
 # Returns list(id = <record id>, record = <record>, message = NULL) on success,

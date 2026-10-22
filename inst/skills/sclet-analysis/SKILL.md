@@ -64,9 +64,18 @@ are worse, because they execute fine and answer nothing:
 Match the question to the analysis, not to the tool you reach for most
 often:
 
+The action you pick has to be IN the registry you were given. `include` defaults
+to `c("read", "preprocess", "dimred", "graph", "cluster")`, which is enough to
+get from raw counts to clusters and to nothing else -- EVERY action in the table
+below lives in a group the default does not request (`annotation`, `enrichment`,
+`rare_cell`, `malignant`). If you are
+building the registry yourself, pass the groups your plan uses; if a plan comes
+back with "action is not registered", read the rest of the message (it names the
+group) rather than concluding the package cannot do it.
+
 | The user asks about... | The right action | Not the answer |
 |---|---|---|
-| which genes distinguish populations | `run_de_test` | |
+| which genes distinguish populations | `run_de_test` (`annotation` group) | |
 | which processes/pathways the markers imply | `run_enrichment` (after `run_de_test`) | a second marker test |
 | likely doublets | `run_doublet_detection` | |
 | small populations the clustering averages over | `run_rare_cell_detection` (+ marker test first) | sub-clustering alone |

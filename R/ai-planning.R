@@ -730,12 +730,32 @@ ValidateAIPlan <- function(
             if (is.null(step$action) || !nzchar(step$action)) {
                 errors <- c(errors, paste0("action ", step$id, " has no action name"))
             } else if (is.null(registry[[step$action]])) {
-                errors <- c(errors, paste0(
-                    "action is not registered: ", step$action,
-                    "; the `action` field must be an exact registry key, and a",
-                    " placeholder such as \"none\" is not a way to drop a step",
-                    " -- remove the step from the plan instead"
-                ))
+                # Distinguish "no such action" from "exists, but you did not ask
+                # for its group". The second case is by far the more common and
+                # the old text sent the reader looking for a typo: `run_de_test`
+                # is a real action in the `annotation` group, and a plan that
+                # named it after a default `include` was told only that it was
+                # "not registered" (measured 2026-10-21, running the book).
+                elsewhere <- tryCatch(
+                    sclet_ai_action_groups(object, step$action),
+                    error = function(e) character()
+                )
+                errors <- c(errors, if (length(elsewhere)) {
+                    paste0(
+                        "action is not registered: ", step$action,
+                        "; it exists, but in the ", paste(shQuote(elsewhere), collapse = "/"),
+                        " registry group, which this registry did not request",
+                        " -- add ", paste(shQuote(elsewhere), collapse = " or "),
+                        " to `include` (or pass a registry that contains it)"
+                    )
+                } else {
+                    paste0(
+                        "action is not registered: ", step$action,
+                        "; the `action` field must be an exact registry key, and a",
+                        " placeholder such as \"none\" is not a way to drop a step",
+                        " -- remove the step from the plan instead"
+                    )
+                })
             } else {
                 descriptor <- registry[[step$action]]
                 input_schema <- descriptor$input_schema %||% list()

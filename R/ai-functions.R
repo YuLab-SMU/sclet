@@ -432,9 +432,10 @@ RunAIAnalysis <- function(
         structured_output = structured_output,
         fallback_on_structure_error = fallback_on_structure_error,
         # The SAME registry that will validate and execute. Without this,
-        # AIPlanAnalysis() defaults to include = "all" and the planner is shown
-        # 39 actions, then ValidateAIPlan() below checks the plan against the
-        # narrower registry built from `include` (11 by default) and refuses
+        # AIPlanAnalysis() defaults to include = "all" (34 actions) and the
+        # planner is shown all of them, then ValidateAIPlan() below checks the
+        # plan against the narrower registry built from `include` (11 by
+        # default) and refuses
         # whatever the planner legitimately chose from the extra groups.
         # Measured 2026-10-21: goal "find markers" proposed `run_de_test`, which
         # is in the annotation group, and the plan came back `invalid_plan` with
