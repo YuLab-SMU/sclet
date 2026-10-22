@@ -894,16 +894,46 @@ sclet_ai_build_contrast_levels <- function(object, max_levels = 12L) {
     # answer the analysis is supposed to discover -- `identity_levels` already
     # exposes them as anonymised codes precisely so they are not handed over as
     # text. Re-listing the same column here under its real labels would undo
-    # that: measured 2026-10-21, a mock object with clusters named `treat1` /
-    # `treat2` had those labels appear in `contrast_levels` after the block was
-    # added. A clustering is not a design role, so it is excluded by name.
+    # that. A clustering is not a design role, so it is excluded.
+    #
+    # Excluding it BY NAME does not work, and that is not a detail. On the
+    # ordinary path `FindClusters()` sets the identity to the special string
+    # `"colLabels"` (R/clustering.R), while SingleCellExperiment stores the
+    # labels in a colData column called `label`. So the comparison was
+    # `identical("label", "colLabels")` -> FALSE, the exclusion never fired,
+    # and the clustering was published verbatim (measured 2026-10-22 on
+    # mockSCE -> NormalizeData -> RunPCA -> FindNeighbors -> FindClusters).
+    # It was also ACTIONABLE: a plan asking for `run_de_test(group = "label",
+    # ident.1 = "1", ident.2 = "2")` validated as `TRUE`.
+    #
+    # So the test is not the column's NAME but its PARTITION: a column is the
+    # clustering when it splits the cells into the same groups. That catches
+    # both the identity column itself and any renamed copy of it
+    # (`cell_type`, a `seurat_clusters` duplicate, an annotation derived from
+    # the clusters), which is a very common state on real data.
+    #
+    # The cost is deliberate and it is reported: a design column that happens
+    # to partition the cells EXACTLY like the clustering is withheld too, and
+    # `withheld` says so. Such a column cannot express a contrast the clusters
+    # do not already express, so nothing is lost for planning -- but a user
+    # should see that it happened rather than wonder where the column went.
     ident_column <- tryCatch(ActiveIdent(object), error = function(e) NULL)
     if (is.null(ident_column) || !nzchar(ident_column)) ident_column <- NULL
+    ident_values <- tryCatch(as.character(Idents(object)), error = function(e) NULL)
+    withheld <- character()
     entries <- list()
     for (column in colnames(coldata)) {
-        if (!is.null(ident_column) && identical(column, ident_column)) next
         values <- tryCatch(as.character(coldata[[column]]), error = function(e) NULL)
         if (is.null(values)) next
+        if (!is.null(ident_column) && identical(column, ident_column)) {
+            withheld <- c(withheld, column)
+            next
+        }
+        if (!is.null(ident_values) && length(ident_values) == length(values) &&
+            sclet_ai_same_partition(values, ident_values)) {
+            withheld <- c(withheld, column)
+            next
+        }
         values <- values[!is.na(values)]
         levels <- sort(unique(values))
         n_levels <- length(levels)
@@ -926,14 +956,45 @@ sclet_ai_build_contrast_levels <- function(object, max_levels = 12L) {
     list(
         columns = entries,
         max_levels = as.integer(max_levels),
+        # Named, not silent: a caller whose design column vanished because it
+        # partitions the cells exactly like the clustering can see that here.
+        withheld = withheld,
         guidance = paste(
             "Use these for `group` contrasts (run_de_test with group = <column>",
             "and ident.1 / ident.2 as two of that column's levels).",
             "`identity_levels` is the clustering identity and is NOT what a",
-            "condition contrast takes."
+            "condition contrast takes. `withheld` lists colData columns that",
+            "were not offered because they split the cells into the same groups",
+            "as the clustering; a contrast between those groups is a marker",
+            "test, not a condition contrast."
         ),
         raw_values_included = FALSE
     )
+}
+
+# Do two label vectors split the cells into the same groups?
+#
+# Compares the PARTITION, not the label text: `c("1","2","1","2")` and
+# `c("T","B","T","B")` are the same partition, and so are
+# `c("2","1","2","1")` and `c("B","T","B","T")`. Used to decide whether a
+# colData column IS the clustering under another name.
+sclet_ai_same_partition <- function(a, b) {
+    if (length(a) != length(b) || !length(a)) return(FALSE)
+    keep <- !is.na(a) & !is.na(b)
+    if (!any(keep)) return(FALSE)
+    a <- a[keep]
+    b <- b[keep]
+    n_a <- length(unique(a))
+    n_b <- length(unique(b))
+    if (n_a < 2L || n_a != n_b) return(FALSE)
+    # Same partition iff the class of a cell under `a` determines its class
+    # under `b` AND vice versa: each a-class maps to exactly one b-class and
+    # that map is injective.
+    pa <- match(a, unique(a))
+    pb <- match(b, unique(b))
+    a_to_b <- tapply(pb, pa, function(x) length(unique(x)))
+    b_to_a <- tapply(pa, pb, function(x) length(unique(x)))
+    all(a_to_b == 1L) && all(b_to_a == 1L)
 }
 
 sclet_ai_build_identity_levels <- function(object) {
