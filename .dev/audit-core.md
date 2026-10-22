@@ -622,7 +622,8 @@ Recording these because a negative result is information.
 
 ## 附录 B — 整改状态（2026-10-22，Lead 复核后）
 
-本报告的 5 条结论已由 Lead 独立复现；其中 4 条已修并提交，1 条记录待决。
+本报告的 5 条结论已由 Lead 独立复现；其中 3 条已修并提交，1 条是错的（见附录 D），
+1 条（状态契约采用率）记录待决。
 
 | 发现 | 状态 | commit |
 |---|---|---|
@@ -630,8 +631,8 @@ Recording these because a negative result is information.
 | #5 缺 active ident 时报 "argument is of length zero" | **已修** | `42bfed0` |
 | #3 `check_de_readiness` 卡 limma 而非 presto | **已修** | `ea1468d` |
 | 状态契约采用率 37/65 | 记录待决 | — |
-| #4 六个分析共用 `type="annotation"` 状态桶 | **记录待决**（见下） | — |
-| #2 14 个闸门里 13 个从不被它所守的分析调用 | **记录待决**（见下） | — |
+| #4 六个分析共用 `type="annotation"` 状态桶 | **已修**（换桶，非删除；见附录 C） | `84ee414` |
+| #2 ~~14 个闸门里 13 个从不被它所守的分析调用~~ → **这条是错的**，真实是 1/5/8，见附录 D；**不改** | 已更正 | — |
 
 ### #4 为什么没当场修
 
@@ -647,12 +648,17 @@ method="infercnv::inferCNV"`）。修法是把 `cnv` / `malignancy` / `phenotype
 
 ### #2 为什么没当场修
 
-14 个闸门里 13 个只被 `R/ai-*.R` 调用，分析函数自己不执行自己的闸门。
-修法是"每个 `Run*` 开头调自己的闸门，not_ready 就 abort"。
+~~14 个闸门里 13 个只被 `R/ai-*.R` 调用，分析函数自己不执行自己的闸门。~~
+~~修法是"每个 `Run*` 开头调自己的闸门，not_ready 就 abort"。~~
 
-没有当场做的原因：这会**改变已导出函数的失败行为**——现在能跑通的调用会
-开始报错。哪些闸门的约束是硬性的（cnv 的 infercnv 依赖）、哪些只是建议性的
-（de 的细胞数下限），必须先逐个定性，否则会把本来能出结果的调用挡掉。
+> ⚠ **上面这个数字是错的，已于 2026-10-22 更正。** 见附录 D。用 AST 精确统计，
+> 真实情况是：**1 个**被分析函数调用（`check_cnv_readiness`），**5 个**被 AI 层
+> 内部辅助函数当作**数据来源**读取（读 `checks$<字段>`，不读 `status`），
+> **8 个没有任何内部调用点**——它们是纯导出的公开 API，设计上就只给用户和
+> 外部 agent 调。原先的"13 个"是把 grep 到的字符串匹配和文档引用当成了调用。
+
+没有当场做的原因（仍然成立）：把闸门变成硬门会**改变已导出函数的失败行为**——
+现在能跑通的调用会开始报错。
 
 ---
 
@@ -709,3 +715,84 @@ not_ready               : enrichment, milo, fate, velocity, spatial,
 且挡住"用户知道自己在干什么"的场景（例如明知缺 detest 记录也要先看一眼
 enrichment 的参数）。`check_cnv_readiness` 是唯一本来就硬执行的闸门
 （inferCNV 缺包是硬依赖），保持不变。
+
+---
+
+## 附录 D — #2 的更正（2026-10-22，AST 精确统计）
+
+### 错在哪里
+
+附录 C 和 §#2 里写的"14 个闸门里 13 个只被 `R/ai-*.R` 调用"，是**用
+`grep -rn "check_xxx_readiness(" R/` 数出来的**。这个方法把三类非调用也算进去了：
+
+1. 函数定义行本身（`check_de_readiness <- function(object, group = NULL)`）
+2. roxygen 里的文档引用（`[check_de_readiness()]`）
+3. 字符串字面量里出现的函数名
+
+### 正确的方法与结果
+
+用 R 的 parser 遍历 AST，只看真正的 call node：
+
+```r
+# 每个 call 的 head 是 name 且属于闸门名 -> 记录它所在的顶层函数
+walk <- function(node, owner) {
+  if (is.call(node) && is.name(node[[1]])) {
+    nm <- as.character(node[[1]])
+    if (nm %in% gates) callers[[nm]] <<- c(callers[[nm]], owner)
+  }
+  ...
+}
+```
+
+结果：
+
+| 闸门 | 调用方 |
+|---|---|
+| `check_cnv_readiness` | `RunCNVInference` |
+| `check_spatial_readiness` | `sclet_ai_registry_spatial_multimodal` |
+| `check_multimodal_readiness` | `sclet_ai_registry_spatial_multimodal` |
+| `check_communication_readiness` | `sclet_ai_communication_group_key` |
+| `check_rare_cell_readiness` | `sclet_ai_build_analysis_story` |
+| `check_integration_readiness` | `sclet_ai_investigate_design`, `sclet_ai_investigate_context` |
+| `check_de_readiness` | **无** |
+| `check_enrichment_readiness` | **无** |
+| `check_milo_readiness` | **无** |
+| `check_fate_readiness` | **无** |
+| `check_velocity_readiness` | **无** |
+| `check_trajectory_readiness` | **无** |
+| `check_fate_drivers_readiness` | **无** |
+| `check_annotation_readiness` | **无** |
+
+即 **1 个被分析函数调用 / 5 个被 AI 内部辅助读取 / 8 个无内部调用点**。
+
+### 更正后的结论：现状是对的，不需要改
+
+闸门返回 `status` + `checks`（逐项布尔）+ `questions` + `notes`。三个消费方
+各取所需，语义**不同但不矛盾**：
+
+| 消费方 | 怎么用 | 语义 |
+|---|---|---|
+| R 用户 | 看 `status` 与 `questions` | **诊断**（README 说的"告诉你缺什么"） |
+| AI 层内部（5 处） | 读 `readiness$checks$<具体字段>`，**不读 `status`** | 数据来源 |
+| AI 层 `prerequisites` | 另一套自己写的判定，返回 `TRUE` / 字符串 | **守门**（skill 说的 "actions are gated"） |
+
+README 与 `inst/skills/sclet-analysis/SKILL.md` 看起来互相矛盾（"告诉你缺什么"
+vs "actions are gated"），其实说的是**两个不同的东西**：R 层是诊断，AI 层门禁
+在 `prerequisites` 里另有实现。
+
+### 唯一被分析函数调用的那个，也不是"守门"
+
+`RunCNVInference` 拿到 `not_ready` 时走 `sclet_cnv_record_unavailable()`——
+写一条 `status = "unavailable"` 的记录然后继续，**不 abort**（`R/malignancy-cnv.R:309-312`）。
+所以它验证的是"**降级并记录**"，不是"拒绝执行"。
+
+### 所以
+
+**不改。** 附录 C 提出的"闸门该不该变硬门"这个待决问题**不成立**——它是从
+错误的前提（13/14 未被调用）推出来的。改了反而会挡掉现在能跑通的调用。
+
+### 教训
+
+**调用点统计必须走 AST，不能用 grep。** 这个错误让一个不存在的问题看起来
+需要决策，并且差点导致一次改变 14 个函数失败行为的改动。同类风险：
+`grep -c "fn("` 统计任何导出函数的调用点都会犯同样的错。
