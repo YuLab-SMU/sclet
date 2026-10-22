@@ -50,6 +50,22 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
+      - name: Install JAGS (Windows)
+        # infercnv is in Suggests and on CRAN only, so pak builds it from
+        # source; its dependency rjags declares `SystemRequirements: JAGS` and
+        # fails at .onLoad with "Failed to locate any version of JAGS version 4".
+        # pak installs system requirements on Linux only, so on Windows this
+        # has to happen before setup-r-dependencies, not after it.
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = "$env:RUNNER_TEMP\jags.exe"
+          Invoke-WebRequest `
+            -Uri "https://downloads.sourceforge.net/project/mcmc-jags/JAGS/4.x/Windows/JAGS-4.3.2.exe" `
+            -OutFile $installer
+          Start-Process -FilePath $installer -ArgumentList "/S" -Wait
+          "C:\Program Files\JAGS\JAGS-4.3.2\x64\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: |
