@@ -14,6 +14,7 @@
 #' S4Vectors::metadata(sce)$sclet <- state
 #' get_trajectory(sce)$method
 get_trajectory <- function(object, element = NULL, id = NULL) {
+    requested_id <- id
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "trajectory")
     }
@@ -21,11 +22,13 @@ get_trajectory <- function(object, element = NULL, id = NULL) {
     if (!is.null(id)) {
         result <- sclet_get_state_record(object, "trajectory", id = id)
     }
+    analysis <- sclet_legacy_analysis(object, "trajectory",
+        "trajectory", requested_id, id)
     result <- sclet_normalize_analysis_record(
         type = "trajectory",
         id = if (is.null(id)) "trajectory" else id,
         record = result,
-        analysis = sclet_get_analysis(object, "trajectory"),
+        analysis = analysis,
         default_method = "slingshot"
     )
     extract_analysis_element(result, element)
@@ -65,6 +68,7 @@ has_trajectory <- function(object, id = NULL) {
 #' S4Vectors::metadata(sce)$sclet <- state
 #' get_milo(sce)$method
 get_milo <- function(object, element = NULL, id = NULL) {
+    requested_id <- id
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "milo")
     }
@@ -76,11 +80,13 @@ get_milo <- function(object, element = NULL, id = NULL) {
             result <- candidate
         }
     }
+    analysis <- sclet_legacy_analysis(object, "milo",
+        "milo", requested_id, id)
     result <- sclet_normalize_analysis_record(
         type = "milo",
         id = if (is.null(id)) "milo" else id,
         record = result,
-        analysis = sclet_get_analysis(object, "milo"),
+        analysis = analysis,
         default_method = "miloR"
     )
     extract_analysis_element(result, element)
@@ -120,6 +126,7 @@ has_milo <- function(object, id = NULL) {
 #' S4Vectors::metadata(sce)$sclet <- state
 #' get_supercell(sce)$method
 get_supercell <- function(object, element = NULL, id = NULL) {
+    requested_id <- id
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "aggregation")
     }
@@ -131,11 +138,13 @@ get_supercell <- function(object, element = NULL, id = NULL) {
             result <- candidate
         }
     }
+    analysis <- sclet_legacy_analysis(object, "supercell",
+        "supercell", requested_id, id)
     result <- sclet_normalize_analysis_record(
         type = "aggregation",
         id = if (is.null(id)) "supercell" else id,
         record = result,
-        analysis = sclet_get_analysis(object, "supercell"),
+        analysis = analysis,
         default_method = "SuperCell::SCimplify"
     )
     extract_analysis_element(result, element)
@@ -175,6 +184,7 @@ has_supercell <- function(object, id = NULL) {
 #' S4Vectors::metadata(sce)$sclet <- state
 #' get_cellchat(sce)$method
 get_cellchat <- function(object, element = NULL, id = NULL) {
+    requested_id <- id
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "communication")
     }
@@ -186,11 +196,13 @@ get_cellchat <- function(object, element = NULL, id = NULL) {
             result <- candidate
         }
     }
+    analysis <- sclet_legacy_analysis(object, "cellchat",
+        "cellchat", requested_id, id)
     result <- sclet_normalize_analysis_record(
         type = "communication",
         id = if (is.null(id)) "cellchat" else id,
         record = result,
-        analysis = sclet_get_analysis(object, "cellchat"),
+        analysis = analysis,
         default_method = "CellChat"
     )
     extract_analysis_element(result, element)
@@ -230,6 +242,7 @@ has_cellchat <- function(object, id = NULL) {
 #' S4Vectors::metadata(sce)$sclet <- state
 #' get_cellphonedb(sce)$method
 get_cellphonedb <- function(object, element = NULL, id = NULL) {
+    requested_id <- id
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "communication")
     }
@@ -241,11 +254,13 @@ get_cellphonedb <- function(object, element = NULL, id = NULL) {
             result <- candidate
         }
     }
+    analysis <- sclet_legacy_analysis(object, "cellphonedb",
+        "cellphonedb", requested_id, id)
     result <- sclet_normalize_analysis_record(
         type = "communication",
         id = if (is.null(id)) "cellphonedb" else id,
         record = result,
-        analysis = sclet_get_analysis(object, "cellphonedb"),
+        analysis = analysis,
         default_method = "CellPhoneDB"
     )
     extract_analysis_element(result, element)
@@ -285,6 +300,7 @@ has_cellphonedb <- function(object, id = NULL) {
 #' S4Vectors::metadata(sce)$sclet <- state
 #' get_nichenet(sce)$method
 get_nichenet <- function(object, element = NULL, id = NULL) {
+    requested_id <- id
     if (is.null(id)) {
         id <- sclet_get_active_state(object, "communication")
     }
@@ -296,11 +312,13 @@ get_nichenet <- function(object, element = NULL, id = NULL) {
             result <- candidate
         }
     }
+    analysis <- sclet_legacy_analysis(object, "nichenet",
+        "nichenet", requested_id, id)
     result <- sclet_normalize_analysis_record(
         type = "communication",
         id = if (is.null(id)) "nichenet" else id,
         record = result,
-        analysis = sclet_get_analysis(object, "nichenet"),
+        analysis = analysis,
         default_method = "NicheNet"
     )
     extract_analysis_element(result, element)
@@ -509,6 +527,42 @@ extract_analysis_element <- function(result, element = NULL) {
         return(result)
     }
     result[[element]]
+}
+
+# The legacy `analyses` record to stand in for the one the caller asked for.
+#
+# Returns the legacy record when standing in is honest, and NULL when it is not.
+# Standing in is honest when:
+#   * the caller named no id (they want "the" record for this analysis), or
+#   * the id they named is the active one, or
+#   * the id they named IS the legacy record's own id -- the legacy slot holds a
+#     single record and does not index by id, so a caller who read the id off
+#     that record and passed it back must still get it.
+#
+# It is NOT honest when they named some other id and no record by that id
+# exists: the answer is "there is no such record", and returning a different one
+# is worse than returning NULL, because `has_<type>(sce, id = "typo")` then
+# reports TRUE and the caller reads a record it never asked for. Measured
+# 2026-10-22: `get_velocity(sce, id = "typo")` returned the record whose id is
+# "velocity", and `has_velocity(sce, id = "typo")` returned TRUE.
+sclet_legacy_analysis <- function(object, state_type, legacy_key, requested_id, resolved_id) {
+    analysis <- tryCatch(sclet_get_analysis(object, legacy_key), error = function(e) NULL)
+    if (is.null(analysis)) {
+        return(NULL)
+    }
+    if (is.null(requested_id)) {
+        return(analysis)
+    }
+    active <- tryCatch(sclet_get_active_state(object, state_type), error = function(e) NULL)
+    if (!is.null(active) && identical(as.character(resolved_id), as.character(active))) {
+        return(analysis)
+    }
+    legacy_id <- tryCatch(analysis$id, error = function(e) NULL)
+    if (!is.null(legacy_id) && length(legacy_id) == 1L &&
+        identical(as.character(legacy_id), as.character(requested_id))) {
+        return(analysis)
+    }
+    NULL
 }
 
 sclet_normalize_analysis_record <- function(type, id, record = NULL, analysis = NULL, default_method = NULL) {
@@ -818,10 +872,8 @@ get_velocity <- function(object, element = NULL, id = NULL) {
     if (!is.null(id)) {
         result <- sclet_get_state_record(object, "velocity", id = id)
     }
-    analysis <- NULL
-    if (is.null(result) || isTRUE(is.null(requested_id) || identical(id, sclet_get_active_state(object, "velocity")))) {
-        analysis <- sclet_get_analysis(object, "velocity")
-    }
+    analysis <- sclet_legacy_analysis(object, "velocity",
+        "velocity", requested_id, id)
     result <- sclet_normalize_analysis_record(
         type = "velocity",
         id = if (is.null(id)) "velocity" else id,
@@ -874,10 +926,8 @@ get_scenic <- function(object, element = NULL, id = NULL) {
     if (!is.null(id)) {
         result <- sclet_get_state_record(object, "scenic", id = id)
     }
-    analysis <- NULL
-    if (is.null(result) || isTRUE(is.null(requested_id) || identical(id, sclet_get_active_state(object, "scenic")))) {
-        analysis <- sclet_get_analysis(object, "scenic")
-    }
+    analysis <- sclet_legacy_analysis(object, "scenic",
+        "scenic", requested_id, id)
     result <- sclet_normalize_analysis_record(
         type = "scenic",
         id = if (is.null(id)) "scenic" else id,
@@ -932,10 +982,8 @@ get_geneset_scoring <- function(object, element = NULL, id = NULL) {
     if (!is.null(id)) {
         result <- sclet_get_state_record(object, "geneset_scoring", id = id)
     }
-    analysis <- NULL
-    if (is.null(result) || isTRUE(is.null(requested_id) || identical(id, sclet_get_active_state(object, "geneset_scoring")))) {
-        analysis <- sclet_get_analysis(object, "geneset_scoring")
-    }
+    analysis <- sclet_legacy_analysis(object, "geneset_scoring",
+        "geneset_scoring", requested_id, id)
     result <- sclet_normalize_analysis_record(
         type = "geneset_scoring",
         id = if (is.null(id)) "geneset_scoring" else id,
@@ -996,10 +1044,8 @@ get_cellrank <- function(object, element = NULL, id = NULL) {
             result <- candidate
         }
     }
-    analysis <- NULL
-    if (is.null(result) || isTRUE(is.null(requested_id) || identical(id, sclet_get_active_state(object, "trajectory")))) {
-        analysis <- sclet_get_analysis(object, "cellrank")
-    }
+    analysis <- sclet_legacy_analysis(object, "trajectory",
+        "cellrank", requested_id, id)
     result <- sclet_normalize_analysis_record(
         type = "trajectory",
         id = if (is.null(id)) "cellrank" else id,
