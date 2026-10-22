@@ -10,6 +10,13 @@ That convenience is real, and so is its price. `sclet` needs `aisdk`, a configur
 # NOTE: `eval_ai` (defined in index.Rmd) is TRUE only when
 # SCLET_BOOKDOWN_EVAL_AI is set AND aisdk is installed. Everything below runs
 # for real when it is, and skips without failing when it is not.
+#
+# Not every chunk here needs a model. Building `demo` and running the
+# integration that the audit compares against are ordinary computation, so they
+# are gated on `eval_chunks` and execute on every render; only the five chunks
+# that actually call a provider are gated on `eval_ai`. Keeping the split
+# explicit means `render-record.md` shows which of this chapter's work was
+# verified without a network, and which needed SCLET_BOOKDOWN_EVAL_AI.
 ```
 
 ```{r ai-in-package-config, eval=eval_ai}
@@ -30,7 +37,7 @@ getOption("sclet.ai.use_skills")
 
 The examples below need an object with clusters to find markers in, and — for the audit section — an integration that exposes a corrected expression layer. Building both here keeps the chapter self-contained:
 
-```{r ai-in-package-object, eval=eval_ai}
+```{r ai-in-package-object, eval=eval_chunks}
 set.seed(42)
 demo <- scuttle::mockSCE(ncells = 200, ngenes = 60)
 demo <- SingleCellExperiment::SingleCellExperiment(
@@ -52,11 +59,17 @@ length(unique(demo$ident))
 
 ## `AIPlanAnalysis`: ask for a plan
 
-```{r ai-in-package-plan, eval=eval_ai}
+```{r ai-in-package-plan, eval=eval_ai, warning=FALSE}
 plan <- AIPlanAnalysis(demo, goal = "find markers that distinguish the clusters")
 
 plan$actions
 ```
+
+You will see a warning on the way, and it is the privacy layer doing its job rather than a problem:
+
+> `sclet AI outbound payload requires user consent before use. Fields requiring consent were redacted: active_states.clustering, features.hvg.selected`
+
+Those two fields are the clustering and the selected variable features. Both are *results* of the analysis, not inputs to it, so they are held back unless you say otherwise — the point of the ledger is that a model can plan the next step without being handed the answer. The plan above is still correct because it does not need them: "find markers that distinguish the clusters" is a goal, and the cluster labels are read locally at execution time. If a later round does need the feature set, pass `privacy_consent = TRUE` to the call that makes it, and know that you have chosen to share it.
 
 The result is an ordinary plan — the same structure you wrote by hand in the previous chapter — so it is validated, previewed and executed by exactly the same functions. `AIPlanAnalysis()` also spends one repair round against validation errors and goal coverage before returning, so what you get back has already been checked once. `plan$metadata$goal_coverage$missing` names goal items with no step behind them; a hand-written plan gets no such help, so check it yourself.
 
@@ -72,7 +85,7 @@ Two things are true at once here. The registry you pass **is** part of the quest
 
 ## `RunAIAnalysis`: plan, preview, ask, execute in one call
 
-```{r ai-in-package-run, eval=eval_ai}
+```{r ai-in-package-run, eval=eval_ai, warning=FALSE}
 result <- RunAIAnalysis(demo, goal = "find markers that distinguish the clusters",
     include = c("read", "preprocess", "dimred", "graph", "cluster", "annotation"),
     confirm = "yes")
@@ -103,7 +116,7 @@ The value here is narrow and worth stating. The tool cannot see your cells; it c
 
 It needs an integration that produces a corrected **expression** layer. `fastMNN` does, but only when asked for full-gene output — by default it returns a corrected *embedding* and the logical `corrected` layer falls back to the source expression, which is not something to audit:
 
-```{r ai-in-package-audit-setup, eval=eval_ai}
+```{r ai-in-package-audit-setup, eval=eval_chunks}
 demo <- RunIntegration(demo, method = "fastMNN", batch = "batch", correct.all = TRUE)
 
 # The logical layer is the vocabulary; the assay behind it is an implementation

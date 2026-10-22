@@ -48,23 +48,37 @@ chunk_end_re <- "^```[:space:]*$"
 #                a run should be judged by the numbers together, not by one of
 #                them.
 #   off       -- `eval=FALSE`. Never runs.
+ai_switch_on <- identical(
+    tolower(Sys.getenv("SCLET_BOOKDOWN_EVAL_AI", "false")),
+    "true"
+) || identical(Sys.getenv("SCLET_BOOKDOWN_EVAL_AI"), "1") ||
+    identical(tolower(Sys.getenv("SCLET_BOOKDOWN_EVAL_AI")), "yes")
+
 scan_file <- function(path) {
     lines <- readLines(path, warn = FALSE)
     header <- grep(chunk_re, lines)
     if (!length(header)) {
         return(list(chunks = 0L, executed = 0L, off = 0L, conditional = 0L,
-                    ai_gated = 0L))
+                    ai_gated = 0L, ai_ran = 0L))
     }
     opts <- sub(chunk_re, "\\1", lines[header])
     is_off <- grepl("eval\\s*=\\s*FALSE", opts)
     is_var <- grepl("eval\\s*=\\s*[A-Za-z_][A-Za-z0-9_.]*\\s*$", opts) & !is_off
     is_ai <- grepl("eval\\s*=\\s*eval_ai", opts)
+    # `eval_ai` is the ONE switch whose value this script can know for certain:
+    # it is `EVAL_AI=1 AND aisdk installed AND eval_chunks`. `eval_chunks`
+    # (SCLET_BOOKDOWN_EVAL) defaults to TRUE, so it does not subtract. So when
+    # the switch was on, those chunks RAN, and calling them "conditional" would
+    # make a run with the AI chapters enabled look identical to one without --
+    # which is exactly the distinction the record exists to capture.
+    ai_ran <- is_ai & ai_switch_on
     list(
         chunks = length(header),
-        executed = sum(!is_off & !is_var),
+        executed = sum((!is_off & !is_var) | ai_ran),
         off = sum(is_off),
-        conditional = sum(is_var),
-        ai_gated = sum(is_ai)
+        conditional = sum(is_var & !ai_ran),
+        ai_gated = sum(is_ai),
+        ai_ran = sum(ai_ran)
     )
 }
 
@@ -92,7 +106,7 @@ rows <- lapply(sort(basename(rmd_files)), function(f) {
     s <- scan_file(file.path(book_dir, f))
     data.frame(file = f, chunks = s$chunks, executed = s$executed,
                conditional = s$conditional, ai_gated = s$ai_gated,
-               off = s$off, stringsAsFactors = FALSE)
+               ai_ran = s$ai_ran, off = s$off, stringsAsFactors = FALSE)
 })
 tab <- do.call(rbind, rows)
 
@@ -110,6 +124,18 @@ lines <- c(
     sprintf("- sclet commit: %s", sclet_commit(book_dir)),
     sprintf("- R: %s", R.version.string),
     sprintf("- Platform: %s", R.version$platform),
+    # Whether the AI chunks actually ran on this render. Without this line a
+    # record cannot be read: the same source produces two different runs
+    # depending on this switch, and the difference is exactly the part that
+    # cannot be checked in CI.
+    sprintf("- SCLET_BOOKDOWN_EVAL: %s",
+            if (nzchar(Sys.getenv("SCLET_BOOKDOWN_EVAL")))
+                Sys.getenv("SCLET_BOOKDOWN_EVAL") else "(unset, defaults to true)"),
+    sprintf("- SCLET_BOOKDOWN_EVAL_AI: %s",
+            if (nzchar(Sys.getenv("SCLET_BOOKDOWN_EVAL_AI")))
+                Sys.getenv("SCLET_BOOKDOWN_EVAL_AI") else "(unset, AI chunks skipped)"),
+    sprintf("- aisdk available: %s",
+            requireNamespace("aisdk", quietly = TRUE)),
     "",
     "Counts are per chapter, over three groups:",
     "",
@@ -125,15 +151,19 @@ lines <- c(
     "the same data.** The point of the record is the diff: a chapter whose",
     "numbers drop means something stopped running.",
     "",
-    "| chapter | chunks | executed | conditional | of which AI-gated | off |",
+    "| chapter | chunks | executed | conditional | AI-gated (ran?) | off |",
     "|---|---|---|---|---|---|",
-    sprintf("| %s | %d | %d | %d | %d | %d |",
+    sprintf("| %s | %d | %d | %d | %d (%s) | %d |",
             tab$file, tab$chunks, tab$executed, tab$conditional,
-            tab$ai_gated, tab$off),
+            tab$ai_gated,
+            ifelse(tab$ai_gated == 0L, "-",
+                   ifelse(tab$ai_ran == tab$ai_gated, "ran",
+                          ifelse(tab$ai_ran == 0L, "skipped", "partial"))),
+            tab$off),
     "",
-    sprintf("**Totals**: %d chunks, %d executed, %d conditional (%d AI-gated), %d off.",
+    sprintf("**Totals**: %d chunks, %d executed, %d conditional, %d off; of the %d AI-gated chunks, %d ran.",
             sum(tab$chunks), sum(tab$executed), sum(tab$conditional),
-            sum(tab$ai_gated), sum(tab$off)),
+            sum(tab$off), sum(tab$ai_gated), sum(tab$ai_ran)),
     ""
 )
 
