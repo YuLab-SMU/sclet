@@ -20,6 +20,6 @@ The plan value-reference syntax is \verb{$\{step_id.output.field\}}. Only
 unchanged, and \code{\link[=sclet_ai_resolve_plan_value]{sclet_ai_resolve_plan_value()}} refuses it outright at
 execution time. Detecting the malformed form during validation turns a
 silent pass-through -- which surfaces later as an unrelated "reduction is
-not available: \code{`$\\{step_4.reduction\\`}}" from some action's prerequisite --
+not available: \verb{$\\\{step_4.reduction\\\}}" from some action's prerequisite --
 into an error that names the actual mistake.
 }

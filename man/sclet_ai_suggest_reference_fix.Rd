@@ -16,6 +16,6 @@ has no step segment to build on.
 \description{
 Pairing a complaint with the corrected string is what makes the error
 usable as feedback: the model can copy the suggestion instead of
-re-deriving the grammar. \code{`$\\{step_4.reduction\\`}} becomes
-\code{`$\\{step_4.output.reduction\\`}}.
+re-deriving the grammar. \verb{$\\\{step_4.reduction\\\}} becomes
+\verb{$\\\{step_4.output.reduction\\\}}.
 }

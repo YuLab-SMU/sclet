@@ -107,8 +107,12 @@ JAGS). Do not add `SLOW_TESTS` gates — filter by area if you need it faster.
   roxygen converts them. **LaTeX commands are the legacy form and there is no
   reason to write new ones**: `\code{x}` → `` `x` ``, `\emph{x}` → `*x*`,
   `\strong{x}` → `**x**`, `\dQuote{x}`/`\sQuote{x}` → `*x*`,
-  `\verb{x}` → `` `x` `` (use `` `` `x` `` `` when the text contains `$`,
-  `{` or `}`, which Rd would read as markup). `\code`, `\dontrun`, `\item`
+  `\verb{x}` → `` `x` `` — but **when the text contains `$`, `{` or `}`
+  (Rd reads them as markup), write `$\{x\}` in the source**: roxygen then emits
+  `\verb{$\\\{x\\\}}`, which parses. Do NOT reach for doubled backticks
+  there — `` `` `${x}` `` `` produced `\code{`${x}`}`, a backtick inside
+  `\code`, and on 2026-10-22 an unterminated quoted string that failed the
+  build. Verified with `tools::parse_Rd()` on the generated file. `\code`, `\dontrun`, `\item`
   and `\describe` are still auto-converted, so existing ones need no rewrite —
   but do not add new ones.
   What appears in the generated `man/*.Rd` is NOT a smell: `\verb{...}` and

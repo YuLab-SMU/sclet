@@ -43,7 +43,7 @@ sclet_ai_reference_is_well_formed <- function(path) {
 #' unchanged, and [sclet_ai_resolve_plan_value()] refuses it outright at
 #' execution time. Detecting the malformed form during validation turns a
 #' silent pass-through -- which surfaces later as an unrelated "reduction is
-#' not available: `` `$\{step_4.reduction\` ``}" from some action's prerequisite --
+#' not available: `$\{step_4.reduction\}`" from some action's prerequisite --
 #' into an error that names the actual mistake.
 #'
 #' @param value A parameter value, possibly nested.
@@ -67,8 +67,8 @@ sclet_ai_malformed_plan_references <- function(value) {
 #'
 #' Pairing a complaint with the corrected string is what makes the error
 #' usable as feedback: the model can copy the suggestion instead of
-#' re-deriving the grammar. `` `$\{step_4.reduction\` ``} becomes
-#' `` `$\{step_4.output.reduction\` ``}.
+#' re-deriving the grammar. `$\{step_4.reduction\}` becomes
+#' `$\{step_4.output.reduction\}`.
 #'
 #' @param value A malformed reference string.
 #' @return A suggested corrected reference, or `NA_character_` if the token
