@@ -26,3 +26,4 @@ inst/regvelo-smoke-test/__pycache__/
 AGENTS.md
 tests/testthat/_snaps
 notes/
+^\.serena$
