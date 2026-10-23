@@ -165,6 +165,25 @@ jobs:
           "PYTHON=$python" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           Write-Host "PYTHON=$python"
 
+      - name: Make apt survive a slow mirror (Linux)
+        # pak installs system requirements itself (`pre_install: apt-get -y
+        # update`) and the Bioc devel cell needs 300+ packages that way. On the
+        # ubuntu-26.04 (resolute) runners that download hangs: runs 39943697138
+        # and 39950678658 both stopped at "Get:113" with no further output for
+        # 119 and 60 minutes, on DIFFERENT packages each time (liblist-compare-
+        # perl, then libxerces-c3.2t64), so it is the transfer stalling rather
+        # than one bad package. apt's default is no retries and no timeout.
+        # These options are inherited by the apt calls pak makes later.
+        if: runner.os == 'Linux'
+        run: |
+          sudo tee /etc/apt/apt.conf.d/99-ci-retries >/dev/null <<'EOF'
+          Acquire::Retries "5";
+          Acquire::http::Timeout "30";
+          Acquire::https::Timeout "30";
+          Acquire::http::Pipeline-Depth "0";
+          EOF
+          cat /etc/apt/apt.conf.d/99-ci-retries
+
       - name: Install the Python runtime libraries (Linux)
         # basilisk builds its venvs with the pyenv Python that reticulate
         # installs on demand, and that build resolves the host's libffi and
