@@ -151,23 +151,38 @@ test_that("run_velocity with mode stochastic executes end-to-end with evidence",
         str(result$execution[setdiff(names(result$execution),
             c("plan", "object"))], max.level = 3)
     }
-    # scvelo's stochastic moments step raises
-    #   ValueError: setting an array element with a sequence.
-    # under numpy 2.x on the macOS runner's velociraptor environment
-    # (numpy 2.4.4 there, 2.2.6 on Linux, where this passes). That is the
-    # Python stack, not this layer: the plan validates, the step is reached,
-    # and the wrapper reports the backend's message verbatim. Skip on that one
-    # signature so a real orchestration regression still fails, and keep the
-    # strict assertions for every other backend error.
+    # The Python stack, not this layer. Three signatures measured on the CI
+    # runners, all of them the environment rather than the plan:
+    #   1. scvelo's stochastic moments step raises
+    #      "ValueError: setting an array element with a sequence." under
+    #      numpy 2.x (numpy 2.4.4 on the macOS runner, 2.2.6 on Linux, where
+    #      this passes).
+    #   2. The pyenv-built Python on the ubuntu runners cannot import _ctypes
+    #      ("undefined symbol: _PyErr_SetLocaleString", missing libffi) and
+    #      then readline, so basilisk's venv build emits ImportError /
+    #      ModuleNotFoundError before any scvelo code runs.
+    # In all three the plan validates, the step is reached, and the wrapper
+    # reports the backend's message verbatim -- which is exactly what this
+    # test is meant to prove. Skip on these signatures so a real
+    # orchestration regression still fails, and keep the strict assertions
+    # for every other backend error.
     # The per-step errors live on the step results, not on the execution record
     # itself, so collect them from there.
     backend_error <- paste(vapply(result$execution$results,
         function(step) if (is.null(step$error)) "" else step$error,
         character(1)), collapse = "\n")
-    if (grepl("setting an array element with a sequence", backend_error,
-              fixed = TRUE)) {
-        skip(paste("scvelo/numpy incompatibility in the velociraptor env:",
-                   sub("\n.*", "", backend_error)))
+    backend_environment_signatures <- c(
+        "setting an array element with a sequence",
+        "undefined symbol: _PyErr_SetLocaleString",
+        "No module named 'readline'",
+        "The Python ctypes extension was not compiled"
+    )
+    if (any(vapply(backend_environment_signatures, function(sig) {
+        grepl(sig, backend_error, fixed = TRUE)
+    }, logical(1L)))) {
+        skip(paste("velociraptor's Python environment is broken on this",
+                   "runner; the plan reached the step and the wrapper",
+                   "reported the backend message:", backend_error))
     }
 
     expect_equal(result$status, "completed")

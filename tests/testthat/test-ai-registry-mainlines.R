@@ -188,11 +188,14 @@ test_that("each mainline refuses a fixture that lacks its input, naming the gate
     expect_match(ml_gate(augur, ml_sce(), list(condition_col = "Treatment")),
         "group_column_missing")
 
-    # phenotype: scPAS is a required, absent backend here
+    # phenotype: the backends it needs are absent HERE, but CI installs them,
+    # so the assertion must hold in both directions. A gate that silently
+    # returns FALSE -- or errors -- is the defect this pins.
     phenotype <- ml_action(ml_sce(), "run_phenotype_association")
-    expect_match(ml_gate(phenotype, ml_sce(),
-        list(bulk_matrix = matrix(1, 2, 2), phenotype_data = data.frame(a = 1))),
-        "optional_package_missing: scPAS")
+    gate <- ml_gate(phenotype, ml_sce(),
+        list(bulk_matrix = matrix(1, 2, 2), phenotype_data = data.frame(a = 1)))
+    expect_true(isTRUE(gate) ||
+        grepl("optional_package_missing: (scPAS|Seurat)", gate))
 
     # SCENIC: the three file inputs are the user's
     scenic <- ml_action(ml_sce(), "run_scenic")
