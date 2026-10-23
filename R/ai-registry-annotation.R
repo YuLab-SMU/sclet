@@ -552,5 +552,152 @@ sclet_ai_registry_annotation <- function(object, include) {
     ))
     }
 
+    # ---- reference mapping, non-SingleR backends --------------------------
+    #
+    # `run_annotation` wraps RunSingleR only. KNN and Symphony are the other two
+    # branches of `RunReferenceMapping`, and both need a SECOND SingleCellExperiment
+    # as the reference -- a planner cannot supply an object, so both are
+    # `planner_visible = FALSE` and used from the driver path.
+    if ("annotation" %in% include) {
+    actions <- c(actions, list(
+        map_reference_knn = AIAction(
+            name = "map_reference_knn",
+            description = paste(
+                "Transfer cell-type labels to this object from a reference",
+                "SingleCellExperiment by k-nearest-neighbour projection, registering one",
+                "bounded evidence node (label counts). `ref` is a second object supplied",
+                "by the caller; this action never selects a reference."
+            ),
+            handler = function(object, params) {
+                name <- params$name %||% "knn_map"
+                args <- list(object = object, ref = params$ref, name = name)
+                if (!is.null(params$labels)) args$labels <- as.character(params$labels)
+                if (!is.null(params$features)) args$features <- as.character(params$features)
+                if (!is.null(params$k)) args$k <- as.integer(params$k)
+                result <- do.call(RunKNNPredict, args)
+                record <- sclet_ai_mainline_record(result, "mapping", name, "map_reference_knn")
+                summary <- record$summary %||% list()
+                sclet_ai_record_mainline_evidence(
+                    result,
+                    list(
+                        id = paste0("ev:mapping_knn_", sclet_ai_evidence_id_token(name)),
+                        kind = "deterministic_summary",
+                        claim_level = "measured",
+                        values = list(
+                            n_labels = sclet_ai_mainline_number(summary$n_labels),
+                            n_reference_labels = sclet_ai_mainline_number(
+                                summary$n_reference_labels
+                            ),
+                            n_cells = ncol(result)
+                        )
+                    ),
+                    source = name
+                )
+            },
+            input_schema = list(
+                ref = list(type = "object", required = TRUE),
+                labels = "character_vector",
+                features = "character_vector",
+                k = "integer",
+                name = "character"
+            ),
+            prerequisites = function(object, params, planned = NULL) {
+                if (!inherits(params$ref, "SingleCellExperiment")) {
+                    return("reference_missing: map_reference_knn needs `ref`, a SingleCellExperiment to transfer labels from")
+                }
+                if (!"counts" %in% SummarizedExperiment::assayNames(params$ref) &&
+                    is.null(params$features)) {
+                    return("reference_counts_missing: the reference has no 'counts' assay; supply `features` (genes shared with it) instead")
+                }
+                if (!sclet_ai_mapping_has_labels(params$ref, params$labels)) {
+                    return("annotation_levels_missing: the reference carries no 'label'/'label.main' column and no `labels` were supplied")
+                }
+                if (!base::requireNamespace("BiocNeighbors", quietly = TRUE)) {
+                    return("optional_package_missing: BiocNeighbors is required for map_reference_knn")
+                }
+                TRUE
+            },
+            returns = "sce",
+            requires_confirmation = TRUE,
+            output_schema = list(
+                required_states = list(mapping = "any", ai_evidence = "any"),
+                note = "The transferred labels land in a colData column; the evidence node carries counts only."
+            ),
+            mutates_object = TRUE,
+            allowed_state_types = c("mapping", "ai_evidence"),
+            estimated_cost = "medium",
+            idempotent = FALSE,
+            planner_visible = FALSE
+        ),
+        map_reference_symphony = AIAction(
+            name = "map_reference_symphony",
+            description = paste(
+                "Transfer cell-type labels with Symphony's reference-based embedding,",
+                "registering one bounded evidence node (label counts). `ref` is a second",
+                "SingleCellExperiment; Symphony repackages it internally. Driver-only: a",
+                "personal reference is not something a model can supply."
+            ),
+            handler = function(object, params) {
+                name <- params$name %||% "symphony_map"
+                args <- list(object = object, ref = params$ref, name = name)
+                if (!is.null(params$labels)) args$labels <- as.character(params$labels)
+                if (!is.null(params$vars)) args$vars <- as.character(params$vars)
+                if (!is.null(params$k)) args$k <- as.integer(params$k)
+                result <- do.call(RunSymphonyMapping, args)
+                record <- sclet_ai_mainline_record(result, "mapping", name,
+                    "map_reference_symphony")
+                summary <- record$summary %||% list()
+                # RunSymphonyMapping records n_query_cells / n_ref_cells /
+                # n_common_genes (R/annotation.R:660-663); there is no n_labels
+                # on the record, so it is read from the predicted column.
+                sclet_ai_record_mainline_evidence(
+                    result,
+                    list(
+                        id = paste0("ev:mapping_symphony_", sclet_ai_evidence_id_token(name)),
+                        kind = "deterministic_summary",
+                        claim_level = "measured",
+                        values = list(
+                            n_query_cells = sclet_ai_mainline_number(summary$n_query_cells),
+                            n_ref_cells = sclet_ai_mainline_number(summary$n_ref_cells),
+                            n_cells = ncol(result)
+                        )
+                    ),
+                    source = name
+                )
+            },
+            input_schema = list(
+                ref = list(type = "object", required = TRUE),
+                labels = "character_vector",
+                vars = "character_vector",
+                k = "integer",
+                name = "character"
+            ),
+            prerequisites = function(object, params, planned = NULL) {
+                if (!inherits(params$ref, "SingleCellExperiment")) {
+                    return("reference_missing: map_reference_symphony needs `ref`, a SingleCellExperiment to build the reference from")
+                }
+                if (!sclet_ai_mapping_has_labels(params$ref, params$labels)) {
+                    return("annotation_levels_missing: the reference carries no 'label'/'label.main' column and no `labels` were supplied")
+                }
+                if (!base::requireNamespace("symphony", quietly = TRUE)) {
+                    return("optional_package_missing: symphony is required for map_reference_symphony; install via remotes::install_github('immunogenomics/symphony')")
+                }
+                TRUE
+            },
+            returns = "sce",
+            requires_confirmation = TRUE,
+            output_schema = list(
+                required_states = list(mapping = "any", ai_evidence = "any"),
+                note = "Transferred labels land in a colData column; the evidence node carries counts only."
+            ),
+            mutates_object = TRUE,
+            allowed_state_types = c("mapping", "ai_evidence"),
+            estimated_cost = "medium",
+            idempotent = FALSE,
+            planner_visible = FALSE
+        )
+    ))
+    }
+
     actions
 }

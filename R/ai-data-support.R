@@ -389,6 +389,20 @@ sclet_ai_data_support_unexplored <- function(object, shapes, supports, analyses,
             is.list(record) && identical(as.character(record$type %||% ""), type)
         }, logical(1L)))
     }
+    # Deconvolution is a `spatial` record whose analysis_key says which spatial
+    # analysis it is (RunSpatialDeconvolution writes type = "spatial",
+    # artifacts$analysis_key = "spatial_deconv"). Asking for a
+    # "spatial_deconvolution" TYPE never matched, so the suggestion below fired
+    # on every spatial object regardless of what had run.
+    has_spatial_deconvolution <- function() {
+        if (!is.list(analyses)) return(FALSE)
+        any(vapply(analyses, function(record) {
+            if (!is.list(record)) return(FALSE)
+            identical(as.character(record$type %||% ""), "spatial") &&
+                identical(as.character(record$artifacts$analysis_key %||% ""),
+                    "spatial_deconv")
+        }, logical(1L)))
+    }
     supported <- function(class) {
         any(vapply(supports, function(x) {
             identical(x$question_class, class) && isTRUE(x$supported)
@@ -505,7 +519,11 @@ sclet_ai_data_support_unexplored <- function(object, shapes, supports, analyses,
         )
     }
 
-    if (supported("spatial") && !has_analysis_type("spatial_deconvolution")) {
+    # Deconvolution records are typed "spatial" (RunSpatialDeconvolution calls
+    # sclet_set_analysis_state(type = "spatial", ...)); looking for a
+    # "spatial_deconvolution" TYPE matched nothing, so this suggestion fired on
+    # every spatial object. Key on the record's analysis_key instead.
+    if (supported("spatial") && !has_spatial_deconvolution()) {
         add(
             "the object carries spatial coordinates but no spatial analysis has been run",
             "run_spatial_deconvolution",
@@ -610,12 +628,14 @@ sclet_ai_round_progression_remedies <- function() {
     # naming a non-existent action never matches, so an ambient warning read as
     # "ignored" forever, and the judge was silently wrong with no symptom. A
     # real-data probe returned `regressed` and the reason had to be traced by
-    # hand. M13-a then created the `run_decontx` action, so `ambient` has a
-    # remedy for the first time. There is still no imputation action, and this
-    # table does not pretend otherwise.
+    # hand. M13-a created the `run_decontx` action, and the
+    # record-only-mainlines milestone created `run_imputation`; `ambient` now
+    # offers both. The lesson this table records is that a remedy naming a
+    # non-existent action fails silently, which is why every key here is pinned
+    # to exist by a test.
     list(
         doublet = c("run_doublet_detection"),
-        ambient = c("run_decontx"),
+        ambient = c("run_decontx", "run_imputation"),
         contamination = c("run_decontx"),
         batch = c("run_integration", "confirm_design"),
         design = c("confirm_design"),

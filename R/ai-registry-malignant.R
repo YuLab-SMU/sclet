@@ -301,5 +301,111 @@ sclet_ai_registry_malignant <- function(object, include) {
     ))
     }
 
+    # ---- iterative signature classifier ----------------------------------
+    #
+    # A different analysis from `call_malignant_cells`: that one combines CNV
+    # with a fixed signature; this one clusters an AddModuleScore difference and
+    # refines it with pseudobulk limma. Two analyses, two records, two evidence
+    # nodes -- the ids must not collide.
+    if ("malignant" %in% include) {
+    actions <- c(actions, list(
+        classify_malignant_epithelium = AIAction(
+            name = "classify_malignant_epithelium",
+            description = paste(
+                "Iteratively classify malignant epithelium from two marker-gene signatures",
+                "(tumor vs normal) with AddModuleScore, k-means and pseudobulk limma,",
+                "registering one bounded evidence node (malignant/non-malignant counts,",
+                "fraction, iterations, convergence). The two gene vectors are the user's",
+                "signature: this action never invents them. A signature-based call is",
+                "recorded at claim level 'associated', never as a measurement."
+            ),
+            handler = function(object, params) {
+                name <- params$name %||% "malignant"
+                args <- list(
+                    object = object,
+                    seed = list(tumor = params$seed_tumor, normal = params$seed_normal),
+                    name = name
+                )
+                if (!is.null(params$method)) args$method <- params$method
+                if (!is.null(params$sample_col)) args$sample_col <- params$sample_col
+                if (!is.null(params$n_top)) args$n_top <- as.integer(params$n_top)
+                if (!is.null(params$padj)) args$padj <- as.numeric(params$padj)
+                result <- do.call(ClassifyMalignantEpithelium, args)
+                record <- sclet_ai_mainline_record(result, "malignancy", name,
+                    "classify_malignant_epithelium")
+                summary <- record$summary %||% list()
+                sclet_ai_record_mainline_evidence(
+                    result,
+                    list(
+                        id = paste0("ev:malignant_iterative_",
+                            sclet_ai_evidence_id_token(name)),
+                        kind = "deterministic_summary",
+                        claim_level = "associated",
+                        values = list(
+                            n_malignant = sclet_ai_mainline_number(summary$n_malignant),
+                            n_non_malignant = sclet_ai_mainline_number(summary$n_non_malignant),
+                            malignant_fraction = sclet_ai_mainline_number(summary$malignant_fraction),
+                            iterations = sclet_ai_mainline_number(summary$iterations),
+                            converged = isTRUE(summary$converged)
+                        )
+                    ),
+                    source = name
+                )
+            },
+            input_schema = list(
+                seed_tumor = list(type = "character_vector", required = TRUE),
+                seed_normal = list(type = "character_vector", required = TRUE),
+                method = c("iterative", "cnv"),
+                sample_col = "character",
+                n_top = "integer",
+                padj = "number",
+                name = "character"
+            ),
+            prerequisites = function(object, params, planned = NULL) {
+                tumor <- params$seed_tumor
+                normal <- params$seed_normal
+                if (!length(tumor) || !length(normal)) {
+                    return("seed_missing: classify_malignant_epithelium needs `seed_tumor` and `seed_normal` as two non-empty gene vectors (the user's signature, not a guess)")
+                }
+                if (!is.character(tumor) || !is.character(normal)) {
+                    return("seed_invalid: `seed_tumor` and `seed_normal` must be character vectors of gene identifiers")
+                }
+                genes <- c(tumor, normal)
+                if (!any(genes %in% rownames(object))) {
+                    return("seed_not_found: none of the seed genes is in rownames(object); check the identifier type (symbol vs Ensembl)")
+                }
+                sample_col <- params$sample_col %||% "sample"
+                if (!sample_col %in% colnames(SummarizedExperiment::colData(object))) {
+                    return(paste0(
+                        "sample_column_missing: '", sample_col,
+                        "' is not a colData column; the pseudobulk step needs the sample unit. Available: ",
+                        paste(colnames(SummarizedExperiment::colData(object)), collapse = ", ")
+                    ))
+                }
+                if (ncol(object) < 20L) {
+                    return("too_few_cells_for_split: the iterative classifier needs at least 2 * min_cells_per_group (20) cells")
+                }
+                if (!base::requireNamespace("limma", quietly = TRUE)) {
+                    return("optional_package_missing: limma is required for classify_malignant_epithelium")
+                }
+                TRUE
+            },
+            returns = "sce",
+            requires_confirmation = TRUE,
+            output_schema = list(
+                required_states = list(malignancy = "any", ai_evidence = "any"),
+                note = paste(
+                    "Per-cell scores and the classification land in colData. The evidence",
+                    "node carries counts and the convergence flag only."
+                )
+            ),
+            mutates_object = TRUE,
+            allowed_state_types = c("malignancy", "ai_evidence"),
+            estimated_cost = "medium",
+            idempotent = FALSE
+        )
+    ))
+    }
+
     actions
 }

@@ -30,7 +30,7 @@ RunRareCellDetection(
 \item{q_threshold}{Numeric. Mutual connectivity threshold above which a cell
 is considered a high-density seed. Range 0-1. Defaults to 0.25.}
 
-\item{rare_threshold}{Integer. Clusters with ≤ this many cells are flagged
+\item{rare_threshold}{Integer. Clusters with no more than this many cells are flagged
 as rare. Defaults to 10.}
 
 \item{min_cluster_size}{Integer. Seed groups smaller than this are dissolved

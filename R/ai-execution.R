@@ -467,10 +467,16 @@ sclet_ai_value_is_placeholder <- function(value) {
             grepl("user[- ]?(named|supplied)", value, ignore.case = TRUE))
 }
 
+#' Describe a parameter value in one bounded line
+#'
+#' Used by the parameter-type errors, which must say *what* was passed without
+#' echoing an unbounded value into a message.
+#'
 #' @param value Any parameter value.
 #' @param max_chars Maximum characters of a scalar value to show.
 #' @return A short single-line description, e.g.
 #'   `the text "30"` or `a numeric vector of length 3`.
+#' @noRd
 sclet_ai_describe_param_value <- function(value, max_chars = 60L) {
     preview <- function(x) {
         x <- as.character(x)[[1L]]
@@ -634,6 +640,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
     actions <- c(actions, sclet_ai_registry_malignant(object, include))
     actions <- c(actions, sclet_ai_registry_enrichment_communication_milo(object, include))
     actions <- c(actions, sclet_ai_registry_mainlines(object, include))
+    actions <- c(actions, sclet_ai_registry_spatial_actions(object, include))
     AIExecutionRegistry(actions)
 }
 

@@ -108,7 +108,7 @@ test_that("the six mainline actions are registered under their own groups", {
     # more (imputation, malignant classifier, two mappings, deconvolution, RegVelo).
     # 40 through the six mainline actions; the record-only milestone adds six
     # more (imputation, malignant classifier, two mappings, deconvolution, RegVelo).
-    expect_equal(length(all_actions), 40L)
+    expect_equal(length(all_actions), 46L)
     expect_setequal(names(groups), intersect(names(groups), names(all_actions)))
     other_groups <- setdiff(unique(groups), character())
     for (action in names(groups)) {

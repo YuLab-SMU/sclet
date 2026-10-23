@@ -1,7 +1,8 @@
 
-#' @title gene_summary_table
-#' This function append gene summary information to the input gene data frame and
-#' open the result in various formats.
+#' Annotate a gene table and open it as a report
+#'
+#' Appends gene summary information to the input gene data frame and opens the
+#' result in various formats.
 #' @param gene a data frame of genes (e.g., marker genes, DE genes)
 #' @param gene_col column of the 'gene' that contains gene IDs
 #' @param orgDb OrgDb package name used for ID conversion when `keyType` is not `ENTREZID`

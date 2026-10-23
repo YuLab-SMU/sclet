@@ -2,9 +2,7 @@
 % Please edit documentation in R/gene-summary-table.R
 \name{gene_summary_table}
 \alias{gene_summary_table}
-\title{gene_summary_table
-This function append gene summary information to the input gene data frame and
-open the result in various formats.}
+\title{Annotate a gene table and open it as a report}
 \usage{
 gene_summary_table(
   gene,
@@ -35,9 +33,8 @@ gene_summary_table(
 output file path
 }
 \description{
-gene_summary_table
-This function append gene summary information to the input gene data frame and
-open the result in various formats.
+Appends gene summary information to the input gene data frame and opens the
+result in various formats.
 }
 \examples{
 \dontrun{

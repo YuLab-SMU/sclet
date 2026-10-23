@@ -1,5 +1,187 @@
 # sclet 1.1.0
 
+## The record-only mainlines get actions (46 in total)
+
+The coverage audit after the previous milestone found eight exported functions
+that write a `sclet` state record and that no AI action could reach. Six are
+closed here; two are not, because the callee cannot succeed and a wrapper over
+it could only be tested dishonestly.
+
+**Added (all `returns = "sce"`, recorded, one numeric evidence node each):**
+
+| action | function | record | planner |
+|---|---|---|---|
+| `run_imputation` | `RunImputation` | `preprocess::imputation` | visible |
+| `classify_malignant_epithelium` | `ClassifyMalignantEpithelium` | `malignancy::<name>` | visible |
+| `map_reference_knn` | `RunKNNPredict` | `mapping::<name>` | driver |
+| `map_reference_symphony` | `RunSymphonyMapping` | `mapping::<name>` | driver |
+| `run_spatial_deconvolution` | `RunSpatialDeconvolution` | `spatial::<name>` | driver |
+| `run_regvelo` | `RunRegVelo` | `velocity::<name>` | driver |
+
+- `run_imputation` writes the assay the function actually writes
+  (`alra_imputed`, not `ALRA`) and forwards `k`: ALRA's automatic rank selection
+  can pick one that does not fit the matrix (measured on both a tall and a wide
+  fixture), and without the parameter the step fails.
+- `run_regvelo` gates on the prior shapes `RunRegVelo` accepts — a matrix/Matrix
+  with dimnames, or a data.frame with `target`/`regulator(/weight)`. A named list
+  is what the callee rejects; the first draft had the contract backwards and a
+  mock hid it.
+- `classify_malignant_epithelium` takes **two** gene vectors (`seed_tumor`,
+  `seed_normal`) because that is what the classifier accepts — a flat vector
+  matches none of its seed branches — and its evidence id is
+  `ev:malignant_iterative_<name>` so it cannot collide with the
+  `call_malignant_cells` node. Synthetic cell-type calls are `associated`.
+- Four actions are `planner_visible = FALSE`: each needs a second object (a
+  reference SCE, twice), a GRN prior, or a reference SCE plus a group column.
+  The privacy layer denies `*_path`/`*_file` field names, so a path parameter is
+  not an escape hatch either.
+- `sclet_ai_goal_action_map()` gains only `run_imputation`; the malignant
+  classifier deliberately gets no entry, because `call_malignant_cells` already
+  matches "malignant" and two requirements would make goal coverage demand both.
+
+**Two support-text defects fixed in the same change:** the ambient remedy table
+claimed "there is still no imputation action", and the spatial suggestion looked
+for a `spatial_deconvolution` record *type* that is never written (records are
+typed `spatial` with `analysis_key = "spatial_deconv"`), so it fired on every
+spatial object.
+
+**Not closed, and recorded rather than hidden:** `RunSpatialColocalization` and
+`RunSpatialNiche` reject gene features (`features %in% colnames(colData)`) yet
+pass them to `SVP::runGLOBALBV(features1=)`, which indexes assay rows — measured
+on a real `SpatialExperiment`, no input shape works. Registering an action over
+that callee would ship a step that cannot succeed, so the callee's feature
+contract is the next change, with the action after it.
+
+Two existing expectations were updated deliberately, not weakened:
+`length(AIDefaultExecutionRegistry(sce, include = "all"))` 40 → 46, and the
+paused-domain guard in `test-ai-execution.R` now names the two reviewed
+mutating actions instead of asserting none exists.
+
+## Coverage: the six remaining mainlines get AI actions
+
+`AIDefaultExecutionRegistry(sce, include = "all")` had 34 actions. Six exported
+mainlines had none, so a plan naming them died with "action is not registered"
+for a function that ships with the package: gene-set scoring, metacells,
+perturbation priority (Augur), phenotype association (scPAS), regulon inference
+(pySCENIC) and in-silico perturbation (CellOracle). That count is now 40.
+
+**Registered is not the same as plannable.** Five of the six need an input a
+language model cannot supply — a gene set, an external bulk/phenotype matrix, a
+database path, a base GRN plus a target gene. They are registered, gated,
+recorded and evidence-bearing, and marked `planner_visible = FALSE`, so
+`sclet_ai_describe_registry()` leaves them out of `available_actions` while
+`ValidateAIPlan()` / `ExecuteAIPlan()` still accept them. The driver path (a
+person or an external agent writing the plan) is how they are used; a plan
+proposing one of them would fail on a parameter no model can fill. The one
+exception is `run_perturbation_priority`, which is planner-visible: its external
+input is a colData column name the planner can already read.
+
+- **`run_supercell` replaces the object, and the planner is told so.** Measured:
+  60 cells → 6 metacells and the prior state records are gone
+  (`sclet_rebuild_internal_state()`). It is driver-only, its description says so
+  in the first sentence, and `AIAction(replaces_object = TRUE)` makes
+  `ValidateAIPlan()` refuse a plan in which it shares the round with another
+  step — otherwise the earlier steps' records would be silently discarded while
+  the round reported "completed".
+- **The identity sentinel is resolved, not trusted.** `ActiveIdent()` returns
+  `"colLabels"`, which is not a colData column on the objects this package
+  produces (the labels live in `label`). `run_in_silico_perturbation` resolves
+  the real column and passes `cluster_key` explicitly; both identity gates now
+  mirror their callee (an explicit key must exist, an absent one falls back to
+  `ActiveIdent()`).
+- **Gates name the missing input**, not the action: `gene_sets_not_found`,
+  `logcounts_assay_missing`, `too_few_metacells` (`gamma` is cells per
+  metacell, so the bound is `2 * gamma`), `condition_col_missing`,
+  `condition_levels_insufficient`, `group_column_missing`,
+  `optional_package_missing`, `scenic_files_missing`, `base_grn_missing`,
+  `target_gene_not_found`, `cluster_identity_missing`, `reduction_missing`.
+- **One evidence node each**, numeric or logical values only, under an `ev:`
+  id. The two whose result is a model estimate say so in the node rather than
+  in prose: `simulated = TRUE` (in-silico perturbation, claim level
+  `associated`) and `external_inputs = TRUE` (phenotype association, claim
+  level `observed`). A simulated perturbation recorded as a measurement would
+  let a report over-claim, which is the failure the claim ladder exists to stop.
+- **Five name-keyed tables updated together**: the `include` validator, the
+  "which group holds this action" hint, the roxygen group list, the registry
+  composition, and — in `R/ai-planning.R` — the goal→action map and the
+  planned-state-record projection. A new invariant test asserts that every one
+  of the 40 actions is discoverable through `sclet_ai_action_groups()`, which is
+  the drift those tables invite.
+- **The skill** now names the five hidden actions, says not to propose them, and
+  adds their inputs to the existing "modelling choices belong to the user"
+  list.
+
+One existing expectation changed on purpose: `available_actions` no longer
+equals the whole registry, because the catalog is the planner's view. The test
+that asserted equality now asserts the planner-visible subset and that the five
+driver-only actions are absent.
+
+Two audit findings after the first round of review:
+
+- **Identity gates read the plan, not only the object.** Validation runs before
+  execution, so `find_clusters -> run_perturbation_priority` had no identity yet
+  and was refused — making the only planner-visible new action unusable in the
+  round that creates its prerequisite. The gates now consult
+  `planned$active_ident`, as the other gate-consuming actions already did.
+- **Every state-record writer stamps `created_at`.** The trace diff detects a
+  same-id rewrite by that stamp; without it a re-run produced no `refreshed`
+  edge and the graph kept attributing the changed record to the old producer
+  (measured on the CellOracle and failed-CNV records).
+
+Spec: `.dev/spec-ai-action-coverage-mainlines.md` (rev 2, after a fact-check and
+a design review). Pins: `tests/testthat/test-ai-registry-mainlines.R`.
+
+## The execution trace is a graph (M13-c)
+
+Two corrections after the first trace-graph audit: a step that returns a
+different object now records `replaces_object`, and the graph reports
+`meta$object_replaced = TRUE` (the earlier rounds are gone from the object, not
+unprojected); and a same-id rewrite is detected from `created_at`, which four
+state-record writers omitted — fixed for CellOracle and the failed-CNV record.
+
+A plan is a DAG (`depends_on`, `${step_6.output.reduction}`), and the trace of
+running it was a flat array: `depends_on` appeared nowhere in
+`R/ai-execution.R`, and no step was linked to the records it wrote. A finished
+round could be read back as a list of steps and a list of results, never as a
+path — "which step produced this result, and which step consumed which earlier
+step's output" had no answer on the object at all, only in the return value
+that dies with the session.
+
+The record now keeps the topology:
+
+- **`params$steps` carries `depends_on`, `record_ids`, `refreshed_ids` and
+  `attempts`.** The ids come from a record-store diff taken at the point the
+  step's value is committed, not around `do.call()`: a value the output/state
+  contract gate discards must not produce edges, and ten registered actions
+  return a plain value (an S4 error if you ask their result for state).
+- **`refreshed` is decided by `created_at`, not by intersecting ids** — every
+  pre-existing record intersects, which reports the whole ledger as refreshed on
+  every step.
+- **`AnalysisGraph(object)`** projects rounds, steps, records and evidence onto
+  one node/edge table (`step_of`, `depends_on`, `produced`, `refreshed`,
+  `consumed`, `source_of`, `derived_from`), with
+  `graph_neighbors()`, `graph_producers()` and `graph_consumers()`.
+- **Record→record edges come only from ids a record already declares**
+  (`inputs$graph`, `inputs$detest_id`); nothing is inferred. Evidence `parents`
+  are sometimes record ids, so `derived_from` resolves by id and records
+  `parent_kind`.
+- **Legacy rounds are marked, not deleted.** A round recorded before these
+  fields existed has `complete = FALSE`; its evidence edges — the ones that
+  already worked — stay present.
+- **Node attributes are a whitelist, not a copy of the record.** The evidence
+  deny-list is a *value* whitelist (numerics and `group_N` strings) and would
+  reject ids and timestamps, so it cannot guard node attributes; the projection
+  copies ten named columns and nothing else.
+
+What this is not: a storage rewrite, a graph database, version history (both
+record stores still overwrite by id, so a re-run shows two producers and the
+node holds the latest values), or a planning-accuracy improvement. The
+frozen-tree reliability numbers are unchanged and unrelated.
+
+Spec: `.dev/spec-ai-execution-graph.md` (rev 2, after a factual audit and a
+design review). Pins: `tests/testthat/test-ai-trace-graph.R` (25 cases) and one
+topology assertion in `test-ai-execution.R`.
+
 ## M12: making "reliable" measurable
 
 M1–M11 proved the single-cell spine runs end to end on real data. M12 addresses the

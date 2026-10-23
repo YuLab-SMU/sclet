@@ -232,5 +232,83 @@ sclet_ai_registry_preprocess <- function(object, include) {
     ))
     }
 
+    # ---- imputation -------------------------------------------------------
+    if ("preprocess" %in% include) {
+    actions <- c(actions, list(
+        run_imputation = AIAction(
+            name = "run_imputation",
+            description = paste(
+                "Impute dropouts in the named assay with ALRA and store the result as a",
+                "new 'alra_imputed' assay, registering one bounded evidence node (cell",
+                "and gene counts). The original assay is preserved: imputation is a",
+                "modelling estimate of the missing signal, not a measurement, and",
+                "nothing is filtered or relabelled."
+            ),
+            handler = function(object, params) {
+                args <- list(sce = object)
+                if (!is.null(params$method)) args$method <- params$method
+                if (!is.null(params$assay)) args$assay <- params$assay
+                # ALRA's automatic rank selection can pick a k that does not fit
+                # the matrix (measured: `choose_k` errors on both a tall and a
+                # wide fixture). Forwarding `k` is how a caller fixes it, and
+                # the action must not swallow it.
+                if (!is.null(params$k)) args$k <- as.integer(params$k)
+                result <- do.call(RunImputation, args)
+                record <- sclet_ai_mainline_record(result, "preprocess", "imputation",
+                    "run_imputation")
+                sclet_ai_record_mainline_evidence(
+                    result,
+                    list(
+                        # Fixed record id (RunImputation has no `name`), so the
+                        # node refreshes in place on a re-run: same analysis,
+                        # new values. Without `replace` a changed object raised
+                        # evidence_id_conflict and the whole step failed.
+                        id = "ev:imputation",
+                        kind = "deterministic_summary",
+                        claim_level = "measured",
+                        values = list(
+                            n_cells = ncol(result),
+                            n_genes = nrow(result),
+                            assay_imputed = TRUE
+                        )
+                    ),
+                    source = "imputation",
+                    replace = TRUE
+                )
+            },
+            input_schema = list(
+                method = c("ALRA"),
+                assay = "character",
+                k = "integer"
+            ),
+            prerequisites = function(object, params, planned = NULL) {
+                assay <- params$assay %||% "logcounts"
+                if (!assay %in% SummarizedExperiment::assayNames(object)) {
+                    return(paste0(
+                        "assay_missing: run_imputation imputes '", assay,
+                        "' and it is not an assay on the object; run NormalizeData() first",
+                        " or name an existing assay"
+                    ))
+                }
+                TRUE
+            },
+            returns = "sce",
+            requires_confirmation = TRUE,
+            output_schema = list(
+                required_assays = "alra_imputed",
+                note = paste(
+                    "Adds an 'alra_imputed' assay. The input assay is untouched and the",
+                    "active assay is NOT switched: a downstream step that wants imputed",
+                    "values must name 'alra_imputed' explicitly."
+                )
+            ),
+            mutates_object = TRUE,
+            allowed_state_types = c("preprocess", "ai_evidence"),
+            estimated_cost = "medium",
+            idempotent = FALSE
+        )
+    ))
+    }
+
     actions
 }

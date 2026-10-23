@@ -36,9 +36,8 @@ test_that("available_actions lists every planner-visible action with its schemas
         "run_spatial_deconvolution"
     )
     expect_true("run_perturbation_priority" %in% names(ctx$available_actions))
-    # `run_imputation` and `classify_malignant_epithelium` arrive with the
-    # record-only mainlines milestone; this test pins the catalog at the state
-    # the previous milestone left it in.
+    expect_true("run_imputation" %in% names(ctx$available_actions))
+    expect_true("classify_malignant_epithelium" %in% names(ctx$available_actions))
     expect_true(is.list(ctx$available_actions))
     expect_setequal(names(ctx$available_actions), setdiff(names(registry), hidden))
     for (entry in ctx$available_actions) {

@@ -274,7 +274,7 @@ plot_perturbation_ranking <- function(object, n = 20, fill_color = "steelblue") 
 #' @param k Integer. Number of nearest neighbors for the kNN graph. Defaults to 20.
 #' @param q_threshold Numeric. Mutual connectivity threshold above which a cell
 #'   is considered a high-density seed. Range 0-1. Defaults to 0.25.
-#' @param rare_threshold Integer. Clusters with ≤ this many cells are flagged
+#' @param rare_threshold Integer. Clusters with no more than this many cells are flagged
 #'   as rare. Defaults to 10.
 #' @param min_cluster_size Integer. Seed groups smaller than this are dissolved
 #'   into their densest neighbouring seed group rather than reported as

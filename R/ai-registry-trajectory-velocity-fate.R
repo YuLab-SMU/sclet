@@ -473,5 +473,114 @@ sclet_ai_registry_trajectory_velocity_fate <- function(object, include) {
     ))
     }
 
+    # ---- RegVelo (regulatory velocity) -----------------------------------
+    #
+    # `run_velocity` wraps RunVelocity (scVelo). RegVelo takes a GRN OBJECT as its
+    # prior, which a planner cannot produce and which cannot be passed as a path
+    # (the privacy layer denies `*_path`/`*_file` field names), so this action is
+    # driver-only.
+    if ("velocity" %in% include) {
+    actions <- c(actions, list(
+        run_regvelo = AIAction(
+            name = "run_regvelo",
+            description = paste(
+                "Infer regulatory RNA velocity with RegVelo from a GRN prior supplied by",
+                "the caller, registering one bounded evidence node (target, regulator and",
+                "edge counts). The GRN is set up by the previous analysis (SCENIC) or",
+                "built explicitly; this action never infers one on the fly."
+            ),
+            handler = function(object, params) {
+                name <- params$name %||% "regvelo"
+                args <- list(sce = object, grn = params$grn, name = name)
+                if (!is.null(params$spliced_assay)) args$spliced_assay <- params$spliced_assay
+                if (!is.null(params$unspliced_assay)) args$unspliced_assay <- params$unspliced_assay
+                if (!is.null(params$reduction)) args$reduction <- params$reduction
+                if (!is.null(params$max_epochs)) args$max_epochs <- as.integer(params$max_epochs)
+                if (!is.null(params$lam)) args$lam <- as.numeric(params$lam)
+                if (!is.null(params$lam2)) args$lam2 <- as.numeric(params$lam2)
+                result <- do.call(RunRegVelo, args)
+                record <- sclet_ai_mainline_record(result, "velocity", name, "run_regvelo")
+                grn <- record$inputs$grn %||% list()
+                sclet_ai_record_mainline_evidence(
+                    result,
+                    list(
+                        id = paste0("ev:velocity_regvelo_", sclet_ai_evidence_id_token(name)),
+                        kind = "deterministic_summary",
+                        claim_level = "measured",
+                        values = list(
+                            n_targets = sclet_ai_mainline_number(grn$n_targets),
+                            n_regulators = sclet_ai_mainline_number(
+                                grn$n_regulators %||% record$summary$n_regulators
+                            ),
+                            n_edges = sclet_ai_mainline_number(grn$n_edges)
+                        )
+                    ),
+                    source = name
+                )
+            },
+            input_schema = list(
+                grn = list(type = "object", required = TRUE),
+                spliced_assay = "character",
+                unspliced_assay = "character",
+                reduction = "character",
+                max_epochs = "integer",
+                lam = "number",
+                lam2 = "number",
+                name = "character"
+            ),
+            prerequisites = function(object, params, planned = NULL) {
+                assays <- SummarizedExperiment::assayNames(object)
+                spliced <- params$spliced_assay %||% "spliced"
+                unspliced <- params$unspliced_assay %||% "unspliced"
+                missing <- setdiff(c(spliced, unspliced), assays)
+                if (length(missing)) {
+                    return(paste0(
+                        "spliced_unspliced_missing: RunRegVelo needs the assay(s) ",
+                        paste(missing, collapse = ", "),
+                        "; quantify spliced/unspliced reads first"
+                    ))
+                }
+                # `RunRegVelo` accepts exactly two prior shapes
+                # (sclet_prepare_regvelo_prior, R/regvelo.R:260-313): a
+                # matrix/Matrix with targets as rows and regulators as columns, or
+                # a data.frame with target/regulator(/weight). A named list is
+                # rejected outright. The gate must accept what the callee accepts.
+                grn <- params$grn
+                grn_ok <- FALSE
+                if (is.matrix(grn) || methods::is(grn, "Matrix")) {
+                    grn_ok <- !is.null(rownames(grn)) && !is.null(colnames(grn))
+                } else if (is.data.frame(grn)) {
+                    grn_ok <- all(c("target", "regulator") %in% colnames(grn))
+                }
+                if (!grn_ok) {
+                    return("grn_invalid: `grn` must be a prior network as a matrix/Matrix (targets x regulators, with dimnames) or a data.frame with target/regulator(/weight) columns")
+                }
+                if (!base::requireNamespace("basilisk", quietly = TRUE)) {
+                    return("optional_package_missing: basilisk is required for run_regvelo")
+                }
+                planned_reductions <- as.character((planned %||% list())$reductions %||% character())
+                reduction <- params$reduction
+                if (!is.null(reduction) && length(reduction) &&
+                    !reduction %in% c(SingleCellExperiment::reducedDimNames(object),
+                        planned_reductions)) {
+                    return(paste0("reduction_missing: '", reduction, "' is not a reduction on the object"))
+                }
+                TRUE
+            },
+            returns = "sce",
+            requires_confirmation = TRUE,
+            output_schema = list(
+                required_states = list(velocity = "any", ai_evidence = "any"),
+                note = "velocity_pseudotime and the regulator slots land on the object; the evidence node carries counts only."
+            ),
+            mutates_object = TRUE,
+            allowed_state_types = c("velocity", "ai_evidence"),
+            estimated_cost = "high",
+            idempotent = FALSE,
+            planner_visible = FALSE
+        )
+    ))
+    }
+
     actions
 }

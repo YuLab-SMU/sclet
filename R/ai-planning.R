@@ -336,6 +336,16 @@ sclet_ai_planned_state_records <- function(descriptor, params) {
         run_velocity = single("velocity", "velocity"),
         run_fate_analysis = single("trajectory", "cellfate"),
         run_doublet_detection = list(preprocess = "doublet_finder"),
+        run_geneset_scoring = single("geneset_scoring", "Score"),
+        run_supercell = single("aggregation", "supercell"),
+        run_perturbation_priority = single("priority", "augur"),
+        run_scenic = single("scenic", "scenic"),
+        run_phenotype_association = list(phenotype = "scPAS"),
+        run_in_silico_perturbation = list(
+            perturbation = paste0("celloracle_", params$target_gene %||% "target")
+        ),
+        run_imputation = list(preprocess = "imputation"),
+        classify_malignant_epithelium = single("malignancy", "malignant"),
         confirm_design = {
             # Mirror ConfirmAIDesignSemantics()'s record id closely enough for a
             # later step to see that the confirmation will exist. Integration
@@ -1777,9 +1787,9 @@ sclet_ai_plan_once <- function(
     # before its evidence producers 2/2 times and passed an OrgDb where the
     # ontology database belongs -- knowledge that lives in the single-cell
     # guidelines, not in the registry. Selection is keyword-based on the
-    # goal; everything matches a NULL goal. The injection costs at most
-    # ~17k characters, small against the planning context itself (8,760
-    # characters for 32738 x 2700, measured); the option is the escape
+    # goal; everything matches a NULL goal. The injection is ~19.6k characters
+    # for the analysis skill and ~50.3k for all four (measured 2026-10-23),
+    # small against the planning context itself; the option is the escape
     # hatch for cost-sensitive callers.
     skill_block <- local({
         if (!isTRUE(getOption("sclet.ai.use_skills", TRUE))) return("")
