@@ -13,6 +13,7 @@ RunIntegration(
   reduction = NULL,
   name = NULL,
   seed = 1L,
+  device = NULL,
   ...
 )
 }
@@ -31,7 +32,12 @@ RunIntegration(
 
 \item{name}{Integration record id. Defaults to the method name.}
 
-\item{seed}{integer seed for the stochastic backends. \code{harmony::RunHarmony()}
+\item{seed}{integer seed for the stochastic backends. \code{harmony::RunHarmony()}}
+
+\item{device}{Which device the torch-backed methods use: \code{"cpu"} (the
+default), \code{"cuda"}, or \code{"auto"}. Only \code{method = "scVI"} has a torch backend.
+A session-wide default can be set with \code{options(sclet.python.device = )}
+or \code{SCLET_PYTHON_DEVICE}.
 and scVI's training both initialise from random numbers, so the same input
 otherwise returns a different embedding on each call; the seed is recorded
 with the integration state so the route can actually be reproduced.

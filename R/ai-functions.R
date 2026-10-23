@@ -342,6 +342,112 @@ AskAI <- function(object, question, model = NULL, structured_output = TRUE, ...)
     )
 }
 
+#' The simplest way to run an AI-assisted analysis
+#'
+#' `scletAI()` is the one-call entry point: describe what you want in plain
+#' language, approve the plan, and the analysis runs against the same engine
+#' [RunAIAnalysis()] uses, with the ledger, evidence nodes and claim ceiling
+#' that implies. It is the function to reach for first; [RunAIAnalysis()] is the
+#' same call with its switches exposed, and [AskAI()] is the read-only
+#' conversational one.
+#'
+#' Three prerequisites, checked before anything is sent:
+#'
+#' 1. The optional package `aisdk` is installed. If it is not, the error says
+#'    so and names the command.
+#' 2. A model can be resolved: an explicit `model`, an aisdk default, or
+#'    `OPENAI_MODEL`.
+#' 3. A provider key is reachable from the environment. Without one the call is
+#'    refused by the provider, not by sclet.
+#'
+#' @param object A `SingleCellExperiment` object.
+#' @param goal A single natural-language analysis goal, e.g.
+#'   `"cluster the cells and find markers"`.
+#' @param model Optional aisdk model such as `"openai:gpt-4o"`. Defaults to the
+#'   aisdk default model, then `OPENAI_MODEL`.
+#' @param confirm One of `"ask"` (the default: print the plan and prompt in an
+#'   interactive session), `"yes"` (run without prompting) or `"no"` (dry run
+#'   only). Logical `TRUE`/`FALSE` are also accepted.
+#' @param ... Further arguments passed to [RunAIAnalysis()], e.g. `include` to
+#'   widen the action groups the planner may use.
+#' @return An object of class `sclet_ai_analysis`: the updated object, the plan,
+#'   the validation, the dry-run preview and the report.
+#' @details
+#' ## Choosing a provider
+#'
+#' `aisdk` reads a provider key from the environment. The usual setup is one
+#' line in `~/.Renviron` (restart R afterwards):
+#'
+#' ```r
+#' OPENAI_API_KEY=sk-...
+#' ```
+#'
+#' A default model can be set the same way, or per call:
+#'
+#' ```r
+#' options(aisdk.default_model = "openai:gpt-4o")
+#' scletAI(sce, "cluster the cells", model = "openai:gpt-4o")
+#' ```
+#'
+#' Every call is billed by the provider and the plan is non-deterministic, so
+#' `scletAI()` is not something to run inside a loop.
+#' @seealso [RunAIAnalysis()] for the switches this wrapper hides, [AskAI()] for
+#'   the read-only conversational interface, [AnalysisGraph()] for reading a
+#'   finished round back.
+#' @examples
+#' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
+#' \dontrun{
+#' # needs aisdk and a provider key
+#' scletAI(sce, "cluster the cells")
+#' }
+#'
+#' @export
+
+# The one entry point a first-time user needs.
+#
+# `RunAIAnalysis()` is the same engine with its reliability switches visible
+# (`render_report`, `verify_before_continue`, `structured_output`, ...). Those
+# switches exist because a caller may need to turn one off, and every one of
+# them defaults to the right value, so showing all eleven parameters to someone
+# running their first AI analysis is noise. This wrapper keeps the two decisions
+# that are genuinely the user's -- the goal and whether to confirm -- and checks
+# the two prerequisites the error messages used to name only in passing: that
+# the optional dependency is installed, and that a model can be resolved before
+# a network call is made.
+#
+# Everything after the checks is `RunAIAnalysis()` unchanged. No second code
+# path, no second contract: if this function and `RunAIAnalysis()` ever
+# disagree, this one is wrong.
+scletAI <- function(object, goal, model = NULL, confirm = "ask", ...) {
+    if (!inherits(object, "SingleCellExperiment")) {
+        stop("`object` must be a SingleCellExperiment.", call. = FALSE)
+    }
+    # Checked here rather than left to the first provider call, because the
+    # failure it prevents is the expensive kind: a plan is composed, sent, and
+    # only then refused, and the message names a service the user never chose.
+    if (!requireNamespace("aisdk", quietly = TRUE)) {
+        sclet_ai_error(
+            "sclet_ai_missing_dependency",
+            paste(
+                "scletAI() needs the optional package 'aisdk' to reach a language model.",
+                "Install it once with:",
+                "    install.packages(\"aisdk\")",
+                "Then configure a provider key, e.g. in ~/.Renviron:",
+                "    OPENAI_API_KEY=...",
+                "See ?scletAI for the alternatives."
+            )
+        )
+    }
+    resolved <- sclet_ai_resolve_model(model)
+    RunAIAnalysis(
+        object,
+        goal = goal,
+        model = resolved,
+        confirm = confirm,
+        ...
+    )
+}
+
 #' Run a beginner-friendly AI-led sclet analysis
 #'
 #' `RunAIAnalysis()` hides registry, validation, dry-run, and confirmation details

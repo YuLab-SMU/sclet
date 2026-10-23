@@ -11,6 +11,10 @@
 #' @param reduction Reduction to use for reduction-based integration (e.g. Harmony). If NULL, uses DefaultReduction.
 #' @param name Integration record id. Defaults to the method name.
 #' @param seed integer seed for the stochastic backends. `harmony::RunHarmony()`
+#' @param device Which device the torch-backed methods use: `"cpu"` (the
+#'   default), `"cuda"`, or `"auto"`. Only `method = "scVI"` has a torch backend.
+#'   A session-wide default can be set with `options(sclet.python.device = )`
+#'   or `SCLET_PYTHON_DEVICE`.
 #' and scVI's training both initialise from random numbers, so the same input
 #' otherwise returns a different embedding on each call; the seed is recorded
 #' with the integration state so the route can actually be reproduced.
@@ -28,7 +32,7 @@
 #' sce <- RunIntegration(sce, method = "Harmony", batch = "batch")
 #' SingleCellExperiment::reducedDimNames(sce)
 #' }
-RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), batch = NULL, features = NULL, layer = NULL, reduction = NULL, name = NULL, seed = 1L, ...) {
+RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), batch = NULL, features = NULL, layer = NULL, reduction = NULL, name = NULL, seed = 1L, device = NULL, ...) {
     method <- match.arg(method)
     
     if (is.null(batch)) {
@@ -205,31 +209,56 @@ RunIntegration <- function(object, method = c("fastMNN", "Harmony", "scVI"), bat
         message("Running scVI via basilisk...")
         message("(First run will take several minutes to set up the Python environment)")
 
+        # The CPU environment is the default; the GPU one is only used when the
+        # caller asks for it and it can actually see a card. Both run the same
+        # callback -- scvi-tools takes the accelerator as an argument, so the
+        # only difference is which interpreter runs it.
+        use_gpu <- identical(sclet_ai_device(device), "cuda")
+        if (use_gpu && !sclet_gpu_available()) {
+            sclet_ai_error(
+                "sclet_gpu_unavailable",
+                paste(
+                    "device = \"cuda\" was requested but the GPU environment cannot see a device.",
+                    "Run sclet_gpu_status() to see what it found.",
+                    "Build the environment once with sclet_env_path(\"sclet_gpu_env\", create = TRUE),",
+                    "or use device = \"cpu\"."
+                )
+            )
+        }
+        env <- if (use_gpu) sclet_gpu_env else sclet_scvi_env
+        accelerator <- if (use_gpu) "gpu" else "cpu"
+
         latent <- sclet_basilisk_run(
-            sclet_scvi_env,
-            function(h5ad_path, batches, seed = NULL, ...) {
+            env,
+            function(h5ad_path, batches, seed = NULL, accelerator = "cpu", ...) {
             scvi <- reticulate::import("scvi")
             ad <- reticulate::import("anndata")
+            pl <- reticulate::import("pytorch_lightning")
 
             adata <- ad$read_h5ad(h5ad_path)
             adata$obs[["batch"]] <- batches
 
             scvi$model$SCVI$setup_anndata(adata, batch_key = "batch")
-            # scvi-tools' SCVI takes a seed; without one the training is
-            # random, so the same input returns a different latent space on
-            # each call and the route cannot be reproduced.
-            model <- if (is.null(seed)) {
-                scvi$model$SCVI(adata)
-            } else {
-                scvi$model$SCVI(adata, seed = as.integer(seed))
+            # Without a seed the training is random, so the same input returns a
+            # different latent space on each call and the route cannot be
+            # reproduced. `seed` is NOT a constructor argument (measured on
+            # scvi-tools 1.4.3 and 1.5.1: neither declares it, and 1.5 rejects it
+            # even through **kwargs), so it is set where the library reads it --
+            # lightning's global seed -- before the model is constructed.
+            if (!is.null(seed)) {
+                pl$seed_everything(as.integer(seed))
             }
-            model$train()
+            model <- scvi$model$SCVI(adata)
+            # The accelerator is a training argument, not a global: a GPU model
+            # trained on one device is reproducible the same way a CPU one is.
+            model$train(accelerator = accelerator)
 
             return(model$get_latent_representation())
         },
             h5ad_path = tmp_h5ad,
             batches = batch_vec,
-            seed = seed
+            seed = seed,
+            accelerator = accelerator
         )
         
         rownames(latent) <- colnames(object)

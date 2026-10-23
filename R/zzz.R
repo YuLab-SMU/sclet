@@ -23,7 +23,8 @@ sclet_env_shim_names <- function() {
         "sclet_regvelo_env",
         "sclet_cell2location_env",
         "sclet_celloracle_env",
-        "sclet_cellphonedb_env"
+        "sclet_cellphonedb_env",
+        "sclet_gpu_env"
     )
 }
 
@@ -81,4 +82,9 @@ sclet_install_env_shim <- function() {
 
 .onAttach <- function(libname, pkgname) {
   packageStartupMessage(yulab.utils::yulab_msg(pkgname))
+  packageStartupMessage(
+    "AI-assisted analysis: scletAI(object, \"cluster the cells\") ",
+    "(needs the optional 'aisdk' package and a provider key); ",
+    "?scletAI, ?RunAIAnalysis, ?AskAI"
+  )
 }

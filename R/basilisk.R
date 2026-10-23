@@ -18,6 +18,36 @@
 #     it (removed in numpy >= 1.24).
 # `pyscenic` and `loompy` are PyPI-only, so they are installed via `pip` on both
 # the conda and the pip/venv basilisk backends (#23).
+# The GPU-capable environment. Separate from `sclet_scvi_env` on purpose: the
+# CPU environment's pins are what every existing user has built and what the
+# tests run against, and a CUDA torch is ~3 GB instead of ~200 MB. Nothing here
+# changes unless a caller asks for a device.
+#
+# `device` selection is a parameter, not an environment choice: `sclet_gpu_env`
+# is used only when the requested device is "cuda" (or "auto" and a card is
+# visible), so a CPU-only user never downloads it.
+sclet_gpu_env <- basilisk::BasiliskEnvironment(
+    envname = "sclet_gpu_env",
+    pkgname = "sclet",
+    packages = c(
+        "python=3.12",
+        "scanpy=1.12.3",
+        "anndata=0.13.2",
+        "numpy=2.4.4",
+        "pandas=3.0.5",
+        # The plain PyPI wheel of this torch IS the CUDA build on Linux: its
+        # dependencies pull the sixteen nvidia-*-cu13 libraries (measured on the
+        # machine this pin was taken from -- torch 2.13.0 requires
+        # nvidia-cudnn-cu13, nvidia-cublas, ... with platform_machine == x86_64).
+        # There is no separate `pytorch-cuda` distribution to ask for.
+        "torch==2.13.0",
+        "scvi-tools=1.5.1",
+        "scvelo=0.3.4",
+        "cellrank=2.3.3",
+        "cell2location=0.1.5"
+    )
+)
+
 sclet_scenic_env <- basilisk::BasiliskEnvironment(
     envname = "sclet_scenic_env",
     pkgname = "sclet",
@@ -137,7 +167,8 @@ sclet_cellphonedb_env <- basilisk::BasiliskEnvironment(
         sclet_regvelo_env = sclet_regvelo_env,
         sclet_cell2location_env = sclet_cell2location_env,
         sclet_celloracle_env = sclet_celloracle_env,
-        sclet_cellphonedb_env = sclet_cellphonedb_env
+        sclet_cellphonedb_env = sclet_cellphonedb_env,
+        sclet_gpu_env = sclet_gpu_env
     )
     if (!name %in% names(envs)) {
         cli::cli_abort(
@@ -206,6 +237,126 @@ sclet_env_root <- function() {
 # version.
 sclet_env_use_system_dir <- function() {
     identical(Sys.getenv("BASILISK_USE_SYSTEM_DIR", NA), "1")
+}
+
+# Which device a Python-backed method should use.
+#
+# Three sources, most specific first: the call's own `device`, the session
+# option, the environment variable. "auto" resolves to "cuda" only when the GPU
+# environment exists AND reports a device -- never on the strength of a driver
+# being installed, because a driver without the environment's CUDA wheels fails
+# at `import torch`, not at the check.
+sclet_ai_device <- function(device = NULL) {
+    if (is.null(device) || !length(device) || is.na(device)) {
+        device <- getOption("sclet.python.device",
+            Sys.getenv("SCLET_PYTHON_DEVICE", "cpu"))
+    }
+    # An empty environment variable means "unset" in shell convention, and must
+    # not reach the check as a value of its own.
+    if (is.null(device) || !length(device) || is.na(device) || !nzchar(device)) {
+        device <- "cpu"
+    }
+    device <- tolower(as.character(device)[[1L]])
+    if (!device %in% c("auto", "cpu", "cuda")) {
+        sclet_ai_error(
+            "sclet_ai_invalid_device",
+            paste0("`device` must be one of \"auto\", \"cpu\" or \"cuda\"; got \"", device, "\".")
+        )
+    }
+    if (identical(device, "auto")) {
+        return(if (sclet_gpu_available()) "cuda" else "cpu")
+    }
+    device
+}
+
+#' Whether the GPU environment can actually see a device
+#'
+#' Cheap and offline: it reads the environment directory, and only runs the
+#' interpreter when that directory exists. Building nothing.
+#'
+#' @return Logical. `TRUE` only when `sclet_gpu_env` exists and its torch
+#'   reports at least one CUDA device.
+#' @noRd
+sclet_gpu_available <- function() {
+    path <- sclet_env_path("sclet_gpu_env")
+    if (!dir.exists(path)) {
+        return(FALSE)
+    }
+    python <- sclet_env_python(path)
+    if (!file.exists(python)) {
+        return(FALSE)
+    }
+    script <- tempfile(fileext = ".py")
+    on.exit(unlink(script), add = TRUE)
+    writeLines(c(
+        "import sys",
+        "try:",
+        "    import torch",
+        "    sys.exit(0 if torch.cuda.is_available() and torch.cuda.device_count() else 1)",
+        "except Exception:",
+        "    sys.exit(1)"
+    ), script)
+    status <- system2(python, shQuote(script), stdout = NULL, stderr = NULL,
+        env = c("LD_LIBRARY_PATH=", "PYTHONHOME=", "PYTHONPATH="))
+    identical(as.integer(status), 0L)
+}
+
+#' Report what the GPU environment can see
+#'
+#' Answers "is my card visible to the environment sclet would use?" before a
+#' multi-hour run is started, which is the question a failed `import torch`
+#' answers too late.
+#'
+#' @return A list with `env_exists`, `python`, `torch`, `cuda`, `device_count`,
+#'   `device_names` and `available` (the same predicate as
+#'   [sclet_gpu_available()]).
+#' @seealso [sclet_env_path()]
+#' @export
+#' @examples
+#' \dontrun{
+#' sclet_gpu_status()
+#' }
+sclet_gpu_status <- function() {
+    path <- sclet_env_path("sclet_gpu_env")
+    out <- list(
+        env_exists = dir.exists(path),
+        python = if (dir.exists(path)) sclet_env_python(path) else NA_character_,
+        torch = NA_character_,
+        cuda = FALSE,
+        device_count = 0L,
+        device_names = character(),
+        available = FALSE
+    )
+    if (!out$env_exists) {
+        return(out)
+    }
+    script <- tempfile(fileext = ".py")
+    on.exit(unlink(script), add = TRUE)
+    writeLines(c(
+        "import json",
+        "info = {'torch': None, 'cuda': False, 'count': 0, 'names': []}",
+        "try:",
+        "    import torch",
+        "    info['torch'] = torch.__version__",
+        "    info['cuda'] = bool(torch.cuda.is_available())",
+        "    info['count'] = int(torch.cuda.device_count())",
+        "    info['names'] = [torch.cuda.get_device_name(i) for i in range(info['count'])]",
+        "except Exception:",
+        "    pass",
+        "print(json.dumps(info))"
+    ), script)
+    captured <- system2(out$python, shQuote(script), stdout = TRUE, stderr = NULL,
+        env = c("LD_LIBRARY_PATH=", "PYTHONHOME=", "PYTHONPATH="))
+    parsed <- tryCatch(jsonlite::fromJSON(paste(captured, collapse = "\n")),
+        error = function(e) NULL)
+    if (!is.null(parsed)) {
+        out$torch <- parsed$torch %||% NA_character_
+        out$cuda <- isTRUE(parsed$cuda)
+        out$device_count <- as.integer(parsed$count %||% 0L)
+        out$device_names <- as.character(parsed$names %||% character())
+    }
+    out$available <- isTRUE(out$cuda) && out$device_count > 0L
+    out
 }
 
 #' Path to one of sclet's Python environments

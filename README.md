@@ -181,6 +181,25 @@ The recorded state is what makes an analysis plan verifiable, and
 The layer is inert unless used: no model is called during normal
 analysis, and `aisdk` is a `Suggests` dependency, not a `Depends`.
 
+To use it, install the optional package once and set a provider key:
+
+``` r
+install.packages("aisdk")
+# then in ~/.Renviron (restart R afterwards):
+#   OPENAI_API_KEY=...
+```
+
+Then describe what you want in one call:
+
+``` r
+scletAI(sce, "cluster the cells and find markers")
+```
+
+`scletAI()` prints the proposed plan and asks for approval in an interactive
+session. The same engine is available with its switches exposed as
+`RunAIAnalysis()`, as a read-only conversation with `AskAI()`, and a finished
+round can be read back as a graph with `AnalysisGraph()`.
+
 ## Documentation
 
 The [online book](https://yulab-smu.top/sclet) covers these mainlines as
