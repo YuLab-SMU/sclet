@@ -593,7 +593,12 @@ sclet_ai_action_param_type_problems <- function(params, schema) {
 #'   `"read"`, `"preprocess"`, `"dimred"`, `"graph"`, `"cluster"`,
 #'   `"integration"`, `"annotation"`, `"rare_cell"`, `"trajectory"`,
 #'   `"velocity"`, `"fate"`, `"spatial"`, `"multimodal"`, `"enrichment"`,
-#'   `"malignant"`, `"communication"`, `"milo"`, and `"all"`. Defaults to `"read"`.
+#'   `"malignant"`, `"communication"`, `"milo"`, `"geneset"`, `"metacell"`,
+#'   `"priority"`, `"phenotype"`, `"regulon"`, `"perturbation"`, and `"all"`.
+#'   Defaults to `"read"`. The last six cover mainlines whose inputs include
+#'   user-owned material (gene sets, external matrices, database paths); five of
+#'   their actions are therefore marked `planner_visible = FALSE`, and the
+#'   driver path is how they are used.
 #' @return A `sclet_ai_execution_registry` containing the requested actions.
 #' @examples
 #' sce <- scuttle::mockSCE(ncells = 20, ngenes = 50)
@@ -605,7 +610,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
         stop("`object` must be a SingleCellExperiment.")
     }
     include <- unique(as.character(include))
-    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "malignant", "rare_cell", "trajectory", "velocity", "fate", "spatial", "multimodal", "enrichment", "communication", "milo", "all")
+    allowed_groups <- c("read", "preprocess", "dimred", "graph", "cluster", "integration", "annotation", "malignant", "rare_cell", "trajectory", "velocity", "fate", "spatial", "multimodal", "enrichment", "communication", "milo", "geneset", "metacell", "priority", "phenotype", "regulon", "perturbation", "all")
     if (!length(include) || any(!include %in% allowed_groups)) {
         stop("`include` must contain only: ", paste(allowed_groups, collapse = ", "))
     }
@@ -628,6 +633,7 @@ AIDefaultExecutionRegistry <- function(object, include = "read") {
     actions <- c(actions, sclet_ai_registry_spatial_multimodal(object, include))
     actions <- c(actions, sclet_ai_registry_malignant(object, include))
     actions <- c(actions, sclet_ai_registry_enrichment_communication_milo(object, include))
+    actions <- c(actions, sclet_ai_registry_mainlines(object, include))
     AIExecutionRegistry(actions)
 }
 
@@ -648,7 +654,8 @@ sclet_ai_action_groups <- function(object, action) {
     groups <- c(
         "read", "preprocess", "dimred", "graph", "cluster", "integration",
         "annotation", "rare_cell", "trajectory", "velocity", "fate", "spatial",
-        "multimodal", "enrichment", "malignant", "communication", "milo"
+        "multimodal", "enrichment", "malignant", "communication", "milo",
+        "geneset", "metacell", "priority", "phenotype", "regulon", "perturbation"
     )
     hit <- character()
     for (g in groups) {

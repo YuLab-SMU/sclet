@@ -13,7 +13,12 @@ AIDefaultExecutionRegistry(object, include = "read")
 \code{"read"}, \code{"preprocess"}, \code{"dimred"}, \code{"graph"}, \code{"cluster"},
 \code{"integration"}, \code{"annotation"}, \code{"rare_cell"}, \code{"trajectory"},
 \code{"velocity"}, \code{"fate"}, \code{"spatial"}, \code{"multimodal"}, \code{"enrichment"},
-\code{"malignant"}, \code{"communication"}, \code{"milo"}, and \code{"all"}. Defaults to \code{"read"}.}
+\code{"malignant"}, \code{"communication"}, \code{"milo"}, \code{"geneset"}, \code{"metacell"},
+\code{"priority"}, \code{"phenotype"}, \code{"regulon"}, \code{"perturbation"}, and \code{"all"}.
+Defaults to \code{"read"}. The last six cover mainlines whose inputs include
+user-owned material (gene sets, external matrices, database paths); five of
+their actions are therefore marked \code{planner_visible = FALSE}, and the
+driver path is how they are used.}
 }
 \value{
 A \code{sclet_ai_execution_registry} containing the requested actions.

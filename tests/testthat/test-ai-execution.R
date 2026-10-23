@@ -533,12 +533,18 @@ test_that("the full registry exposes no spatial, multimodal or regvelo computati
 
     paused_domains <- grepl("spatial|multimodal|regvelo", names(registry), ignore.case = TRUE)
     mutation_actions <- names(registry)[paused_domains & grepl("^run_", names(registry))]
-    expect_equal(mutation_actions, character(0))
+    # These domains were paused while their actions were unreviewed. Two have
+    # since been reviewed and ship as driver-only mutation actions; anything else
+    # appearing here is a regression of that rule.
+    expect_setequal(
+        mutation_actions,
+        c("run_spatial_deconvolution", "run_regvelo")
+    )
 
     ## The read-only catalog actions for those domains are expected, and none
     ## of them may mutate the object -- that is what makes them safe to ship
     ## ahead of the computation actions.
-    catalog <- names(registry)[paused_domains]
+    catalog <- setdiff(names(registry)[paused_domains], mutation_actions)
     expect_true(length(catalog) > 0L)
     expect_false(any(vapply(registry[catalog], function(action) {
         isTRUE(action$mutates_object) || isTRUE(action$requires_confirmation)
@@ -1112,4 +1118,49 @@ test_that("an unresolvable citation in the plan narrative does not abort the ana
     expect_true(grepl("sclet-ai-deadbeef", recorded$summary$dropped_evidence_refs,
         fixed = TRUE))
     expect_equal(recorded$summary$n_findings_with_refs, 0L)
+})
+
+test_that("the recorded round keeps the plan's topology", {
+    # The failure this pins: the plan is a DAG, but the record used to be a
+    # flat array (`depends_on` appeared nowhere in R/ai-execution.R), so a
+    # finished round could not answer "which step consumed which earlier
+    # step's output". `AnalysisGraph()` reads these fields; if a refactor
+    # drops them the graph silently degrades to an unconnected trace.
+    sce <- SingleCellExperiment::SingleCellExperiment(
+        list(counts = matrix(stats::rpois(40, 5), nrow = 10L, ncol = 4L))
+    )
+    write_record <- function(name, id) {
+        AIAction(
+            name = name,
+            handler = function(object, params) {
+                sclet:::sclet_set_analysis_state(object, type = "preprocess",
+                    id = id, method = "trace_pin", summary = list(n = 1))
+            },
+            returns = "sce",
+            allowed_state_types = "preprocess"
+        )
+    }
+    registry <- AIExecutionRegistry(list(
+        step_a = write_record("step_a", "pin_a"),
+        step_b = write_record("step_b", "pin_b")
+    ))
+    plan <- sclet:::new_sclet_ai_plan(
+        task = "topology_pin",
+        actions = list(
+            list(id = "s1", action = "step_a"),
+            list(id = "s2", action = "step_b", depends_on = "s1")
+        ),
+        context_fingerprint = GetAnalysisLedger(sce)$fingerprint
+    )
+    validation <- ValidateAIPlan(plan, object = sce, registry = registry)
+    executed <- ExecuteAIPlan(sce, plan, registry, validation = validation,
+        dry_run = FALSE, confirmation = validation$confirmation_token)
+
+    record <- sclet:::sclet_get_analysis(executed$object, executed$execution_id)
+    steps <- record$params$steps
+    expect_equal(length(steps), 2L)
+    expect_identical(steps[[1L]]$depends_on, character())
+    expect_identical(steps[[2L]]$depends_on, "s1")
+    expect_identical(steps[[2L]]$record_ids, "preprocess::pin_b")
+    expect_true(all(vapply(steps, function(s) is.numeric(s$attempts), logical(1L))))
 })

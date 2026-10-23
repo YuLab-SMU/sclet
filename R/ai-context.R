@@ -815,6 +815,17 @@ sclet_ai_describe_registry <- function(registry) {
     if (is.null(registry) || !length(registry)) {
         return(list())
     }
+    # Actions marked `planner_visible = FALSE` need an input a model cannot
+    # supply (a file path the privacy layer would redact anyway, an external
+    # matrix, or the user's own gene set). They stay validatable and executable
+    # for the driver path; offering them here would only produce plans whose
+    # required parameters cannot be filled.
+    registry <- Filter(function(descriptor) {
+        !identical(descriptor$planner_visible, FALSE)
+    }, registry)
+    if (!length(registry)) {
+        return(list())
+    }
     actions <- lapply(registry, function(descriptor) {
         # `output_schema` is exposed because a planning model needs to know the
         # concrete names a step will *produce* -- e.g. that run_pca registers a

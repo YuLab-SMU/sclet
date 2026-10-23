@@ -16,7 +16,9 @@ AIAction(
   mutates_object = NULL,
   allowed_state_types = character(),
   estimated_cost = "low",
-  idempotent = FALSE
+  idempotent = FALSE,
+  planner_visible = TRUE,
+  replaces_object = FALSE
 )
 }
 \arguments{
@@ -47,6 +49,14 @@ primitive types.}
 \item{estimated_cost}{Optional cost label such as \code{"low"}, \code{"medium"}, or \code{"high"}.}
 
 \item{idempotent}{Logical. Whether repeating the action is expected to be safe.}
+
+\item{planner_visible}{Logical. When \code{FALSE} the action is kept out of the
+planner catalog (\code{available_actions}) while remaining validatable and
+executable. Use it for actions whose required input a model cannot supply.}
+
+\item{replaces_object}{Logical. When \code{TRUE} the handler returns a DIFFERENT
+object (for example, a metacell object) and the previous state records are
+not preserved. Such an action must be the only step of its plan.}
 }
 \value{
 An action descriptor.

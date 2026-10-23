@@ -19,13 +19,28 @@ sclet_ai_test_aa_context <- function(sce = sclet_ai_test_aa_object()) {
     sclet_ai_context(sce, target = "planning", detail = "full", registry = registry)
 }
 
-test_that("available_actions lists every registered action with its schemas", {
+test_that("available_actions lists every planner-visible action with its schemas", {
+    # The catalog is the PLANNER's view, not the registry: actions marked
+    # `planner_visible = FALSE` need an input a model cannot supply (a gene set,
+    # an external matrix, a database path) and are deliberately absent here
+    # while remaining validatable and executable for the driver path.
     ctx <- sclet_ai_test_aa_context()
-    expect_true(is.list(ctx$available_actions))
-    expect_setequal(
-        names(ctx$available_actions),
-        names(AIDefaultExecutionRegistry(sclet_ai_test_aa_object(), include = "all"))
+    registry <- AIDefaultExecutionRegistry(sclet_ai_test_aa_object(), include = "all")
+    # The expected exclusion list is written out, not derived from the same
+    # `planner_visible` predicate the code under test uses: a predicate that
+    # hid everything, or nothing, would otherwise agree with itself.
+    hidden <- c(
+        "run_geneset_scoring", "run_supercell", "run_phenotype_association",
+        "run_scenic", "run_in_silico_perturbation",
+        "map_reference_knn", "map_reference_symphony", "run_regvelo",
+        "run_spatial_deconvolution"
     )
+    expect_true("run_perturbation_priority" %in% names(ctx$available_actions))
+    # `run_imputation` and `classify_malignant_epithelium` arrive with the
+    # record-only mainlines milestone; this test pins the catalog at the state
+    # the previous milestone left it in.
+    expect_true(is.list(ctx$available_actions))
+    expect_setequal(names(ctx$available_actions), setdiff(names(registry), hidden))
     for (entry in ctx$available_actions) {
         expect_true(all(c("name", "description", "input_schema", "output_schema") %in% names(entry)))
     }

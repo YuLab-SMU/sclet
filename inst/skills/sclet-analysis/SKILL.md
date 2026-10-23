@@ -191,9 +191,34 @@ it never guesses:
   roles are never guessed from column names that happen to look right: a
   column named `sample` is not necessarily the sampling unit.
 - `run_trajectory` requires `start_cluster` to be named explicitly.
+- `run_perturbation_priority` requires `condition_col` naming an existing
+  colData column with the two conditions. The contrast is the user's design;
+  never infer it from a column name that looks plausible.
+- `run_geneset_scoring` requires `gene_sets` (a named list). The set is the
+  user's hypothesis, not a default: do not invent one, do not recommend one.
+- `run_supercell` replaces the object with the metacell object, so it is never
+  a mid-plan step.
+- `classify_malignant_epithelium` requires `seed_tumor` and `seed_normal`: the
+  two marker-gene vectors ARE the call. Do not invent a signature; ask for it.
 
 If the goal names none of these, say what is missing in the rationale. A
 plan that asks is conservative; a plan that guesses is not.
+
+## Actions that are not in your catalog
+
+Nine mainline actions are registered but deliberately absent from
+`available_actions`: `run_geneset_scoring`, `run_supercell`,
+`run_phenotype_association`, `run_scenic`, `run_in_silico_perturbation`,
+`map_reference_knn`, `map_reference_symphony`, `run_regvelo` and
+`run_spatial_deconvolution`. Each needs an input only the user can supply -- a
+gene set, an external bulk/phenotype matrix, three pySCENIC database files, a
+base GRN plus a target gene, a second reference object, a GRN prior, or a
+scRNA-seq reference with cell types. Do **not** propose them, and do not
+describe them as unavailable capabilities: name the input the user must provide
+and plan the steps around it, or omit the stage. `run_perturbation_priority`,
+`run_imputation` and `classify_malignant_epithelium` are the exceptions and are
+in your catalog: their external inputs are a colData column name and two
+gene vectors you can carry from the goal.
 
 ## When the object cannot answer the question
 

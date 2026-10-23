@@ -766,6 +766,27 @@ ValidateAIPlan <- function(
         }
     }
     normalized <- sclet_ai_normalize_plan_actions(actions)
+    # An action that returns a DIFFERENT object (a metacell object, say) takes
+    # the ledger with it: every earlier step's record is gone from the object the
+    # round is recorded on. Allowing one inside a multi-step plan would report
+    # "completed" while silently discarding the earlier steps, so it is only
+    # valid as a plan of its own.
+    replacement_steps <- Filter(function(step) {
+        descriptor <- registry[[as.character(step$action %||% "")]]
+        !is.null(descriptor) && isTRUE(descriptor$replaces_object)
+    }, normalized)
+    if (length(replacement_steps) && length(normalized) > 1L) {
+        errors <- c(errors, paste0(
+            "object_replacement_not_standalone: ",
+            paste(vapply(replacement_steps, function(step) {
+                as.character(step$id %||% "")
+            }, character(1L)), collapse = ", "),
+            " replaces the SingleCellExperiment with a different object and does not",
+            " carry the ledger over, so it cannot share a plan with other steps.",
+            " fix: run it as the only action of its own plan (or on a copy), and",
+            " keep the analyses that produce this object in the earlier plan"
+        ))
+    }
     ids <- vapply(normalized, function(x) x$id %||% "", character(1))
     if (any(!nzchar(ids))) {
         errors <- c(errors, "every plan action must have a non-empty id")
@@ -1664,7 +1685,19 @@ sclet_ai_goal_action_map <- function() {
         # expensive, reference-dependent half; a goal about copy number alone
         # should not be forced through the call, and a call without it is refused.
         run_cnv_inference = "copy[ -]?number|CNV|inferCNV|genomic instability",
-        call_malignant_cells = "malignant|malignancy|tumou?r cells?"
+        call_malignant_cells = "malignant|malignancy|tumou?r cells?",
+        # Only PLANNER-VISIBLE actions belong here. This map feeds the repair
+        # message ("the goal named X, the plan does not do it"), so an entry for
+        # an action the planner cannot see would demand a step it cannot
+        # propose and spend a billed repair round on it (measured 2026-10-23:
+        # "gene set enrichment" demanded the driver-only run_geneset_scoring).
+        # The five driver-only mainlines are described in the skill instead.
+        run_perturbation_priority = "perturbation priorit|augur|prioriti[sz]e cell types?",
+        # Imputation is planner-visible and has no other pattern competing for
+        # its goal. The malignant classifier gets NO entry: `call_malignant_cells`
+        # already matches "malignant", and a second requirement would make the
+        # coverage judge demand both actions for one goal.
+        run_imputation = "imput|ALRA"
     )
 }
 
