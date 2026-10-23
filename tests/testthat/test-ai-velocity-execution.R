@@ -142,6 +142,16 @@ test_that("run_velocity with mode stochastic executes end-to-end with evidence",
     result <- suppressWarnings(RunAIAnalysis(sce, goal = "Estimate RNA velocity.",
         confirm = "yes", registry = registry))
 
+    # Report WHY the step failed rather than only that a status differed: on
+    # the macOS runner this test failed with status "failed" and nothing in the
+    # log said which backend refused, so the assertion alone was unactionable.
+    if (!identical(result$execution$status, "completed")) {
+        message("velocity stochastic execution status: ",
+                result$execution$status)
+        str(result$execution[setdiff(names(result$execution),
+            c("plan", "object"))], max.level = 3)
+    }
+
     expect_equal(result$status, "completed")
     expect_equal(result$execution$status, "completed")
 

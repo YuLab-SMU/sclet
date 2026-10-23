@@ -193,6 +193,13 @@ test_that("burden centres on each cell's own median, not on the raw level", {
     # Reference-centred inferCNV output hovers around 1 for EVERY cell; abs()
     # of it measures the baseline. A cell with a wide amplified/deleted profile
     # must outscore a flat one even when both sit at the same level.
+    skip_if_not_installed("infercnv")
+    # `new("infercnv", ...)` needs the S4 class registered, and loading the
+    # namespace is what does that. It had been implicit: under the order the
+    # suite happened to run in on Linux the class was already defined, so this
+    # only broke on the macOS runner with
+    #   "infercnv" is not a defined class
+    loadNamespace("infercnv")
     set.seed(4)
     genes <- sprintf("G%03d", seq_len(500))
     cells <- sprintf("c%02d", seq_len(4))
