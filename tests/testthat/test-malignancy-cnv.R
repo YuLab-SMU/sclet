@@ -303,6 +303,14 @@ test_that("readiness refuses a gene order that covers one chromosome", {
     ord <- data.frame(gene = genes, chr = "chr1",
                       start = seq_along(genes), end = seq_along(genes) + 1L)
     r <- check_cnv_readiness(sce, reference_col = "reference", gene_order = ord)
+    # A platform-dependent disagreement here is not obvious from a bare
+    # boolean, so state what the gate actually saw when it disagrees.
+    if (!any(grepl("chromosome", r$issues))) {
+        message("one-chromosome gate: ready=", r$ready,
+                " n_chromosomes=", format(r$n_chromosomes),
+                " n_genes_with_position=", format(r$n_genes_with_position),
+                "\nissues: ", paste(r$issues, collapse = " | "))
+    }
     expect_false(isTRUE(r$ready))
     expect_true(any(grepl("chromosome", r$issues)))
 })
@@ -314,6 +322,12 @@ test_that("a genome-wide gene order still passes the gate", {
     ord <- data.frame(gene = genes, chr = chr,
                       start = seq_along(genes), end = seq_along(genes) + 1L)
     r <- check_cnv_readiness(sce, reference_col = "reference", gene_order = ord)
+    if (!isTRUE(r$ready)) {
+        message("genome-wide gate: ready=", r$ready,
+                " n_chromosomes=", format(r$n_chromosomes),
+                " n_genes_with_position=", format(r$n_genes_with_position),
+                "\nissues: ", paste(r$issues, collapse = " | "))
+    }
     expect_true(isTRUE(r$ready))
     expect_equal(r$n_chromosomes, 20L)
 })
