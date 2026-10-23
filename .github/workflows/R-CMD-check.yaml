@@ -183,4 +183,6 @@ jobs:
         with:
           upload-snapshots: true
           error-on: '"error"'
-          checkargs: 'c("--no-manual", "--as-cran")'
+          # `args` already defaults to c("--no-manual", "--as-cran"). The old
+          # `checkargs` key is not an input this action accepts ("Unexpected
+          # input(s) 'checkargs'"), so it never had any effect.

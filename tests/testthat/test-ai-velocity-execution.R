@@ -159,8 +159,11 @@ test_that("run_velocity with mode stochastic executes end-to-end with evidence",
     # and the wrapper reports the backend's message verbatim. Skip on that one
     # signature so a real orchestration regression still fails, and keep the
     # strict assertions for every other backend error.
-    backend_error <- result$execution$error
-    if (is.null(backend_error)) backend_error <- ""
+    # The per-step errors live on the step results, not on the execution record
+    # itself, so collect them from there.
+    backend_error <- paste(vapply(result$execution$results,
+        function(step) if (is.null(step$error)) "" else step$error,
+        character(1)), collapse = "\n")
     if (grepl("setting an array element with a sequence", backend_error,
               fixed = TRUE)) {
         skip(paste("scvelo/numpy incompatibility in the velociraptor env:",
