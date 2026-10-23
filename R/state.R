@@ -1,6 +1,6 @@
 sclet_state_template <- function() {
     list(
-        schema_version = "0.1.2",
+        schema_version = "0.1.3",
         active = list(),
         layers = list(),
         states = list(

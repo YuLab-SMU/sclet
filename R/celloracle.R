@@ -154,7 +154,11 @@ RunInSilicoPerturbation <- function(sce, target_gene, perturbation_value = 0.0, 
                 perturbation_value = perturbation_value
             ),
             summary = list(n_cells = ncol(sce)),
-            shift_reduction = shift_reduction
+            shift_reduction = shift_reduction,
+            # Every state record needs a stamp: the AI trace diff detects a
+            # same-id rewrite by `created_at`, and a record without one made a
+            # re-run invisible to the graph (measured 2026-10-23).
+            created_at = Sys.time()
         )
     )
     sce <- sclet_log_command(

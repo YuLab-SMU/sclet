@@ -16,6 +16,12 @@
 #' @param allowed_state_types Optional state types the handler may write.
 #' @param estimated_cost Optional cost label such as `"low"`, `"medium"`, or `"high"`.
 #' @param idempotent Logical. Whether repeating the action is expected to be safe.
+#' @param planner_visible Logical. When `FALSE` the action is kept out of the
+#'   planner catalog (`available_actions`) while remaining validatable and
+#'   executable. Use it for actions whose required input a model cannot supply.
+#' @param replaces_object Logical. When `TRUE` the handler returns a DIFFERENT
+#'   object (for example, a metacell object) and the previous state records are
+#'   not preserved. Such an action must be the only step of its plan.
 #' @return An action descriptor.
 #' @examples
 #' # Register a custom action and put it in a registry.
@@ -40,7 +46,9 @@ AIAction <- function(
     mutates_object = NULL,
     allowed_state_types = character(),
     estimated_cost = "low",
-    idempotent = FALSE
+    idempotent = FALSE,
+    planner_visible = TRUE,
+    replaces_object = FALSE
 ) {
     returns <- match.arg(returns)
     estimated_cost <- match.arg(estimated_cost, c("low", "medium", "high"))
@@ -71,6 +79,12 @@ AIAction <- function(
     if (!is.logical(idempotent) || length(idempotent) != 1L || is.na(idempotent)) {
         stop("`idempotent` must be a single non-missing logical value.")
     }
+    if (!is.logical(planner_visible) || length(planner_visible) != 1L || is.na(planner_visible)) {
+        stop("`planner_visible` must be a single non-missing logical value.")
+    }
+    if (!is.logical(replaces_object) || length(replaces_object) != 1L || is.na(replaces_object)) {
+        stop("`replaces_object` must be a single non-missing logical value.")
+    }
     allowed_state_types <- as.character(allowed_state_types)
     descriptor <- list(
         name = name,
@@ -84,7 +98,14 @@ AIAction <- function(
         mutates_object = isTRUE(mutates_object),
         allowed_state_types = allowed_state_types,
         estimated_cost = estimated_cost,
-        idempotent = isTRUE(idempotent)
+        idempotent = isTRUE(idempotent),
+        replaces_object = isTRUE(replaces_object),
+        # FALSE keeps an action out of the PLANNER catalog only. It stays
+        # validatable and executable: the driver path (a person or an external
+        # agent writing the plan) is a supported route, and an action whose
+        # required input is a file path, a matrix or a user's gene set cannot be
+        # proposed by a model that has no way to supply it.
+        planner_visible = isTRUE(planner_visible)
     )
     class(descriptor) <- c("sclet_ai_action", "list")
     descriptor
@@ -1212,6 +1233,131 @@ sclet_ai_bounded_step_params <- function(params) {
     bounded
 }
 
+# The plan's declared upstream steps for one step id.
+#
+# The plan is a DAG (`depends_on`), and resolving `${step_6.output.reduction}`
+# uses those edges in memory. Until this function existed, nothing wrote them to
+# the record, so a finished round could be read back only as a flat array:
+# `grep -c depends_on R/ai-execution.R` was 0, and the trace could not answer
+# "which step consumed which earlier step's output" at all. The plan is not
+# stored separately, so the record is the only place this can survive.
+sclet_ai_plan_depends_on <- function(plan, step_id) {
+    actions <- plan$actions %||% list()
+    if (!length(actions)) {
+        return(character())
+    }
+    step_id <- as.character(step_id)
+    for (action in actions) {
+        if (identical(as.character(action$id %||% ""), step_id)) {
+            return(as.character(action$depends_on %||% character()))
+        }
+    }
+    character()
+}
+
+# A record's created_at as seconds. Numeric, not formatted: `as.character()` on
+# a POSIXct drops the fractional part, so two writes inside the same second
+# would look unchanged and a re-run would not be seen as refreshed.
+sclet_ai_record_stamp <- function(value) {
+    if (is.null(value) || !length(value)) {
+        return(NA_real_)
+    }
+    if (inherits(value, "POSIXt")) {
+        return(as.numeric(value)[[1L]])
+    }
+    if (is.numeric(value)) {
+        return(as.numeric(value)[[1L]])
+    }
+    if (!is.atomic(value)) {
+        return(NA_real_)
+    }
+    text <- as.character(value)[[1L]]
+    if (is.na(text) || !nzchar(text)) {
+        return(NA_real_)
+    }
+    # Same guarded formats the ledger's own timeline parser uses
+    # (R/ai-context.R:464): a record is allowed to carry a character stamp, and
+    # an unparseable one must degrade to "unknown", never abort the round.
+    # `as.POSIXct(tryFormats =)` still reaches the default parser for a string
+    # none of the formats match, and that parser raises rather than returning
+    # NA (measured on R 4.6.1). The tryCatch is the contract, not a belt.
+    parsed <- tryCatch(
+        suppressWarnings(as.POSIXct(text, tryFormats = c(
+            "%Y-%m-%d %H:%M:%OS", "%Y-%m-%d %H:%M:%S",
+            "%Y/%m/%d %H:%M:%OS", "%Y/%m/%d %H:%M:%S",
+            "%Y-%m-%dT%H:%M:%OS", "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%d"
+        ))),
+        error = function(e) NA
+    )
+    if (!inherits(parsed, "POSIXt") || is.na(parsed)) NA_real_ else as.numeric(parsed)
+}
+
+# Every record on the object, keyed by `type::id` (`analysis::id` for the
+# untyped store), with its `created_at` as the value.
+#
+# `created_at` is what makes "refreshed" detectable: both record stores overwrite
+# by id (R/state.R), so a re-run of the same id is otherwise indistinguishable
+# from a step that wrote nothing. Comparing value identity is not an option (the
+# record is a list; serialising every record per step would cost more than the
+# ledger walk), and intersecting ids is wrong -- every pre-existing record
+# intersects, which reports the whole ledger as refreshed on every step.
+sclet_ai_record_stamps <- function(object) {
+    if (!inherits(object, "SingleCellExperiment")) {
+        return(numeric())
+    }
+    state <- tryCatch(sclet_get_state(object), error = function(e) NULL)
+    if (is.null(state)) {
+        return(numeric())
+    }
+    stamps <- numeric()
+    records <- state$states$records
+    if (is.list(records) && length(records)) {
+        for (type in names(records)) {
+            type_records <- records[[type]]
+            if (!is.list(type_records) || !length(type_records)) {
+                next
+            }
+            ids <- names(type_records)
+            if (is.null(ids)) {
+                next
+            }
+            for (id in ids[nzchar(ids)]) {
+                record <- type_records[[id]]
+                stamp <- if (is.list(record)) record$created_at else NULL
+                stamps[[paste0(type, "::", id)]] <- sclet_ai_record_stamp(stamp)
+            }
+        }
+    }
+    analyses <- state$analyses
+    if (is.list(analyses) && length(analyses)) {
+        ids <- names(analyses)
+        if (!is.null(ids)) {
+            for (id in ids[nzchar(ids)]) {
+                record <- analyses[[id]]
+                stamp <- if (is.list(record)) record$created_at else NULL
+                stamps[[paste0("analysis::", id)]] <- sclet_ai_record_stamp(stamp)
+            }
+        }
+    }
+    stamps
+}
+
+# What a step added to, and re-wrote in, the record store.
+sclet_ai_record_delta <- function(before, after) {
+    if (!length(after)) {
+        return(list(produced = character(), refreshed = character()))
+    }
+    produced <- setdiff(names(after), names(before))
+    shared <- intersect(names(after), names(before))
+    refreshed <- shared[vapply(shared, function(id) {
+        old <- before[[id]]
+        new <- after[[id]]
+        !is.na(old) && !is.na(new) && old != new
+    }, logical(1L))]
+    list(produced = sort(produced), refreshed = sort(refreshed))
+}
+
 sclet_ai_record_execution <- function(object, plan, results, status, dry_run) {
     execution_id <- sclet_ai_execution_id(plan$plan_id)
     # Per-step parameters and timing, not just counts. `results` carries the
@@ -1219,13 +1365,27 @@ sclet_ai_record_execution <- function(object, plan, results, status, dry_run) {
     # execution loop and used to be discarded, so the ledger could say a step
     # completed but not what it was told to do (2026-10-19: neither
     # `nfeatures` nor `logfc.threshold` was recoverable from any record).
+    #
+    # `depends_on` / `record_ids` / `refreshed_ids` make the trace a graph
+    # instead of an array: the plan's edges survive, and every record a step
+    # wrote is attributable to that step. `attempts` was already computed in the
+    # loop and stored only in `artifacts$results`, which the default ledger does
+    # not even read (see the version note in NEWS).
     steps <- lapply(results, function(r) {
         list(
             id = r$id,
             action = r$action,
             status = r$status,
+            attempts = as.integer(r$attempts %||% 0L),
             duration_sec = r$duration_sec %||% NA_real_,
-            params = r$params %||% list()
+            params = r$params %||% list(),
+            depends_on = sclet_ai_plan_depends_on(plan, r$id),
+            record_ids = as.character(r$record_ids %||% character()),
+            refreshed_ids = as.character(r$refreshed_ids %||% character()),
+            # Whether this step returned a DIFFERENT object. The trace graph
+            # cannot otherwise tell that earlier rounds' records are gone rather
+            # than never recorded.
+            replaces_object = isTRUE(r$replaces_object)
         )
     })
     record <- list(
@@ -1641,6 +1801,11 @@ ExecuteAIPlan <- function(
     for (step in plan$actions) {
         descriptor <- registry[[step$action]]
         before <- current
+        # The stamps taken here are the "before" side of the record diff. They
+        # are compared at the point the step's value is COMMITTED, not at the
+        # `do.call()`: a value the output/state contract gate discards must not
+        # produce edges (see the commit site below).
+        before_stamps <- sclet_ai_record_stamps(current)
         started <- Sys.time()
         resolved_params <- tryCatch(
             sclet_ai_resolve_plan_value(step$params, outputs),
@@ -1706,6 +1871,10 @@ ExecuteAIPlan <- function(
             }
             break
         }
+        # A `returns = "value"` action cannot persist a record by contract (it
+        # does not hand back the object), so it contributes no record edges.
+        step_produced <- character()
+        step_refreshed <- character()
         if (identical(descriptor$returns, "sce")) {
             if (!inherits(value, "SingleCellExperiment")) {
                 status <- "failed"
@@ -1736,6 +1905,15 @@ ExecuteAIPlan <- function(
                 )
                 break
             }
+            # Record edges are captured here, at the commit point, from the
+            # value that survived the contract gate. Capturing around
+            # `do.call()` would attribute records from a value that was then
+            # discarded, and would call `sclet_get_state()` on the ten actions
+            # that return a plain value (an S4 error: `metadata()` has no method
+            # for a list).
+            delta <- sclet_ai_record_delta(before_stamps, sclet_ai_record_stamps(value))
+            step_produced <- delta$produced
+            step_refreshed <- delta$refreshed
             current <- value
         }
         output_summary <- sclet_ai_execution_summary(value, descriptor)
@@ -1747,7 +1925,10 @@ ExecuteAIPlan <- function(
             output = output_summary,
             attempts = attempts,
             duration_sec = elapsed,
-            params = step_params
+            params = step_params,
+            record_ids = step_produced,
+            refreshed_ids = step_refreshed,
+            replaces_object = isTRUE(descriptor$replaces_object)
         )
     }
     success_assessment <- sclet_ai_assess_success_criteria(

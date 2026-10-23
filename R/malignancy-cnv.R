@@ -683,7 +683,11 @@ sclet_cnv_record_unavailable <- function(object, name, readiness) {
             status = "unavailable",
             reason = readiness$issues,
             artifacts = list(columns = paste0(name, c("_burden", "_is_reference"))),
-            summary = list(status = "unavailable", n_issues = length(readiness$issues))
+            summary = list(status = "unavailable", n_issues = length(readiness$issues)),
+            # A stamp is not optional: the AI trace diff detects a same-id
+            # rewrite by `created_at`, so a record without one makes a re-run
+            # invisible to the graph (measured 2026-10-23).
+            created_at = Sys.time()
         )
     )
     warning(
