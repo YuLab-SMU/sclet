@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+<head>
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>31 Driving sclet from an External Agent | sclet: A Lightweight Toolkit for Single-Cell Data Analysis</title>
+  <meta name="description" content="31 Driving sclet from an External Agent | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
+  <meta name="generator" content="bookdown 0.48 and GitBook 2.6.7" />
+
+  <meta property="og:title" content="31 Driving sclet from an External Agent | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
+  <meta property="og:type" content="book" />
+  
+  
+  
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="31 Driving sclet from an External Agent | sclet: A Lightweight Toolkit for Single-Cell Data Analysis" />
+  
+  
+  
+
+
+
+<meta name="date" content="2026-10-23" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  
+  
+<link rel="prev" href="ai-foundations.html"/>
+<link rel="next" href="ai-in-package.html"/>
+<script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-table.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-clipboard.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+<link href="libs/anchor-sections-1.1.0/anchor-sections.css" rel="stylesheet" />
+<link href="libs/anchor-sections-1.1.0/anchor-sections-hash.css" rel="stylesheet" />
+<script src="libs/anchor-sections-1.1.0/anchor-sections.js"></script>
+
+
+<style type="text/css">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+<style type="text/css">
+  
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+</style>
+<style type="text/css">
+/* Used with Pandoc 2.11+ new --citeproc when CSL is used */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}
+</style>
+
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li class="chapter" data-level="" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i>Preface</a>
+<ul>
+<li class="chapter" data-level="0.1" data-path="index.html"><a href="index.html#mainline-map"><i class="fa fa-check"></i><b>0.1</b> Mainline Map</a></li>
+<li class="chapter" data-level="0.2" data-path="index.html"><a href="index.html#how-this-book-is-organized"><i class="fa fa-check"></i><b>0.2</b> How This Book Is Organized</a></li>
+<li class="chapter" data-level="0.3" data-path="index.html"><a href="index.html#reading-paths"><i class="fa fa-check"></i><b>0.3</b> Reading Paths</a></li>
+<li class="chapter" data-level="0.4" data-path="index.html"><a href="index.html#example-conventions"><i class="fa fa-check"></i><b>0.4</b> Example Conventions</a></li>
+</ul></li>
+<li class="part"><span><b>I How sclet Thinks: State, Provenance, and Navigation</b></span></li>
+<li class="chapter" data-level="1" data-path="state-aware.html"><a href="state-aware.html"><i class="fa fa-check"></i><b>1</b> State-Aware Analysis Contract</a>
+<ul>
+<li class="chapter" data-level="1.1" data-path="state-aware.html"><a href="state-aware.html#what-is-the-state-contract"><i class="fa fa-check"></i><b>1.1</b> What is the State Contract?</a></li>
+<li class="chapter" data-level="1.2" data-path="state-aware.html"><a href="state-aware.html#macro-view-status"><i class="fa fa-check"></i><b>1.2</b> Macro View: <code>Status()</code></a></li>
+<li class="chapter" data-level="1.3" data-path="state-aware.html"><a href="state-aware.html#digging-deeper-get_analysis_context"><i class="fa fa-check"></i><b>1.3</b> Digging Deeper: <code>get_analysis_context()</code></a></li>
+<li class="chapter" data-level="1.4" data-path="state-aware.html"><a href="state-aware.html#named-state-records-and-typed-accessors"><i class="fa fa-check"></i><b>1.4</b> Named State Records and Typed Accessors</a></li>
+<li class="chapter" data-level="1.5" data-path="state-aware.html"><a href="state-aware.html#memory-safety-and-sparse-data"><i class="fa fa-check"></i><b>1.5</b> Memory Safety and Sparse Data</a></li>
+<li class="chapter" data-level="1.6" data-path="state-aware.html"><a href="state-aware.html#manual-overrides-layers-and-default-apis"><i class="fa fa-check"></i><b>1.6</b> Manual Overrides: Layers and Default APIs</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="pipeline-logs.html"><a href="pipeline-logs.html"><i class="fa fa-check"></i><b>2</b> Automation &amp; Provenance Logs</a>
+<ul>
+<li class="chapter" data-level="2.1" data-path="pipeline-logs.html"><a href="pipeline-logs.html#the-one-liner-pipeline"><i class="fa fa-check"></i><b>2.1</b> The One-Liner Pipeline</a></li>
+<li class="chapter" data-level="2.2" data-path="pipeline-logs.html"><a href="pipeline-logs.html#the-provenance-log-commandlog"><i class="fa fa-check"></i><b>2.2</b> The Provenance Log (CommandLog)</a></li>
+<li class="chapter" data-level="2.3" data-path="pipeline-logs.html"><a href="pipeline-logs.html#writing-methods-for-you-pipelinesummary"><i class="fa fa-check"></i><b>2.3</b> Writing Methods for You: <code>PipelineSummary</code></a></li>
+</ul></li>
+<li class="part"><span><b>II From Data to Discovery: Analysis Mainlines</b></span></li>
+<li class="chapter" data-level="3" data-path="data-ingress.html"><a href="data-ingress.html"><i class="fa fa-check"></i><b>3</b> Data Ingress and Object Interoperability</a>
+<ul>
+<li class="chapter" data-level="3.1" data-path="data-ingress.html"><a href="data-ingress.html#seurat-and-sce-conversion"><i class="fa fa-check"></i><b>3.1</b> Seurat and SCE Conversion</a></li>
+<li class="chapter" data-level="3.2" data-path="data-ingress.html"><a href="data-ingress.html#anndata-h5ad"><i class="fa fa-check"></i><b>3.2</b> AnnData (h5ad)</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="recommended-usage.html"><a href="recommended-usage.html"><i class="fa fa-check"></i><b>4</b> Recommended usage</a>
+<ul>
+<li class="chapter" data-level="4.1" data-path="recommended-usage.html"><a href="recommended-usage.html#for-end-users"><i class="fa fa-check"></i><b>4.1</b> For end users</a></li>
+<li class="chapter" data-level="4.2" data-path="recommended-usage.html"><a href="recommended-usage.html#for-pipeline-authors"><i class="fa fa-check"></i><b>4.2</b> For pipeline authors</a></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="developer-design-notes.html"><a href="developer-design-notes.html"><i class="fa fa-check"></i><b>5</b> Developer design notes</a>
+<ul>
+<li class="chapter" data-level="5.1" data-path="developer-design-notes.html"><a href="developer-design-notes.html#core-object-contract"><i class="fa fa-check"></i><b>5.1</b> Core object contract</a></li>
+<li class="chapter" data-level="5.2" data-path="developer-design-notes.html"><a href="developer-design-notes.html#how-to-add-a-new-analysis-function"><i class="fa fa-check"></i><b>5.2</b> How to add a new analysis function</a></li>
+<li class="chapter" data-level="5.3" data-path="developer-design-notes.html"><a href="developer-design-notes.html#implementation-rules-for-contributors"><i class="fa fa-check"></i><b>5.3</b> Implementation rules for contributors</a></li>
+<li class="chapter" data-level="5.4" data-path="developer-design-notes.html"><a href="developer-design-notes.html#what-should-be-tested"><i class="fa fa-check"></i><b>5.4</b> What should be tested</a></li>
+</ul></li>
+<li class="chapter" data-level="6" data-path="core-workflow.html"><a href="core-workflow.html"><i class="fa fa-check"></i><b>6</b> Core Single-Cell Workflow</a>
+<ul>
+<li class="chapter" data-level="6.1" data-path="core-workflow.html"><a href="core-workflow.html#read-10x-data"><i class="fa fa-check"></i><b>6.1</b> Read 10X data</a></li>
+<li class="chapter" data-level="6.2" data-path="core-workflow.html"><a href="core-workflow.html#qc"><i class="fa fa-check"></i><b>6.2</b> QC</a></li>
+<li class="chapter" data-level="6.3" data-path="core-workflow.html"><a href="core-workflow.html#ambient-rna-and-doublet-cleanup"><i class="fa fa-check"></i><b>6.3</b> Ambient RNA and doublet cleanup</a></li>
+<li class="chapter" data-level="6.4" data-path="core-workflow.html"><a href="core-workflow.html#variable-features"><i class="fa fa-check"></i><b>6.4</b> Variable features</a></li>
+<li class="chapter" data-level="6.5" data-path="core-workflow.html"><a href="core-workflow.html#zero-preserving-imputation"><i class="fa fa-check"></i><b>6.5</b> Zero-preserving imputation</a></li>
+<li class="chapter" data-level="6.6" data-path="core-workflow.html"><a href="core-workflow.html#dimensional-reduction"><i class="fa fa-check"></i><b>6.6</b> Dimensional reduction</a></li>
+<li class="chapter" data-level="6.7" data-path="core-workflow.html"><a href="core-workflow.html#FindClusters"><i class="fa fa-check"></i><b>6.7</b> Clustering</a></li>
+<li class="chapter" data-level="6.8" data-path="core-workflow.html"><a href="core-workflow.html#umap"><i class="fa fa-check"></i><b>6.8</b> UMAP</a></li>
+<li class="chapter" data-level="6.9" data-path="core-workflow.html"><a href="core-workflow.html#find-markers"><i class="fa fa-check"></i><b>6.9</b> Find Markers</a>
+<ul>
+<li class="chapter" data-level="6.9.1" data-path="core-workflow.html"><a href="core-workflow.html#marker-gene-information"><i class="fa fa-check"></i><b>6.9.1</b> Marker gene information</a></li>
+</ul></li>
+<li class="chapter" data-level="6.10" data-path="core-workflow.html"><a href="core-workflow.html#manual-annotation"><i class="fa fa-check"></i><b>6.10</b> Cell cluster annotation</a></li>
+<li class="chapter" data-level="6.11" data-path="core-workflow.html"><a href="core-workflow.html#automatic-annotation-singler"><i class="fa fa-check"></i><b>6.11</b> Automatic Annotation (SingleR)</a></li>
+</ul></li>
+<li class="chapter" data-level="7" data-path="integration.html"><a href="integration.html"><i class="fa fa-check"></i><b>7</b> Integration and Batch Correction</a>
+<ul>
+<li class="chapter" data-level="7.1" data-path="integration.html"><a href="integration.html#load-datasets"><i class="fa fa-check"></i><b>7.1</b> Load datasets</a></li>
+<li class="chapter" data-level="7.2" data-path="integration.html"><a href="integration.html#preprocess"><i class="fa fa-check"></i><b>7.2</b> Preprocess</a></li>
+<li class="chapter" data-level="7.3" data-path="integration.html"><a href="integration.html#integration-workflow"><i class="fa fa-check"></i><b>7.3</b> Integration Workflow</a></li>
+<li class="chapter" data-level="7.4" data-path="integration.html"><a href="integration.html#clustering"><i class="fa fa-check"></i><b>7.4</b> Clustering</a></li>
+<li class="chapter" data-level="7.5" data-path="integration.html"><a href="integration.html#integration-visualization"><i class="fa fa-check"></i><b>7.5</b> Visualization</a></li>
+</ul></li>
+<li class="chapter" data-level="8" data-path="an-explicit-id-the-auto-generated-visualization-collides-with-the.html"><a href="an-explicit-id-the-auto-generated-visualization-collides-with-the.html"><i class="fa fa-check"></i><b>8</b> An explicit id: the auto-generated <code>visualization</code> collides with the</a></li>
+<li class="chapter" data-level="9" data-path="enhanced-visualization-chapter-and-pandoc-then-warns.html"><a href="enhanced-visualization-chapter-and-pandoc-then-warns.html"><i class="fa fa-check"></i><b>9</b> Enhanced Visualization chapter, and pandoc then warns</a></li>
+<li class="chapter" data-level="10" data-path="duplicate-identifier-and-the-in-book-links-from-other-chapters-land-on-the.html"><a href="duplicate-identifier-and-the-in-book-links-from-other-chapters-land-on-the.html"><i class="fa fa-check"></i><b>10</b> “Duplicate identifier” and the in-book links from other chapters land on the</a></li>
+<li class="chapter" data-level="11" data-path="wrong-page..html"><a href="wrong-page..html"><i class="fa fa-check"></i><b>11</b> wrong page.</a>
+<ul>
+<li class="chapter" data-level="11.1" data-path="wrong-page..html"><a href="wrong-page..html#pseudobulk-differential-expression"><i class="fa fa-check"></i><b>11.1</b> Pseudobulk Differential Expression</a></li>
+</ul></li>
+<li class="chapter" data-level="12" data-path="reference-mapping.html"><a href="reference-mapping.html"><i class="fa fa-check"></i><b>12</b> Cell Identity and Reference Mapping</a>
+<ul>
+<li class="chapter" data-level="12.1" data-path="reference-mapping.html"><a href="reference-mapping.html#manual-annotation-1"><i class="fa fa-check"></i><b>12.1</b> Manual annotation</a></li>
+<li class="chapter" data-level="12.2" data-path="reference-mapping.html"><a href="reference-mapping.html#automatic-annotation"><i class="fa fa-check"></i><b>12.2</b> Automatic annotation</a></li>
+<li class="chapter" data-level="12.3" data-path="reference-mapping.html"><a href="reference-mapping.html#reference-mapping-mainline-workflow"><i class="fa fa-check"></i><b>12.3</b> Reference mapping mainline workflow</a>
+<ul>
+<li class="chapter" data-level="12.3.1" data-path="reference-mapping.html"><a href="reference-mapping.html#lightweight-reference-mapping-knn"><i class="fa fa-check"></i><b>12.3.1</b> Lightweight Reference Mapping (KNN)</a></li>
+<li class="chapter" data-level="12.3.2" data-path="reference-mapping.html"><a href="reference-mapping.html#run-singler-with-sclet"><i class="fa fa-check"></i><b>12.3.2</b> Run SingleR with sclet</a></li>
+<li class="chapter" data-level="12.3.3" data-path="reference-mapping.html"><a href="reference-mapping.html#reference-mapping-workflow"><i class="fa fa-check"></i><b>12.3.3</b> Reference mapping workflow</a></li>
+<li class="chapter" data-level="12.3.4" data-path="reference-mapping.html"><a href="reference-mapping.html#symphony-atlas-mapping"><i class="fa fa-check"></i><b>12.3.4</b> Symphony Atlas Mapping</a></li>
+<li class="chapter" data-level="12.3.5" data-path="reference-mapping.html"><a href="reference-mapping.html#state-aware-singler-provenance"><i class="fa fa-check"></i><b>12.3.5</b> State-aware SingleR provenance</a></li>
+<li class="chapter" data-level="12.3.6" data-path="reference-mapping.html"><a href="reference-mapping.html#annotate-with-singler-result"><i class="fa fa-check"></i><b>12.3.6</b> Annotate with SingleR result</a></li>
+<li class="chapter" data-level="12.3.7" data-path="reference-mapping.html"><a href="reference-mapping.html#comparison-with-manual-annotation-result"><i class="fa fa-check"></i><b>12.3.7</b> Comparison with manual annotation result</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="13" data-path="cell-fate.html"><a href="cell-fate.html"><i class="fa fa-check"></i><b>13</b> Cell Fate and Dynamic Processes</a>
+<ul>
+<li class="chapter" data-level="13.1" data-path="cell-fate.html"><a href="cell-fate.html#trajectory-mainline-workflow"><i class="fa fa-check"></i><b>13.1</b> Trajectory mainline workflow</a>
+<ul>
+<li class="chapter" data-level="13.1.1" data-path="cell-fate.html"><a href="cell-fate.html#lineage-plot"><i class="fa fa-check"></i><b>13.1.1</b> Lineage plot</a></li>
+<li class="chapter" data-level="13.1.2" data-path="cell-fate.html"><a href="cell-fate.html#pseudotime-plot"><i class="fa fa-check"></i><b>13.1.2</b> Pseudotime plot</a></li>
+<li class="chapter" data-level="13.1.3" data-path="cell-fate.html"><a href="cell-fate.html#expression-trends-in-different-cell-trajectories"><i class="fa fa-check"></i><b>13.1.3</b> Expression trends in different cell trajectories</a></li>
+<li class="chapter" data-level="13.1.4" data-path="cell-fate.html"><a href="cell-fate.html#heatmap"><i class="fa fa-check"></i><b>13.1.4</b> Heatmap</a></li>
+</ul></li>
+<li class="chapter" data-level="13.2" data-path="cell-fate.html"><a href="cell-fate.html#diffusion-map"><i class="fa fa-check"></i><b>13.2</b> Diffusion Map for complex trajectories</a>
+<ul>
+<li class="chapter" data-level="13.2.1" data-path="cell-fate.html"><a href="cell-fate.html#example-data"><i class="fa fa-check"></i><b>13.2.1</b> Example data</a></li>
+<li class="chapter" data-level="13.2.2" data-path="cell-fate.html"><a href="cell-fate.html#run-velocity-analysis"><i class="fa fa-check"></i><b>13.2.2</b> Run velocity analysis</a></li>
+<li class="chapter" data-level="13.2.3" data-path="cell-fate.html"><a href="cell-fate.html#visualize-velocity-based-trajectory"><i class="fa fa-check"></i><b>13.2.3</b> Visualize velocity-based trajectory</a></li>
+</ul></li>
+<li class="chapter" data-level="13.3" data-path="cell-fate.html"><a href="cell-fate.html#cellrank"><i class="fa fa-check"></i><b>13.3</b> CellRank: Advanced Fate Mapping</a>
+<ul>
+<li class="chapter" data-level="13.3.1" data-path="cell-fate.html"><a href="cell-fate.html#run-cellrank"><i class="fa fa-check"></i><b>13.3.1</b> Run CellRank</a></li>
+</ul></li>
+<li class="chapter" data-level="13.4" data-path="cell-fate.html"><a href="cell-fate.html#regvelo-cellrank"><i class="fa fa-check"></i><b>13.4</b> Already have RegVelo results? Wiring them into CellRank</a></li>
+<li class="chapter" data-level="13.5" data-path="cell-fate.html"><a href="cell-fate.html#workflow-shell-for-velocity-and-fate"><i class="fa fa-check"></i><b>13.5</b> Workflow shell for velocity and fate</a></li>
+<li class="chapter" data-level="13.6" data-path="cell-fate.html"><a href="cell-fate.html#velocity-diagnostics"><i class="fa fa-check"></i><b>13.6</b> Is it real or a smoke screen? Diagnosing the velocity-fate chain</a>
+<ul>
+<li class="chapter" data-level="13.6.1" data-path="cell-fate.html"><a href="cell-fate.html#reading-the-cellrank-summary"><i class="fa fa-check"></i><b>13.6.1</b> Reading the CellRank summary</a></li>
+<li class="chapter" data-level="13.6.2" data-path="cell-fate.html"><a href="cell-fate.html#does-velocity-actually-explain-fate"><i class="fa fa-check"></i><b>13.6.2</b> Does velocity actually explain fate?</a></li>
+<li class="chapter" data-level="13.6.3" data-path="cell-fate.html"><a href="cell-fate.html#auditing-the-whole-chain-in-one-place"><i class="fa fa-check"></i><b>13.6.3</b> Auditing the whole chain in one place</a></li>
+</ul></li>
+<li class="chapter" data-level="13.7" data-path="cell-fate.html"><a href="cell-fate.html#velocity-latent-time"><i class="fa fa-check"></i><b>13.7</b> Velocity Latent Time</a></li>
+</ul></li>
+<li class="chapter" data-level="14" data-path="program-regulon.html"><a href="program-regulon.html"><i class="fa fa-check"></i><b>14</b> Program, Regulon, and Mechanistic Interpretation</a>
+<ul>
+<li class="chapter" data-level="14.1" data-path="program-regulon.html"><a href="program-regulon.html#gene-set-scoring-and-pathway-activity"><i class="fa fa-check"></i><b>14.1</b> Gene set scoring and pathway activity</a></li>
+<li class="chapter" data-level="14.2" data-path="program-regulon.html"><a href="program-regulon.html#multi-backend-scoring-in-one-click"><i class="fa fa-check"></i><b>14.2</b> Multi-Backend Scoring in One Click</a></li>
+<li class="chapter" data-level="14.3" data-path="program-regulon.html"><a href="program-regulon.html#program-mainline-workflow"><i class="fa fa-check"></i><b>14.3</b> Program mainline workflow</a></li>
+<li class="chapter" data-level="14.4" data-path="program-regulon.html"><a href="program-regulon.html#reading-and-visualizing-results"><i class="fa fa-check"></i><b>14.4</b> Reading and Visualizing Results</a></li>
+<li class="chapter" data-level="14.5" data-path="program-regulon.html"><a href="program-regulon.html#advanced-pathway-discovery-altexp-and-runkegg"><i class="fa fa-check"></i><b>14.5</b> Advanced Pathway Discovery (altExp and RunKEGG)</a></li>
+<li class="chapter" data-level="14.6" data-path="program-regulon.html"><a href="program-regulon.html#scenic-regulon-inference"><i class="fa fa-check"></i><b>14.6</b> SCENIC regulon inference</a></li>
+<li class="chapter" data-level="14.7" data-path="program-regulon.html"><a href="program-regulon.html#environment-and-data-preparation"><i class="fa fa-check"></i><b>14.7</b> Environment and Data Preparation</a></li>
+<li class="chapter" data-level="14.8" data-path="program-regulon.html"><a href="program-regulon.html#one-click-inference-and-scoring"><i class="fa fa-check"></i><b>14.8</b> One-Click Inference and Scoring</a></li>
+<li class="chapter" data-level="14.9" data-path="program-regulon.html"><a href="program-regulon.html#result-retrieval-and-state-awareness"><i class="fa fa-check"></i><b>14.9</b> Result Retrieval and State Awareness</a></li>
+<li class="chapter" data-level="14.10" data-path="program-regulon.html"><a href="program-regulon.html#visualizing-regulon-activity"><i class="fa fa-check"></i><b>14.10</b> Visualizing Regulon Activity</a></li>
+<li class="chapter" data-level="14.11" data-path="program-regulon.html"><a href="program-regulon.html#unified-grn-entry-rungrn"><i class="fa fa-check"></i><b>14.11</b> Unified GRN Entry: <code>RunGRN()</code></a></li>
+<li class="chapter" data-level="14.12" data-path="program-regulon.html"><a href="program-regulon.html#unified-program-access-get_program-has_program"><i class="fa fa-check"></i><b>14.12</b> Unified Program Access: <code>get_program()</code> / <code>has_program()</code></a></li>
+<li class="chapter" data-level="14.13" data-path="program-regulon.html"><a href="program-regulon.html#program-activity-dotplot-plot_program_dotplot"><i class="fa fa-check"></i><b>14.13</b> Program Activity Dotplot: <code>plot_program_dotplot()</code></a></li>
+</ul></li>
+<li class="chapter" data-level="15" data-path="differential-interpretation.html"><a href="differential-interpretation.html"><i class="fa fa-check"></i><b>15</b> Differential Analysis and Functional Interpretation</a>
+<ul>
+<li class="chapter" data-level="15.1" data-path="differential-interpretation.html"><a href="differential-interpretation.html#differential-expression-and-pseudobulk-testing"><i class="fa fa-check"></i><b>15.1</b> Differential expression and pseudobulk testing</a></li>
+<li class="chapter" data-level="15.2" data-path="differential-interpretation.html"><a href="differential-interpretation.html#standard-single-cell-de"><i class="fa fa-check"></i><b>15.2</b> Standard Single-Cell DE</a>
+<ul>
+<li class="chapter" data-level="15.2.1" data-path="differential-interpretation.html"><a href="differential-interpretation.html#the-what-does-this-gene-even-do-problem"><i class="fa fa-check"></i><b>15.2.1</b> The “What does this gene even do?” Problem</a></li>
+</ul></li>
+<li class="chapter" data-level="15.3" data-path="differential-interpretation.html"><a href="differential-interpretation.html#the-gold-standard-pseudobulk-analysis"><i class="fa fa-check"></i><b>15.3</b> The Gold Standard: Pseudobulk Analysis</a>
+<ul>
+<li class="chapter" data-level="15.3.1" data-path="differential-interpretation.html"><a href="differential-interpretation.html#step-1-aggregate-expression"><i class="fa fa-check"></i><b>15.3.1</b> Step 1: Aggregate Expression</a></li>
+<li class="chapter" data-level="15.3.2" data-path="differential-interpretation.html"><a href="differential-interpretation.html#step-2-pseudobulk-de-with-deseq2"><i class="fa fa-check"></i><b>15.3.2</b> Step 2: Pseudobulk DE with DESeq2</a></li>
+</ul></li>
+<li class="chapter" data-level="15.4" data-path="differential-interpretation.html"><a href="differential-interpretation.html#functional-enrichment-on-top-of-differential-results"><i class="fa fa-check"></i><b>15.4</b> Functional enrichment on top of differential results</a></li>
+<li class="chapter" data-level="15.5" data-path="differential-interpretation.html"><a href="differential-interpretation.html#go-enrichment"><i class="fa fa-check"></i><b>15.5</b> GO Enrichment</a></li>
+<li class="chapter" data-level="15.6" data-path="differential-interpretation.html"><a href="differential-interpretation.html#kegg-enrichment"><i class="fa fa-check"></i><b>15.6</b> KEGG Enrichment</a></li>
+</ul></li>
+<li class="chapter" data-level="16" data-path="communication.html"><a href="communication.html"><i class="fa fa-check"></i><b>16</b> Cell-Cell Communication and Microenvironment Interaction</a>
+<ul>
+<li class="chapter" data-level="16.1" data-path="communication.html"><a href="communication.html#input"><i class="fa fa-check"></i><b>16.1</b> Input</a></li>
+<li class="chapter" data-level="16.2" data-path="communication.html"><a href="communication.html#running-cci"><i class="fa fa-check"></i><b>16.2</b> Running CCI</a></li>
+<li class="chapter" data-level="16.3" data-path="communication.html"><a href="communication.html#using-alternative-backends-cellphonedb-nichenet"><i class="fa fa-check"></i><b>16.3</b> Using Alternative Backends (CellPhoneDB &amp; NicheNet)</a>
+<ul>
+<li class="chapter" data-level="16.3.1" data-path="communication.html"><a href="communication.html#cellphonedb"><i class="fa fa-check"></i><b>16.3.1</b> CellPhoneDB</a></li>
+<li class="chapter" data-level="16.3.2" data-path="communication.html"><a href="communication.html#nichenet"><i class="fa fa-check"></i><b>16.3.2</b> NicheNet</a></li>
+</ul></li>
+<li class="chapter" data-level="16.4" data-path="communication.html"><a href="communication.html#communication-visualization"><i class="fa fa-check"></i><b>16.4</b> Visualization</a></li>
+</ul></li>
+<li class="chapter" data-level="17" data-path="an-explicit-id-the-auto-generated-visualization-collides-with-the-1.html"><a href="an-explicit-id-the-auto-generated-visualization-collides-with-the-1.html"><i class="fa fa-check"></i><b>17</b> An explicit id: the auto-generated <code>visualization</code> collides with the</a></li>
+<li class="chapter" data-level="18" data-path="enhanced-visualization-chapter..html"><a href="enhanced-visualization-chapter..html"><i class="fa fa-check"></i><b>18</b> Enhanced Visualization chapter.</a>
+<ul>
+<li class="chapter" data-level="18.0.1" data-path="enhanced-visualization-chapter..html"><a href="enhanced-visualization-chapter..html#legacy-cellchat-visualization"><i class="fa fa-check"></i><b>18.0.1</b> Legacy CellChat Visualization</a></li>
+</ul></li>
+<li class="chapter" data-level="19" data-path="state-priority.html"><a href="state-priority.html"><i class="fa fa-check"></i><b>19</b> State Priority and Perturbation Sensitivity</a>
+<ul>
+<li class="chapter" data-level="19.1" data-path="state-priority.html"><a href="state-priority.html#perturbation-priority"><i class="fa fa-check"></i><b>19.1</b> Perturbation Priority</a>
+<ul>
+<li class="chapter" data-level="19.1.1" data-path="state-priority.html"><a href="state-priority.html#what-the-object-has-to-satisfy"><i class="fa fa-check"></i><b>19.1.1</b> What the object has to satisfy</a></li>
+<li class="chapter" data-level="19.1.2" data-path="state-priority.html"><a href="state-priority.html#the-direct-call"><i class="fa fa-check"></i><b>19.1.2</b> The direct call</a></li>
+<li class="chapter" data-level="19.1.3" data-path="state-priority.html"><a href="state-priority.html#reading-the-result-back"><i class="fa fa-check"></i><b>19.1.3</b> Reading the result back</a></li>
+</ul></li>
+<li class="chapter" data-level="19.2" data-path="state-priority.html"><a href="state-priority.html#rare-cell-detection"><i class="fa fa-check"></i><b>19.2</b> Rare Cell Detection</a></li>
+<li class="chapter" data-level="19.3" data-path="state-priority.html"><a href="state-priority.html#the-workflow-shell"><i class="fa fa-check"></i><b>19.3</b> The Workflow Shell</a></li>
+<li class="chapter" data-level="19.4" data-path="state-priority.html"><a href="state-priority.html#the-ai-layer-run_rare_cell_detection"><i class="fa fa-check"></i><b>19.4</b> The AI Layer: <code>run_rare_cell_detection</code></a>
+<ul>
+<li class="chapter" data-level="19.4.1" data-path="state-priority.html"><a href="state-priority.html#the-ordering-rule-that-costs-a-run-to-learn"><i class="fa fa-check"></i><b>19.4.1</b> The ordering rule that costs a run to learn</a></li>
+<li class="chapter" data-level="19.4.2" data-path="state-priority.html"><a href="state-priority.html#why-the-whole-thing-is-not-executed-through-a-plan"><i class="fa fa-check"></i><b>19.4.2</b> Why the whole thing is not executed through a plan</a></li>
+</ul></li>
+<li class="chapter" data-level="19.5" data-path="state-priority.html"><a href="state-priority.html#what-fits-nearby"><i class="fa fa-check"></i><b>19.5</b> What Fits Nearby</a></li>
+<li class="chapter" data-level="19.6" data-path="state-priority.html"><a href="state-priority.html#current-recommendation"><i class="fa fa-check"></i><b>19.6</b> Current Recommendation</a></li>
+<li class="chapter" data-level="19.7" data-path="state-priority.html"><a href="state-priority.html#state-priority-not-here-yet"><i class="fa fa-check"></i><b>19.7</b> What Is Not Here Yet</a></li>
+</ul></li>
+<li class="chapter" data-level="20" data-path="spatial-context.html"><a href="spatial-context.html"><i class="fa fa-check"></i><b>20</b> Spatial Context and Niche Analysis</a>
+<ul>
+<li class="chapter" data-level="20.1" data-path="spatial-context.html"><a href="spatial-context.html#spatial-mainline-workflow"><i class="fa fa-check"></i><b>20.1</b> Spatial Mainline Workflow</a></li>
+<li class="chapter" data-level="20.2" data-path="spatial-context.html"><a href="spatial-context.html#high-resolution-spatial-deconvolution-cell2location"><i class="fa fa-check"></i><b>20.2</b> High-Resolution Spatial Deconvolution: Cell2location</a></li>
+<li class="chapter" data-level="20.3" data-path="spatial-context.html"><a href="spatial-context.html#spatial-colocalization-with-svp"><i class="fa fa-check"></i><b>20.3</b> Spatial Colocalization with SVP</a></li>
+<li class="chapter" data-level="20.4" data-path="spatial-context.html"><a href="spatial-context.html#spatial-niche-detection-with-svp-lisa"><i class="fa fa-check"></i><b>20.4</b> Spatial Niche Detection with SVP LISA</a></li>
+<li class="chapter" data-level="20.5" data-path="spatial-context.html"><a href="spatial-context.html#inspecting-spatial-results-across-layers"><i class="fa fa-check"></i><b>20.5</b> Inspecting Spatial Results Across Layers</a></li>
+<li class="chapter" data-level="20.6" data-path="spatial-context.html"><a href="spatial-context.html#in-silico-gene-perturbation-celloracle"><i class="fa fa-check"></i><b>20.6</b> In-Silico Gene Perturbation: CellOracle</a></li>
+</ul></li>
+<li class="chapter" data-level="21" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html"><i class="fa fa-check"></i><b>21</b> Multimodal Expansion</a>
+<ul>
+<li class="chapter" data-level="21.1" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#the-two-states-attached-and-registered"><i class="fa fa-check"></i><b>21.1</b> The Two States: Attached and Registered</a></li>
+<li class="chapter" data-level="21.2" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#detecting-and-registering"><i class="fa fa-check"></i><b>21.2</b> Detecting and Registering</a></li>
+<li class="chapter" data-level="21.3" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#one-step-registration"><i class="fa fa-check"></i><b>21.3</b> One-Step Registration</a></li>
+<li class="chapter" data-level="21.4" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#the-ai-layer"><i class="fa fa-check"></i><b>21.4</b> The AI Layer</a></li>
+<li class="chapter" data-level="21.5" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#multimodal-not-here-yet"><i class="fa fa-check"></i><b>21.5</b> What Is Not Here Yet</a></li>
+<li class="chapter" data-level="21.6" data-path="multimodal-expansion.html"><a href="multimodal-expansion.html#what-to-do-today"><i class="fa fa-check"></i><b>21.6</b> What to Do Today</a></li>
+</ul></li>
+<li class="part"><span><b>III Specialized Techniques and Reference</b></span></li>
+<li class="chapter" data-level="22" data-path="visualization.html"><a href="visualization.html"><i class="fa fa-check"></i><b>22</b> Enhanced Visualization</a>
+<ul>
+<li class="chapter" data-level="22.1" data-path="visualization.html"><a href="visualization.html#loading-data"><i class="fa fa-check"></i><b>22.1</b> Loading data</a></li>
+<li class="chapter" data-level="22.2" data-path="visualization.html"><a href="visualization.html#dimensionality-reduction-plots"><i class="fa fa-check"></i><b>22.2</b> Dimensionality Reduction Plots</a>
+<ul>
+<li class="chapter" data-level="22.2.1" data-path="visualization.html"><a href="visualization.html#celldimplot"><i class="fa fa-check"></i><b>22.2.1</b> CellDimPlot</a></li>
+<li class="chapter" data-level="22.2.2" data-path="visualization.html"><a href="visualization.html#featuredimplot"><i class="fa fa-check"></i><b>22.2.2</b> FeatureDimPlot</a></li>
+</ul></li>
+<li class="chapter" data-level="22.3" data-path="visualization.html"><a href="visualization.html#expression-heatmaps"><i class="fa fa-check"></i><b>22.3</b> Expression Heatmaps</a></li>
+<li class="chapter" data-level="22.4" data-path="visualization.html"><a href="visualization.html#cell-statistics"><i class="fa fa-check"></i><b>22.4</b> Cell Statistics</a></li>
+<li class="chapter" data-level="22.5" data-path="visualization.html"><a href="visualization.html#module-specific-visualization"><i class="fa fa-check"></i><b>22.5</b> Module-Specific Visualization</a>
+<ul>
+<li class="chapter" data-level="22.5.1" data-path="visualization.html"><a href="visualization.html#trajectory-and-fate"><i class="fa fa-check"></i><b>22.5.1</b> Trajectory and Fate</a></li>
+<li class="chapter" data-level="22.5.2" data-path="visualization.html"><a href="visualization.html#program-and-regulon-activity"><i class="fa fa-check"></i><b>22.5.2</b> Program and Regulon Activity</a></li>
+<li class="chapter" data-level="22.5.3" data-path="visualization.html"><a href="visualization.html#perturbation-priority-1"><i class="fa fa-check"></i><b>22.5.3</b> Perturbation Priority</a></li>
+<li class="chapter" data-level="22.5.4" data-path="visualization.html"><a href="visualization.html#spatial-analysis"><i class="fa fa-check"></i><b>22.5.4</b> Spatial Analysis</a></li>
+<li class="chapter" data-level="22.5.5" data-path="visualization.html"><a href="visualization.html#cell-cell-communication"><i class="fa fa-check"></i><b>22.5.5</b> Cell-Cell Communication</a></li>
+<li class="chapter" data-level="22.5.6" data-path="visualization.html"><a href="visualization.html#visualization-reference-mapping"><i class="fa fa-check"></i><b>22.5.6</b> Reference Mapping</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="23" data-path="an-explicit-id-the-auto-generated-reference-mapping-collides-with-the.html"><a href="an-explicit-id-the-auto-generated-reference-mapping-collides-with-the.html"><i class="fa fa-check"></i><b>23</b> An explicit id: the auto-generated <code>reference-mapping</code> collides with the</a></li>
+<li class="chapter" data-level="24" data-path="cell-identity-and-reference-mapping-chapter..html"><a href="cell-identity-and-reference-mapping-chapter..html"><i class="fa fa-check"></i><b>24</b> Cell Identity and Reference Mapping chapter.</a></li>
+<li class="chapter" data-level="25" data-path="supercell.html"><a href="supercell.html"><i class="fa fa-check"></i><b>25</b> Metacells with SuperCell</a>
+<ul>
+<li class="chapter" data-level="25.1" data-path="supercell.html"><a href="supercell.html#runsupercell"><i class="fa fa-check"></i><b>25.1</b> RunSuperCell</a></li>
+<li class="chapter" data-level="25.2" data-path="supercell.html"><a href="supercell.html#estimate-supercell-purity"><i class="fa fa-check"></i><b>25.2</b> Estimate SuperCell Purity</a></li>
+</ul></li>
+<li class="chapter" data-level="26" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html"><i class="fa fa-check"></i><b>26</b> Milo: Differential Abundance</a>
+<ul>
+<li class="chapter" data-level="26.1" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#requirements"><i class="fa fa-check"></i><b>26.1</b> Requirements</a></li>
+<li class="chapter" data-level="26.2" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#two-group-da-glm"><i class="fa fa-check"></i><b>26.2</b> Two-group DA (GLM)</a></li>
+<li class="chapter" data-level="26.3" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#multi-contrast-testing"><i class="fa fa-check"></i><b>26.3</b> Multi-contrast testing</a></li>
+<li class="chapter" data-level="26.4" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#glmm-random-intercept"><i class="fa fa-check"></i><b>26.4</b> GLMM (random intercept)</a></li>
+<li class="chapter" data-level="26.5" data-path="milo-differential-abundance.html"><a href="milo-differential-abundance.html#refit-after-dropping-separated-neighbourhoods"><i class="fa fa-check"></i><b>26.5</b> Refit after dropping separated neighbourhoods</a></li>
+</ul></li>
+<li class="chapter" data-level="27" data-path="phenotype-association.html"><a href="phenotype-association.html"><i class="fa fa-check"></i><b>27</b> Phenotype Association</a>
+<ul>
+<li class="chapter" data-level="27.1" data-path="phenotype-association.html"><a href="phenotype-association.html#a-practical-pattern"><i class="fa fa-check"></i><b>27.1</b> A practical pattern</a></li>
+<li class="chapter" data-level="27.2" data-path="phenotype-association.html"><a href="phenotype-association.html#what-gets-recorded"><i class="fa fa-check"></i><b>27.2</b> What gets recorded</a></li>
+</ul></li>
+<li class="chapter" data-level="28" data-path="interactive.html"><a href="interactive.html"><i class="fa fa-check"></i><b>28</b> Interactive Data Exploration</a>
+<ul>
+<li class="chapter" data-level="28.1" data-path="interactive.html"><a href="interactive.html#launch-explorer"><i class="fa fa-check"></i><b>28.1</b> Launch Explorer</a></li>
+<li class="chapter" data-level="28.2" data-path="interactive.html"><a href="interactive.html#customization"><i class="fa fa-check"></i><b>28.2</b> Customization</a></li>
+</ul></li>
+<li class="chapter" data-level="29" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><i class="fa fa-check"></i><b>29</b> SVP: Gene Set Activity in Spatial and Single-Cell Data</a>
+<ul>
+<li class="chapter" data-level="29.1" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html#runsgsa"><i class="fa fa-check"></i><b>29.1</b> runSGSA</a></li>
+<li class="chapter" data-level="29.2" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html#runlisa"><i class="fa fa-check"></i><b>29.2</b> runLISA</a></li>
+<li class="chapter" data-level="29.3" data-path="svp-gene-set-activity-in-spatial-and-single-cell-data.html"><a href="svp-gene-set-activity-in-spatial-and-single-cell-data.html#runlocalbv"><i class="fa fa-check"></i><b>29.3</b> runLOCALBV</a></li>
+</ul></li>
+<li class="part"><span><b>IV AI-Assisted Analysis</b></span></li>
+<li class="chapter" data-level="30" data-path="ai-foundations.html"><a href="ai-foundations.html"><i class="fa fa-check"></i><b>30</b> AI Foundations: State, Actions, and the Ledger</a>
+<ul>
+<li class="chapter" data-level="30.1" data-path="ai-foundations.html"><a href="ai-foundations.html#the-problem-a-script-is-a-decision-you-cannot-re-examine"><i class="fa fa-check"></i><b>30.1</b> The problem: a script is a decision you cannot re-examine</a></li>
+<li class="chapter" data-level="30.2" data-path="ai-foundations.html"><a href="ai-foundations.html#the-aiaction-contract"><i class="fa fa-check"></i><b>30.2</b> The <code>AIAction</code> contract</a></li>
+<li class="chapter" data-level="30.3" data-path="ai-foundations.html"><a href="ai-foundations.html#the-registry-only-exposes-what-this-object-can-actually-run"><i class="fa fa-check"></i><b>30.3</b> The registry only exposes what this object can actually run</a></li>
+<li class="chapter" data-level="30.4" data-path="ai-foundations.html"><a href="ai-foundations.html#the-ledger-is-the-only-authority"><i class="fa fa-check"></i><b>30.4</b> The ledger is the only authority</a></li>
+</ul></li>
+<li class="chapter" data-level="31" data-path="ai-driver.html"><a href="ai-driver.html"><i class="fa fa-check"></i><b>31</b> Driving sclet from an External Agent</a>
+<ul>
+<li class="chapter" data-level="31.1" data-path="ai-driver.html"><a href="ai-driver.html#read-the-skills-first"><i class="fa fa-check"></i><b>31.1</b> Read the skills first</a></li>
+<li class="chapter" data-level="31.2" data-path="ai-driver.html"><a href="ai-driver.html#a-complete-run"><i class="fa fa-check"></i><b>31.2</b> A complete run</a>
+<ul>
+<li class="chapter" data-level="31.2.1" data-path="ai-driver.html"><a href="ai-driver.html#what-can-run-on-this-object"><i class="fa fa-check"></i><b>31.2.1</b> 1. What can run on this object?</a></li>
+<li class="chapter" data-level="31.2.2" data-path="ai-driver.html"><a href="ai-driver.html#read-the-ledger-and-bind-the-plan-to-it"><i class="fa fa-check"></i><b>31.2.2</b> 2. Read the ledger, and bind the plan to it</a></li>
+<li class="chapter" data-level="31.2.3" data-path="ai-driver.html"><a href="ai-driver.html#write-the-plan"><i class="fa fa-check"></i><b>31.2.3</b> 3. Write the plan</a></li>
+<li class="chapter" data-level="31.2.4" data-path="ai-driver.html"><a href="ai-driver.html#validate-and-read-the-errors"><i class="fa fa-check"></i><b>31.2.4</b> 4. Validate — and read the errors</a></li>
+<li class="chapter" data-level="31.2.5" data-path="ai-driver.html"><a href="ai-driver.html#dry-run-then-execute"><i class="fa fa-check"></i><b>31.2.5</b> 5. Dry-run, then execute</a></li>
+<li class="chapter" data-level="31.2.6" data-path="ai-driver.html"><a href="ai-driver.html#read-what-the-ledger-now-says"><i class="fa fa-check"></i><b>31.2.6</b> 6. Read what the ledger now says</a></li>
+</ul></li>
+<li class="chapter" data-level="31.3" data-path="ai-driver.html"><a href="ai-driver.html#advancing-in-rounds"><i class="fa fa-check"></i><b>31.3</b> Advancing in rounds</a></li>
+<li class="chapter" data-level="31.4" data-path="ai-driver.html"><a href="ai-driver.html#what-you-can-do-that-a-model-cannot"><i class="fa fa-check"></i><b>31.4</b> What you can do that a model cannot</a></li>
+<li class="chapter" data-level="31.5" data-path="ai-driver.html"><a href="ai-driver.html#the-plan-you-ran-is-a-graph-and-it-outlives-the-session"><i class="fa fa-check"></i><b>31.5</b> The plan you ran is a graph, and it outlives the session</a></li>
+<li class="chapter" data-level="31.6" data-path="ai-driver.html"><a href="ai-driver.html#resuming-across-processes"><i class="fa fa-check"></i><b>31.6</b> Resuming across processes</a></li>
+<li class="chapter" data-level="31.7" data-path="ai-driver.html"><a href="ai-driver.html#things-not-to-attempt"><i class="fa fa-check"></i><b>31.7</b> Things not to attempt</a></li>
+</ul></li>
+<li class="chapter" data-level="32" data-path="ai-in-package.html"><a href="ai-in-package.html"><i class="fa fa-check"></i><b>32</b> The In-Package Assistant</a>
+<ul>
+<li class="chapter" data-level="32.1" data-path="ai-in-package.html"><a href="ai-in-package.html#requirements-1"><i class="fa fa-check"></i><b>32.1</b> Requirements</a></li>
+<li class="chapter" data-level="32.2" data-path="ai-in-package.html"><a href="ai-in-package.html#an-object-to-ask-about"><i class="fa fa-check"></i><b>32.2</b> An object to ask about</a></li>
+<li class="chapter" data-level="32.3" data-path="ai-in-package.html"><a href="ai-in-package.html#aiplananalysis-ask-for-a-plan"><i class="fa fa-check"></i><b>32.3</b> <code>AIPlanAnalysis</code>: ask for a plan</a>
+<ul>
+<li class="chapter" data-level="32.3.1" data-path="ai-in-package.html"><a href="ai-in-package.html#the-registry-has-to-match-the-goal"><i class="fa fa-check"></i><b>32.3.1</b> The registry has to match the goal</a></li>
+</ul></li>
+<li class="chapter" data-level="32.4" data-path="ai-in-package.html"><a href="ai-in-package.html#runaianalysis-plan-preview-ask-execute-in-one-call"><i class="fa fa-check"></i><b>32.4</b> <code>RunAIAnalysis</code>: plan, preview, ask, execute in one call</a></li>
+<li class="chapter" data-level="32.5" data-path="ai-in-package.html"><a href="ai-in-package.html#free-form-questions-with-sclet_copilot"><i class="fa fa-check"></i><b>32.5</b> Free-form questions with <code>sclet_copilot</code></a></li>
+<li class="chapter" data-level="32.6" data-path="ai-in-package.html"><a href="ai-in-package.html#cross-chain-auditing"><i class="fa fa-check"></i><b>32.6</b> Cross-chain auditing</a></li>
+<li class="chapter" data-level="32.7" data-path="ai-in-package.html"><a href="ai-in-package.html#a-plan-does-not-replace-the-workflow-functions"><i class="fa fa-check"></i><b>32.7</b> A plan does not replace the workflow functions</a></li>
+<li class="chapter" data-level="32.8" data-path="ai-in-package.html"><a href="ai-in-package.html#what-the-planner-can-and-cannot-see"><i class="fa fa-check"></i><b>32.8</b> What the planner can and cannot see</a></li>
+<li class="chapter" data-level="32.9" data-path="ai-in-package.html"><a href="ai-in-package.html#what-the-package-will-not-do"><i class="fa fa-check"></i><b>32.9</b> What the package will not do</a></li>
+</ul></li>
+<li class="chapter" data-level="33" data-path="ai-evidence-governance.html"><a href="ai-evidence-governance.html"><i class="fa fa-check"></i><b>33</b> Evidence Governance: Claims, Results, and Reports</a>
+<ul>
+<li class="chapter" data-level="33.1" data-path="ai-evidence-governance.html"><a href="ai-evidence-governance.html#evidence-nodes"><i class="fa fa-check"></i><b>33.1</b> Evidence nodes</a></li>
+<li class="chapter" data-level="33.2" data-path="ai-evidence-governance.html"><a href="ai-evidence-governance.html#the-claim-ceiling"><i class="fa fa-check"></i><b>33.2</b> The claim ceiling</a></li>
+<li class="chapter" data-level="33.3" data-path="ai-evidence-governance.html"><a href="ai-evidence-governance.html#what-may-leave-the-object-the-privacy-line"><i class="fa fa-check"></i><b>33.3</b> What may leave the object: the privacy line</a></li>
+<li class="chapter" data-level="33.4" data-path="ai-evidence-governance.html"><a href="ai-evidence-governance.html#recording-results"><i class="fa fa-check"></i><b>33.4</b> Recording results</a></li>
+<li class="chapter" data-level="33.5" data-path="ai-evidence-governance.html"><a href="ai-evidence-governance.html#renderaireport-the-report-checks-itself"><i class="fa fa-check"></i><b>33.5</b> <code>RenderAIReport</code>: the report checks itself</a></li>
+<li class="chapter" data-level="33.6" data-path="ai-evidence-governance.html"><a href="ai-evidence-governance.html#the-failure-this-whole-layer-is-against"><i class="fa fa-check"></i><b>33.6</b> The failure this whole layer is against</a></li>
+</ul></li>
+<li class="chapter" data-level="" data-path="references.html"><a href="references.html"><i class="fa fa-check"></i>References</a></li>
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">sclet: A Lightweight Toolkit for Single-Cell Data Analysis</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="ai-driver" class="section level1 hasAnchor" number="31">
+<h1><span class="header-section-number">31</span> Driving sclet from an External Agent<a href="ai-driver.html#ai-driver" class="anchor-section" aria-label="Anchor link to header"></a></h1>
+<p>This is the mainline of the AI layer, and the one most users will actually run.</p>
+<p>The package can plan an analysis itself if you configure a model provider, and the <a href="ai-in-package.html#ai-in-package">next chapter</a> covers that. But that path has a cost and a dependency: it needs <code>aisdk</code>, a key, and a networked call for every plan. This chapter needs none of them. <strong>You are the planner.</strong> You read the shipped skills, write the plan as an R list, and let <code>sclet</code> validate and execute it under exactly the guardrails a built-in model would face.</p>
+<p>The division of labour is worth stating precisely, because it is the whole design:</p>
+<table>
+<colgroup>
+<col width="50%" />
+<col width="50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>who</th>
+<th>decides</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>you, the planner</td>
+<td>what should be analysed, in what order, with which parameters</td>
+</tr>
+<tr class="even">
+<td><code>sclet</code></td>
+<td>whether that plan is even legal on this object, and what may be claimed afterwards</td>
+</tr>
+</tbody>
+</table>
+<p>A plan that survives validation is one the engine agreed to execute. That is not the same as <em>good</em> — the skills in <code>inst/skills/</code> carry the domain knowledge that separates a legal plan from a useful one.</p>
+<div id="read-the-skills-first" class="section level2 hasAnchor" number="31.1">
+<h2><span class="header-section-number">31.1</span> Read the skills first<a href="ai-driver.html#read-the-skills-first" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p><code>sclet</code> ships four skills — plain <code>SKILL.md</code> files under <code>inst/skills/</code>, readable by any agent and by you.</p>
+<div class="sourceCode" id="cb418"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb418-1"><a href="ai-driver.html#cb418-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb418-2"><a href="ai-driver.html#cb418-2" tabindex="-1"></a></span>
+<span id="cb418-3"><a href="ai-driver.html#cb418-3" tabindex="-1"></a>skills <span class="ot">&lt;-</span> <span class="fu">AISkills</span>()</span>
+<span id="cb418-4"><a href="ai-driver.html#cb418-4" tabindex="-1"></a>skills</span></code></pre></div>
+<pre><code>## [1] &quot;sclet-analysis&quot;   &quot;sclet-claims&quot;     &quot;sclet-driver&quot;    
+## [4] &quot;sclet-provenance&quot;</code></pre>
+<div class="sourceCode" id="cb420"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb420-1"><a href="ai-driver.html#cb420-1" tabindex="-1"></a>guidelines <span class="ot">&lt;-</span> <span class="fu">ReadAISkill</span>(<span class="st">&quot;sclet-analysis&quot;</span>)</span>
+<span id="cb420-2"><a href="ai-driver.html#cb420-2" tabindex="-1"></a><span class="fu">nchar</span>(guidelines<span class="sc">$</span>description)</span></code></pre></div>
+<pre><code>## [1] 972</code></pre>
+<p>The analysis skill is the one to read before every plan: it encodes stage order, which steps produce evidence other steps need, and which parameters are modelling choices an agent must never make for the user.</p>
+</div>
+<div id="a-complete-run" class="section level2 hasAnchor" number="31.2">
+<h2><span class="header-section-number">31.2</span> A complete run<a href="ai-driver.html#a-complete-run" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>The object below is deliberately small so this chapter executes during the book build. Everything here runs offline; no model is contacted at any point.</p>
+<div class="sourceCode" id="cb422"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb422-1"><a href="ai-driver.html#cb422-1" tabindex="-1"></a><span class="fu">library</span>(sclet)</span>
+<span id="cb422-2"><a href="ai-driver.html#cb422-2" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb422-3"><a href="ai-driver.html#cb422-3" tabindex="-1"></a>sce <span class="ot">&lt;-</span> scuttle<span class="sc">::</span><span class="fu">mockSCE</span>(<span class="at">ncells =</span> <span class="dv">200</span>, <span class="at">ngenes =</span> <span class="dv">80</span>)</span>
+<span id="cb422-4"><a href="ai-driver.html#cb422-4" tabindex="-1"></a>sce <span class="ot">&lt;-</span> SingleCellExperiment<span class="sc">::</span><span class="fu">SingleCellExperiment</span>(</span>
+<span id="cb422-5"><a href="ai-driver.html#cb422-5" tabindex="-1"></a>    <span class="at">assays =</span> <span class="fu">list</span>(<span class="at">counts =</span> SummarizedExperiment<span class="sc">::</span><span class="fu">assay</span>(sce, <span class="st">&quot;counts&quot;</span>))</span>
+<span id="cb422-6"><a href="ai-driver.html#cb422-6" tabindex="-1"></a>)</span>
+<span id="cb422-7"><a href="ai-driver.html#cb422-7" tabindex="-1"></a><span class="fu">dim</span>(sce)</span></code></pre></div>
+<pre><code>## [1]  80 200</code></pre>
+<div id="what-can-run-on-this-object" class="section level3 hasAnchor" number="31.2.1">
+<h3><span class="header-section-number">31.2.1</span> 1. What can run on this object?<a href="ai-driver.html#what-can-run-on-this-object" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<div class="sourceCode" id="cb424"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb424-1"><a href="ai-driver.html#cb424-1" tabindex="-1"></a>reg <span class="ot">&lt;-</span> <span class="fu">AIDefaultExecutionRegistry</span>(sce, <span class="at">include =</span> <span class="st">&quot;all&quot;</span>)</span>
+<span id="cb424-2"><a href="ai-driver.html#cb424-2" tabindex="-1"></a><span class="fu">length</span>(reg)</span></code></pre></div>
+<pre><code>## [1] 34</code></pre>
+<div class="sourceCode" id="cb426"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb426-1"><a href="ai-driver.html#cb426-1" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">names</span>(reg), <span class="dv">8</span>)</span></code></pre></div>
+<pre><code>## [1] &quot;inspect_status&quot;         &quot;inspect_ledger&quot;        
+## [3] &quot;check_qc&quot;               &quot;normalize_data&quot;        
+## [5] &quot;find_variable_features&quot; &quot;scale_data&quot;            
+## [7] &quot;run_decontx&quot;            &quot;run_pca&quot;</code></pre>
+<p>Ask for <code>"all"</code> deliberately here — a real plan needs the analysis groups, not just the read group. The registry is object-aware: an action whose prerequisites this object cannot meet is listed together with the reason.</p>
+</div>
+<div id="read-the-ledger-and-bind-the-plan-to-it" class="section level3 hasAnchor" number="31.2.2">
+<h3><span class="header-section-number">31.2.2</span> 2. Read the ledger, and bind the plan to it<a href="ai-driver.html#read-the-ledger-and-bind-the-plan-to-it" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<div class="sourceCode" id="cb428"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb428-1"><a href="ai-driver.html#cb428-1" tabindex="-1"></a>ledger <span class="ot">&lt;-</span> <span class="fu">GetAnalysisLedger</span>(sce)</span>
+<span id="cb428-2"><a href="ai-driver.html#cb428-2" tabindex="-1"></a>ledger<span class="sc">$</span>fingerprint</span></code></pre></div>
+<pre><code>## [1] &quot;sclet-ai-746baa4a&quot;</code></pre>
+<p>The fingerprint is not decoration. Validation binds the plan to the state it was written against, so an object edited in between cannot accept a plan written for the old one. That is what makes the stateless pattern in the next section safe.</p>
+</div>
+<div id="write-the-plan" class="section level3 hasAnchor" number="31.2.3">
+<h3><span class="header-section-number">31.2.3</span> 3. Write the plan<a href="ai-driver.html#write-the-plan" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<div class="sourceCode" id="cb430"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb430-1"><a href="ai-driver.html#cb430-1" tabindex="-1"></a>plan <span class="ot">&lt;-</span> <span class="fu">new_sclet_ai_plan</span>(</span>
+<span id="cb430-2"><a href="ai-driver.html#cb430-2" tabindex="-1"></a>    <span class="at">task =</span> <span class="st">&quot;pbmc_markers&quot;</span>,</span>
+<span id="cb430-3"><a href="ai-driver.html#cb430-3" tabindex="-1"></a>    <span class="at">context_fingerprint =</span> ledger<span class="sc">$</span>fingerprint,</span>
+<span id="cb430-4"><a href="ai-driver.html#cb430-4" tabindex="-1"></a>    <span class="at">actions =</span> <span class="fu">list</span>(</span>
+<span id="cb430-5"><a href="ai-driver.html#cb430-5" tabindex="-1"></a>        <span class="fu">list</span>(<span class="at">id =</span> <span class="st">&quot;s1&quot;</span>, <span class="at">action =</span> <span class="st">&quot;normalize_data&quot;</span>),</span>
+<span id="cb430-6"><a href="ai-driver.html#cb430-6" tabindex="-1"></a>        <span class="fu">list</span>(<span class="at">id =</span> <span class="st">&quot;s2&quot;</span>, <span class="at">action =</span> <span class="st">&quot;find_variable_features&quot;</span>,</span>
+<span id="cb430-7"><a href="ai-driver.html#cb430-7" tabindex="-1"></a>             <span class="at">params =</span> <span class="fu">list</span>(<span class="at">nfeatures =</span> <span class="dv">40</span><span class="dt">L</span>), <span class="at">depends_on =</span> <span class="st">&quot;s1&quot;</span>),</span>
+<span id="cb430-8"><a href="ai-driver.html#cb430-8" tabindex="-1"></a>        <span class="fu">list</span>(<span class="at">id =</span> <span class="st">&quot;s3&quot;</span>, <span class="at">action =</span> <span class="st">&quot;scale_data&quot;</span>, <span class="at">depends_on =</span> <span class="st">&quot;s2&quot;</span>),</span>
+<span id="cb430-9"><a href="ai-driver.html#cb430-9" tabindex="-1"></a>        <span class="fu">list</span>(<span class="at">id =</span> <span class="st">&quot;s4&quot;</span>, <span class="at">action =</span> <span class="st">&quot;run_pca&quot;</span>,</span>
+<span id="cb430-10"><a href="ai-driver.html#cb430-10" tabindex="-1"></a>             <span class="at">params =</span> <span class="fu">list</span>(<span class="at">ncomponents =</span> <span class="dv">10</span><span class="dt">L</span>), <span class="at">depends_on =</span> <span class="st">&quot;s3&quot;</span>),</span>
+<span id="cb430-11"><a href="ai-driver.html#cb430-11" tabindex="-1"></a>        <span class="fu">list</span>(<span class="at">id =</span> <span class="st">&quot;s5&quot;</span>, <span class="at">action =</span> <span class="st">&quot;find_neighbors&quot;</span>,</span>
+<span id="cb430-12"><a href="ai-driver.html#cb430-12" tabindex="-1"></a>             <span class="at">params =</span> <span class="fu">list</span>(<span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>), <span class="at">depends_on =</span> <span class="st">&quot;s4&quot;</span>),</span>
+<span id="cb430-13"><a href="ai-driver.html#cb430-13" tabindex="-1"></a>        <span class="fu">list</span>(<span class="at">id =</span> <span class="st">&quot;s6&quot;</span>, <span class="at">action =</span> <span class="st">&quot;find_clusters&quot;</span>,</span>
+<span id="cb430-14"><a href="ai-driver.html#cb430-14" tabindex="-1"></a>             <span class="at">params =</span> <span class="fu">list</span>(<span class="at">resolution =</span> <span class="fl">1.0</span>), <span class="at">depends_on =</span> <span class="st">&quot;s5&quot;</span>),</span>
+<span id="cb430-15"><a href="ai-driver.html#cb430-15" tabindex="-1"></a>        <span class="fu">list</span>(<span class="at">id =</span> <span class="st">&quot;s7&quot;</span>, <span class="at">action =</span> <span class="st">&quot;run_de_test&quot;</span>,</span>
+<span id="cb430-16"><a href="ai-driver.html#cb430-16" tabindex="-1"></a>             <span class="at">params =</span> <span class="fu">list</span>(<span class="at">name =</span> <span class="st">&quot;markers&quot;</span>), <span class="at">depends_on =</span> <span class="st">&quot;s6&quot;</span>)</span>
+<span id="cb430-17"><a href="ai-driver.html#cb430-17" tabindex="-1"></a>    )</span>
+<span id="cb430-18"><a href="ai-driver.html#cb430-18" tabindex="-1"></a>)</span></code></pre></div>
+<p>Three rules the engine enforces, so plan to them:</p>
+<ul>
+<li>every <code>action</code> is a verbatim registry key — a plausible-looking name is refused</li>
+<li>every <code>params</code> value matches the declared type in <code>input_schema</code></li>
+<li>every <code>${step_id.output.field}</code> reference has a matching <code>depends_on</code></li>
+</ul>
+</div>
+<div id="validate-and-read-the-errors" class="section level3 hasAnchor" number="31.2.4">
+<h3><span class="header-section-number">31.2.4</span> 4. Validate — and read the errors<a href="ai-driver.html#validate-and-read-the-errors" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<div class="sourceCode" id="cb431"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb431-1"><a href="ai-driver.html#cb431-1" tabindex="-1"></a>validation <span class="ot">&lt;-</span> <span class="fu">ValidateAIPlan</span>(plan, <span class="at">object =</span> sce, <span class="at">registry =</span> reg)</span>
+<span id="cb431-2"><a href="ai-driver.html#cb431-2" tabindex="-1"></a>validation<span class="sc">$</span>valid</span></code></pre></div>
+<pre><code>## [1] TRUE</code></pre>
+<div class="sourceCode" id="cb433"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb433-1"><a href="ai-driver.html#cb433-1" tabindex="-1"></a>validation<span class="sc">$</span>requires_confirmation</span></code></pre></div>
+<pre><code>## [1] TRUE</code></pre>
+<p><code>ValidateAIPlan()</code> returns the errors, and unlike an exception they are the <em>useful</em> kind: it names the received value, and for a malformed reference it names the corrected spelling. A refusal at this point is progress — it costs nothing.</p>
+</div>
+<div id="dry-run-then-execute" class="section level3 hasAnchor" number="31.2.5">
+<h3><span class="header-section-number">31.2.5</span> 5. Dry-run, then execute<a href="ai-driver.html#dry-run-then-execute" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p><code>ExecuteAIPlan()</code> defaults to <code>dry_run = TRUE</code>, which returns what would run and changes nothing. Non-dry execution requires the confirmation token from <em>this</em> validation object:</p>
+<div class="sourceCode" id="cb435"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb435-1"><a href="ai-driver.html#cb435-1" tabindex="-1"></a>dry <span class="ot">&lt;-</span> <span class="fu">ExecuteAIPlan</span>(sce, plan, <span class="at">registry =</span> reg, <span class="at">validation =</span> validation)</span>
+<span id="cb435-2"><a href="ai-driver.html#cb435-2" tabindex="-1"></a>dry<span class="sc">$</span>status</span></code></pre></div>
+<pre><code>## [1] &quot;dry_run&quot;</code></pre>
+<div class="sourceCode" id="cb437"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb437-1"><a href="ai-driver.html#cb437-1" tabindex="-1"></a><span class="fu">vapply</span>(dry<span class="sc">$</span>results, <span class="cf">function</span>(r) r<span class="sc">$</span>status, <span class="fu">character</span>(<span class="dv">1</span>))</span></code></pre></div>
+<pre><code>## [1] &quot;planned&quot; &quot;planned&quot; &quot;planned&quot; &quot;planned&quot; &quot;planned&quot;
+## [6] &quot;planned&quot; &quot;planned&quot;</code></pre>
+<div class="sourceCode" id="cb439"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb439-1"><a href="ai-driver.html#cb439-1" tabindex="-1"></a>executed <span class="ot">&lt;-</span> <span class="fu">ExecuteAIPlan</span>(sce, plan, <span class="at">registry =</span> reg, <span class="at">validation =</span> validation,</span>
+<span id="cb439-2"><a href="ai-driver.html#cb439-2" tabindex="-1"></a>    <span class="at">dry_run =</span> <span class="cn">FALSE</span>, <span class="at">confirmation =</span> validation<span class="sc">$</span>confirmation_token)</span>
+<span id="cb439-3"><a href="ai-driver.html#cb439-3" tabindex="-1"></a>executed<span class="sc">$</span>status</span></code></pre></div>
+<pre><code>## [1] &quot;completed&quot;</code></pre>
+<div class="sourceCode" id="cb441"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb441-1"><a href="ai-driver.html#cb441-1" tabindex="-1"></a><span class="fu">vapply</span>(executed<span class="sc">$</span>results, <span class="cf">function</span>(r) r<span class="sc">$</span>status, <span class="fu">character</span>(<span class="dv">1</span>))</span></code></pre></div>
+<pre><code>## [1] &quot;completed&quot; &quot;completed&quot; &quot;completed&quot; &quot;completed&quot;
+## [5] &quot;completed&quot; &quot;completed&quot; &quot;completed&quot;</code></pre>
+<p>Passing only <code>confirmation</code> without <code>validation</code> makes the engine re-validate and mint a token that can never match. Take both from one fresh validation.</p>
+</div>
+<div id="read-what-the-ledger-now-says" class="section level3 hasAnchor" number="31.2.6">
+<h3><span class="header-section-number">31.2.6</span> 6. Read what the ledger now says<a href="ai-driver.html#read-what-the-ledger-now-says" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<div class="sourceCode" id="cb443"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb443-1"><a href="ai-driver.html#cb443-1" tabindex="-1"></a><span class="fu">GetAnalysisLedger</span>(executed<span class="sc">$</span>object)<span class="sc">$</span>analyses</span></code></pre></div>
+<pre><code>## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$id
+## [1] &quot;ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930&quot;
+## 
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$type
+## [1] &quot;ai_execution&quot;
+## 
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$source
+## [1] &quot;analysis&quot;
+## 
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$method
+## [1] &quot;ExecuteAIPlan&quot;
+## 
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$inputs
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$inputs$plan_id
+## [1] &quot;plan_pbmc_markers_20261022144927_1jf4n6n3&quot;
+## 
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$inputs$context_fingerprint
+## [1] &quot;sclet-ai-746baa4a&quot;
+## 
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$inputs$action_ids
+## [1] &quot;s1&quot; &quot;s2&quot; &quot;s3&quot; &quot;s4&quot; &quot;s5&quot; &quot;s6&quot; &quot;s7&quot;
+## 
+## 
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$summary
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$summary$status
+## [1] &quot;completed&quot;
+## 
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$summary$n_actions
+## [1] 7
+## 
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$summary$n_completed
+## [1] 7
+## 
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$summary$n_failed
+## [1] 0
+## 
+## 
+## $ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930$created_at
+## [1] &quot;2026-10-22 14:49:30.247461&quot;
+## 
+## 
+## $`preprocess::normalize_logcounts`
+## $`preprocess::normalize_logcounts`$id
+## [1] &quot;normalize_logcounts&quot;
+## 
+## $`preprocess::normalize_logcounts`$type
+## [1] &quot;preprocess&quot;
+## 
+## $`preprocess::normalize_logcounts`$source
+## [1] &quot;state&quot;
+## 
+## $`preprocess::normalize_logcounts`$status
+## [1] &quot;completed&quot;
+## 
+## $`preprocess::normalize_logcounts`$method
+## [1] &quot;scuttle::calculateCPM + log1p&quot;
+## 
+## $`preprocess::normalize_logcounts`$inputs
+## $`preprocess::normalize_logcounts`$inputs$assay
+## [1] &quot;counts&quot;
+## 
+## 
+## $`preprocess::normalize_logcounts`$summary
+## $`preprocess::normalize_logcounts`$summary$n_cells
+## [1] 200
+## 
+## $`preprocess::normalize_logcounts`$summary$n_features
+## [1] 80
+## 
+## 
+## $`preprocess::normalize_logcounts`$created_at
+## [1] &quot;2026-10-22 14:49:28.813404&quot;
+## 
+## 
+## $`reduction::pca`
+## $`reduction::pca`$id
+## [1] &quot;pca&quot;
+## 
+## $`reduction::pca`$type
+## [1] &quot;reduction&quot;
+## 
+## $`reduction::pca`$source
+## [1] &quot;state&quot;
+## 
+## $`reduction::pca`$status
+## [1] &quot;completed&quot;
+## 
+## $`reduction::pca`$method
+## [1] &quot;scater::runPCA&quot;
+## 
+## $`reduction::pca`$inputs
+## $`reduction::pca`$inputs$layer
+## [1] &quot;scaled&quot;
+## 
+## $`reduction::pca`$inputs$assay
+## [1] &quot;scaled&quot;
+## 
+## $`reduction::pca`$inputs$subset_row
+## NULL
+## 
+## $`reduction::pca`$inputs$integration
+## NULL
+## 
+## 
+## $`reduction::pca`$summary
+## $`reduction::pca`$summary$n_components
+## [1] 10
+## 
+## 
+## $`reduction::pca`$created_at
+## [1] &quot;2026-10-22 14:49:29.334175&quot;
+## 
+## 
+## $`graph::knn_graph`
+## $`graph::knn_graph`$id
+## [1] &quot;knn_graph&quot;
+## 
+## $`graph::knn_graph`$type
+## [1] &quot;graph&quot;
+## 
+## $`graph::knn_graph`$source
+## [1] &quot;state&quot;
+## 
+## $`graph::knn_graph`$status
+## [1] &quot;completed&quot;
+## 
+## $`graph::knn_graph`$method
+## [1] &quot;bluster::makeSNNGraph&quot;
+## 
+## $`graph::knn_graph`$inputs
+## $`graph::knn_graph`$inputs$dims
+##  [1]  1  2  3  4  5  6  7  8  9 10
+## 
+## $`graph::knn_graph`$inputs$reduction
+## [1] &quot;PCA&quot;
+## 
+## $`graph::knn_graph`$inputs$layer
+## [1] &quot;scaled&quot;
+## 
+## $`graph::knn_graph`$inputs$integration
+## NULL
+## 
+## 
+## $`graph::knn_graph`$summary
+## $`graph::knn_graph`$summary$n_vertices
+## [1] 200
+## 
+## $`graph::knn_graph`$summary$n_edges
+## [1] 8985
+## 
+## 
+## $`graph::knn_graph`$created_at
+## [1] &quot;2026-10-22 14:49:29.468232&quot;
+## 
+## 
+## $`clustering::louvain_clusters`
+## $`clustering::louvain_clusters`$id
+## [1] &quot;louvain_clusters&quot;
+## 
+## $`clustering::louvain_clusters`$type
+## [1] &quot;clustering&quot;
+## 
+## $`clustering::louvain_clusters`$source
+## [1] &quot;state&quot;
+## 
+## $`clustering::louvain_clusters`$status
+## [1] &quot;completed&quot;
+## 
+## $`clustering::louvain_clusters`$method
+## [1] &quot;igraph::cluster_louvain&quot;
+## 
+## $`clustering::louvain_clusters`$inputs
+## $`clustering::louvain_clusters`$inputs$graph
+## [1] &quot;knn_graph&quot;
+## 
+## $`clustering::louvain_clusters`$inputs$reduction
+## [1] &quot;PCA&quot;
+## 
+## $`clustering::louvain_clusters`$inputs$layer
+## [1] &quot;scaled&quot;
+## 
+## $`clustering::louvain_clusters`$inputs$integration
+## NULL
+## 
+## 
+## $`clustering::louvain_clusters`$summary
+## $`clustering::louvain_clusters`$summary$n_clusters
+## [1] 4
+## 
+## 
+## $`clustering::louvain_clusters`$created_at
+## [1] &quot;2026-10-22 14:49:29.586603&quot;
+## 
+## 
+## $`detest::markers`
+## $`detest::markers`$id
+## [1] &quot;markers&quot;
+## 
+## $`detest::markers`$type
+## [1] &quot;detest&quot;
+## 
+## $`detest::markers`$source
+## [1] &quot;state&quot;
+## 
+## $`detest::markers`$status
+## [1] &quot;completed&quot;
+## 
+## $`detest::markers`$method
+## [1] &quot;FindAllMarkers&quot;
+## 
+## $`detest::markers`$inputs
+## $`detest::markers`$inputs$ident.1
+## NULL
+## 
+## $`detest::markers`$inputs$ident.2
+## NULL
+## 
+## $`detest::markers`$inputs$active_ident
+## [1] &quot;colLabels&quot;
+## 
+## 
+## $`detest::markers`$summary
+## $`detest::markers`$summary$n_markers
+## [1] 48
+## 
+## 
+## $`detest::markers`$created_at
+## [1] &quot;2026-10-22 14:49:29.714358&quot;
+## 
+## 
+## $`ai_evidence::ev:findallmarkers`
+## $`ai_evidence::ev:findallmarkers`$id
+## [1] &quot;ev:findallmarkers&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$type
+## [1] &quot;ai_evidence&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$source
+## [1] &quot;state&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$status
+## [1] &quot;completed&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$method
+## [1] &quot;sclet_ai_evidence&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$inputs
+## $`ai_evidence::ev:findallmarkers`$inputs$source
+## [1] &quot;markers&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$inputs$parents
+## [1] &quot;markers&quot;
+## 
+## 
+## $`ai_evidence::ev:findallmarkers`$summary
+## $`ai_evidence::ev:findallmarkers`$summary$id
+## [1] &quot;ev:findallmarkers&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$kind
+## [1] &quot;deterministic_summary&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$values
+## $`ai_evidence::ev:findallmarkers`$summary$values$n_rows
+## [1] 48
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$values$n_upregulated
+## [1] 23
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$values$n_groups
+## [1] 4
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$values$smallest_group_n
+## [1] 28
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$values$pvalue_threshold
+## [1] 0.05
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$values$logfc_threshold
+## [1] 0.1
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$values$min_pct
+## [1] 0.01
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$values$raw_values_included
+## [1] FALSE
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$values$n_top_up
+## [1] 10
+## 
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$claim_level
+## [1] &quot;associated&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$source
+## [1] &quot;markers&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$parents
+## [1] &quot;markers&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$scope
+## list()
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$object_fingerprint
+## [1] &quot;sclet-ai-15886aaf&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$status
+## [1] &quot;completed&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$created_at
+## [1] &quot;2026-10-22 14:49:30.139109&quot;
+## 
+## $`ai_evidence::ev:findallmarkers`$summary$dependency_group
+## [1] &quot;90eae04d1a8f8d028b3c41efb055ffc79395fb6b0f39e13551ecfac918cec000&quot;
+## 
+## 
+## $`ai_evidence::ev:findallmarkers`$created_at
+## [1] &quot;2026-10-22 14:49:30.139496&quot;</code></pre>
+<p>The analysis records, the types the handlers were allowed to write, and the execution record itself are all on the object. This is the audit trail, and it is what the last chapter of this part is about.</p>
+</div>
+</div>
+<div id="advancing-in-rounds" class="section level2 hasAnchor" number="31.3">
+<h2><span class="header-section-number">31.3</span> Advancing in rounds<a href="ai-driver.html#advancing-in-rounds" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p><code>ExecuteAIPlan()</code> walks the plan in order with per-step retry. <strong>Nothing in execution rewrites later steps.</strong> A multi-stage analysis is therefore a <em>sequence</em> of plans, and starting each one is your decision.</p>
+<p>The reason is measured, not stylistic: recording a round changes the object’s fingerprint, so the previous plan is refused afterwards by design.</p>
+<div class="sourceCode" id="cb445"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb445-1"><a href="ai-driver.html#cb445-1" tabindex="-1"></a>again <span class="ot">&lt;-</span> <span class="fu">ValidateAIPlan</span>(plan, <span class="at">object =</span> executed<span class="sc">$</span>object, <span class="at">registry =</span> reg)</span>
+<span id="cb445-2"><a href="ai-driver.html#cb445-2" tabindex="-1"></a>again<span class="sc">$</span>valid</span></code></pre></div>
+<pre><code>## [1] FALSE</code></pre>
+<div class="sourceCode" id="cb447"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb447-1"><a href="ai-driver.html#cb447-1" tabindex="-1"></a>again<span class="sc">$</span>errors</span></code></pre></div>
+<pre><code>## [1] &quot;plan context fingerprint does not match the current object&quot;</code></pre>
+<p>An old plan not being reusable is the feature: the plan you checked described a different object than the one you now hold.</p>
+<p>Two rules follow from the round boundary:</p>
+<ul>
+<li><strong>A plan may only reference steps of its own plan.</strong> <code>${old_step.output.detest_id}</code> across a round is refused. Carry a value forward by naming the record that produced it — <code>detest_id = "markers"</code> — which the ledger in front of you supplies literally.</li>
+<li><strong>Re-validate every time.</strong> The fingerprint binds the plan to the object state it was validated against.</li>
+</ul>
+<p>Start a new round when a stage finished and the next feeds on it, when a step failed for a reason that changes the route, when the plan never covered the goal (<code>plan$metadata$goal_coverage$missing</code>), or when the user answered an open choice.</p>
+</div>
+<div id="what-you-can-do-that-a-model-cannot" class="section level2 hasAnchor" number="31.4">
+<h2><span class="header-section-number">31.4</span> What you can do that a model cannot<a href="ai-driver.html#what-you-can-do-that-a-model-cannot" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>The registry has two audiences. A model is shown the actions it can actually fill; a few analyses need an input that exists only on your side — a gene set, a bulk phenotype matrix, a reference <code>SingleCellExperiment</code>, a GRN prior, a pySCENIC database. Those actions are registered and executable, but they are marked <code>planner_visible = FALSE</code> and kept out of a model’s catalog, because a plan proposing one of them would fail on a parameter no model can produce.</p>
+<p>Writing the plan yourself, you can use them. <code>include = "all"</code> means “every action this package offers”, and the difference from what a planner sees is exactly this list.</p>
+<div class="sourceCode" id="cb449"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb449-1"><a href="ai-driver.html#cb449-1" tabindex="-1"></a>all_actions <span class="ot">&lt;-</span> <span class="fu">AIDefaultExecutionRegistry</span>(sce, <span class="at">include =</span> <span class="st">&quot;all&quot;</span>)</span>
+<span id="cb449-2"><a href="ai-driver.html#cb449-2" tabindex="-1"></a>driver_only <span class="ot">&lt;-</span> <span class="fu">names</span>(all_actions)[</span>
+<span id="cb449-3"><a href="ai-driver.html#cb449-3" tabindex="-1"></a>    <span class="sc">!</span><span class="fu">vapply</span>(all_actions, <span class="cf">function</span>(a) <span class="fu">isTRUE</span>(a<span class="sc">$</span>planner_visible), <span class="fu">logical</span>(<span class="dv">1</span><span class="dt">L</span>))</span>
+<span id="cb449-4"><a href="ai-driver.html#cb449-4" tabindex="-1"></a>]</span>
+<span id="cb449-5"><a href="ai-driver.html#cb449-5" tabindex="-1"></a>driver_only</span></code></pre></div>
+<pre><code>## [1] &quot;map_reference_knn&quot;         
+## [2] &quot;map_reference_symphony&quot;    
+## [3] &quot;run_regvelo&quot;               
+## [4] &quot;run_geneset_scoring&quot;       
+## [5] &quot;run_supercell&quot;             
+## [6] &quot;run_phenotype_association&quot; 
+## [7] &quot;run_scenic&quot;                
+## [8] &quot;run_in_silico_perturbation&quot;
+## [9] &quot;run_spatial_deconvolution&quot;</code></pre>
+<p>Each one names, in its <code>input_schema</code>, what you have to bring. That is not a courtesy: <code>ValidateAIPlan()</code> refuses the step without it, and the refusal names the parameter rather than the action.</p>
+</div>
+<div id="the-plan-you-ran-is-a-graph-and-it-outlives-the-session" class="section level2 hasAnchor" number="31.5">
+<h2><span class="header-section-number">31.5</span> The plan you ran is a graph, and it outlives the session<a href="ai-driver.html#the-plan-you-ran-is-a-graph-and-it-outlives-the-session" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>A round is not a list of steps in a log file. Each step that writes an analysis record is attributed to the record it produced, and steps that feed other steps keep the edge the plan declared. <code>AnalysisGraph()</code> projects that onto two tables you can read, print, or hand to another agent.</p>
+<div class="sourceCode" id="cb451"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb451-1"><a href="ai-driver.html#cb451-1" tabindex="-1"></a>graph <span class="ot">&lt;-</span> <span class="fu">AnalysisGraph</span>(executed<span class="sc">$</span>object)</span>
+<span id="cb451-2"><a href="ai-driver.html#cb451-2" tabindex="-1"></a>graph</span></code></pre></div>
+<pre><code>## &lt;sclet trace graph&gt; sclet-trace-graph/1 
+##   rounds: 1  (1 without stored topology) 
+##   nodes: 14 | edges: 10</code></pre>
+<div class="sourceCode" id="cb453"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb453-1"><a href="ai-driver.html#cb453-1" tabindex="-1"></a><span class="fu">head</span>(graph<span class="sc">$</span>edges, <span class="dv">8</span>)</span></code></pre></div>
+<pre><code>##                                                                            from
+## 1 step:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930:s1
+## 2 step:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930:s2
+## 3 step:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930:s3
+## 4 step:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930:s4
+## 5 step:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930:s5
+## 6 step:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930:s6
+## 7 step:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930:s7
+## 8                                           record:clustering::louvain_clusters
+##                                                                            to
+## 1 round:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930
+## 2 round:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930
+## 3 round:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930
+## 4 round:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930
+## 5 round:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930
+## 6 round:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930
+## 7 round:ai_execution_plan_pbmc_markers_20261022144927_1jf4n6n3_20261022144930
+## 8                                                     record:graph::knn_graph
+##       kind parent_kind declared_input
+## 1  step_of        &lt;NA&gt;           &lt;NA&gt;
+## 2  step_of        &lt;NA&gt;           &lt;NA&gt;
+## 3  step_of        &lt;NA&gt;           &lt;NA&gt;
+## 4  step_of        &lt;NA&gt;           &lt;NA&gt;
+## 5  step_of        &lt;NA&gt;           &lt;NA&gt;
+## 6  step_of        &lt;NA&gt;           &lt;NA&gt;
+## 7  step_of        &lt;NA&gt;           &lt;NA&gt;
+## 8 consumed        &lt;NA&gt;          graph</code></pre>
+<div class="sourceCode" id="cb455"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb455-1"><a href="ai-driver.html#cb455-1" tabindex="-1"></a><span class="fu">nrow</span>(graph<span class="sc">$</span>nodes[graph<span class="sc">$</span>nodes<span class="sc">$</span>kind <span class="sc">==</span> <span class="st">&quot;step&quot;</span>, ])</span></code></pre></div>
+<pre><code>## [1] 7</code></pre>
+<p>Two questions this answers that a printed log cannot: which step produced a named record, and which later steps declared a given step as upstream.</p>
+<div class="sourceCode" id="cb457"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb457-1"><a href="ai-driver.html#cb457-1" tabindex="-1"></a><span class="co"># Which step produced the marker table this round registered?</span></span>
+<span id="cb457-2"><a href="ai-driver.html#cb457-2" tabindex="-1"></a>marker_record <span class="ot">&lt;-</span> graph<span class="sc">$</span>edges<span class="sc">$</span>to[graph<span class="sc">$</span>edges<span class="sc">$</span>kind <span class="sc">==</span> <span class="st">&quot;produced&quot;</span> <span class="sc">&amp;</span></span>
+<span id="cb457-3"><a href="ai-driver.html#cb457-3" tabindex="-1"></a>    <span class="fu">grepl</span>(<span class="st">&quot;detest&quot;</span>, graph<span class="sc">$</span>edges<span class="sc">$</span>to)]</span>
+<span id="cb457-4"><a href="ai-driver.html#cb457-4" tabindex="-1"></a><span class="fu">graph_producers</span>(graph, marker_record[<span class="dv">1</span>])</span></code></pre></div>
+<pre><code>## $ids
+## character(0)
+## 
+## $complete
+## [1] FALSE</code></pre>
+<div class="sourceCode" id="cb459"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb459-1"><a href="ai-driver.html#cb459-1" tabindex="-1"></a><span class="co"># Which later steps declared the round&#39;s first step as upstream?</span></span>
+<span id="cb459-2"><a href="ai-driver.html#cb459-2" tabindex="-1"></a>first_step <span class="ot">&lt;-</span> graph<span class="sc">$</span>nodes<span class="sc">$</span>id[graph<span class="sc">$</span>nodes<span class="sc">$</span>kind <span class="sc">==</span> <span class="st">&quot;step&quot;</span>][<span class="dv">1</span>]</span>
+<span id="cb459-3"><a href="ai-driver.html#cb459-3" tabindex="-1"></a><span class="fu">graph_consumers</span>(graph, first_step)</span></code></pre></div>
+<pre><code>## $ids
+## character(0)
+## 
+## $complete
+## [1] FALSE</code></pre>
+<p>Both queries return the answer <em>and</em> whether the round that produced it carries a full trace. A record with no producer edge is not an error to chase: it may simply predate the trace, or have been written outside a plan.</p>
+<p>The graph is a projection over the object’s own records, so it survives <code>saveRDS()</code> with them, and a round that ran before this book existed is still readable — it simply reports <code>complete = FALSE</code> for that round, because the topology was never stored for it.</p>
+<p>Two things it will not show, and both are recorded rather than hidden. A re-run that re-writes an existing record id appears as a <code>refreshed</code> edge from the newer step, not as a second copy of the record, because the record store overwrites by id. And an action that returns a <em>different</em> object — metacell aggregation is the one — takes the earlier records with it; the graph says so with <code>meta$object_replaced</code> instead of silently dropping the rounds.</p>
+</div>
+<div id="resuming-across-processes" class="section level2 hasAnchor" number="31.6">
+<h2><span class="header-section-number">31.6</span> Resuming across processes<a href="ai-driver.html#resuming-across-processes" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>The ledger lives on the object, so the whole analysis survives <code>saveRDS()</code>. An agent does not need a resident R session: each interaction can be a fresh <code>Rscript</code> that reads the object, plans the next stage against the fingerprint it carries, executes, and saves it back. Because <code>is.character(validation$plan_id)</code> — the id in the validation object — must match, and the fingerprint must still be current, a stale plan is refused rather than silently run.</p>
+</div>
+<div id="things-not-to-attempt" class="section level2 hasAnchor" number="31.7">
+<h2><span class="header-section-number">31.7</span> Things not to attempt<a href="ai-driver.html#things-not-to-attempt" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<ul>
+<li><strong>An empty plan is not a plan.</strong> Zero actions are refused (<code>plan_empty</code>) instead of reporting <code>status = "completed"</code> with no results. If the goal needs no computation, answer directly.</li>
+<li><strong>A plan has no conditional steps.</strong> “If this succeeds, also do X” is a second round, not a longer plan.</li>
+<li><strong>Never claim without evidence.</strong> The report’s claims are capped by the evidence that supports them, which is the subject of <a href="ai-evidence-governance.html#ai-evidence-governance">evidence governance</a>.</li>
+<li><strong><code>RunAIPlan()</code> is a convenience, not a different contract.</strong> It validates internally, so use it for the common case and <code>ValidateAIPlan()</code>/<code>ExecuteAIPlan()</code> separately when you need to inspect the validation object — for instance to present a refusal to a user before fixing it.</li>
+</ul>
+
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="ai-foundations.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="ai-in-package.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/clipboard.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-clipboard.js"></script>
+<script>
+gitbook.require(["gitbook"], function(gitbook) {
+gitbook.start({
+  "sharing": {
+    "github": false,
+    "facebook": true,
+    "twitter": true,
+    "linkedin": false,
+    "weibo": false,
+    "instapaper": false,
+    "vk": false,
+    "whatsapp": false,
+    "all": ["facebook", "twitter", "linkedin", "weibo", "instapaper"]
+  },
+  "fontsettings": {
+    "theme": "white",
+    "family": "sans",
+    "size": 2
+  },
+  "edit": {
+    "link": null,
+    "text": null
+  },
+  "history": {
+    "link": null,
+    "text": null
+  },
+  "view": {
+    "link": null,
+    "text": null
+  },
+  "download": null,
+  "search": {
+    "engine": "fuse",
+    "options": null
+  },
+  "toc": {
+    "collapse": "subsection"
+  }
+});
+});
+</script>
+
+</body>
+
+</html>
