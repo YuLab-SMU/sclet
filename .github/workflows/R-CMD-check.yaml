@@ -16,6 +16,14 @@ jobs:
 
     name: ${{ matrix.config.os }} (R ${{ matrix.config.r }}, Bioc ${{ matrix.config.bioc }})
 
+    # A full cell (dependencies + examples + the test suite) finishes in about
+    # 35-50 minutes. The cap exists because a stalled download otherwise parks
+    # the job silently for hours: on 2026-10-23 both Linux cells sat with zero
+    # output from 14:20 until the run was cancelled, waiting on
+    # packagemanager.posit.co while Windows and macOS passed. Failing at 90
+    # minutes surfaces that as a red cell instead of a hung one.
+    timeout-minutes: 90
+
     strategy:
       fail-fast: false
       matrix:
