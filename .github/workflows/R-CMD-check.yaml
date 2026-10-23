@@ -50,6 +50,24 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
+      - name: Give R room to build (Linux)
+        # The Bioc devel cell has no binaries on most platforms, so it compiles
+        # from source: 416 packages against 112 on the release cell. That fills
+        # the runner's root filesystem, and the build dies mid-write with
+        #   Error in lazyLoadDBinsertValue(...): write failed
+        # which names no cause, since there is no ENOSPC message at that layer.
+        # /mnt is the large disk on these runners; point R's temp there.
+        if: runner.os == 'Linux'
+        run: |
+          df -h /tmp /mnt || true
+          sudo mkdir -p /mnt/r-tmp
+          sudo chmod 777 /mnt/r-tmp
+          {
+            echo "TMPDIR=/mnt/r-tmp"
+          } >> "$GITHUB_ENV"
+          # Print what R will actually use, so the next failure cannot hide it.
+          Rscript -e 'cat("R tempdir:", tempdir(), "\n")'
+
       - name: Point the macOS build at Homebrew OpenSSL
         # Apple ships LibreSSL, whose libraries are named libtls/libcrypto but
         # NOT libssl.dylib. Rhdf5lib's libhdf5.a records the HDF5 link line
