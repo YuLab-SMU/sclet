@@ -78,6 +78,22 @@ jobs:
           } >> "$HOME/.R/Makevars"
           cat "$HOME/.R/Makevars"
 
+      - name: Install XQuartz (macOS)
+        # nichenetr is in Suggests with a Remotes: entry, so pak builds it from
+        # source, and it pulls gdtools. The gdtools arm64 binary itself links
+        # /opt/X11/lib/libXrender.1.dylib, which is absent on the runner:
+        #   unable to load shared object gdtools.so
+        #   Library not loaded: /opt/X11/lib/libXrender.1.dylib
+        # XQuartz installs to exactly that path, so it is what the binary wants.
+        if: runner.os == 'macOS'
+        run: |
+          pkg="$RUNNER_TEMP/XQuartz.pkg"
+          curl -sSL --retry 3 --retry-delay 5 \
+            -o "$pkg" \
+            "https://github.com/XQuartz/XQuartz/releases/download/XQuartz-2.8.6/XQuartz-2.8.6.pkg"
+          sudo installer -pkg "$pkg" -target /
+          test -e /opt/X11/lib/libXrender.1.dylib && echo "libXrender present"
+
       - name: Install JAGS (Windows)
         # infercnv is in Suggests and on CRAN only, so pak builds it from
         # source; its dependency rjags declares `SystemRequirements: JAGS` and
