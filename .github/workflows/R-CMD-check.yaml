@@ -50,6 +50,34 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
+      - name: Point the macOS build at Homebrew OpenSSL
+        # Apple ships LibreSSL, whose libraries are named libtls/libcrypto but
+        # NOT libssl.dylib. Rhdf5lib's libhdf5.a records the HDF5 link line
+        # `-lsz -lm -ldl -lcurl -lssl -lcrypto -lz`, so anything linking it from
+        # source needs a real libssl to resolve -- which is only true for the
+        # Homebrew OpenSSL. alabaster.base is the one package in this tree with
+        # no arm64 binary, so it compiles from source and hits exactly this:
+        #   ld: library 'ssl' not found
+        # -lcurl resolves (macOS bundles libcurl), so OpenSSL is the only gap.
+        # The prefix is looked up rather than hardcoded; the brew prefixes move
+        # between runner images.
+        if: runner.os == 'macOS'
+        run: |
+          openssl_prefix="$(brew --prefix openssl@1.1 2>/dev/null || brew --prefix openssl)"
+          echo "OpenSSL prefix: $openssl_prefix"
+          test -e "$openssl_prefix/lib/libssl.dylib" || {
+            echo "no libssl.dylib under $openssl_prefix/lib" >&2; exit 1; }
+          # ~/.R/Makevars is the injection point R guarantees: Makeconf's own
+          # LDFLAGS is baked in and does not inherit the environment, so setting
+          # `LDFLAGS=` in GITHUB_ENV alone may never reach a package build.
+          mkdir -p "$HOME/.R"
+          {
+            echo "# resolve the -lssl -lcrypto that Rhdf5lib's libhdf5.a records"
+            echo "LDFLAGS += -L$openssl_prefix/lib"
+            echo "CPPFLAGS += -I$openssl_prefix/include"
+          } >> "$HOME/.R/Makevars"
+          cat "$HOME/.R/Makevars"
+
       - name: Install JAGS (Windows)
         # infercnv is in Suggests and on CRAN only, so pak builds it from
         # source; its dependency rjags declares `SystemRequirements: JAGS` and
