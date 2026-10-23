@@ -298,6 +298,13 @@ test_that("a gene order with no overlap is an error, not a zero-row crash", {
 test_that("readiness refuses a gene order that covers one chromosome", {
     # inferCNV slides a window ALONG each chromosome. Before the fix the gate was
     # a gene count only, so 400 genes piled on chr1 reported ready.
+    # These cases assert ready/not-ready, and readiness legitimately reports a
+    # missing 'infercnv' as an issue. On the macOS runner rjags is a binary that
+    # recorded its JAGS at build time, so without the matching JAGS the package
+    # installs but does not load, and the gene-order result is masked by the
+    # missing-package issue. Skip rather than assert around it.
+    skip_if_not(requireNamespace("infercnv", quietly = TRUE))
+
     sce <- sclet_cnv_test_sce()
     genes <- rep(rownames(sce), length.out = 400L)
     ord <- data.frame(gene = genes, chr = "chr1",
@@ -316,6 +323,13 @@ test_that("readiness refuses a gene order that covers one chromosome", {
 })
 
 test_that("a genome-wide gene order still passes the gate", {
+    # These cases assert ready/not-ready, and readiness legitimately reports a
+    # missing 'infercnv' as an issue. On the macOS runner rjags is a binary that
+    # recorded its JAGS at build time, so without the matching JAGS the package
+    # installs but does not load, and the gene-order result is masked by the
+    # missing-package issue. Skip rather than assert around it.
+    skip_if_not(requireNamespace("infercnv", quietly = TRUE))
+
     sce <- sclet_cnv_test_sce()
     genes <- rep(rownames(sce), length.out = 400L)
     chr <- rep(sprintf("chr%d", 1:20), length.out = length(genes))
