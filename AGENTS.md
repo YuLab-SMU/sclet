@@ -51,6 +51,37 @@ blaming the build.
 
 `make check` (full), `make check2` (tarball), `make clean` (`*.Rcheck/`).
 
+### CI (`R-CMD-check.yaml`)
+
+Four cells: ubuntu release/devel, macOS and Windows, R release + Bioc release.
+**A red cell is usually a platform gap, not a code bug** — read which step
+failed before reading the tests.
+
+- **`BiocManager::install(version =)` takes a number or `"devel"` only.**
+  `"release"` is not a value and throws `invalid version specification`; the
+  workflow resolves the matrix tag through `as.character(BiocManager::version())`
+  first. R's release ships the matching `BiocVersion`, so that is the release
+  number, not devel's.
+- **macOS is arm64 and `alabaster.base` has no arm64 binary** in the Bioc index
+  (its siblings do), so pak compiles it from source, and it links `Rhdf5lib`'s
+  static HDF5, which records `-lssl -lcrypto`. Apple ships LibreSSL with no
+  `libssl.dylib`, so the workflow points `~/.R/Makevars` at Homebrew OpenSSL.
+  Use `Makevars`, not `LDFLAGS=` in `GITHUB_ENV`: R's `Makeconf` bakes its own
+  `LDFLAGS`, and an environment assignment may never reach a package build.
+- **Windows**: `rjags` consults `JAGS_HOME` and the registry, never `PATH`, and
+  SourceForge answers GitHub runners with a ~144 KB HTML interstitial instead
+  of the installer — hence the hash-checked copy in `.github/ci-assets/`.
+  `argparse` (R) needs the *Python* `argparse` module, plus `PYTHON` pointing
+  at the interpreter that has it.
+- **`mclapply` rejects any `mc.cores > 1` on Windows** — a wall, not a limit,
+  so `_R_CHECK_LIMIT_CORES_` handling alone does not cover it.
+- **The macOS cell is the newest; its failures are usually first-contact
+  portability bugs** (a test relying on S4 class-registration order, on locale
+  collation, or on a Python package version) rather than regressions. Check
+  whether that platform ever ran before blaming the last commit.
+- **Add a runtime probe to a failing assertion instead of guessing** — three
+  macOS rounds went to install plumbing before the suite could speak at all.
+
 **Three tiers — `make check` is the outer loop, not the inner one.**
 
 ```bash
