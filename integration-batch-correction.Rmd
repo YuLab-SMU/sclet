@@ -126,10 +126,15 @@ get_analysis_context(rm_batch_pbmc)$active
 
 ## Visualization {#integration-visualization}
 
-# An explicit id: the auto-generated `visualization` collides with the
-# [Enhanced Visualization](#visualization) chapter, and pandoc then warns
-# "Duplicate identifier" and the in-book links from other chapters land on the
-# wrong page.
+<div class="note">
+
+An explicit id: the auto-generated `visualization` collides with the
+[Enhanced Visualization](#visualization) chapter, and pandoc then warns
+"Duplicate identifier" and the in-book links from other chapters land on the
+wrong page. The heading below therefore carries `{#integration-visualization}`
+rather than letting pandoc slug it.
+
+</div>
 
 
 ```{r batch-umap, fig.width=13.5, fig.height=12}
@@ -172,6 +177,48 @@ head(res)
 ```
 
 
+## Running scVI on a GPU {#integration-gpu}
 
+`RunIntegration(method = "scVI")` is the one integration route that trains a neural network, and it is the reason to care about the device. The other routes (`fastMNN`, `Harmony`) are CPU work and have no torch backend; passing `device` to them does nothing, which is deliberate rather than an oversight.
 
+### The default is CPU {#integration-gpu-default}
 
+```{r integration-device-default, eval=eval_chunks}
+# No `device` argument, no option, no environment variable: CPU. That is the
+# environment the cached object above was built in, and the default every
+# existing user already has.
+dim(SingleCellExperiment::reducedDim(rm_scvi_pbmc, "scVI"))
+```
+
+That is a release decision, not a limitation. `sclet`'s CPU environment is what every user already has built; the GPU one is a ~3 GB download that exists to serve the users who have a card. A package whose default install pulls CUDA libraries to serve a minority is a package nobody installs.
+
+### Asking for the card {#integration-gpu-asking}
+
+Three ways, most specific first:
+
+```{r integration-device-cuda, eval=FALSE}
+# 1. per call
+sce <- RunIntegration(sce, method = "scVI", batch = "batch", device = "cuda")
+
+# 2. per session
+options(sclet.python.device = "cuda")
+
+# 3. per machine, in ~/.Renviron
+#   SCLET_PYTHON_DEVICE=cuda
+```
+
+`"auto"` is accepted everywhere and resolves against the environment, not the driver: a card with a driver but without the environment's CUDA wheels fails at `import torch`, which is far too late to be a useful answer.
+
+### What it costs the first time {#integration-gpu-cost}
+
+The GPU environment is built lazily, on the first `device = "cuda"` call. On this book's machine that is a few minutes and a few gigabytes; the message says so while it happens.
+
+### Check before you commit to a long run {#integration-gpu-check}
+
+```{r integration-gpu-status, eval=eval_chunks}
+sclet_gpu_status()
+```
+
+`available` is the field to read. It is `TRUE` only when the environment exists **and** its torch reports a device, so a missing environment, a driver that is too old for the CUDA build, and a machine with no card all read as `FALSE` before any training starts.
+
+A `device = "cuda"` request that cannot be honoured raises `sclet_gpu_unavailable` naming `sclet_gpu_status()`. It does not fall back to CPU: a silent fallback would hide a request you made deliberately, and you would wait for a speedup that never came.

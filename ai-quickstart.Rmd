@@ -1,0 +1,156 @@
+# AI in One Call {#ai-quickstart}
+
+This chapter is the shortest path from an installed package to an AI-assisted analysis. It is written for someone who has never used the AI layer and does not yet care how it works. Read it once, run the two commands, and come back for the rest of the part when you want to know what happened.
+
+Everything here is real: no chunk is `\dontrun`, and the ones that call a model are gated the same way as the rest of the book, so on a machine with no provider they are skipped rather than failed.
+
+## What you need first
+
+The AI layer is optional. One package, installed once:
+
+```{r ai-quickstart-aisdk, eval=FALSE}
+# Not executed: this is a machine-level action, not a chunk.
+install.packages("aisdk")
+```
+
+`scletAI()` checks this before anything is sent, so a missing package is an
+error that names the command rather than a plan that reaches a provider and
+fails there.
+
+And one provider key in `~/.Renviron`, which R reads at startup (restart afterwards):
+
+```{r ai-quickstart-key, eval=FALSE}
+# Not executed: never print a key into a rendered book.
+#   OPENAI_API_KEY=sk-...
+```
+
+`sclet` never asks for the key and never sees it: `aisdk` reads it from the environment and the model provider bills the call. A call is also non-deterministic — the same goal can produce a different plan — which is why the layer records what it did rather than trusting what it said.
+
+## The one call
+
+```{r ai-quickstart-object, eval=eval_chunks}
+# `conflicted` refuses a `library()` while a name exists in several attached
+# packages. The book's setup chunk prefers base's `intersect`/`union`/`setdiff`
+# BEFORE the later chapters attach GenomicRanges (via SVP), and a preference
+# does not apply retroactively to a package attached after it was set -- so it
+# is set again here, where the AI path begins. Same choice, one line.
+for (fn in c("intersect", "union", "setdiff")) {
+    try(conflicted::conflicts_prefer(fn, base::get(fn), .quiet = TRUE), silent = TRUE)
+}
+set.seed(42)
+sce <- scuttle::mockSCE(ncells = 200, ngenes = 80)
+sce <- SingleCellExperiment::SingleCellExperiment(
+    assays = list(counts = SummarizedExperiment::assay(sce, "counts")),
+    colData = S4Vectors::DataFrame(SummarizedExperiment::colData(sce))
+)
+sce <- NormalizeData(sce)
+sce <- FindVariableFeatures(sce)
+sce <- ScaleData(sce)
+dim(sce)
+```
+
+Now describe what you want. `scletAI()` is the whole API:
+
+```{r ai-quickstart-run, eval=eval_ai}
+analysis <- scletAI(sce, "cluster the cells and find markers for each cluster")
+analysis
+```
+
+The plan is printed, then the session asks `[y/N]`. In a script, pass
+`confirm = "yes"` to run without prompting, or `confirm = "no"` to see the plan
+and stop. On a machine with no provider this chunk is skipped by the same switch
+as the rest of the AI material, and the chapter still renders.
+
+### What came back, and what it means
+
+`analysis$status` is the one field to read. Three outcomes, all of them normal:
+
+| status | what happened | what to do |
+|---|---|---|
+| `completed` | every action ran and was recorded | read `analysis$object` — the clusters are on it |
+| `dry_run` | the plan was previewed, not executed (you said no, or the session is non-interactive) | run again with `confirm = "yes"` |
+| `invalid_plan` | the engine refused the plan | read `analysis$report$errors`; each names what to fix |
+
+The refusal case is not a bug and not a misconfiguration: a language model
+proposes a plan, the engine checks it against the live object, and a plan that
+does not survive is refused *before* anything runs. That is the design — the
+alternative is an analysis whose steps were never checked. It is also
+non-deterministic: the same goal on the same object can propose a different
+plan on a different day, so a refusal is a retry, not a verdict.
+
+```{r ai-quickstart-status, eval=eval_ai}
+analysis$status
+```
+
+When it completes, the updated `SingleCellExperiment` is in `analysis$object` —
+the clusters and marker table are on it, exactly as if you had called
+`FindClusters()` and `RunDEtest()` yourself:
+
+```{r ai-quickstart-after, eval=eval_ai}
+if (identical(analysis$status, "completed")) {
+    length(unique(as.character(analysis$object$ident)))
+} else {
+    "no clusters: the plan did not complete"
+}
+```
+
+## What just happened
+
+`scletAI()` is one call, but it is not one mechanism. Underneath, in order:
+
+1. **A plan was composed.** A language model was given the object's recorded state — what analyses exist, what assays are active, what is blocked — and asked for steps. It was never given your expression matrix.
+2. **The plan was validated against the live object.** Every action had to be a real registry key, every parameter a real one for it, every dependency satisfiable. An illegal plan is refused here, before anything runs.
+3. **You approved it.** Confirmation is a token minted for that exact plan and object state; a plan edited afterwards is refused rather than silently run.
+4. **It executed one action at a time**, each result recorded as an evidence node.
+5. **A report was rendered from the ledger and re-checked** — which is why the numbers in it can be recomputed rather than retold.
+
+The rest of this part is those five steps in detail, plus the route where you write the plan yourself.
+
+## The three other calls you will meet
+
+`scletAI()` is the door; these are the rooms, in the order a user meets them.
+
+### Ask it something, without running anything
+
+```{r ai-quickstart-ask, eval=eval_ai}
+AskAI(sce, "What has been analysed so far, and what should I check next?")
+```
+
+`AskAI()` is read-only: it answers from the recorded state and cannot change the object. It is the right call when you want to understand what you have before deciding what to do.
+
+### The same run with the switches visible
+
+```{r ai-quickstart-run-explicit, eval=eval_ai}
+RunAIAnalysis(sce, goal = "cluster the cells", confirm = "yes")
+```
+
+`RunAIAnalysis()` is the engine `scletAI()` calls, with its arguments exposed: `include` to choose which action groups the planner may use, `record` to decide whether the round is written to the ledger, `render_report` and `verify_before_continue` for the self-check. Reach for it when the defaults are not what you want — not first.
+
+### Read a finished round back
+
+```{r ai-quickstart-graph, eval=eval_chunks}
+graph <- AnalysisGraph(analysis$object)
+graph
+```
+
+`AnalysisGraph()` projects the round onto two tables: which step produced which record, and which step consumed which earlier step's output. It is how you audit a run you did not write, and how an agent picks up where the last one stopped.
+
+## When it refuses
+
+Refusal is the layer working, not failing. The three you will meet first:
+
+| what you see | what it means |
+|---|---|
+| `sclet_ai_missing_dependency` | `aisdk` is not installed; the message names the command |
+| `sclet_ai_missing_model` | no model could be resolved; supply one, or set a default |
+| `plan_empty` / `action is not registered` | the model proposed nothing, or something that is not an action — the engine refused rather than guessing |
+
+A provider error (a 401, a rate limit) is the provider's, and arrives verbatim; sclet does not translate it.
+
+## What to read next
+
+- **[Driving sclet from an External Agent](#ai-driver)** — the route where you write the plan yourself, and the one most users end up on.
+- **[AI Foundations](#ai-foundations)** — what an action declares, and what the registry exposes.
+- **[Evidence Governance](#ai-evidence-governance)** — why a report may only claim what the ledger supports.
+
+The short version: `scletAI()` to start, `AskAI()` to understand, `RunAIAnalysis()` when you need a switch, `AnalysisGraph()` to check.

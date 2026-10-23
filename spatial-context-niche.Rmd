@@ -59,7 +59,7 @@ sce_spatial <- RunSpatialDeconvolution(
 ```
 
 **Under the Hood:**
-The function invokes the GPU (if available) via the `basilisk` environment to train the model. Once complete, the predicted abundances for each cell type are directly appended to `colData(sce_spatial)`, and the `spatial` state is activated through `sclet_set_analysis_state()`. Each run is also logged via `sclet_log_command()`, so `CommandLog(sce_spatial)` will show the parameters and timestamp. You can immediately use spatial plotting functions to visualize the distribution of specific cell types across the tissue slice.
+The function trains the model through the `basilisk` environment. `device = "cuda"` selects sclet's GPU environment when one is available; the default is `"cpu"` — see [the integration chapter](#integration-gpu). Once complete, the predicted abundances for each cell type are directly appended to `colData(sce_spatial)`, and the `spatial` state is activated through `sclet_set_analysis_state()`. Each run is also logged via `sclet_log_command()`, so `CommandLog(sce_spatial)` will show the parameters and timestamp. You can immediately use spatial plotting functions to visualize the distribution of specific cell types across the tissue slice.
 
 ## Spatial Colocalization with SVP
 

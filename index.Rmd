@@ -1,5 +1,5 @@
 ---
-title: 'sclet: A Lightweight Toolkit for Single-Cell Data Analysis'
+title: 'sclet: A State-Aware Single-Cell and Spatial Transcriptomics Toolkit'
 author: 
 - name: Guangchuang Yu
   email: guangchuangyu@gmail.com
@@ -46,7 +46,16 @@ if (eval_chunks) {
   # packages" unless one is chosen. Take base: nothing in the book wants the
   # S4Vectors method.
   suppressMessages(library(conflicted))
-  try(conflicted::conflicts_prefer(base::intersect, .quiet = TRUE), silent = TRUE)
+  # sclet attaches GenomicRanges, S4Vectors, generics, IRanges and base, and the
+  # spatial/SVP chapters add more. Each of these names exists in several of
+  # them, and `conflicted` refuses the attach until one is chosen -- the failure
+  # names a different function depending on which chapter loaded what, which is
+  # why the list is explicit rather than the one that happened to fire first.
+  # The choice is the same every time: base's, because nothing in this book
+  # wants the S4 method.
+  for (fn in c("intersect", "union", "setdiff")) {
+    try(conflicted::conflicts_prefer(fn, base::get(fn), .quiet = TRUE), silent = TRUE)
+  }
   library(sclet)
   library(aplot)
   library(ggplot2)
@@ -126,13 +135,15 @@ First come the **foundations** chapters, which explain the state contract and pr
 
 Next come the **mainline chapters**, ordered to match the typical analysis story: data ingress -> core workflow -> integration -> reference mapping -> dynamics -> program/regulon -> differential interpretation -> communication -> state priority -> spatial -> multimodal.
 
-Finally, the **appendix and specialized extension chapters** collect cross-cutting plotting helpers, metacells, Milo, phenotype association, interactive exploration, SVP-related material, and AI-assisted analysis. These chapters still matter, but they no longer define the default reading path.
+Finally, the **AI-assisted analysis** part covers the layer that plans, validates, executes and reports an analysis from a description. It opens with [AI in One Call](#ai-quickstart), which is the shortest path from an installed package to a working AI-assisted run and is the part a new reader should reach first.
+
+The remaining chapters — cross-cutting plotting helpers, metacells, Milo, phenotype association, interactive exploration, SVP-related material — collect techniques that matter but no longer define the default reading path.
 
 ## Reading Paths
 
 You do not need to read every chapter linearly. A few good entry routes are:
 
-- **New users**: read the foundations, then follow the first four mainlines in order.
+- **New users**: read the foundations, then follow the first four mainlines in order. To have the package plan an analysis for you, read [AI in One Call](#ai-quickstart) — it is two commands.
 - **Annotation-first users**: jump from the core workflow to integration and reference mapping.
 - **Dynamics-focused users**: start with the core workflow, then read the trajectory, program/regulon, and spatial chapters together.
 - **Mechanism-first users**: combine the program/regulon chapter with the differential interpretation and communication chapters.

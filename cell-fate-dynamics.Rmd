@@ -257,19 +257,20 @@ plot_fate_driver_trends(sce, lineage = driver_lineage, top_n = 4)
 
 ## Already have RegVelo results? Wiring them into CellRank {#regvelo-cellrank}
 
-RegVelo extends RNA velocity inference by using a prior gene regulatory network, and in practice it is most useful when run on a GPU-enabled Python environment. If that is your situation, this section answers the immediate follow-up question: the GPU step produced a velocity result — how does it get consumed by CellRank without leaving the `sclet` state layer? The book build does not provision GPU resources, so this section follows the same cache-first pattern as the heavier CellRank examples above: the GPU step is shown as runnable user code, but the rendered book reads a precomputed `SingleCellExperiment` from `bookdown/data`.
+RegVelo extends RNA velocity inference by using a prior gene regulatory network, and in practice it is most useful on a GPU. `sclet` ships a GPU environment for the torch backends — see [the integration chapter](#integration-gpu) — but it is opt-in and the book build does not request it, so this section follows the same cache-first pattern as the heavier CellRank examples above: the GPU step is shown as runnable user code, and the rendered book reads a precomputed `SingleCellExperiment` from `bookdown/data`.
 
 The upstream run uses spliced and unspliced assays plus a prior GRN, writes the inferred velocity matrix back into the object as a named assay, and then hands that stored velocity result to CellRank. This code is intentionally not executed during book rendering.
 
 ```{r regvelo-gpu-run, eval=FALSE}
-# Run this on a GPU server, not during book rendering.
+# `device = "cuda"` uses sclet's own GPU environment; build it once with
+# sclet_env_path("sclet_gpu_env", create = TRUE). On a machine with no card the
+# same call with device = "cpu" runs in the packaged CPU environment.
 sce <- RunRegVelo(
   sce,
   grn = prior_grn,
   reduction = "PCA",
   name = "regvelo_smoke",
-  backend = "reticulate",
-  python = "/path/to/gpu/venv/bin/python",
+  device = "cuda",
   max_epochs = 20,
   batch_size = 128
 )
@@ -279,8 +280,6 @@ sce <- RunCellRank(
   reduction = "PCA",
   cluster_key = "celltype_or_cluster",
   velocity_id = "regvelo_smoke",
-  backend = "reticulate",
-  python = "/path/to/gpu/venv/bin/python",
   name = "cellrank_regvelo_smoke"
 )
 

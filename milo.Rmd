@@ -17,8 +17,12 @@ UMAP is optional (used for visualization only).
 ## Two-group DA (GLM)
 
 ```{r milo-glm, eval = eval_chunks && requireNamespace("miloR", quietly = TRUE) && requireNamespace("MouseThymusAgeing", quietly = TRUE), cache=FALSE}
-library(MouseThymusAgeing)
-library(scater)
+# `conflicted` is attached by the setup chunk and `scater` brings a third
+# `intersect` into the session, so the attach order below would fail without
+# naming one. Same choice the setup chunk makes.
+suppressMessages(library(MouseThymusAgeing))
+suppressMessages(library(scater))
+conflicted::conflicts_prefer(base::intersect, .quiet = TRUE)
 library(sclet)
 
 sce <- MouseSMARTseqData()
@@ -75,10 +79,11 @@ head(res2$da_results)
 When samples are not independent (e.g., repeated measures), a random intercept can help control correlation structure.
 
 ```{r milo-glmm, eval = eval_chunks && requireNamespace("miloR", quietly = TRUE) && requireNamespace("scRNAseq", quietly = TRUE) && requireNamespace("ensembldb", quietly = TRUE) && requireNamespace("AnnotationHub", quietly = TRUE), cache=FALSE}
-library(scRNAseq)
-library(scater)
-library(scran)
-library(scuttle)
+suppressMessages(library(scRNAseq))
+suppressMessages(library(scater))
+suppressMessages(library(scran))
+suppressMessages(library(scuttle))
+conflicted::conflicts_prefer(base::intersect, .quiet = TRUE)
 library(sclet)
 
 sce2 <- KotliarovPBMCData(mode = "rna", ensembl = FALSE)

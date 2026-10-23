@@ -19,12 +19,17 @@ svp_ready <- eval_chunks &&
 ```
 
 ```{r svp-libraries, eval=svp_ready}
-library(SpatialExperiment)
-library(SingleCellExperiment)
-library(scuttle)
-library(SVP)
-library(ggplot2)
-library(ggsc)
+# `conflicted` is attached by the book's setup chunk, and this attach sequence
+# brings GenomicRanges (via SVP) into the session alongside generics and base,
+# so `library(sclet)` would fail on `intersect` unless one is named. Same
+# choice the setup chunk makes.
+suppressMessages(library(SpatialExperiment))
+suppressMessages(library(SingleCellExperiment))
+suppressMessages(library(scuttle))
+suppressMessages(library(SVP))
+suppressMessages(library(ggplot2))
+suppressMessages(library(ggsc))
+conflicted::conflicts_prefer(base::intersect, .quiet = TRUE)
 library(sclet)
 ```
 
@@ -85,7 +90,7 @@ sce.cellcycle |> sc_feature(features= "S", reduction='UMAP')
 ```
 
 ```{r svp-markers, eval=svp_ready}
-library(scran)
+suppressMessages(library(scran))
 cellcycle.test.res <- sce.cellcycle |> findMarkers(
                 group = sce.cellcycle$seurat_annotations, 
                 test.type = 'wilcox', 

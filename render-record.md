@@ -1,9 +1,9 @@
 # Book render record
 
-- Rendered: 2026-10-23 11:39:03 CST
+- Rendered: 2026-10-23 21:11:20 CST
 - sclet version: 1.1.0
 - sclet library: /home/wang
-- sclet commit: d864617
+- sclet commit: b9e996d
 - R: R version 4.6.1 (2026-06-24)
 - Platform: x86_64-pc-linux-gnu
 - SCLET_BOOKDOWN_EVAL: (unset, defaults to true)
@@ -30,6 +30,7 @@ numbers drop means something stopped running.
 | ai-evidence-governance.Rmd | 3 | 0 | 3 | 0 (-) | 0 |
 | ai-foundations.Rmd | 3 | 0 | 2 | 0 (-) | 1 |
 | ai-in-package.Rmd | 8 | 6 | 2 | 5 (ran) | 0 |
+| ai-quickstart.Rmd | 9 | 5 | 2 | 5 (ran) | 2 |
 | B-references.Rmd | 0 | 0 | 0 | 0 (-) | 0 |
 | cell-cell-communication-microenvironment.Rmd | 19 | 17 | 0 | 0 (-) | 2 |
 | cell-fate-dynamics.Rmd | 26 | 9 | 14 | 0 (-) | 3 |
@@ -38,7 +39,7 @@ numbers drop means something stopped running.
 | data-ingress-interoperability.Rmd | 0 | 0 | 0 | 0 (-) | 0 |
 | differential-analysis-interpretation.Rmd | 6 | 4 | 1 | 0 (-) | 1 |
 | index.Rmd | 2 | 2 | 0 | 0 (-) | 0 |
-| integration-batch-correction.Rmd | 10 | 4 | 4 | 0 (-) | 2 |
+| integration-batch-correction.Rmd | 13 | 4 | 6 | 0 (-) | 3 |
 | interactive.Rmd | 3 | 1 | 0 | 0 (-) | 2 |
 | milo.Rmd | 4 | 4 | 0 | 0 (-) | 0 |
 | multimodal-expansion.Rmd | 16 | 2 | 13 | 0 (-) | 1 |
@@ -55,5 +56,5 @@ numbers drop means something stopped running.
 | svp.Rmd | 16 | 0 | 16 | 0 (-) | 0 |
 | visualization.Rmd | 24 | 22 | 0 | 0 (-) | 2 |
 
-**Totals**: 222 chunks, 116 executed, 80 conditional, 26 off; of the 6 AI-gated chunks, 6 ran.
+**Totals**: 234 chunks, 121 executed, 84 conditional, 29 off; of the 11 AI-gated chunks, 11 ran.
 

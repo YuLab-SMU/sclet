@@ -9,4 +9,6 @@ There are two ways to reach the AI layer, and this part treats them as two route
 
 Both routes end in the same place, which is the principle this part keeps returning to: **the engine is the authority, not the model.** A model may propose an analysis, but it does not perform one. Plans are validated against the live object, confirmation is carried by a token minted for that exact plan, execution walks the plan one action at a time, and results are recorded so that a report can be recomputed from the ledger rather than retold from the conversation. When a plan is illegal, the engine refuses it; when a step cannot run, the failure is recorded as a failure.
 
-The chapters therefore read in one direction: the concepts first, then the driving route, then the in-package route, and finally the governance layer that keeps claims tied to the evidence actually recorded.
+The chapters therefore read in one direction: the one-call route first, then the concepts, then the driving route, then the in-package route, and finally the governance layer that keeps claims tied to the evidence actually recorded.
+
+If you have five minutes, read [AI in One Call](#ai-quickstart) and stop. It is two commands and it is the whole user-facing surface for a first-time user.
