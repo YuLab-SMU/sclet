@@ -42,18 +42,24 @@ An *action* is the unit of AI work in `sclet`. It is not a function you call dir
 | `output_schema` | what a later step may reference |
 | `mutates_object`, `allowed_state_types` | what state the handler may write |
 | `estimated_cost`, `idempotent` | cost label, and whether repeating is safe |
+| `planner_visible` | whether a *model* may propose it, or only a person writing the plan |
+| `replaces_object` | whether the handler returns a different object (an aggregation, say) |
 
-Three of those do the real work:
+Four of those do the real work:
 
 **`prerequisites` returns a *reason*, not just a boolean.** An action whose object has no batch column is not "unavailable"; it says the parameter is missing, which the caller can act on. This is what lets a planner propose a fix instead of guessing why it failed.
 
 **`allowed_state_types` bounds what a handler may write.** An action that only reads cannot add a reduction; an integration action cannot quietly rewrite the clustering. A plan that violates this is refused by the engine, not merely deprecated in a style guide.
 
-**`estimated_cost` is honest.** The SCENIC action is the only genuinely expensive one in the registry — its own documentation names it "the slowest action in the registry". A planner that sees this can decide the goal does not justify it.
+**`estimated_cost` is honest.** Most of the registry is cheap; the expensive end is a Python model fit that runs for minutes to hours — SCENIC's regulon inference, CellOracle's in-silico perturbation, RegVelo, cell2location deconvolution. Those also ask for explicit confirmation before they start, because a multi-hour run is a decision, not a default.
+
+**`planner_visible` separates "registered" from "plannable".** Some analyses need an input only the user has: a gene set, a bulk phenotype matrix, a reference `SingleCellExperiment`, a GRN prior, a pySCENIC database. An action over such an input is still registered, still validated, still executed — but a model cannot invent the input it requires, so the action is marked `planner_visible = FALSE` and left out of the catalog a planner is shown. It remains available to you, writing the plan by hand, which is the subject of the [next chapter](#ai-driver).
 
 ## The registry only exposes what this object can actually run
 
-`AIDefaultExecutionRegistry()` returns the actions available **on the object you hand it**. Prerequisites are evaluated, not advertised: an action is listed with an explanation when the object cannot satisfy it, and absent when the caller must supply it another way. The same registry asked for `"all"` on a different object is a different catalog.
+`AIDefaultExecutionRegistry()` returns the actions available **on the object you hand it**. Prerequisites are evaluated, not advertised: an action the object cannot satisfy is listed together with the reason, so a refusal is something you can read and act on.
+
+One distinction matters from here on. The registry is the *executable* catalog; the catalog a model is shown is a subset of it, minus the actions marked `planner_visible = FALSE`. So `include = "all"` means "every action this package offers", not "every action a model may propose" — the difference is the handful whose input only you can supply.
 
 ```{r ai-foundations-registry, eval=eval_chunks}
 library(sclet)
@@ -65,9 +71,16 @@ sce <- SingleCellExperiment::SingleCellExperiment(
 reg <- AIDefaultExecutionRegistry(sce, include = "read")
 length(reg)
 names(reg)
+
+# The full executable catalog, and how much of it a model may propose.
+all_actions <- AIDefaultExecutionRegistry(sce, include = "all")
+length(all_actions)
+sum(vapply(all_actions, function(a) isTRUE(a$planner_visible), logical(1L)))
 ```
 
-The `include` argument selects groups. `"read"` is the deliberately small default — the inspection group, none of which modify the object. Requesting `"all"` exposes the analysis groups, each carrying the same confirmation requirements it had before you asked for it.
+The `include` argument selects groups. `"read"` is the deliberately small default — the inspection group, none of which modify the object. Requesting `"all"` exposes the analysis groups, each carrying the same confirmation requirements it had before you asked for it, and every one of them appears in the second count unless `planner_visible` says otherwise.
+
+The numbers are worth reading as a pair: the executable catalog is larger than the planner's, and the gap is exactly the actions whose input you must supply yourself.
 
 ## The ledger is the only authority
 

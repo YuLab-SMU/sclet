@@ -10,7 +10,9 @@ An evidence node is a bounded, named record that something was measured. Two pro
 
 **It is aggregate by construction.** Cell counts, gene counts, quantiles, booleans — never a feature name, an antibody name, a barcode, or a per-cell value. A complete matrix is rejected, not truncated. This is what makes a node safe to put in a prompt.
 
-**It is write-once.** Recording the same node id twice with *identical* values is a no-op; with *different* values it raises `evidence_id_conflict` rather than overwriting. A re-run that silently kept the first run's numbers would be a citable artifact describing an older analysis — worse than a missing node, because it renders and looks like a measurement of the current object.
+**It is write-once, unless the analysis says otherwise.** Recording the same node id twice with *identical* values is a no-op; with *different* values it raises `evidence_id_conflict` rather than overwriting. A re-run that silently kept the first run's numbers would be a citable artifact describing an older analysis — worse than a missing node, because it renders and looks like a measurement of the current object.
+
+The exception is the case where the analysis *knows* it is re-running itself under a fixed id — imputation is the example: its record id is the same on every run, and its action passes `replace = TRUE` so the node is refreshed in place. The rule is not "never overwrite" but "never overwrite silently": an id that a caller cannot rename refreshes and the trace records it as such; an id a caller could have renamed must not.
 
 ```{r ai-evidence-nodes, eval=eval_chunks}
 library(sclet)

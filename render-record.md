@@ -1,12 +1,12 @@
 # Book render record
 
-- Rendered: 2026-10-22 21:39:57 CST
+- Rendered: 2026-10-23 11:39:03 CST
 - sclet version: 1.1.0
 - sclet library: /home/wang
-- sclet commit: e254386
+- sclet commit: d864617
 - R: R version 4.6.1 (2026-06-24)
 - Platform: x86_64-pc-linux-gnu
-- SCLET_BOOKDOWN_EVAL: true
+- SCLET_BOOKDOWN_EVAL: (unset, defaults to true)
 - SCLET_BOOKDOWN_EVAL_AI: 1
 - aisdk available: TRUE
 
@@ -26,7 +26,7 @@ numbers drop means something stopped running.
 
 | chapter | chunks | executed | conditional | AI-gated (ran?) | off |
 |---|---|---|---|---|---|
-| ai-driver.Rmd | 9 | 0 | 9 | 0 (-) | 0 |
+| ai-driver.Rmd | 12 | 0 | 12 | 0 (-) | 0 |
 | ai-evidence-governance.Rmd | 3 | 0 | 3 | 0 (-) | 0 |
 | ai-foundations.Rmd | 3 | 0 | 2 | 0 (-) | 1 |
 | ai-in-package.Rmd | 8 | 6 | 2 | 5 (ran) | 0 |
@@ -55,5 +55,5 @@ numbers drop means something stopped running.
 | svp.Rmd | 16 | 0 | 16 | 0 (-) | 0 |
 | visualization.Rmd | 24 | 22 | 0 | 0 (-) | 2 |
 
-**Totals**: 219 chunks, 116 executed, 77 conditional, 26 off; of the 6 AI-gated chunks, 6 ran.
+**Totals**: 222 chunks, 116 executed, 80 conditional, 26 off; of the 6 AI-gated chunks, 6 ran.
 

@@ -147,6 +147,52 @@ Two rules follow from the round boundary:
 
 Start a new round when a stage finished and the next feeds on it, when a step failed for a reason that changes the route, when the plan never covered the goal (`plan$metadata$goal_coverage$missing`), or when the user answered an open choice.
 
+## What you can do that a model cannot
+
+The registry has two audiences. A model is shown the actions it can actually fill; a few analyses need an input that exists only on your side — a gene set, a bulk phenotype matrix, a reference `SingleCellExperiment`, a GRN prior, a pySCENIC database. Those actions are registered and executable, but they are marked `planner_visible = FALSE` and kept out of a model's catalog, because a plan proposing one of them would fail on a parameter no model can produce.
+
+Writing the plan yourself, you can use them. `include = "all"` means "every action this package offers", and the difference from what a planner sees is exactly this list.
+
+```{r ai-driver-driver-only, eval=eval_chunks}
+all_actions <- AIDefaultExecutionRegistry(sce, include = "all")
+driver_only <- names(all_actions)[
+    !vapply(all_actions, function(a) isTRUE(a$planner_visible), logical(1L))
+]
+driver_only
+```
+
+Each one names, in its `input_schema`, what you have to bring. That is not a courtesy: `ValidateAIPlan()` refuses the step without it, and the refusal names the parameter rather than the action.
+
+## The plan you ran is a graph, and it outlives the session
+
+A round is not a list of steps in a log file. Each step that writes an analysis record is attributed to the record it produced, and steps that feed other steps keep the edge the plan declared. `AnalysisGraph()` projects that onto two tables you can read, print, or hand to another agent.
+
+```{r ai-driver-trace, eval=eval_chunks}
+graph <- AnalysisGraph(executed$object)
+graph
+head(graph$edges, 8)
+nrow(graph$nodes[graph$nodes$kind == "step", ])
+```
+
+Two questions this answers that a printed log cannot: which step produced a named record, and which later steps declared a given step as upstream.
+
+```{r ai-driver-trace-queries, eval=eval_chunks}
+# Which step produced the marker table this round registered?
+marker_record <- graph$edges$to[graph$edges$kind == "produced" &
+    grepl("detest", graph$edges$to)]
+graph_producers(graph, marker_record[1])
+
+# Which later steps declared the round's first step as upstream?
+first_step <- graph$nodes$id[graph$nodes$kind == "step"][1]
+graph_consumers(graph, first_step)
+```
+
+Both queries return the answer *and* whether the round that produced it carries a full trace. A record with no producer edge is not an error to chase: it may simply predate the trace, or have been written outside a plan.
+
+The graph is a projection over the object's own records, so it survives `saveRDS()` with them, and a round that ran before this book existed is still readable — it simply reports `complete = FALSE` for that round, because the topology was never stored for it.
+
+Two things it will not show, and both are recorded rather than hidden. A re-run that re-writes an existing record id appears as a `refreshed` edge from the newer step, not as a second copy of the record, because the record store overwrites by id. And an action that returns a *different* object — metacell aggregation is the one — takes the earlier records with it; the graph says so with `meta$object_replaced` instead of silently dropping the rounds.
+
 ## Resuming across processes
 
 The ledger lives on the object, so the whole analysis survives `saveRDS()`. An agent does not need a resident R session: each interaction can be a fresh `Rscript` that reads the object, plans the next stage against the fingerprint it carries, executes, and saves it back. Because `is.character(validation$plan_id)` — the id in the validation object — must match, and the fingerprint must still be current, a stale plan is refused rather than silently run.

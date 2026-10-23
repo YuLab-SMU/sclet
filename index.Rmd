@@ -41,7 +41,12 @@ eval_ai <- eval_chunks &&
     requireNamespace("aisdk", quietly = TRUE)
 
 if (eval_chunks) {
-  library(conflicted)
+  # GenomicRanges, generics and base all export `intersect`, and sclet attaches
+  # all three, so `library(conflicted)` itself fails with "intersect found in 3
+  # packages" unless one is chosen. Take base: nothing in the book wants the
+  # S4Vectors method.
+  suppressMessages(library(conflicted))
+  try(conflicted::conflicts_prefer(base::intersect, .quiet = TRUE), silent = TRUE)
   library(sclet)
   library(aplot)
   library(ggplot2)

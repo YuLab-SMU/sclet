@@ -141,6 +141,16 @@ Be aware of which integration method you used:
 - `fastMNN` produces a corrected **expression** layer (with `correct.all = TRUE`), so the comparison above is the right abstraction.
 - `Harmony` and `scVI` produce a corrected **reduction** — no corrected expression exists to compare against, so this particular audit does not apply and needs adapting.
 
+## A plan does not replace the workflow functions
+
+`RunBasicWorkflow()`, `RunStandardPipeline()` and the other `Run<Mainline>Workflow()` shells are the way to run a whole mainline in one call, and they are not registry actions: a shell chains several actions, and a plan that used one would have a single opaque step where the engine wants inspectable ones. Plan the same work from the actions it is made of — that is what the trace records, step by step, and it is why a completed round can be read back as a graph rather than as one black box.
+
+## What the planner can and cannot see
+
+The in-package assistant plans against the same registry as everything else, but it is shown a subset: an action whose required input only a person can supply — a gene set, a bulk phenotype matrix, a reference object — is marked `planner_visible = FALSE` and stays out of its catalog. `RunAIAnalysis()` therefore covers the analyses whose inputs live on the object, and a goal that needs external material is a driver-mode job, covered in [the driver chapter](#ai-driver).
+
+That distinction is worth knowing before you blame the model. A goal about gene-set scoring is not a capability the assistant lacks; it is a goal it cannot *plan*, and the honest response is to say which input is missing rather than to propose a step that would fail validation.
+
 ## What the package will not do
 
 It will not call a provider unless you ask for one explicitly; it will not present a claim stronger than its evidence supports; and it will not treat a successful plan as a successful analysis, because "all steps completed" and "the question was answered" are different statements. The last chapter covers how that difference is enforced.
