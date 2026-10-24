@@ -16,14 +16,6 @@ jobs:
 
     name: ${{ matrix.config.os }} (R ${{ matrix.config.r }}, Bioc ${{ matrix.config.bioc }})
 
-    # A full cell (dependencies + examples + the test suite) finishes in about
-    # 35-50 minutes. The cap exists because a stalled download otherwise parks
-    # the job silently for hours: on 2026-10-23 both Linux cells sat with zero
-    # output from 14:20 until the run was cancelled, waiting on
-    # packagemanager.posit.co while Windows and macOS passed. Failing at 90
-    # minutes surfaces that as a red cell instead of a hung one.
-    timeout-minutes: 90
-
     strategy:
       fail-fast: false
       matrix:
@@ -32,14 +24,8 @@ jobs:
           # ubuntu+release cell is not a check matrix: it cannot catch a
           # platform-only failure, and it says nothing about whether the
           # package installs against Bioc devel rather than the release.
-          # Pin the Ubuntu version instead of `ubuntu-latest`: that label is
-          # migrating to 26.04 during October-November 2026 (actions/runner-
-          # images#14748), and on 26.04 pak's system-requirement install hangs
-          # -- `apt-get update` stops mid-download and the job sits there for
-          # over an hour with no output (runs 39943697138, 39950678658,
-          # 39958711362). 24.04 is where this matrix has been green.
-          - {os: ubuntu-24.04,   r: 'release', bioc: 'release'}
-          - {os: ubuntu-24.04,   r: 'devel',   bioc: 'devel'}
+          - {os: ubuntu-latest,  r: 'release', bioc: 'release'}
+          - {os: ubuntu-latest,  r: 'devel',   bioc: 'devel'}
           - {os: macos-latest,   r: 'release', bioc: 'release'}
           - {os: windows-latest, r: 'release', bioc: 'release'}
 
@@ -181,14 +167,13 @@ jobs:
 
       - name: Make apt survive a slow mirror (Linux)
         # pak installs system requirements itself (`pre_install: apt-get -y
-        # update`) and on Ubuntu 26.04 those downloads stalled outright: three
-        # runs stopped mid-transfer with no output for 60-119 minutes, each on
-        # a different package, and neither Retries nor Timeout rescued them
-        # because the stall happens after the connection is established.
-        # 26.04 is also the label `ubuntu-latest` is migrating to
-        # (actions/runner-images#14748), so the matrix pins 24.04 now. These
-        # options still help on 24.04, where the same 300+ package fetch is
-        # merely very slow (a release cell sat in `apt-get` for 36+ minutes).
+        # update`) and the Bioc devel cell needs 300+ packages that way. On the
+        # ubuntu-26.04 (resolute) runners that download hangs: runs 39943697138
+        # and 39950678658 both stopped at "Get:113" with no further output for
+        # 119 and 60 minutes, on DIFFERENT packages each time (liblist-compare-
+        # perl, then libxerces-c3.2t64), so it is the transfer stalling rather
+        # than one bad package. apt's default is no retries and no timeout.
+        # These options are inherited by the apt calls pak makes later.
         if: runner.os == 'Linux'
         run: |
           sudo tee /etc/apt/apt.conf.d/99-ci-retries >/dev/null <<'EOF'
@@ -215,38 +200,6 @@ jobs:
           # the step that consumes these runs after reticulate may have
           # already built its pyenv, so verify what the runner ships.
           dpkg -l libffi8 libreadline8 | tail -2
-
-      - name: Pre-install the system requirements pak would fetch (Linux)
-        # pak resolves sysreqs itself and its `apt-get install` pulls 300+
-        # packages in one shot (libgdal-dev alone drags in most of them). On
-        # these runners that single call is where the cell spends its time or
-        # hangs: a release cell sat inside it for 36+ minutes, and on 26.04 it
-        # stalled outright. Doing it here instead means it is timed on its own,
-        # the retry is explicit, and pak afterwards finds everything present
-        # and issues no apt call at all.
-        # The list is pak's own for this DESCRIPTION's Suggests; regenerate with
-        #   pak::pkg_sysreqs(pak::pkg_deps("deps::."))
-        # if the Suggests list changes.
-        if: runner.os == 'Linux'
-        run: |
-          sysreqs=(
-            python3 libcurl4-openssl-dev libssl-dev cmake make libuv1-dev
-            libcairo2-dev libfontconfig1-dev libfreetype6-dev perl
-            libpng-dev zlib1g-dev libglpk-dev libxml2-dev pandoc
-            libmagick++-dev gsfonts jags libicu-dev libnode-dev
-            libbz2-dev liblzma-dev libfribidi-dev libharfbuzz-dev
-            libx11-dev libgdal-dev gdal-bin libgeos-dev libglu1-mesa-dev
-            libgmp3-dev libgsl0-dev libmpfr-dev libopenmpi-dev
-            libproj-dev libjpeg-dev libtiff-dev libwebp-dev
-          )
-          sudo apt-get update
-          # Two passes: the first may stall on a slow mirror mid-stream, and a
-          # second re-runs so whatever is left gets installed. apt is
-          # idempotent, so a clean first pass makes the second a no-op.
-          sudo apt-get install -y --no-install-recommends "${sysreqs[@]}" \
-            || sudo apt-get install -y --no-install-recommends "${sysreqs[@]}"
-          # Spot-check the libraries the R build links against.
-          pkg-config --modversion gdal openssl libcurl 2>/dev/null || true
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
